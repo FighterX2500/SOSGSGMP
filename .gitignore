@@ -32,3 +32,6 @@ spikes/**/build/
 # OS
 Thumbs.db
 desktop.ini
+
+# Code index (codegraph)
+.codegraph/

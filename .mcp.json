@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "codegraph": {
+      "type": "stdio",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "codegraph",
+        "serve",
+        "--mcp",
+        "--no-watch",
+        "--path",
+        "${SOS_GAME_DIR}\\info\\SongsOfSyx-sources"
+      ],
+      "env": {
+        "DO_NOT_TRACK": "1"
+      }
+    }
+  }
+}

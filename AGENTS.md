@@ -12,6 +12,7 @@ Fill these in and keep them current. Agents must not guess them.
 *   **Game jar:** `<game>/SongsOfSyx.jar`, referenced as `compileOnly` (Gradle) / `provided` (Maven). Never shade, copy, or commit it. It already contains steamworks4j 1.9.0 and the Steam native libraries.
 *   **Game source:** `<game>/info/SongsOfSyx-sources/`, shipped with the game. Read it freely; never copy or commit it. Changes to it go through hooks only (see "Hooks into Game Code").
 *   **Script API reference:** `<game>/info/scriptGuide.odt`; example scripts in `<game>/base/script/`.
+*   **Game source index:** codegraph (`npm i -g @colbymchenry/codegraph`, telemetry off). Build it once per PC with `codegraph init -y "%SOS_GAME_DIR%\info\SongsOfSyx-sources"`; the index (`.codegraph/`, ~260 MB) stays in the game folder and is never committed. Claude Code reaches it through `.mcp.json` (tool `codegraph_explore`; CLI: `codegraph callers|callees|impact|node <symbol>` run in the source folder). Use it first to find definitions and callers; confirm with grep when a complete list matters (for example, counting every call site).
 *   **Build:** `gradlew.bat build` (Gradle not set up yet).
 *   **Fast check:** `gradlew.bat compileJava compileTestJava` (Gradle not set up yet).
 *   **Tests:** `gradlew.bat test` (Gradle not set up yet).
