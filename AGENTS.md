@@ -5,16 +5,18 @@ Guidance for coding agents working on this Songs of Syx mod. These are the gener
 ## Project Facts
 Fill these in and keep them current. Agents must not guess them.
 
-*   **Target game version:** `V__` (e.g. `V69`), the version in the working folder, pinned (spec section 3). Mod content lives under `<mod>/V__/`.
+*   **Target game version:** `V71` (build 71.44, from `game/VERSION.java`), the version in the working folder, pinned (spec section 3). Mod content lives under `<mod>/V71/`.
 *   **Platform:** Windows only. Use `gradlew.bat` and Windows paths.
-*   **JDK / bytecode level:** compile with `--release __`, matching the JRE bundled with the game (check `<game>/jre/release`). Do not raise it.
-*   **Game jar:** `<path>/SongsOfSyx.jar`, referenced as `compileOnly` (Gradle) / `provided` (Maven). Never shade, copy, or commit it.
-*   **Game source:** `<path>/info/SongsOfSyx-sources/`, shipped with the game. Read it freely; never copy or commit it. Changes to it go through hooks only (see "Hooks into Game Code").
-*   **Build:** `gradlew.bat build`.
-*   **Fast check:** `gradlew.bat compileJava compileTestJava`.
-*   **Tests:** `gradlew.bat test`.
-*   **Install for manual testing:** `gradlew.bat installMod` → copies the jar and assets to `<mods dir>/<ModName>/`.
-*   **Game log / crash output:** `<path>`.
+*   **Game folder (`<game>`):** outside the repository, located through the `SOS_GAME_DIR` environment variable. On the main dev PC: `C:\ClaudeFolder\Songs of Syx`. Nothing under it is ever committed.
+*   **JDK / bytecode level:** compile with `--release 21`, matching the JRE bundled with the game (`<game>/jre/release`: Temurin 21.0.11). Do not raise it. Building needs JDK 21 or newer. Note: the shipped `SongsOfSyx.jar` itself is compiled at class version 60 (Java 16); rebuilds of the game's own source use `--release 16` so they match it.
+*   **Game jar:** `<game>/SongsOfSyx.jar`, referenced as `compileOnly` (Gradle) / `provided` (Maven). Never shade, copy, or commit it. It already contains steamworks4j 1.9.0 and the Steam native libraries.
+*   **Game source:** `<game>/info/SongsOfSyx-sources/`, shipped with the game. Read it freely; never copy or commit it. Changes to it go through hooks only (see "Hooks into Game Code").
+*   **Script API reference:** `<game>/info/scriptGuide.odt`; example scripts in `<game>/base/script/`.
+*   **Build:** `gradlew.bat build` (Gradle not set up yet).
+*   **Fast check:** `gradlew.bat compileJava compileTestJava` (Gradle not set up yet).
+*   **Tests:** `gradlew.bat test` (Gradle not set up yet).
+*   **Install for manual testing:** `gradlew.bat installMod` → copies the jar and assets to `%APPDATA%\songsofsyx\mods\<ModName>\` (Gradle and mod name not set up yet).
+*   **Game log / crash output:** `%APPDATA%\songsofsyx\logs\` (error files `error<date>.txt`); also `<game>/errorLogs/`.
 
 ## Design Review: KISS, DRY, SRP, Cohesion, and Coupling
 Apply these criteria to the touched behavior before declaring a change complete. Explain concrete tradeoffs when a criterion is only partially met; passing tests alone does not establish design quality.
