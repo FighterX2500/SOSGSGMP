@@ -26,18 +26,18 @@ Source references use paths relative to the source folder, and line numbers are 
    - local speed changes,
    - battle AI for human-controlled armies.
 3. **The game assumes one player in more than 1,000 places** (`FACTIONS.player()` appears 1,047 times in 292 files, and `AD.cityDivs()` 53 times). On the host, world code that branches on "is this the player?" would treat every other human as an NPC. This is the biggest source of hooks and is planning task 3.
-4. **Vanilla battles are not deterministic.** They run on five worker threads that tick on wall-clock time, with an AI general that reads `System.currentTimeMillis()` and a global, randomly seeded RNG. This **contradicts the lockstep plan in `docs/architecture.md`**; see §11, question Q1.
+4. **Vanilla battles are not deterministic.** They run on five worker threads that tick on wall-clock time, with an AI general that reads `System.currentTimeMillis()` and a global, randomly seeded RNG. This ruled out the lockstep plan: battles are now simulated on the host and streamed ([ADR 0002](../decisions/0002-battle-streaming.md), §7 Q1).
 5. **A vanilla field battle replaces the city in memory.** It saves the whole game, generates the battlefield inside the city engine, and reloads the save when the battle ends. That fits spec §4 ("battles pause the world and every city"), but it costs a full save and a full load on every PC in the battle (§11, question Q2).
 
 Tally of the 40 points in §4:
 
 | Route | Count | Notes |
 | --- | --- | --- |
-| API | 19 | Several work only once a hook elsewhere exists, for example B5 after P1. |
+| API | 18 | Several work only once a hook elsewhere exists, for example B5 after P1. |
 | Hook | 11 | |
 | Hook or reflection | 4 | Decided per point. |
 | Reflection | 2 | |
-| API plus reflection | 2 | |
+| API plus reflection | 3 | |
 | Mod UI plus API | 1 | |
 | No hook (a constraint) | 1 | |
 
@@ -115,8 +115,8 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 | ID | Game location | Multiplayer needs | Route | Why not API or reflection |
 | --- | --- | --- | --- | --- |
 | B1 | `world/battle/WBattles.poll` → `PFieldBattle.create` → `Resolver.init` (private) → `ResolverPlayer.battle/sallyOut/besige` | When human armies meet, the host must (a) force a real-time battle (no auto-resolve or retreat for player against player), (b) send the invite and spectate prompts to every player, and (c) leave NPC-only battles to vanilla. | **Hook** at the dispatch in `Resolver.init` / `ResolverPlayer.battle` | Private flow. `BattleListener` fires only after a battle is resolved, too late to change how it starts. |
-| B2 | `game/battle/state/BattleState.setGenerate(BattleStateExiter, BattleStateSpec)` (public static) | Every PC (commanders and spectators) starts the same battle from the host's start state. | **API** to start | Whether `BattleStateGenerator` is reproducible from the same spec is part of Q1. |
-| B3 | `game/battle/Armies` (`ARMIES`) and `game/battle/thread/BattleThreads`: five `SlaveThread`s (orders, centres, status, trajectories, `Strategos2000`) | Lockstep: battle time advances only when a turn bundle arrives; human orders apply at the confirmed turn; a human-controlled army gets **no** AI general. | **Hook** (several) | The battle tick and threads are internal. See **Q1**: the threads are wall-clock driven. |
+| B2 | `game/battle/state/BattleState.setGenerate(BattleStateExiter, BattleStateSpec)` (public static) | The host starts the battle. Every viewer starts the same battlefield to display it on. | **API** to start; **reflection** to reseed `RND` before generation, or the host sends the generated map | `BattleStateGenerator` draws from the global `RND`, so the same spec gives a different map on each PC. Battle streaming spike. |
+| B3 | `game/battle/Armies` (`ARMIES`) and `game/battle/thread/BattleThreads`: five `SlaveThread`s (orders, centres, status, trajectories, `Strategos2000`) | Streaming ([ADR 0002](../decisions/0002-battle-streaming.md)). **Host:** human orders are applied on arrival; a human-controlled army gets **no** AI general; the battle state is read every ~100 ms for snapshots. **Viewers:** display-only, so no battle simulation or threads run, and units are positioned from snapshots. | **Hook** (several) | The battle update and threads are internal, and nothing can stop them or set unit state from outside. |
 | B4 | `BattleStateExiter.exit` (public abstract) → reloads `__beforeBattle` → `afterExit(result)` | The host decides the result; each PC reloads its own pre-battle save; the host applies losses to the world. | **API**: the mod passes its own `BattleStateExiter` | — |
 | B5 | `BattleState.view()` sets `SPEED.speedSet(0)`; `GAME.SPEED` during the battle | Battle speed by commanders' majority vote (spec §8). | **API** once P1 exists | — |
 
@@ -181,30 +181,30 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 | `world/army/ai/WArmyAI.java`, `world/army/ai/Recruiter.java` | F3 | 2 calls |
 | `world/battle/Resolver.java`, `world/battle/ResolverPlayer.java` | B1, F5 (part) | 2–3 calls |
 | `world/battle/PSiege.java` | S1 | 1–2 calls |
-| `game/battle/**`, `settlement/**` invader AI | B3, S3 | unknown until Q1 is answered |
+| `game/battle/**`, `settlement/**` invader AI | B3, S3 | unknown until the battle streaming spike |
 | `world/army/WDivStoredAll.java`, `PlanJoinArmy.java` | C5 | unknown; task 3 |
 | Others from the `FACTIONS.player()` review | F5 | task 3 |
 
 ## 7. Open questions and risks (raised, not decided)
 
-**Q1. The lockstep battle plan vs the vanilla battle engine.** `docs/architecture.md` §Field battles plans deterministic lockstep. The vanilla engine works against it in four ways:
+**Q1. The lockstep battle plan vs the vanilla battle engine. Decided 2026-10-20:** option B, host-authoritative streaming, for now ([ADR 0002](../decisions/0002-battle-streaming.md)). Background: `docs/architecture.md` §Field battles planned deterministic lockstep. The vanilla engine works against it in four ways:
 
 - **Wall-clock worker threads.** Battles run five `SlaveThread`s (`game/battle/thread/BattleThreads.java`). Each ticks on its own wall-clock interval, alongside the update thread.
 - **Wall-clock AI general.** `Strategos2000UpdaterOffense.java:67` reads `System.currentTimeMillis()`.
 - **Shared random numbers.** `RND` is one randomly seeded global `Random` shared by all threads. It's used 36 times in `game/battle/` and 33 times in `settlement/entity/humanoid/ai/battle/`.
 - **Float timesteps.** Sub-steps use variable `double` timesteps.
 
-Making this deterministic means reworking the battle's threading, time and random numbers: a large set of hooks across `game/battle/**` and the soldier AI. The other option is a host-authoritative battle (the host simulates; other PCs receive the state). The battle determinism spike (planning task 4.1) should measure how far apart two runs drift before this is decided. **This could change the architecture, so it needs your call after the spike.**
+Making this deterministic would mean reworking the battle's threading, time and random numbers: a large set of hooks across `game/battle/**` and the soldier AI. Streaming avoids that; lockstep can be revisited if streaming bandwidth turns out too high.
 
 **Q2. Cost of a field battle.** Each battle saves the whole game twice (`__beforeBattle`, `__battle`) and reloads it when the battle ends, on every PC in the battle. Spectators would do the same. The late-game save-time spike (4.2) should time this; spec §15 has no battle-start time limit today.
 
 **Q3. Campaign save layout.** Spec §11 and the architecture describe "world save plus every player's city save". Vanilla saves world and city together in one file, and their sections refer to each other. Simpler option: each player keeps a normal full save (own city plus their mirror of the world), and on resume the host's world sections are pushed as a snapshot (W3). To be settled in an ADR after the save spike.
 
-**Q4. Steam App ID inside the game process.** The game calls `SteamAPI.init()` for its own App ID (1162750) when started from Steam, and one process can initialize Steam only once. The spec's development App ID 480 may therefore be impossible from inside the game process. The working copy also has no `steam_appid.txt`. Spike 4.4 should test this.
+**Q4. Steam App ID inside the game process.** The game calls `SteamAPI.init()` for its own App ID (1162750) when started from Steam, and one process can initialize Steam only once. The working copy also has no `steam_appid.txt`. **Owner direction 2026-10-20:** during development the game process itself may have to run under App ID 480 (Spacewar), for example by starting it outside Steam with a `steam_appid.txt` of 480. Spike 4.4 should test this.
 
 **Q5. A local menu slows everyone down. Decided 2026-10-20:** menus don't pause in multiplayer (spec §4, version 0.4). Enforced by hook P4. Still open: vanilla notification popups (`GAME.Notify` / `GAME.Warn`) set the speed to 0. Under P1 that becomes a pause request; whether such popups should pause at all is a question for the owner.
 
-**Q6. Steam updates the game.** The Steam copy is identical to the working copy today (same SHA-256), but Steam updates automatically, and spec §3 pins the version. The distribution task (planning task 5) has to handle a player whose Steam copy has moved on.
+**Q6. Steam updates the game. Decided 2026-10-20:** no compatibility with game updates is expected (spec §2 and §3: the version is pinned, and updating the mod for new game versions is out of scope). The distribution task (planning task 5) only needs to make sure every player runs V71; nothing is planned for other versions.
 
 **Q7. `keyPush` is dead.** `SCRIPT_INSTANCE.keyPush` is never called in V71. Chat input can't rely on it; the mod has to read keys another way (polling `KEYS`, or a hook).
 
@@ -212,9 +212,9 @@ Making this deterministic means reworking the battle's threading, time and rando
 
 - **Planning task 3 (single-player assumptions):** go through F5 and C5 one by one.
 - **Planning task 4 spikes:**
-  - 4.1 battle determinism answers Q1 and B2/B3;
+  - 4.1 battle streaming (replaces battle determinism, [ADR 0002](../decisions/0002-battle-streaming.md)) answers B2/B3: snapshot size, bandwidth, latency, the same battlefield on every PC, display-only mode;
   - 4.2 save size and time answers Q2 and Q3;
   - 4.3 two processes answers V1;
   - 4.4 Steam P2P answers Q4.
 - **ADR on hook distribution (task 5):** decides A2 (reflection or hook) and how the hooks in §6 reach players.
-- **Questions for the owner:** Q1's possible architecture change once spike 4.1 reports, and whether notification popups pause (Q5).
+- **Questions for the owner:** whether notification popups pause (Q5).
