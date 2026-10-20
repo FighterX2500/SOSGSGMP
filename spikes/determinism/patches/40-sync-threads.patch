@@ -1,0 +1,86 @@
+--- a/game/battle/thread/BattleThreads.java
++++ b/game/battle/thread/BattleThreads.java
+@@ -105,10 +105,23 @@
+ 
+ 	
+ 	
++	private int syncStep;
++
+ 	@Override
+ 	protected void update(double ds, Profiler prof) {
+-		// TODO Auto-generated method stub
+-		
++		// SOS-11 spike: run the thread jobs inside the simulation step, in a fixed order
++		if (!snake2d.SosMpDeterminism.syncThreads || !started || ds <= 0)
++			return;
++		syncStep++;
++		snake2d.SosMpDeterminism.syncJob = true;
++		((BattleThread)orders).doThreadJob();
++		((BattleThread)centres).doThreadJob();
++		((BattleThread)trajs).doThreadJob();
++		((BattleThread)strat).doThreadJob();
++		((BattleThread)strat).doThreadJob();
++		if (syncStep % 30 == 0)
++			((BattleThread)status).doThreadJob();
++		snake2d.SosMpDeterminism.syncJob = false;
+ 	}
+ 
+ 	@Override
+@@ -142,6 +155,7 @@
+ 	
+ 	public void unpause(boolean init) {
+ 		started = true;
++		syncStep = 0; // SOS-11 spike: the status beat counts from battle start
+ 		for (BattleThread t : threads) {
+ 			if (init)
+ 				t.init();
+--- a/game/battle/thread/BattleThread.java
++++ b/game/battle/thread/BattleThread.java
+@@ -42,6 +42,8 @@
+ 	}
+ 	
+ 	protected void start() {
++		if (snake2d.SosMpDeterminism.syncThreads)
++			return; // SOS-11 spike: the job runs inside the simulation step
+ 		thread.start(job);
+ 	}
+ 
+--- a/settlement/path/thread/FinderThread.java
++++ b/settlement/path/thread/FinderThread.java
+@@ -19,7 +19,11 @@
+ 	private final static Worker[] works = new Worker[1];
+ 	private final Thread[] threads = new Thread[works.length];
+ 	
++	private final SCOMPONENTS syncComps;
++	private Worker syncWorker;
++
+ 	public FinderThread(SCOMPONENTS comps) {
++		syncComps = comps;
+ 
+ 		
+ 		for (Worker w : works) {
+@@ -88,6 +92,13 @@
+ 		t.dx = (short) dx;
+ 		t.dy = (short) dy;
+ 		t.full = full;
++		if (snake2d.SosMpDeterminism.syncPaths) {
++			// SOS-11 spike: compute the path now, on the simulation thread
++			if (syncWorker == null)
++				syncWorker = new Worker(this, syncComps);
++			t.status = (byte) (job.doJob(syncWorker.pather, syncWorker.fin, t) ? 3 : 2);
++			return;
++		}
+ 		lock();
+ 		if (queueJob.hasRoom()) {
+ 			queueJob.add(job);
+--- a/snake2d/SlaveThread.java
++++ b/snake2d/SlaveThread.java
+@@ -45,6 +45,8 @@
+ 	}
+ 	
+ 	public boolean working() {
++		if (snake2d.SosMpDeterminism.syncThreads)
++			return snake2d.SosMpDeterminism.syncJob; // SOS-11 spike: jobs run inside the simulation step, never on the thread
+ 		return shouldWork && !shouldDie;
+ 	}
+ 	

@@ -1,0 +1,58 @@
+--- a/game/GAME.java
++++ b/game/GAME.java
+@@ -78,6 +78,7 @@
+ 	private final GCOUNTS counts;
+ 	
+ 	private int updateI = 0;
++	private double fixedAcc = 0;
+ 	private final int version;
+ 	private Profiler profiler = Profiler.DUMMY;
+ 	private boolean achieving = true;
+@@ -255,7 +256,9 @@
+ 		double speed = SPEED.update(slowDown);
+ 		
+ 		
+-		if (speed == 0) {
++		if (speed == 0 && snake2d.SosMpDeterminism.fixedStep > 0) {
++			// SOS-11 spike: no simulation while paused, so paused frames can't change the outcome
++		}else if (speed == 0) {
+ 			for (GameResource s : GameResource.all) {
+ 				if (s.isBattle || !VIEW.b().isActive())
+ 					s.update(0, game.profiler);
+@@ -266,12 +269,25 @@
+ 			saver.autoSave(ds);
+ 			int fulls = (int) (ds/max);
+ 			double last = ds - fulls*max;
++			if (snake2d.SosMpDeterminism.fixedStep > 0) {
++				// SOS-11 spike: whole fixed steps only; the remainder carries over to the next frame
++				fixedAcc += ds;
++				max = (float) snake2d.SosMpDeterminism.fixedStep;
++				fulls = (int) (fixedAcc/snake2d.SosMpDeterminism.fixedStep);
++				fixedAcc -= fulls*snake2d.SosMpDeterminism.fixedStep;
++				last = 0;
++			}
+ 			
+ 			for (int i = 0; i < fulls; i++){
++				snake2d.SosMpDeterminism.simThread = Thread.currentThread();
++				snake2d.SosMpDeterminism.inSim = true;
+ 				for (GameResource s : GameResource.all) {
+ 					if (s.isBattle|| !VIEW.b().isActive())
+ 						s.update(max, game.profiler);
+ 				}
++				if (snake2d.SosMpDeterminism.fixedStep > 0 && VIEW.b().isActive() && VIEW.b().state() != null)
++					VIEW.b().state().update(max);
++				snake2d.SosMpDeterminism.inSim = false;
+ 				game.updateI++;
+ 			}
+ 			
+--- a/view/battle/BattleView.java
++++ b/view/battle/BattleView.java
+@@ -109,7 +109,7 @@
+ 	@Override
+ 	protected boolean update(float ds, boolean should){
+ 		
+-		if (state != null)
++		if (state != null && snake2d.SosMpDeterminism.fixedStep <= 0)
+ 			state.update(ds*GAME.SPEED.speedTarget());
+ 		
+ 		window.update(ds);

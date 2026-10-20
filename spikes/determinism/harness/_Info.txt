@@ -1,0 +1,5 @@
+NAME: "SoS MP spike: determinism",
+DESC: "Throwaway measurement script for the multiplayer mod (SOS-11). Not for play.",
+VERSION: "0.0.1",
+AUTHOR: "SoS GSG MP",
+INFO: "Driven by %APPDATA%/songsofsyx/sosmp-spike/command.txt",

@@ -1,0 +1,14 @@
+--- a/game/time/Light.java
++++ b/game/time/Light.java
+@@ -134,7 +134,11 @@
+ 		}
+ 		
+ 		shadow.update(this);
++		// SOS-11 spike: night light flicker is visual and depends on a player setting (UI_LIGHT_CYCLE); keep it off the simulation stream
++		boolean sim = snake2d.SosMpDeterminism.inSim;
++		snake2d.SosMpDeterminism.inSim = false;
+ 		gui.update(this, ds);
++		snake2d.SosMpDeterminism.inSim = sim;
+ 
+ 	}
+ 	

@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.7 · 2026-10-20
+Version 0.8 · 2026-10-21
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -108,7 +108,9 @@ Players trade through direct contracts and through a shared market.
 
 When two players' armies meet, a real-time battle is mandatory. Battles against NPC armies and attacks on NPC towns can be auto-resolved, as in vanilla.
 
-- **Battle size** has no limit beyond vanilla's. The host's PC runs every field battle and the other PCs only display it ([ADR 0002](decisions/0002-battle-streaming.md)). If the host's PC cannot keep up, the battle slows down for everyone; a spectator's PC never slows it down.
+- **Battle size** has no limit beyond vanilla's. Every PC simulates every field battle, and only orders cross the network ([ADR 0003](decisions/0003-battle-lockstep.md)). If any PC cannot keep up, the battle slows down for everyone, spectators included, as with the world speed (section 4).
+- **Battle start.** The host generates the battlefield and sends it to every PC; every PC starts from the same battle state.
+- **Desyncs.** If one PC's battle ever differs from the host's, the battle pauses briefly, every PC reloads the host's current battle state, and the battle continues.
 - **Latency.** Up to 1 second between giving an order and seeing it carried out is acceptable.
 - **Allies** can join a battle or siege when they are within range, as in vanilla.
 - **Deployment.** Each player's army spawns as a separate army. Allied armies stand side by side on the same side of the field, 20 tiles apart, and the enemy's armies are placed the same way. Every player can rearrange their own army before the battle, as in vanilla.
@@ -122,7 +124,7 @@ Real-time sieges of player cities are part of v1. A siege runs in three phases:
 
 1. **Siege.** The attacking army besieges the city, and the vanilla siege rules apply. The city is blockaded, and the attacking army needs supplies as in vanilla.
 2. **Waiting period.** The attacker cannot assault until 1 in-game season has passed for every started 1,000 people in the city, up to a maximum of 4 seasons.
-3. **Assault.** The city is simulated in real time while the attacker storms it. The defender's PC runs the assault, because the city exists only there; it acts as the server for the assault, as the host does for field battles ([ADR 0002](decisions/0002-battle-streaming.md)). The attacker sends orders, and every other PC only displays the assault. The world is paused and every player watches.
+3. **Assault.** The city is simulated in real time while the attacker storms it. The defender's PC runs the assault, because the city exists only there; it acts as the server for the assault ([ADR 0002](decisions/0002-battle-streaming.md); open question in section 16). The attacker sends orders, and every other PC only displays the assault. The world is paused and every player watches.
 
 During the siege, the defender can attack the besieging army. That creates a real-time field battle under the rules in section 8. Allies can lift the siege only by defeating the besieging army.
 
@@ -190,7 +192,7 @@ The mod must meet these targets on the reference PC: an Intel Core i5-11600K wit
 | Latency inside your own city | None; your own city never waits on the network |
 | Ping | No limit; players can be anywhere in the world |
 | City size | No hard limit; a city larger than 10,000 may run slower than 1× |
-| Battles too large for the host's PC | The battle slows down for everyone |
+| Battles too large for any PC in the game | The battle slows down for everyone |
 | Battle network traffic | No limit in v1; measured in later tests |
 
 ### Sync and desync
@@ -199,7 +201,10 @@ These targets are tested with 2 players at 300 ms ping.
 
 | Target | Requirement |
 | --- | --- |
-| Battle stability | A battle with 2,000 units per side runs for 30 minutes, and every player's view stays at most 1 second behind the host's |
+| Battle stability | A battle with 2,000 units per side runs for 30 minutes with every PC's battle state identical to the host's |
+| Battle desync detection | Any battle desync is detected within 2 seconds |
+| Battle desync recovery | Any battle desync is recovered within 10 seconds, from the host's battle state |
+| Battle desync reports | Every battle desync writes a report for debugging |
 | Desync detection | Any world map desync is detected within 2 seconds |
 | Desync recovery | Any world map desync is recovered within 10 seconds |
 | Desync reports | Every world map desync writes a report for debugging |
@@ -256,8 +261,10 @@ A v1 feature is accepted when every criterion below passes. **[CI]** marks an au
 - When player armies meet, a real-time battle always starts. Battles against NPC armies offer auto-resolve. [PT]
 - Allied armies spawn side by side, 20 tiles apart, and each player can rearrange only their own army. [PT]
 - A majority vote of commanders changes battle speed; a tie keeps the current speed. [CI]
-- A battle with 2,000 units per side runs 30 minutes, and every player's view stays at most 1 second behind the host's. [CI + PT]
-- When the host's PC is slow, the battle slows for everyone; a slow spectator's PC never slows it. [CI]
+- A battle with 2,000 units per side runs 30 minutes with every PC's battle state identical to the host's. [CI + PT]
+- The same battle save, seed and orders give an identical battle state on two runs, compared every step. [CI]
+- When any PC in the game is slow, the battle slows for everyone. [CI]
+- A forced battle desync is detected within 2 seconds, recovered from the host's battle state within 10 seconds, and writes a report. [CI]
 
 ### Sieges
 
@@ -310,5 +317,6 @@ Every card on the board, not only features, is done when:
 ## 16. Open questions
 
 - [ ] **Prioritized market trading:** a fuller design of how bypassing NPC limits works.
-- [ ] **Battle stream catch-up:** how fast a player whose battle stream drops catches up again. To be set after the battle streaming spike.
+- [ ] **Siege assaults: streaming or lockstep.** Field battles use lockstep (ADR 0003). Siege assaults still follow ADR 0002 (the defender's PC simulates and streams). To be decided after the late-game save size spike, since lockstep would first send the defender's city to every PC.
 - [ ] **Release App ID:** Spacewar (480) is for development only. Which App ID does the released mod use?
+- [ ] **Debug test build (proposal, not decided):** a test build of the game for finding and preventing desyncs, in three stages. 1) A switch that skips rendering, so many game copies run fast on one PC. 2) A suite of battle scenarios (saves, seeds, recorded orders, expected state hashes every N steps) run in CI on a self-hosted Windows runner; the same state hash becomes the in-game desync detector. 3) Only if stage 2 is too slow or flaky: a fully headless build with graphics and sound stubbed out. Raised during the determinism spike (SOS-11); to be decided with the test plan.

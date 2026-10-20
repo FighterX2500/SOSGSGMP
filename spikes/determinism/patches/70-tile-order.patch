@@ -1,0 +1,30 @@
+--- a/util/updating/TileUpdater.java
++++ b/util/updating/TileUpdater.java
+@@ -5,7 +5,6 @@
+ import snake2d.util.file.FileGetter;
+ import snake2d.util.file.FilePutter;
+ import snake2d.util.file.SAVABLE;
+-import snake2d.util.rnd.RND;
+ 
+ public abstract class TileUpdater implements SAVABLE{
+ 
+@@ -13,6 +12,8 @@
+ 	private final static int randomizerMask = randomizerSize-1;
+ 	private static final byte[][] randomizerX = new byte[64][64];
+ 	private static final byte[][] randomizerY = new byte[64][64];
++	// SOS-11 spike: the tile visiting order must be the same in every game process, so shuffle with a fixed seed
++	private static final java.util.Random SOSMP_SHUFFLE = new java.util.Random(0x5050);
+ 	
+ 	static {
+ 		for (int y = 0; y < randomizerSize; y++) {
+@@ -28,8 +29,8 @@
+ 				byte ax = randomizerX[y][x];
+ 				byte ay = randomizerY[y][x];
+ 				
+-				int x2 = RND.rInt(randomizerSize);
+-				int y2 = RND.rInt(randomizerSize);
++				int x2 = SOSMP_SHUFFLE.nextInt(randomizerSize);
++				int y2 = SOSMP_SHUFFLE.nextInt(randomizerSize);
+ 				
+ 				randomizerX[y][x] = randomizerX[y2][x2];
+ 				randomizerY[y][x] = randomizerY[y2][x2];

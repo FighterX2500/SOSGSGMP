@@ -3,7 +3,7 @@
 Throwaway spike code (CLAUDE.md). Reads the game from SOS_GAME_DIR, never writes there.
 Output: spikes/rebuild-check/build/ (git-ignored).
 
-Usage: python rebuild.py [--compiler javac|ecj] [--ecj path/to/ecj.jar]
+Usage: python rebuild.py [--compiler javac|ecj] [--ecj path/to/ecj.jar] [--src DIR] [--out DIR]
 """
 import argparse
 import collections
@@ -245,14 +245,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--compiler", choices=["javac", "ecj"], default="javac")
     ap.add_argument("--ecj")
+    ap.add_argument("--src", help="source tree to build instead of the shipped one (for patched spikes)")
+    ap.add_argument("--out", help="output folder instead of build/<compiler>")
     args = ap.parse_args()
     if args.compiler == "ecj" and not (args.ecj and pathlib.Path(args.ecj).is_file()):
         fail("--compiler ecj needs --ecj <ecj.jar>")
 
     game = game_dir()
-    src = game / "info" / "SongsOfSyx-sources"
+    src = pathlib.Path(args.src) if args.src else game / "info" / "SongsOfSyx-sources"
     jar = game / "SongsOfSyx.jar"
-    out = OUT / args.compiler
+    out = pathlib.Path(args.out) if args.out else OUT / args.compiler
     if out.exists():
         shutil.rmtree(out)
     libs, classes = out / "libcp", out / "classes"

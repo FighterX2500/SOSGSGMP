@@ -1,0 +1,23 @@
+--- a/game/battle/thread/order/BattleOrder.java
++++ b/game/battle/thread/order/BattleOrder.java
+@@ -64,11 +64,20 @@
+ 		public void set(T from) {
+ 			lock();
+ 			t.copy(from);
++			if (snake2d.SosMpDeterminism.trace != null) // SOS-11 spike: log every order with its caller
++				snake2d.SosMpDeterminism.traceEvent(from instanceof game.battle.formation.DivFormation
++						? "ORDER dest " + sosmpDest((game.battle.formation.DivFormation) from)
++						: from instanceof BattleOrderTask ? "ORDER task " + ((BattleOrderTask) from).task() : "ORDER");
+ 			setI++;
+ 			lock = false;
+ 			hasNew = true;
+ 		}
+ 		
++		private static String sosmpDest(game.battle.formation.DivFormation f) {
++			snake2d.util.datatypes.COORDINATE c = f.centreTile();
++			return (c == null ? "-" : c.x() + "," + c.y()) + " dir " + (f.dir() == null ? -1 : f.dir().id());
++		}
++
+ 		public boolean consumeNew(T copyTo) {
+ 			if (hasNew) {
+ 				get(copyTo);
