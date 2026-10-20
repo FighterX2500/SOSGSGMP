@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.6 · 2026-10-20
+Version 0.7 · 2026-10-20
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -151,11 +151,15 @@ Any player can view any other player's city, enemies included. This is intended.
 
 **Saving.** When the host autosaves, every player autosaves their own city at the same moment. The game stays paused until every player has saved and the saves are in sync.
 
+**Save before battles.** Before every real-time battle or siege assault starts, the campaign is saved the same way. If the connection is lost during the battle, the players can resume from that save.
+
 **Resuming.** Any player can host when a saved campaign is resumed. If a player is missing, their city stays frozen until they join.
 
 **Joining.** New players cannot join a campaign that is already in progress.
 
-**Disconnects.** When a player disconnects, the whole game enters a priority pause, which only the host can unpause. After that, the rules below apply until the player reconnects.
+**Host disconnect.** When the host loses connection, every player gets a popup saying the host disconnected, and the whole simulation stops: the world, every city and any battle. Play can't continue in that session. The players resume the campaign from a save with any player as host (see Resuming); the save made before the last battle is the natural point.
+
+**Disconnects.** When a player other than the host disconnects, the whole game enters a priority pause, which only the host can unpause. After that, the rules below apply until the player reconnects.
 
 | Affected | What happens |
 | --- | --- |
@@ -181,7 +185,7 @@ The mod must meet these targets on the reference PC: an Intel Core i5-11600K wit
 
 | Target | Requirement |
 | --- | --- |
-| City simulation | A city of 10,000 people runs at 1× speed while a battle is also running |
+| City simulation | A city of 10,000 people runs at 1× speed while no battle is running |
 | Order latency in battles | Up to 1 second between an order and its effect |
 | Latency inside your own city | None; your own city never waits on the network |
 | Ping | No limit; players can be anywhere in the world |
@@ -272,12 +276,14 @@ A v1 feature is accepted when every criterion below passes. **[CI]** marks an au
 ### Saves and resume
 
 - A host autosave makes every player save at the same world tick, and the game resumes only when all saves are confirmed. [CI]
+- Before a battle or siege assault starts, every player has a confirmed campaign save from that moment. [CI]
 - A campaign saved under one host can be resumed with a different host. [PT]
 - A player missing at resume has a frozen city until they join. [CI]
 
 ### Disconnects
 
 - A disconnect triggers a priority pause within 2 seconds. [PT]
+- When the host loses connection, every player sees a "host disconnected" popup and the whole simulation stops within 2 seconds. [PT]
 - A disconnected player's city, empire and armies freeze and are invulnerable, without blocking roads. [CI]
 - In a battle or siege, the side that disconnects forfeits, and all armies stay intact. [CI]
 - A player who reconnects returns to their city and the current world state. [PT]
@@ -290,7 +296,7 @@ A v1 feature is accepted when every criterion below passes. **[CI]** marks an au
 
 ### Performance
 
-- On the reference PC, a city of 10,000 people keeps 1× speed while a battle runs. [PT]
+- On the reference PC, a city of 10,000 people keeps 1× speed while no battle is running. [PT]
 
 ### Definition of Done
 

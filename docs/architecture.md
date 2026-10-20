@@ -47,7 +47,9 @@ The defender's PC runs the city and the assault and streams the area around each
 ## Saves, disconnects, viewing
 
 - **Save barrier:** host announces "save at world tick T"; every city runs to exactly T, saves, and reports a save hash; the host saves the world; play resumes. A campaign save = world save + every city save.
+- **Save before battles:** the same save barrier runs before every battle or siege assault starts (spec §11).
 - **Disconnect:** priority pause; the player's city, empire and armies freeze; reconnect = load own city save + full world snapshot.
+- **Host disconnect:** every client stops all simulation and shows "host disconnected". Any player can host the resumed campaign, usually from the pre-battle save.
 - **City viewing:** the owner uploads a city snapshot (vanilla save format); the viewer opens it in a separate read-only game process.
 
 ## Code layout
