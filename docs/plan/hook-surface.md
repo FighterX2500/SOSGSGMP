@@ -29,12 +29,12 @@ Source references use paths relative to the source folder, and line numbers are 
 4. **Vanilla battles are not deterministic.** They run on five worker threads that tick on wall-clock time, with an AI general that reads `System.currentTimeMillis()` and a global, randomly seeded RNG. This **contradicts the lockstep plan in `docs/architecture.md`**; see §11, question Q1.
 5. **A vanilla field battle replaces the city in memory.** It saves the whole game, generates the battlefield inside the city engine, and reloads the save when the battle ends. That fits spec §4 ("battles pause the world and every city"), but it costs a full save and a full load on every PC in the battle (§11, question Q2).
 
-Tally of the 39 points in §4:
+Tally of the 40 points in §4:
 
 | Route | Count | Notes |
 | --- | --- | --- |
 | API | 19 | Several work only once a hook elsewhere exists, for example B5 after P1. |
-| Hook | 10 | |
+| Hook | 11 | |
 | Hook or reflection | 4 | Decided per point. |
 | Reflection | 2 | |
 | API plus reflection | 2 | |
@@ -157,6 +157,7 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 | P1 | `game/GameSpeed` (`final` class). Writers: `UISpecials:149-221` (UI buttons, `poll` for keys), `UIMiniMapSettView:163`, `GAME.Notify/Warn` (`speedSet(0)` on popups), `BattleState`, `SETT.java:405` | Every local speed or pause change becomes a command to the host; the host's speed applies everywhere; show who paused. | **Hook** in `GameSpeed.speedSet/togglePause` (one file) | A script could detect changes and undo them the next frame, but that fights the game every frame and still lets one frame run at the wrong speed. |
 | P2 | `Updater.slowDown` → `GameSpeed.update` | Each PC reports its achievable speed; the host caps the world speed. | **API** (`SPEED.speed()`), enforced by A1 | — |
 | P3 | Priority pause, "who paused" banner | Host-only unpause (spec §4, §11). | **API** (mod UI through `render`) once P1 exists | — |
+| P4 | `view/main/VIEW.java:221-227`: when the window manager or the current view's UI blocks, the frame's `ds` becomes 0 and `slowDown` 1.0 | Spec §4 "Menus don't pause": an open menu or window must not stop the city. | **Hook** (let `ds` through in multiplayer) | Local variables inside `VIEW.update`; no API or field to change. |
 
 ### City viewing (spec §10)
 
@@ -175,6 +176,7 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 | --- | --- | --- |
 | `game/GAME.java` | A1 (and A2 if not done by reflection) | 1–2 calls |
 | `game/GameSpeed.java` | P1 | 2 calls |
+| `view/main/VIEW.java` | P4 | 1 call |
 | `game/faction/npc/FactionNPC.java`, `game/faction/FACTIONS.java`, `game/faction/trade/TradeManager.java` | F2, F4 | 3–4 calls |
 | `world/army/ai/WArmyAI.java`, `world/army/ai/Recruiter.java` | F3 | 2 calls |
 | `world/battle/Resolver.java`, `world/battle/ResolverPlayer.java` | B1, F5 (part) | 2–3 calls |
@@ -200,7 +202,7 @@ Making this deterministic means reworking the battle's threading, time and rando
 
 **Q4. Steam App ID inside the game process.** The game calls `SteamAPI.init()` for its own App ID (1162750) when started from Steam, and one process can initialize Steam only once. The spec's development App ID 480 may therefore be impossible from inside the game process. The working copy also has no `steam_appid.txt`. Spike 4.4 should test this.
 
-**Q5. A local menu slows everyone down.** Opening some vanilla windows sets the local frame's `ds` to 0 (`view/main/VIEW.java:221-227`). With "the slowest PC sets the speed", one player sitting in a menu would hold the whole world back. The spec doesn't say whether a player's own modal UI should pause only their city (and let it fall behind) or slow everyone. **Needs a spec decision.**
+**Q5. A local menu slows everyone down. Decided 2026-10-20:** menus don't pause in multiplayer (spec §4, version 0.4). Enforced by hook P4. Still open: vanilla notification popups (`GAME.Notify` / `GAME.Warn`) set the speed to 0. Under P1 that becomes a pause request; whether such popups should pause at all is a question for the owner.
 
 **Q6. Steam updates the game.** The Steam copy is identical to the working copy today (same SHA-256), but Steam updates automatically, and spec §3 pins the version. The distribution task (planning task 5) has to handle a player whose Steam copy has moved on.
 
@@ -215,4 +217,4 @@ Making this deterministic means reworking the battle's threading, time and rando
   - 4.3 two processes answers V1;
   - 4.4 Steam P2P answers Q4.
 - **ADR on hook distribution (task 5):** decides A2 (reflection or hook) and how the hooks in §6 reach players.
-- **Spec questions for you:** Q5, plus Q1's possible architecture change once spike 4.1 reports.
+- **Questions for the owner:** Q1's possible architecture change once spike 4.1 reports, and whether notification popups pause (Q5).
