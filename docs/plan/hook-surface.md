@@ -33,8 +33,8 @@ Tally of the 46 points in §4:
 
 | Route | Count | Notes |
 | --- | --- | --- |
-| API | 19 | Several work only once a hook elsewhere exists, for example B5 after P1. |
-| Hook | 16 | |
+| API | 18 | Several work only once a hook elsewhere exists, for example B5 after P1. |
+| Hook | 17 | |
 | Hook or reflection | 5 | Decided per point. |
 | Reflection | 2 | |
 | API plus reflection | 2 | |
@@ -119,7 +119,7 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 | ID | Game location | Multiplayer needs | Route | Why not API or reflection |
 | --- | --- | --- | --- | --- |
 | B1 | `world/battle/WBattles.poll` → `PFieldBattle.create` → `Resolver.init` (private) → `ResolverPlayer.battle/sallyOut/besige` | When human armies meet, the host must (a) force a real-time battle (no auto-resolve or retreat for player against player), (b) send the invite and spectate prompts to every player, and (c) leave NPC-only battles to vanilla. | **Hook** at the dispatch in `Resolver.init` / `ResolverPlayer.battle` | Private flow. `BattleListener` fires only after a battle is resolved, too late to change how it starts. |
-| B2 | `game/battle/state/BattleState.setGenerate(BattleStateExiter, BattleStateSpec)` (public static); `snake2d/util/rnd/RND.setSeed(int)` (public static) | The host starts the battle. Every viewer builds the same battlefield to display it on. | **API**: call `RND.setSeed(hostSeed)`, then `setGenerate` | — (The battle streaming spike confirms that the same seed gives the same map on two PCs.) |
+| B2 | `game/battle/state/BattleState.setGenerate(BattleStateExiter, BattleStateSpec)`; `snake2d/util/rnd/RND.setSeed(int)` | The host starts the battle. Every viewer builds the same battlefield to display it on. | **Hook**: one line in `setGenerate` that sets the host's seed after `save("__beforeBattle")` | Saving draws from `RND`, so seeding before `setGenerate` gives different maps (spike SOS-10). Reflection would need four private members. |
 | B3 | `game/battle/Armies` (`ARMIES`) and `game/battle/thread/BattleThreads`: five `SlaveThread`s (orders, centres, status, trajectories, `Strategos2000`) | Streaming ([ADR 0002](../decisions/0002-battle-streaming.md)). **Host:** human orders are applied on arrival; a human-controlled army gets **no** AI general; the battle state is read every ~100 ms for snapshots. **Viewers:** display-only, so no battle simulation or threads run, and units are positioned from snapshots. | **Hook** (several) | The battle update and threads are internal, and nothing can stop them or set unit state from outside. |
 | B4 | `BattleStateExiter.exit` (public abstract) → reloads `__beforeBattle` → `afterExit(result)` | The host decides the result; each PC reloads its own pre-battle save; the host applies losses to the world. | **API**: the mod passes its own `BattleStateExiter` | — |
 | B5 | `BattleState.view()` sets `SPEED.speedSet(0)`; `GAME.SPEED` during the battle | Battle speed by commanders' majority vote (spec §8). | **API** once P1 exists | — |
@@ -182,6 +182,7 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 | --- | --- | --- |
 | `game/GAME.java` | A1 (and A2 if not done by reflection) | 1–2 calls |
 | `game/GameSpeed.java` | P1 | 2 calls |
+| `game/battle/state/BattleState.java` | B2 | 1 call |
 | `view/main/VIEW.java` | P4 | 1 call |
 | `game/GAME.java` (`Notify`, `Warn`) | P5 | 2 calls |
 | `game/faction/royalty/opinion/**`, `game/faction/diplomacy/**` | F8 | data change per human; see SP1 |
