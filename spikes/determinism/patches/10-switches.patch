@@ -1,0 +1,27 @@
+--- a/snake2d/SosMpDeterminism.java
++++ b/snake2d/SosMpDeterminism.java
+@@ -0,0 +1,24 @@
++package snake2d;
++
++/**
++ * SOS-11 spike switches (not game code). All off = vanilla behaviour.
++ * Set by the spike harness through reflection.
++ */
++public final class SosMpDeterminism {
++
++	/** Fixed simulation step in seconds; 0 = vanilla variable step. */
++	public static double fixedStep = 0;
++	/** Run the battle worker threads' jobs inside the simulation step instead of on their own threads. */
++	public static boolean syncThreads = false;
++	/** Compute paths on the calling thread instead of the path worker thread. */
++	public static boolean syncPaths = false;
++	/** Separate random streams: simulation draws vs everything else (render, UI, saving). */
++	public static boolean splitRnd = false;
++	/** True while the simulation step runs (set by the game loop, or by the harness during generation). */
++	public static boolean inSim = false;
++	/** Number of draws from the simulation stream. */
++	public static long simDraws = 0;
++
++	private SosMpDeterminism() {
++	}
++}
