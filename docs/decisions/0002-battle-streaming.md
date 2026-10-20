@@ -1,6 +1,6 @@
 # 0002: Field battles are simulated on one PC and streamed
 
-Status: Accepted (owner decision, 2026-10-20) · Card: [SOS-5](https://fighterx2500.atlassian.net/browse/SOS-5)
+Status: Superseded for field battles by [ADR 0003](0003-battle-lockstep.md) (2026-10-21); still describes siege assaults until that decision · Card: [SOS-5](https://fighterx2500.atlassian.net/browse/SOS-5)
 
 ## Context
 
@@ -57,3 +57,9 @@ The owner chose this because it's easier to change later than lockstep.
 - **Measured:** set that way, the battlefield, soldier placement and RNG state were identical in 6 of 6 runs across two game launches; the vanilla order alternated between two battlefields.
 - **Route:** a one-line hook in `setGenerate` (hook point B2). Repeating `setGenerate` by reflection also worked in the spike, but needs four private members.
 - **Snapshot size:** about 22 KB per snapshot (compressed, full state, 4,000 soldiers), so about 1.8 Mbit/s at 10 per second; capturing costs the host about 1.1 ms. See [the spike report](../plan/spikes/battle-streaming.md).
+
+## Amendment (2026-10-21, spike SOS-11)
+
+- **Field battles move to lockstep** ([ADR 0003](0003-battle-lockstep.md)). Spike SOS-11 made the battle engine deterministic with spike patches: a 2,000 vs 2,000 battle ran identically in 4 game processes for 10 minutes.
+- **Siege assaults** keep this ADR's streaming model until the late-game save size spike decides between streaming and lockstep (owner, 2026-10-21).
+- **The seed-after-save amendment above no longer applies to field battles.** Peers load the host's battle save instead of generating.

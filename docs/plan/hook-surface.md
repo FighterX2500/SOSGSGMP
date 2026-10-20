@@ -1,6 +1,6 @@
 # Hook surface map (V71)
 
-Card: [SOS-3](https://fighterx2500.atlassian.net/browse/SOS-3) · Date: 2026-10-20 · Game: 0.71.44, source in `%SOS_GAME_DIR%\info\SongsOfSyx-sources`
+Card: [SOS-3](https://fighterx2500.atlassian.net/browse/SOS-3) · Date: 2026-10-20, battle points updated 2026-10-21 for lockstep ([SOS-11](https://fighterx2500.atlassian.net/browse/SOS-11)) · Game: 0.71.44, source in `%SOS_GAME_DIR%\info\SongsOfSyx-sources`
 
 This document maps where the multiplayer features meet the game's code. For each point it names the route:
 
@@ -26,15 +26,15 @@ Source references use paths relative to the source folder, and line numbers are 
    - local speed changes,
    - battle AI for human-controlled armies.
 3. **The game assumes one player in more than 1,000 places** (`FACTIONS.player()` appears 1,047 times in 292 files, and `AD.cityDivs()` 53 times). On the host, world code that branches on "is this the player?" would treat every other human as an NPC. This is the biggest source of hooks and is planning task 3.
-4. **Vanilla battles are not deterministic.** They run on five worker threads that tick on wall-clock time, with an AI general that reads `System.currentTimeMillis()` and a global, randomly seeded RNG. This ruled out the lockstep plan: battles are now simulated on the host and streamed ([ADR 0002](../decisions/0002-battle-streaming.md), §7 Q1).
+4. **Vanilla battles are not deterministic, but can be made so.** They run on five worker threads that tick on wall-clock time, with variable time steps and one global, randomly seeded RNG. ADR 0002 first chose streaming for that reason. Spike SOS-11 then made battles deterministic with spike patches, and field battles now run in lockstep ([ADR 0003](../decisions/0003-battle-lockstep.md), §7 Q1). That costs eight battle points, B7–B14.
 5. **A vanilla field battle replaces the city in memory.** It saves the whole game, generates the battlefield inside the city engine, and reloads the save when the battle ends. That fits spec §4 ("battles pause the world and every city"), but it costs a full save and a full load on every PC in the battle (§11, question Q2).
 
-Tally of the 46 points in §4:
+Tally of the 54 points in §4:
 
 | Route | Count | Notes |
 | --- | --- | --- |
-| API | 18 | Several work only once a hook elsewhere exists, for example B5 after P1. |
-| Hook | 17 | |
+| API | 22 | Several work only once a hook elsewhere exists, for example B5 after P1, or B12 after B10. |
+| Hook | 21 | |
 | Hook or reflection | 5 | Decided per point. |
 | Reflection | 2 | |
 | API plus reflection | 2 | |
@@ -75,7 +75,7 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 | Built-in local slowdown: `slowDown` = frame time ÷ 1/40 s; `GameSpeed.update` lowers the actual speed when frames run long. | `Updater.java:61-66`, `GameSpeed.java:33-58` | "The slowest PC sets the speed" can reuse this signal, by reporting `SPEED.speed()` to the host. |
 | Resources marked `isBattle = true` (`ARMIES`, `BATTLE_THREADS`, `TEMP_EVENTS`, `ENGINE`, `INTER`, `TIME`, `COUNTS`, `SCRIPTS`, `SETT`) keep updating while the battle view is open. World resources (`WORLD`, `FACTIONS`, `EVENTS`, `NOBLES`, `RAIDING`, `TOURISM`) stop. | `GAME.java:259-282`; constructors | This matches the architecture's split: the second group is the host-owned world. |
 | One save file holds everything: game spec, special savables, then each `GameResource` as a keyed, length-prefixed section. | `GameSaver.java:101-125` | A campaign save of "world from the host plus a city from each player" doesn't exist in vanilla (see L4). |
-| One global RNG, `snake2d/util/rnd/RND`: a static `java.util.Random`, randomly seeded at startup, shared by every thread. | `RND.java` | Nothing that uses it is reproducible across PCs (see Q1). |
+| One global RNG, `snake2d/util/rnd/RND`: a static `java.util.Random`, randomly seeded at startup, shared by every thread. | `RND.java` | Nothing that uses it is reproducible across PCs as it stands. Lockstep splits it into a simulation and a cosmetic stream (B10). |
 | The game starts Steam with `SteamAPI.init()` and runs callbacks every 5 s on its own thread. steamworks4j 1.9.0 ships inside `SongsOfSyx.jar`. | `src/integrations/SteamClient.java` | P2P can use the bundled steamworks4j with no new dependency. The App ID question is in Q4. |
 
 ## 4. Hook points
@@ -119,11 +119,19 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 | ID | Game location | Multiplayer needs | Route | Why not API or reflection |
 | --- | --- | --- | --- | --- |
 | B1 | `world/battle/WBattles.poll` → `PFieldBattle.create` → `Resolver.init` (private) → `ResolverPlayer.battle/sallyOut/besige` | When human armies meet, the host must (a) force a real-time battle (no auto-resolve or retreat for player against player), (b) send the invite and spectate prompts to every player, and (c) leave NPC-only battles to vanilla. | **Hook** at the dispatch in `Resolver.init` / `ResolverPlayer.battle` | Private flow. `BattleListener` fires only after a battle is resolved, too late to change how it starts. |
-| B2 | `game/battle/state/BattleState.setGenerate(BattleStateExiter, BattleStateSpec)`; `snake2d/util/rnd/RND.setSeed(int)` | The host starts the battle. Every viewer builds the same battlefield to display it on. | **Hook**: one line in `setGenerate` that sets the host's seed after `save("__beforeBattle")` | Saving draws from `RND`, so seeding before `setGenerate` gives different maps (spike SOS-10). Reflection would need four private members. |
-| B3 | `game/battle/Armies` (`ARMIES`) and `game/battle/thread/BattleThreads`: five `SlaveThread`s (orders, centres, status, trajectories, `Strategos2000`) | Streaming ([ADR 0002](../decisions/0002-battle-streaming.md)). **Host:** human orders are applied on arrival; a human-controlled army gets **no** AI general; the battle state is read every ~100 ms for snapshots. **Viewers:** display-only, so no battle simulation or threads run, and units are positioned from snapshots. | **Hook** (several) | The battle update and threads are internal, and nothing can stop them or set unit state from outside. |
+| B2 | `game/battle/state/BattleState.setGenerate(BattleStateExiter, BattleStateSpec)`; `snake2d/util/rnd/RND.setSeed(int)` | Only the host generates the battle (vanilla `setGenerate`) and sends the battle save; peers load it (B14) and seed the simulation stream after loading. | **API** | Was a hook while every PC generated from a seed (saving draws from `RND`, SOS-10). With peers loading the host's save ([ADR 0003](../decisions/0003-battle-lockstep.md)) no hook is needed. |
+| B3 | `game/battle/Armies` (`ARMIES`) and `game/battle/thread/BattleThreads`: five `SlaveThread`s (orders, centres, status, trajectories, `Strategos2000`) | Lockstep ([ADR 0003](../decisions/0003-battle-lockstep.md)). On every PC, human orders are applied at the step the host confirmed, and a human-controlled army gets **no** AI general. No display-only mode is needed. | **Hook** (several) | The AI general runs inside the battle jobs for both sides, and orders have no way in at a chosen step. |
 | B4 | `BattleStateExiter.exit` (public abstract) → reloads `__beforeBattle` → `afterExit(result)` | The host decides the result; each PC reloads its own pre-battle save; the host applies losses to the world. | **API**: the mod passes its own `BattleStateExiter` | — |
 | B5 | `BattleState.view()` sets `SPEED.speedSet(0)`; `GAME.SPEED` during the battle | Battle speed by commanders' majority vote (spec §8). | **API** once P1 exists | — |
-| B6 | `game/battle/Armies.player()/enemy()` (165 uses), `Army.faction()` (`Army.java:100`), `Div.faction()`, `DivInfo.faction()` | Battles run on the host between other humans: each side's faction is the real human; with allies, several humans per side and per-division ownership (spec §8). | **Hook** | The engine has two sides with one fixed faction each (`FACTIONS.player()` / `FACTIONS.otherFaction()`). [single-player-assumptions.md](single-player-assumptions.md) §2, question SP4. |
+| B6 | `game/battle/Armies.player()/enemy()` (165 uses), `Army.faction()` (`Army.java:100`), `Div.faction()`, `DivInfo.faction()` | Battles between humans: each side's faction is the real human; with allies, several humans per side and per-division ownership (spec §8). | **Hook** | The engine has two sides with one fixed faction each (`FACTIONS.player()` / `FACTIONS.otherFaction()`). [single-player-assumptions.md](single-player-assumptions.md) §2, question SP4. |
+| B7 | `game/GAME.java:241` `update(ds, slowDown)`, sub-step loop; `view/battle/BattleView.update` (runs `BattleState.update`) | Battles advance in fixed 1/60 s steps from an accumulator, numbered from deploy; `BattleState.update` runs inside the step; nothing runs while paused. | **Hook** (spike patch 30) | The sub-step length comes from frame time inside a private loop. Shares the loop with A1. |
+| B8 | `game/battle/thread/BattleThreads.update` (empty in vanilla), `BattleThread.start`, `snake2d/SlaveThread.working` | The five battle jobs run inside the step in a fixed order and beat (orders, centres, trajectories, AI twice, status every 30 steps); the real threads never start. | **Hook** (spike patch 40) | The jobs are protected and run on their own wall-clock threads. `working()` must be true only during a job, or `BattleOrders.init` restarts the real thread (found in SOS-11). |
+| B9 | `settlement/path/thread/FinderThread.prep` | Paths requested during a battle are computed at once, on the simulation thread. | **Hook** (spike patch 40) | Answers otherwise arrive from a worker thread a varying number of frames later. |
+| B10 | `snake2d/util/rnd/RND`, plus cosmetic call sites: `TForest.update`, `game/audio/*` (6 files), `game/time/Light.update` | Two random streams: simulation draws only inside the step on the simulation thread, everything else cosmetic. Visual and audio code always draws cosmetic. | **Hook** (spike patches 20, 60, 80, 85) | `RND` is a static class used everywhere. Tree sway, sound picks (skipped at zero volume) and night light flicker (only with the light-cycle setting on) draw from it inside the step. |
+| B11 | `util/updating/TileUpdater` static initializer | The city-map tile visiting order is the same in every game process. | **Hook** (spike patch 70) | The order is shuffled once per process at class load, from an unseeded generator. |
+| B12 | `BattleState.deploy()` → `GAME.setGameStart` → `BattleThreads.unpause(true)` → `Strategos2000.init` | Battle start is step 0: deploy runs inside the simulation context, so AI start-up (`Context.flanking`) draws from the simulation stream. | **API** once B10 exists | `deploy()` is public; the mod sets the simulation context around it. |
+| B13 | `SETT.ENTITIES().getAllEnts()`, soldier fields, `GAME.ARMIES().divisions()` | A battle state hash every few steps for desync detection, and a desync report. | **API** | All read through public accessors (the spike harness does this). |
+| B14 | `game/save/GameLoader` with `doAfterSet` → `BattleState.setLoaded(exiter, path, true)` | Every PC loads the host's battle save at battle start and on resync. | **API** | Both public. AI state that isn't saved (`flanking`) still needs B12-style handling after a resync load. |
 
 ### Sieges (spec §9)
 
@@ -180,34 +188,38 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 
 | Game file | Hook IDs | Size estimate |
 | --- | --- | --- |
-| `game/GAME.java` | A1 (and A2 if not done by reflection) | 1–2 calls |
+| `game/GAME.java` | A1 (and A2 if not done by reflection), B7 | 1–2 calls, plus the fixed-step loop (about 20 lines in the spike) |
+| `view/battle/BattleView.java` | B7 | 1 line |
+| `game/battle/thread/BattleThreads.java`, `BattleThread.java`, `snake2d/SlaveThread.java` | B8 | about 25 lines |
+| `settlement/path/thread/FinderThread.java` | B9 | about 10 lines |
+| `snake2d/util/rnd/RND.java`, `settlement/tilemap/terrain/TForest.java`, `game/audio/*` (6 files), `game/time/Light.java` | B10 | about 40 lines in 10 files |
+| `util/updating/TileUpdater.java` | B11 | 2 lines |
 | `game/GameSpeed.java` | P1 | 2 calls |
-| `game/battle/state/BattleState.java` | B2 | 1 call |
 | `view/main/VIEW.java` | P4 | 1 call |
 | `game/GAME.java` (`Notify`, `Warn`) | P5 | 2 calls |
 | `game/faction/royalty/opinion/**`, `game/faction/diplomacy/**` | F8 | data change per human; see SP1 |
 | `game/events/faction/**`, `game/events/world/**`, `game/raiding/**` | F9 | unknown until SP2 |
 | World code reading `Player` state | F10 | about 60 lines (G7) |
 | `world/map/fow/FOW.java`, `world/WorldMinimap.java`, overlays | W5 | with A2 |
-| `game/battle/Armies.java`, `Army.java`, `div/Div.java`, `div/DivInfo.java` | B6 | unknown until the battle streaming spike |
+| `game/battle/Armies.java`, `Army.java`, `div/Div.java`, `div/DivInfo.java` | B6 | unknown; SP4 |
 | `game/faction/npc/FactionNPC.java`, `game/faction/FACTIONS.java`, `game/faction/trade/TradeManager.java` | F2, F4 | 3–4 calls |
 | `world/army/ai/WArmyAI.java`, `world/army/ai/Recruiter.java` | F3 | 2 calls |
 | `world/battle/Resolver.java`, `world/battle/ResolverPlayer.java` | B1, F5 (part) | 2–3 calls |
 | `world/battle/PSiege.java` | S1 | 1–2 calls |
-| `game/battle/**`, `settlement/**` invader AI | B3, S3 | unknown until the battle streaming spike |
+| `game/battle/**`, `settlement/**` invader AI | B3, S3 | unknown; orders at a step and no AI general for humans |
 | `world/army/WDivStoredAll.java`, `PlanJoinArmy.java` | C5 | unknown; task 3 |
 | 68 files with "is this faction a human?" checks (G1) | F5 | 139 one-line calls |
 
 ## 7. Open questions and risks (raised, not decided)
 
-**Q1. The lockstep battle plan vs the vanilla battle engine. Decided 2026-10-20:** option B, host-authoritative streaming, for now ([ADR 0002](../decisions/0002-battle-streaming.md)). Background: `docs/architecture.md` §Field battles planned deterministic lockstep. The vanilla engine works against it in four ways:
+**Q1. The lockstep battle plan vs the vanilla battle engine. Decided 2026-10-20:** option B, host-authoritative streaming ([ADR 0002](../decisions/0002-battle-streaming.md)). **Changed 2026-10-21:** lockstep after all ([ADR 0003](../decisions/0003-battle-lockstep.md)); spike SOS-11 made the engine deterministic, and siege assaults stay open. Background: `docs/architecture.md` §Field battles planned deterministic lockstep. The vanilla engine works against it in four ways:
 
 - **Wall-clock worker threads.** Battles run five `SlaveThread`s (`game/battle/thread/BattleThreads.java`). Each ticks on its own wall-clock interval, alongside the update thread.
 - **Wall-clock AI general.** `Strategos2000UpdaterOffense.java:67` reads `System.currentTimeMillis()`.
 - **Shared random numbers.** `RND` is one randomly seeded global `Random` shared by all threads. It's used 36 times in `game/battle/` and 33 times in `settlement/entity/humanoid/ai/battle/`.
 - **Float timesteps.** Sub-steps use variable `double` timesteps.
 
-Making this deterministic would mean reworking the battle's threading, time and random numbers: a large set of hooks across `game/battle/**` and the soldier AI. Streaming avoids that; lockstep can be revisited if streaming bandwidth turns out too high.
+Making this deterministic needed more than these four. SOS-11 also found tree sway, sound and light flicker drawing from the shared generator, a per-process tile order, and AI start-up outside the simulation. All of them are fixed by points B7–B12 ([report](spikes/determinism.md)). The clock read at `Strategos2000UpdaterOffense.java:67` turned out to be timing-only and harmless.
 
 **Q2. Cost of a field battle.** Each battle saves the whole game twice (`__beforeBattle`, `__battle`) and reloads it when the battle ends, on every PC in the battle. Spectators would do the same. The late-game save-time spike (4.2) should time this; spec §15 has no battle-start time limit today.
 
@@ -225,7 +237,7 @@ Making this deterministic would mean reworking the battle's threading, time and 
 
 - **Planning task 3 (single-player assumptions):** done in [single-player-assumptions.md](single-player-assumptions.md). It added W5, F8, F9, F10 and B6.
 - **Planning task 4 spikes:**
-  - 4.1 battle streaming (replaces battle determinism, [ADR 0002](../decisions/0002-battle-streaming.md)) answers B2/B3: snapshot size, bandwidth, latency, the same battlefield on every PC, display-only mode;
+  - 4.1 battle streaming ([SOS-10](spikes/battle-streaming.md)) and battle determinism ([SOS-11](spikes/determinism.md)): done; field battles use lockstep, points B7–B14;
   - 4.2 save size and time answers Q2 and Q3;
   - 4.3 two processes answers V1;
   - 4.4 Steam P2P answers Q4.
