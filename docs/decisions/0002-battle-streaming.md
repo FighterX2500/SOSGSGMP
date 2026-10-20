@@ -34,10 +34,19 @@ The owner chose this because it's easier to change later than lockstep.
 
 - **Spec changes** (same PR, owner approval). The lockstep-only rules in spec §8, §13 and §15 (desync detection and recovery, replay reports, "a slow spectator slows the battle") are rewritten for streaming.
 - **New questions for the battle streaming spike** (replacing the battle determinism spike in planning task 4):
-  1. How large is a battle snapshot, and what bandwidth does a 2,000-per-side battle need at 10 updates per second?
+  1. How large is a battle snapshot at 10 updates per second? This is measured only; bandwidth has no limit in v1 (owner, 2026-10-20).
   2. Is the 1-second order latency (spec §8) met at 300 ms ping, with the latency budget below?
-  3. How do viewers get the same battlefield? `BattleStateGenerator` uses the global `RND`, so the map is generated differently on each PC. The options are to reseed `RND` before generation (reflection) or to send the generated map once at the start.
+  3. Does the same seed give the same battlefield on every PC? See the amendment below.
   4. How do viewers display a battle without simulating it? This needs a "display only" mode for `ARMIES` and the battle threads: hooks.
 - **Latency budget at 300 ms ping:** about 150 ms for the order to reach the host, then up to 100 ms until the next snapshot, about 150 ms back, and about 100 ms of interpolation. That's roughly 500 ms in total, inside the 1 s limit.
 - **The host's PC must handle the largest battle**, even when the host is only spectating.
 - **No lockstep code in v1.** `.claude/rules/determinism.md` doesn't apply to any v1 code. It stays for a future switch to lockstep.
+
+## Amendment (2026-10-20, owner)
+
+- **Battlefield from the host's seed.** The battlefield is the city generator run on the battle's world tile (`BattleStateGenerator.genMap` → `SETT.CreateFromWorldMap`), and it draws from the global `RND`.
+  - `RND.setSeed(int)` is public, and the world generator already uses it (`world/map/terrain/Generator.java:49`).
+  - So the host sends one seed with the battle start, and every PC calls `RND.setSeed(seed)` just before `BattleState.setGenerate`. No map is sent.
+  - The streaming spike checks that the result is identical on two PCs, for example that nothing else draws from `RND` during generation.
+  - Sending the map stays the fallback.
+- **Bandwidth.** No limit in v1; measured in later tests.

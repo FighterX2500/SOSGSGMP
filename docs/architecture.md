@@ -34,7 +34,7 @@ Other players appear on each client as puppet NPC factions: AI off, state overwr
 Decided in [ADR 0002](decisions/0002-battle-streaming.md): streaming, not lockstep.
 
 - **Simulation.** The host simulates the battle with the vanilla engine, even when it is only spectating.
-- **Starting the battle.** Every PC builds the same battlefield, either from a reseeded generator or from a map the host sends at the start; to be settled in the battle streaming spike.
+- **Starting the battle.** The host sends the battle start: location, armies, deployment and a seed. Every PC calls `RND.setSeed(seed)` and builds the same battlefield locally, so no map is sent. Sending the map is the fallback if the spike finds the generator differs between PCs.
 - **Orders.** Commanders send orders to the host, which applies them on arrival.
 - **Snapshots.** The host streams battle snapshots (units, health, morale, projectiles) about every 100 ms. The other PCs render them in a display-only mode and don't simulate.
 - **Speed.** Battle speed is the host's simulation speed, set by the commanders' vote and lowered when the host's PC can't keep up.
