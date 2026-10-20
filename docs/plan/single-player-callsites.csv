@@ -1,0 +1,1076 @@
+file,line,method,class,reason,use
+game/audio/SoundRace.java,60,game.audio::SoundRace::play,ui,reached from UI only,player-state
+game/audio/SoundRace.java,66,game.audio::SoundRace::play,ui,reached from UI only,player-state
+game/audio/SoundRace.java,80,game.audio::SoundRace::rnd,unreached,"package world/game, no path from a loop root",player-state
+game/battle/Army.java,102,game.battle::Army::faction,unreached,"package world/game, no path from a loop root",argument
+game/battle/div/Div.java,148,game.battle.div::Div::faction,unreached,"package world/game, no path from a loop root",argument
+game/battle/div/DivInfo.java,89,game.battle.div::DivInfo::faction,unreached,"package world/game, no path from a loop root",argument
+game/battle/div/DivInfo.java,178,game.battle.div::DivInfo::saver::<SAVABLE$anon@144>::clear,host-world,reached from world and city,player-state
+game/battle/util/DIV_SPEC.java,66,game.battle.util::DIV_SPEC::DIV_SPECE::generate,unreached,"package world/game, no path from a loop root",argument
+game/battle/util/DivGeneration.java,93,game.battle.util::DivGeneration::rnd,setup,package,argument
+game/boosting/BValue.java,38,game.boosting::BValue::vGet,unreached,"package world/game, no path from a loop root",argument
+game/boosting/BValue.java,193,game.boosting::BValue::BValueFaction::vGet,unreached,"package world/game, no path from a loop root",argument
+game/boosting/BValue.java,225,game.boosting::BValue::BValuePlayerOnly::vGet,unreached,"package world/game, no path from a loop root",argument
+game/boosting/tmp/TBooster.java,82,game.boosting.tmp::TBooster::VBAdd::vGet,unreached,"package world/game, no path from a loop root",argument
+game/boosting/tmp/TBooster.java,90,game.boosting.tmp::TBooster::VBAdd::vGet,unreached,"package world/game, no path from a loop root",is-human
+game/boosting/tmp/TBooster.java,101,game.boosting.tmp::TBooster::VBAdd::vGet,unreached,"package world/game, no path from a loop root",argument
+game/boosting/tmp/TBooster.java,135,game.boosting.tmp::TBooster::VBMul::vGet,unreached,"package world/game, no path from a loop root",argument
+game/boosting/tmp/TBooster.java,143,game.boosting.tmp::TBooster::VBMul::vGet,unreached,"package world/game, no path from a loop root",is-human
+game/boosting/tmp/TBooster.java,152,game.boosting.tmp::TBooster::VBMul::vGet,unreached,"package world/game, no path from a loop root",argument
+game/boosting/tmp/TmpBoosting.java,164,game.boosting.tmp::TmpBoosting::hover,unreached,"package world/game, no path from a loop root",is-human
+game/event/actions/_BOOST.java,358,game.event.actions::_BOOST::Cluster::vGet,unreached,"package world/game, no path from a loop root",is-human
+game/event/actions/_BOOST.java,377,game.event.actions::_BOOST::Cluster::vGet,unreached,"package world/game, no path from a loop root",is-human
+game/event/actions/_BOOST_PERM.java,81,game.event.actions::_BOOST_PERM::Imp::exe,host-world,reached from world and city,argument
+game/event/actions/_CREDITS.java,51,game.event.actions::_CREDITS::Imp::setContext,host-world,reached from world and city,player-state
+game/event/actions/_CREDITS.java,58,game.event.actions::_CREDITS::Imp::exe,host-world,reached from world and city,player-state
+game/event/actions/_CREDITS.java,80,game.event.actions::_CREDITS::Imp::hover,host-world,reached from world and city,player-state
+game/event/actions/_CREDITS.java,98,game.event.actions::_CREDITS::Imp::problem,host-world,reached from world and city,player-state
+game/event/actions/_INVASION.java,68,game.event.actions::_INVASION::Imp::exe,host-world,reached from world and city,argument
+game/event/actions/_RESOURCES.java,76,game.event.actions::_RESOURCES::Imp::exe,host-world,reached from world and city,goods
+game/event/actions/_RESOURCES.java,79,game.event.actions::_RESOURCES::Imp::exe,host-world,reached from world and city,goods
+game/event/actions/_RESOURCES.java,80,game.event.actions::_RESOURCES::Imp::exe,host-world,reached from world and city,goods
+game/event/engine/EContext.java,139,game.event.engine::EContext::<GETTER_TRANS$anon@135>::get,unreached,"package world/game, no path from a loop root",argument
+game/event/engine/EContext.java,214,game.event.engine::EContext::<GETTER_TRANS$anon@210>::get,unreached,"package world/game, no path from a loop root",argument
+game/event/engine/EContext.java,425,game.event.engine::EContext::SelIndu::fix,unreached,"package world/game, no path from a loop root",player-state
+game/event/engine/EContext.java,427,game.event.engine::EContext::SelIndu::fix,unreached,"package world/game, no path from a loop root",player-state
+game/event/engine/EContext.java,757,game.event.engine::EContext::SelRoy::set,unreached,"package world/game, no path from a loop root",player-state
+game/event/engine/EVENT_HANDLER.java,190,game.event.engine::EVENT_HANDLER::update,city,reached from city,argument
+game/event/engine/EVENT_HANDLER.java,198,game.event.engine::EVENT_HANDLER::update,city,reached from city,argument
+game/event/engine/EVENT_HANDLER.java,234,game.event.engine::EVENT_HANDLER::can,host-world,reached from world,argument
+game/event/engine/EVENT_HANDLER.java,250,(field initializer or static block),unreached,"package world/game, no path from a loop root",argument
+game/event/engine/EventMessage.java,117,game.event.engine::EventMessage::make::<ButtPanel$anon@107>::clickA,host-world,reached from world and city,argument
+game/event/engine/EventMessage.java,136,game.event.engine::EventMessage::make::<ButtPanel$anon@107>::render,host-world,reached from world and city,argument
+game/event/engine/EventMessage.java,189,game.event.engine::EventMessage::make::<ButtPanel$anon@107>::hoverInfoGet,host-world,reached from world and city,argument
+game/event/engine/UIEventDebug.java,292,game.event.engine::UIEventDebug::hover,ui,reached from UI only,argument
+game/event/engine/UIEventDebug.java,294,game.event.engine::UIEventDebug::hover,ui,reached from UI only,argument
+game/events/citizen/EventCitizenRace.java,61,game.events.citizen::EventCitizenRace::EventCitizenRace::<ACTION$anon@57>::exe,ui,reached from UI only,player-state
+game/events/citizen/EventCitizenRel.java,61,game.events.citizen::EventCitizenRel::EventCitizenRel::<ACTION$anon@57>::exe,ui,reached from UI only,player-state
+game/events/faction/EventFactionExpand.java,37,game.events.faction::EventFactionExpand::update,host-world,reached from world,realm
+game/events/faction/EventFactionExpand.java,62,game.events.faction::EventFactionExpand::trigger,host-world,reached from world,realm
+game/events/faction/EventFactionPeace.java,81,game.events.faction::EventFactionPeace::up,host-world,reached from world and city,is-human
+game/events/faction/EventFactionWar.java,36,game.events.faction::EventFactionWar::update,host-world,reached from world,realm
+game/events/faction/EventFactionWar.java,62,game.events.faction::EventFactionWar::update,host-world,reached from world,is-human
+game/events/faction/EventFactionWar.java,64,game.events.faction::EventFactionWar::update,host-world,reached from world,realm
+game/events/faction/player/Stance.java,58,game.events.faction.player::Stance::process,host-world,reached from world,counterpart
+game/events/faction/player/Stance.java,85,game.events.faction.player::Stance::process,host-world,reached from world,argument
+game/events/faction/player/War.java,88,game.events.faction.player::War::updateAll,host-world,reached from world,counterpart
+game/events/faction/player/War.java,91,game.events.faction.player::War::updateAll,host-world,reached from world,counterpart
+game/events/faction/player/War.java,149,game.events.faction.player::War::updateDay,host-world,reached from world,counterpart
+game/events/faction/player/War.java,151,game.events.faction.player::War::updateDay,host-world,reached from world,counterpart
+game/events/faction/player/War.java,156,game.events.faction.player::War::updateDay,host-world,reached from world,player-state
+game/events/faction/player/War.java,157,game.events.faction.player::War::updateDay,host-world,reached from world,counterpart
+game/events/faction/player/War.java,180,game.events.faction.player::War::proxyMove,host-world,reached from world,counterpart
+game/events/faction/player/War.java,188,game.events.faction.player::War::proxyMove,host-world,reached from world,counterpart
+game/events/faction/player/War.java,255,game.events.faction.player::War::start,host-world,reached from world,counterpart
+game/events/faction/player/War.java,274,game.events.faction.player::War::start,host-world,reached from world,realm
+game/events/faction/player/War.java,276,game.events.faction.player::War::start,host-world,reached from world,realm
+game/events/faction/player/WarMessages.java,48,game.events.faction.player::WarMessages::join,host-world,reached from world,counterpart
+game/events/faction/player/WarMessages.java,49,game.events.faction.player::WarMessages::join,host-world,reached from world,counterpart
+game/events/killer/Util.java,68,game.events.killer::Util::pickRace,host-world,reached from world,player-state
+game/events/slave/EventUprising.java,215,game.events.slave::EventUprising::loose,host-world,reached from world,player-state
+game/events/slave/EventUprising.java,216,game.events.slave::EventUprising::loose,host-world,reached from world,player-state
+game/events/world/EventWorldRebellion.java,58,game.events.world::EventWorldRebellion::EventWorldRebellion::<ACTION$anon@54>::exe,ui,reached from UI only,realm
+game/events/world/EventWorldRebellion.java,60,game.events.world::EventWorldRebellion::EventWorldRebellion::<ACTION$anon@54>::exe,ui,reached from UI only,realm
+game/events/world/EventWorldRebellion.java,69,game.events.world::EventWorldRebellion::EventWorldRebellion::<RDOwnerChanger$anon@65>::change,unreached,"package world/game, no path from a loop root",is-human
+game/events/world/EventWorldRebellion.java,102,game.events.world::EventWorldRebellion::update,host-world,reached from world,realm
+game/events/world/EventWorldRebellion.java,112,game.events.world::EventWorldRebellion::update,host-world,reached from world,realm
+game/events/world/EventWorldRebellion.java,114,game.events.world::EventWorldRebellion::update,host-world,reached from world,realm
+game/events/world/EventWorldRebellion.java,161,game.events.world::EventWorldRebellion::men,host-world,reached from world,realm
+game/events/world/EventWorldRebellion.java,164,game.events.world::EventWorldRebellion::men,host-world,reached from world,is-human
+game/faction/diplomacy/deal/Deal.java,37,game.faction.diplomacy.deal::Deal::setFactionAndClear,host-world,reached from world and city,argument
+game/faction/diplomacy/deal/Deal.java,38,game.faction.diplomacy.deal::Deal::setFactionAndClear,host-world,reached from world and city,argument
+game/faction/diplomacy/deal/Deal.java,54,game.faction.diplomacy.deal::Deal::execute,host-world,reached from world and city,is-human
+game/faction/diplomacy/deal/DealBools.java,239,game.faction.diplomacy.deal::DealBools::ABSORB::<DealBool$anon@201>::problem,host-world,reached from world,is-human
+game/faction/diplomacy/deal/DealBools.java,304,game.faction.diplomacy.deal::DealBools::DealStance::problem,host-world,reached from world,is-human
+game/faction/diplomacy/deal/DealBools.java,476,game.faction.diplomacy.deal::DealBools::init,host-world,reached from world and city,is-human
+game/faction/diplomacy/deal/DealBools.java,516,game.faction.diplomacy.deal::DealBools::betrayal,host-world,reached from world and city,is-human
+game/faction/diplomacy/deal/DealBools.java,532,game.faction.diplomacy.deal::DealBools::execute,host-world,reached from world and city,is-human
+game/faction/diplomacy/deal/DealBools.java,544,game.faction.diplomacy.deal::DealBools::betrayalHover,unreached,"package world/game, no path from a loop root",is-human
+game/faction/diplomacy/deal/DealParty.java,71,game.faction.diplomacy.deal::DealParty::resources::<INT_OE$anon@57>::max,unreached,"package world/game, no path from a loop root",is-human
+game/faction/diplomacy/deal/DealParty.java,182,game.faction.diplomacy.deal::DealParty::init,host-world,reached from world and city,is-human
+game/faction/diplomacy/deal/DealParty.java,184,game.faction.diplomacy.deal::DealParty::init,host-world,reached from world and city,argument
+game/faction/diplomacy/deal/DealParty.java,213,game.faction.diplomacy.deal::DealParty::init,host-world,reached from world and city,is-human
+game/faction/diplomacy/deal/DealParty.java,220,game.faction.diplomacy.deal::DealParty::valueResource,host-world,reached from world and city,is-human
+game/faction/diplomacy/deal/DealParty.java,222,game.faction.diplomacy.deal::DealParty::valueResource,host-world,reached from world and city,argument
+game/faction/diplomacy/deal/DealParty.java,236,game.faction.diplomacy.deal::DealParty::manualPriceSell,unreached,"package world/game, no path from a loop root",argument
+game/faction/diplomacy/deal/DealParty.java,246,game.faction.diplomacy.deal::DealParty::manualPriceBuy,unreached,"package world/game, no path from a loop root",argument
+game/faction/diplomacy/deal/DealRegs.java,111,game.faction.diplomacy.deal::DealRegs::init,host-world,reached from world and city,is-human
+game/faction/diplomacy/deal/DealRegs.java,262,game.faction.diplomacy.deal::DealRegs::DealReg::value,host-world,reached from world and city,is-human
+game/faction/diplomacy/deal/DealRegs.java,324,game.faction.diplomacy.deal::DealRegs::value,ui,reached from UI only,is-human
+game/faction/diplomacy/DIP.java,163,game.faction.diplomacy::DIP::get,host-world,reached from world and city,argument
+game/faction/diplomacy/DIP.java,185,game.faction.diplomacy::DIP::secondSinceStance,host-world,reached from world and city,argument
+game/faction/diplomacy/DIP.java,248,game.faction.diplomacy::DIP::set,unreached,"package world/game, no path from a loop root",argument
+game/faction/diplomacy/DIP.java,287,game.faction.diplomacy::DIP::set,unreached,"package world/game, no path from a loop root",argument
+game/faction/diplomacy/DIP.java,299,game.faction.diplomacy::DIP::set,unreached,"package world/game, no path from a loop root",argument
+game/faction/diplomacy/DIP.java,323,game.faction.diplomacy::DIP::ally,unreached,"package world/game, no path from a loop root",is-human
+game/faction/diplomacy/DIP.java,383,(field initializer or static block),unreached,"package world/game, no path from a loop root",counterpart
+game/faction/diplomacy/DIP.java,435,game.faction.diplomacy::DIP::increase::<ACTION$anon@430>::exe,ui,reached from UI only,argument
+game/faction/diplomacy/DipStance.java,53,game.faction.diplomacy::DipStance::is,host-world,reached from world and city,argument
+game/faction/diplomacy/DipStance.java,61,game.faction.diplomacy::DipStance::set,host-world,reached from world and city,argument
+game/faction/diplomacy/DipStance.java,88,game.faction.diplomacy::DipStance::List::all,host-world,reached from world and city,is-human
+game/faction/diplomacy/DipStance.java,113,game.faction.diplomacy::DipStance::List::player,host-world,reached from world,argument
+game/faction/diplomacy/DipWarPlayer.java,53,game.faction.diplomacy::DipWarPlayer::DipWarPlayer::<DipActivityListener$anon@46>::change,unreached,"package world/game, no path from a loop root",counterpart
+game/faction/diplomacy/DipWarPlayer.java,55,game.faction.diplomacy::DipWarPlayer::DipWarPlayer::<DipActivityListener$anon@46>::change,unreached,"package world/game, no path from a loop root",is-human
+game/faction/diplomacy/DipWarPlayer.java,58,game.faction.diplomacy::DipWarPlayer::DipWarPlayer::<DipActivityListener$anon@46>::change,unreached,"package world/game, no path from a loop root",is-human
+game/faction/diplomacy/DipWarPlayer.java,93,game.faction.diplomacy::DipWarPlayer::init,host-world,reached from world and city,player-state
+game/faction/diplomacy/DipWarPlayer.java,138,game.faction.diplomacy::DipWarPlayer::init,host-world,reached from world and city,argument
+game/faction/diplomacy/DipWarPlayer.java,195,game.faction.diplomacy::DipWarPlayer::coalitionAdvantage,host-world,reached from world and city,argument
+game/faction/diplomacy/DipWarPlayer.java,211,game.faction.diplomacy::DipWarPlayer::validEnemy,host-world,reached from world and city,realm
+game/faction/diplomacy/DipWarPlayer.java,212,game.faction.diplomacy::DipWarPlayer::validEnemy,host-world,reached from world and city,realm
+game/faction/diplomacy/DipWarPlayer.java,227,game.faction.diplomacy::DipWarPlayer::treaty::<Treaty$anon@219>::can,host-world,reached from world and city,is-human
+game/faction/diplomacy/DipWarPlayer.java,271,game.faction.diplomacy::DipWarPlayer::distress,host-world,reached from world and city,is-human
+game/faction/diplomacy/DipWarPlayer.java,326,game.faction.diplomacy::DipWarPlayer::debug,unreached,"package world/game, no path from a loop root",argument
+game/faction/diplomacy/Listener.java,34,game.faction.diplomacy::Listener::change,unreached,"package world/game, no path from a loop root",is-human
+game/faction/diplomacy/UpVassal.java,69,game.faction.diplomacy::UpVassal::update,host-world,reached from world,counterpart
+game/faction/diplomacy/UpVassal.java,70,game.faction.diplomacy::UpVassal::update,host-world,reached from world,counterpart
+game/faction/diplomacy/UpVassal.java,75,game.faction.diplomacy::UpVassal::update,host-world,reached from world,counterpart
+game/faction/diplomacy/UpVassal.java,76,game.faction.diplomacy::UpVassal::update,host-world,reached from world,counterpart
+game/faction/diplomacy/UpVassal.java,97,game.faction.diplomacy::UpVassal::MVassal::MVassal,unreached,"package world/game, no path from a loop root",player-state
+game/faction/diplomacy/UpVassal.java,101,game.faction.diplomacy::UpVassal::MVassal::MVassal,unreached,"package world/game, no path from a loop root",player-state
+game/faction/diplomacy/UpVassal.java,109,game.faction.diplomacy::UpVassal::MVassal::MVassal,unreached,"package world/game, no path from a loop root",player-state
+game/faction/diplomacy/UpVassal.java,241,game.faction.diplomacy::UpVassal::MOverlord::make::<ButtPanel$anon@232>::clickA,host-world,reached from world and city,player-state
+game/faction/diplomacy/UpVassal.java,265,game.faction.diplomacy::UpVassal::MOverlord::f,host-world,reached from world and city,counterpart
+game/faction/FACTIONS.java,89,game.faction::FACTIONS::FACTIONS,unreached,"package world/game, no path from a loop root",argument
+game/faction/FWorth.java,171,game.faction::raider,unreached,"package world/game, no path from a loop root",argument
+game/faction/FWorth.java,175,game.faction::faction,unreached,"package world/game, no path from a loop root",argument
+game/faction/FWorth.java,208,game.faction::WINT::player,ui,reached from UI only,argument
+game/faction/Initer.java,22,game.faction::Initer::Initer,setup,package,player-state
+game/faction/Initer.java,23,game.faction::Initer::Initer,setup,package,argument
+game/faction/Initer.java,25,game.faction::Initer::Initer,setup,package,argument
+game/faction/npc/stockpile/NPCRes.java,147,game.faction.npc.stockpile::NPCRes::priceSellP,ui,reached from UI only,argument
+game/faction/npc/stockpile/NPCRes.java,151,game.faction.npc.stockpile::NPCRes::priceBuyP,ui,reached from UI only,argument
+game/faction/npc/stockpile/NPCRes.java,240,game.faction.npc.stockpile::NPCRes::buyer::<FBUYER$anon@221>::addReserve,unreached,"package world/game, no path from a loop root",is-human
+game/faction/npc/stockpile/NPCRes.java,267,game.faction.npc.stockpile::NPCRes::seller::<FSELLER$anon@254>::remove,unreached,"package world/game, no path from a loop root",is-human
+game/faction/player/emmi/Emissaries.java,130,game.faction.player.emmi::Emissaries::Emissaries::<RDOwnerChanger$anon@126>::change,unreached,"package world/game, no path from a loop root",is-human
+game/faction/player/emmi/Emissaries.java,225,game.faction.player.emmi::Emissaries::upReg::<IUpdater$anon@220>::update,host-world,reached from world and city,is-human
+game/faction/player/emmi/Emissaries.java,238,game.faction.player.emmi::Emissaries::penaltyMul,host-world,reached from world,argument
+game/faction/player/emmi/Emissaries.java,258,game.faction.player.emmi::Emissaries::available,unreached,"package world/game, no path from a loop root",argument
+game/faction/player/emmi/Emissaries.java,262,game.faction.player.emmi::Emissaries::produced,unreached,"package world/game, no path from a loop root",argument
+game/faction/player/emmi/EmiType.java,121,game.faction.player.emmi::EmiType::hover,unreached,"package world/game, no path from a loop root",argument
+game/faction/player/emmi/EmiType.java,126,game.faction.player.emmi::EmiType::hover,unreached,"package world/game, no path from a loop root",argument
+game/faction/player/emmi/EmiTypeRoyOp.java,36,game.faction.player.emmi::EmiTypeRoyOp::hover,unreached,"package world/game, no path from a loop root",counterpart
+game/faction/player/emmi/EmiTypeRoyOp.java,44,game.faction.player.emmi::EmiTypeRoyOp::hover,unreached,"package world/game, no path from a loop root",counterpart
+game/faction/player/PBonusSetting.java,180,game.faction.player::PBonusSetting::apply,unreached,"package world/game, no path from a loop root",player-state
+game/faction/player/PCredits.java,83,game.faction.player::PCredits::VV::get,unreached,"package world/game, no path from a loop root",is-human
+game/faction/player/PCredits.java,103,game.faction.player::PCredits::update,host-world,reached from world,argument
+game/faction/player/PCredits.java,129,game.faction.player::PCredits::inc,host-world,reached from world,argument
+game/faction/player/Player.java,243,game.faction.player::Player::PlayerRaces::saver::<SAVABLE$anon@233>::load,unreached,"package world/game, no path from a loop root",player-state
+game/faction/player/Player.java,333,game.faction.player::Player::offensivePower,host-world,reached from world and city,player-state
+game/faction/player/PLevels.java,139,game.faction.player::PLevels::update,host-world,reached from world,argument
+game/faction/player/PLevels.java,192,game.faction.player::PLevels::Level::Level::<DOUBLE_O$anon@187>::getD,host-world,reached from world and city,is-human
+game/faction/player/PLevels.java,193,game.faction.player::PLevels::Level::Level::<DOUBLE_O$anon@187>::getD,host-world,reached from world and city,player-state
+game/faction/player/PLevels.java,206,game.faction.player::PLevels::Level::Level::<DOUBLE_O$anon@202>::getD,host-world,reached from world and city,is-human
+game/faction/player/PLevels.java,207,game.faction.player::PLevels::Level::Level::<DOUBLE_O$anon@202>::getD,host-world,reached from world and city,player-state
+game/faction/player/PLevels.java,220,game.faction.player::PLevels::Level::Level::<DOUBLE_O$anon@216>::getD,host-world,reached from world and city,is-human
+game/faction/player/PLevels.java,221,game.faction.player::PLevels::Level::Level::<DOUBLE_O$anon@216>::getD,host-world,reached from world and city,player-state
+game/faction/player/PLevels.java,251,game.faction.player::PLevels::Level::hoverInfoGet,ui,reached from UI only,argument
+game/faction/player/PLevels.java,277,game.faction.player::PLevels::Mess::make,host-world,reached from world and city,player-state
+game/faction/player/PTech.java,272,game.faction.player::PTech::setPenalty,host-world,reached from world and city,is-human
+game/faction/player/PTitles.java,262,game.faction.player::PTitles::update,host-world,reached from world,player-state
+game/faction/player/PTitles.java,278,game.faction.player::PTitles::unlock,host-world,reached from world,player-state
+game/faction/player/PTitles.java,401,game.faction.player::PTitles::PTitle::PTitle::<DOUBLE_O$anon@397>::getD,host-world,reached from world and city,is-human
+game/faction/player/PTitles.java,413,game.faction.player::PTitles::PTitle::PTitle::<DOUBLE_O$anon@409>::getD,host-world,reached from world and city,is-human
+game/faction/player/PTitles.java,425,game.faction.player::PTitles::PTitle::PTitle::<DOUBLE_O$anon@421>::getD,host-world,reached from world and city,is-human
+game/faction/player/PTitles.java,446,game.faction.player::PTitles::PTitle::select,unreached,"package world/game, no path from a loop root",argument
+game/faction/player/PTitles.java,454,game.faction.player::PTitles::PTitle::unlockable,host-world,reached from world,argument
+game/faction/player/PTitles.java,635,game.faction.player::PTitles::Message::get,host-world,reached from world and city,argument
+game/faction/royalty/King.java,33,game.faction.royalty::King::iins::<StrInserter$anon@28>::set,ui,reached from UI only,player-state
+game/faction/royalty/King.java,34,game.faction.royalty::King::iins::<StrInserter$anon@28>::set,ui,reached from UI only,player-state
+game/faction/royalty/King.java,35,game.faction.royalty::King::iins::<StrInserter$anon@28>::set,ui,reached from UI only,player-state
+game/faction/royalty/NPCCourt.java,222,game.faction.royalty::NPCCourt::race,host-world,reached from world and city,player-state
+game/faction/royalty/opinion/OpsEmi.java,70,game.faction.royalty.opinion::OpsEmi::OpsEmi::<ROpper$anon@49>::ptarget,unreached,"package world/game, no path from a loop root",argument
+game/faction/royalty/opinion/OpsEmi.java,93,game.faction.royalty.opinion::OpsEmi::OpsEmi::<ROpper$anon@75>::ptarget,unreached,"package world/game, no path from a loop root",argument
+game/faction/royalty/opinion/OpsEmi.java,103,game.faction.royalty.opinion::OpsEmi::OpsEmi::<ROpperDown$anon@98>::update,unreached,"package world/game, no path from a loop root",argument
+game/faction/royalty/opinion/OpsEmi.java,154,game.faction.royalty.opinion::OpsEmi::assasinationsPerYear,unreached,"package world/game, no path from a loop root",argument
+game/faction/royalty/opinion/OpsEmi.java,166,game.faction.royalty.opinion::OpsEmi::opinionTarget,ui,reached from UI only,argument
+game/faction/royalty/opinion/OpsEmi.java,167,game.faction.royalty.opinion::OpsEmi::opinionTarget,ui,reached from UI only,argument
+game/faction/royalty/opinion/OpsEmi.java,178,game.faction.royalty.opinion::OpsEmi::trustTarget,ui,reached from UI only,argument
+game/faction/royalty/opinion/OpsEmi.java,179,game.faction.royalty.opinion::OpsEmi::trustTarget,ui,reached from UI only,argument
+game/faction/royalty/opinion/OpsOther.java,96,game.faction.royalty.opinion::OpsOther::OpsOther::<ROpper$anon@90>::pget,unreached,"package world/game, no path from a loop root",counterpart
+game/faction/royalty/opinion/OpsOther.java,119,game.faction.royalty.opinion::OpsOther::OpsOther::<ROpper$anon@108>::pget,unreached,"package world/game, no path from a loop root",player-state
+game/faction/royalty/opinion/OpsOther.java,145,game.faction.royalty.opinion::OpsOther::OpsOther::<ROpper$anon@130>::pget,unreached,"package world/game, no path from a loop root",argument
+game/faction/royalty/opinion/OpsOther.java,146,game.faction.royalty.opinion::OpsOther::OpsOther::<ROpper$anon@130>::pget,unreached,"package world/game, no path from a loop root",argument
+game/faction/royalty/opinion/OpsOther.java,147,game.faction.royalty.opinion::OpsOther::OpsOther::<ROpper$anon@130>::pget,unreached,"package world/game, no path from a loop root",argument
+game/faction/royalty/opinion/OpsStance.java,105,game.faction.royalty.opinion::OpsStance::OpsStance::<ROpper$anon@101>::increase,unreached,"package world/game, no path from a loop root",counterpart
+game/faction/royalty/opinion/OpsStance.java,107,game.faction.royalty.opinion::OpsStance::OpsStance::<ROpper$anon@101>::increase,unreached,"package world/game, no path from a loop root",counterpart
+game/faction/royalty/opinion/OpsStance.java,121,game.faction.royalty.opinion::OpsStance::OpsStance::<ROpper$anon@101>::ptarget,unreached,"package world/game, no path from a loop root",counterpart
+game/faction/royalty/opinion/OpsStance.java,123,game.faction.royalty.opinion::OpsStance::OpsStance::<ROpper$anon@101>::ptarget,unreached,"package world/game, no path from a loop root",counterpart
+game/faction/royalty/opinion/OpsStance.java,156,game.faction.royalty.opinion::OpsStance::OpsStance::<ROpper$anon@148>::pget,unreached,"package world/game, no path from a loop root",argument
+game/faction/royalty/opinion/OpsStance.java,176,game.faction.royalty.opinion::OpsStance::OpsStance::<ROpper$anon@167>::pget,unreached,"package world/game, no path from a loop root",argument
+game/faction/royalty/opinion/OpsStance.java,234,game.faction.royalty.opinion::OpsStance::OpsStance::<BattleListener$anon@212>::battle,host-world,reached from world,is-human
+game/faction/royalty/opinion/OpsStance.java,240,game.faction.royalty.opinion::OpsStance::OpsStance::<BattleListener$anon@212>::battle,host-world,reached from world,is-human
+game/faction/royalty/opinion/OpsStance.java,291,game.faction.royalty.opinion::OpsStance::setNewStance,host-world,reached from world and city,counterpart
+game/faction/royalty/opinion/OpsStance.java,338,game.faction.royalty.opinion::OpsStance::signPeace,host-world,reached from world and city,counterpart
+game/faction/trade/ResourcePrices.java,35,game.faction.trade::ResourcePrices::get,host-world,reached from world and city,is-human
+game/faction/trade/TradeManager.java,49,game.faction.trade::TradeManager::tarif,host-world,reached from world and city,is-human
+game/faction/trade/TradeManager.java,53,game.faction.trade::TradeManager::tarif,host-world,reached from world and city,is-human
+game/faction/trade/TradeManager.java,74,game.faction.trade::TradeManager::toll,ui,reached from UI only,argument
+game/faction/trade/TradeManager.java,88,game.faction.trade::TradeManager::toll,host-world,reached from world and city,is-human
+game/faction/trade/TradeManager.java,119,game.faction.trade::TradeManager::TradeManager::<TileUpdater$anon@107>::update,host-world,reached from world and city,argument
+game/faction/trade/TradeManager.java,124,game.faction.trade::TradeManager::TradeManager::<TileUpdater$anon@107>::update,host-world,reached from world and city,argument
+game/faction/trade/TradeManager.java,188,game.faction.trade::TradeManager::sellPlayer,host-world,reached from world and city,argument
+game/faction/trade/TradeManager.java,215,game.faction.trade::TradeManager::ship,host-world,reached from world and city,is-human
+game/faction/trade/TradeSorter.java,41,game.faction.trade::TradeSorter::sellPlayer,host-world,reached from world and city,argument
+game/faction/trade/TradeSorter.java,153,game.faction.trade::TradeSorter::sellPlayer,host-world,reached from world and city,argument
+game/faction/trade/TradeSorter.java,199,game.faction.trade::TradeSorter::sellPriceItemPlayer,host-world,reached from world and city,argument
+game/faction/trade/TradeSorter.java,209,game.faction.trade::TradeSorter::buy,host-world,reached from world and city,is-human
+game/faction/trade/TradeSorter.java,218,game.faction.trade::TradeSorter::buy,host-world,reached from world and city,is-human
+game/faction/trade/TradeSorter.java,219,game.faction.trade::TradeSorter::buy,host-world,reached from world and city,is-human
+game/faction/trade/TradeSorter.java,229,game.faction.trade::TradeSorter::buy,host-world,reached from world and city,is-human
+game/faction/trade/TradeSorter.java,263,game.faction.trade::TradeSorter::buy,host-world,reached from world and city,is-human
+game/faction/trade/TradeSorter.java,278,game.faction.trade::TradeSorter::buy,host-world,reached from world and city,is-human
+game/faction/trade/TradeSorter.java,309,game.faction.trade::TradeSorter::buy,host-world,reached from world and city,player-state
+game/GAME.java,342,game::GAME::player,host-world,reached from world and city,argument
+game/GameSpec.java,109,game::GameSpec::save,unreached,"package world/game, no path from a loop root",realm
+game/GameSpec.java,110,game::GameSpec::save,unreached,"package world/game, no path from a loop root",argument
+game/GameSpec.java,114,game::GameSpec::save,unreached,"package world/game, no path from a loop root",player-state
+game/GameSpec.java,115,game::GameSpec::save,unreached,"package world/game, no path from a loop root",argument
+game/GameSpec.java,116,game::GameSpec::save,unreached,"package world/game, no path from a loop root",argument
+game/GameSpec.java,117,game::GameSpec::save,unreached,"package world/game, no path from a loop root",argument
+game/raiding/MessDefeated.java,30,game.raiding::MessDefeated::MessDefeated,unreached,"package world/game, no path from a loop root",player-state
+game/raiding/MessDemand.java,157,game.raiding::MessDemand::Demand::canPay,host-world,reached from world and city,player-state
+game/raiding/MessDemand.java,170,game.raiding::MessDemand::Demand::hoverInfoGet,unreached,"package world/game, no path from a loop root",player-state
+game/raiding/MessDemand.java,184,game.raiding::MessDemand::Demand::pay,host-world,reached from world and city,player-state
+game/raiding/MessDemand.java,188,game.raiding::MessDemand::Demand::pay,host-world,reached from world and city,goods
+game/raiding/MessDemand.java,203,game.raiding::MessDemand::Demand::section::<GStat$anon@198>::update,host-world,reached from world and city,player-state
+game/raiding/MessDemand.java,364,game.raiding::MessDemand::DEntries::set,unreached,"package world/game, no path from a loop root",player-state
+game/raiding/MessDemand.java,365,game.raiding::MessDemand::DEntries::set,unreached,"package world/game, no path from a loop root",player-state
+game/raiding/MessDemand.java,385,game.raiding::MessDemand::DEntries::set,unreached,"package world/game, no path from a loop root",player-state
+game/raiding/Raider.java,98,game.raiding::Raider::hasInterrest,host-world,reached from world and city,argument
+game/raiding/RaiderArmy.java,58,game.raiding::RaiderArmy::RaiderArmy,unreached,"package world/game, no path from a loop root",argument
+game/raiding/RaiderArmy.java,91,game.raiding::RaiderArmy::RaiderArmy,unreached,"package world/game, no path from a loop root",argument
+game/raiding/RaiderArmy.java,194,game.raiding::RaiderArmy::isGoodTile,host-world,reached from world and city,is-human
+game/raiding/RaiderArmy.java,212,game.raiding::RaiderArmy::removeArmies,host-world,reached from world and city,is-human
+game/raiding/RaiderText.java,47,game.raiding::RaiderText::<GETTER_TRANS$anon@43>::get,unreached,"package world/game, no path from a loop root",argument
+game/raiding/RAIDING.java,120,game.raiding::RAIDING::RAIDING::<ACTION$anon@116>::exe,ui,reached from UI only,realm
+game/raiding/RAIDING.java,122,game.raiding::RAIDING::RAIDING::<ACTION$anon@116>::exe,ui,reached from UI only,argument
+game/raiding/RAIDING.java,138,game.raiding::RAIDING::RAIDING::<ACTION$anon@134>::exe,ui,reached from UI only,realm
+game/raiding/RAIDING.java,165,game.raiding::RAIDING::RAIDING::<ACTION$anon@156>::exe::<BValueAll$anon@161>::get,ui,reached from UI only,counterpart
+game/raiding/RaidingCurrent.java,248,game.raiding::RaidingCurrent::appear,ui,reached from UI only,is-human
+game/raiding/RaidingCurrent.java,285,game.raiding::RaidingCurrent::isValid,host-world,reached from world,is-human
+game/raiding/RaidingMap.java,72,game.raiding::RaidingMap::RaidingMap::<RDOwnerChanger$anon@68>::change,unreached,"package world/game, no path from a loop root",is-human
+game/raiding/RaidingMap.java,83,game.raiding::RaidingMap::RaidingMap::<DipActivityListener$anon@77>::change,unreached,"package world/game, no path from a loop root",is-human
+game/raiding/RaidingMap.java,193,(field initializer or static block),unreached,"package world/game, no path from a loop root",is-human
+game/raiding/RaidingMap.java,269,(field initializer or static block),unreached,"package world/game, no path from a loop root",is-human
+game/raiding/RaidingMap.java,284,(field initializer or static block),unreached,"package world/game, no path from a loop root",is-human
+game/raiding/RaidingMap.java,333,game.raiding::RaidingMap::process,host-world,reached from world and city,is-human
+game/raiding/RaidingMap.java,369,game.raiding::RaidingMap::process,host-world,reached from world and city,is-human
+game/raiding/RaidingMap.java,381,game.raiding::RaidingMap::process,host-world,reached from world and city,is-human
+game/raiding/RaidingMap.java,436,game.raiding::RaidingMap::add,host-world,reached from world and city,is-human
+game/raiding/RaidingMap.java,458,game.raiding::RaidingMap::passThroughFaction,host-world,reached from world,counterpart
+game/raiding/RaidingMap.java,496,game.raiding::RaidingMap::aProcess,host-world,reached from world and city,realm
+game/raiding/RaidingMap.java,497,game.raiding::RaidingMap::aProcess,host-world,reached from world and city,realm
+game/raiding/RaidingUtil.java,35,game.raiding::RaidingUtil::playerPow,unreached,"package world/game, no path from a loop root",realm
+game/raiding/RaidingUtil.java,38,game.raiding::RaidingUtil::playerPow,unreached,"package world/game, no path from a loop root",realm
+game/raiding/RaidingUtil.java,45,game.raiding::RaidingUtil::defences,ui,reached from UI only,is-human
+game/raiding/RaidingUtil.java,51,game.raiding::RaidingUtil::defences,ui,reached from UI only,realm
+game/raiding/RaidingUtil.java,52,game.raiding::RaidingUtil::defences,ui,reached from UI only,is-human
+game/raiding/RaidingUtil.java,60,game.raiding::RaidingUtil::ransomCurrent,unreached,"package world/game, no path from a loop root",player-state
+game/raiding/RaidingUtil.java,95,game.raiding::RaidingUtil::attackSpot,unreached,"package world/game, no path from a loop root",realm
+game/raiding/RaidingUtil.java,120,game.raiding::RaidingUtil::validCoo,unreached,"package world/game, no path from a loop root",is-human
+game/raiding/UpdaterRegions.java,93,game.raiding::UpdaterRegions::update,host-world,reached from world and city,is-human
+game/raiding/UpdaterRegions.java,115,game.raiding::UpdaterRegions::raid,host-world,reached from world and city,counterpart
+game/tourism/Text.java,45,game.tourism::Text::<GETTER_TRANS$anon@41>::get,unreached,"package world/game, no path from a loop root",argument
+game/tourism/TOURISM.java,215,game.tourism::TOURISM::touristFinish,ui,reached from UI only,player-state
+init/race/bio/BioLine.java,55,init.race.bio::BioLine::<GETTER_TRANS$anon@51>::get,setup,package,argument
+init/race/KingMessages.java,130,init.race::KingMessages::<GETTER_TRANS$anon@126>::get,setup,package,argument
+init/resources/RESOURCE.java,313,init.resources::RESOURCE::hoverDetailed,setup,package,argument
+init/resources/RESOURCE.java,335,init.resources::RESOURCE::hoverDetailed,setup,package,argument
+init/resources/RESOURCE.java,463,init.resources::RESOURCE::remove,setup,package,player-state
+init/resources/RESOURCE.java,482,init.resources::RESOURCE::remove,setup,package,player-state
+init/resources/RESOURCE.java,524,init.resources::RESOURCE::remove,setup,package,player-state
+init/resources/RESOURCE.java,543,init.resources::RESOURCE::owned,setup,package,goods
+init/tech/TECH.java,84,init.tech::TECH::TECH::<DOUBLE_O$anon@80>::getD,setup,package,is-human
+init/tech/TECH.java,85,init.tech::TECH::TECH::<DOUBLE_O$anon@80>::getD,setup,package,argument
+init/tech/TECH.java,87,init.tech::TECH::TECH::<DOUBLE_O$anon@80>::getD,setup,package,argument
+init/tech/TECH.java,98,init.tech::TECH::TECH::<DOUBLE_O$anon@94>::getD,setup,package,is-human
+init/tech/TECH.java,99,init.tech::TECH::TECH::<DOUBLE_O$anon@94>::getD,setup,package,argument
+init/tech/TECH.java,101,init.tech::TECH::TECH::<DOUBLE_O$anon@94>::getD,setup,package,argument
+init/tech/TECH.java,112,init.tech::TECH::TECH::<DOUBLE_O$anon@108>::getD,setup,package,is-human
+init/tech/TECH.java,113,init.tech::TECH::TECH::<DOUBLE_O$anon@108>::getD,setup,package,argument
+init/tech/TECH.java,115,init.tech::TECH::TECH::<DOUBLE_O$anon@108>::getD,setup,package,argument
+init/type/CLIMATES.java,233,init.type::CLIMATES::BV::BV::<BValue$anon@200>::vGet,setup,package,is-human
+init/type/CLIMATES.java,235,init.type::CLIMATES::BV::BV::<BValue$anon@200>::vGet,setup,package,argument
+init/value/GVALUES.java,64,init.value::GVALUES::finishSetup::<ACTION$anon@56>::exe::<GETTER$anon@60>::get,setup,package,argument
+init/value/GValuesInit.java,200,init.value::GValuesInit::faction::<BOOLEANO$anon@197>::is,setup,package,is-human
+menu/ScRandom.java,97,menu::ScRandom::ScRandom::<ScreenButton$anon@78>::clickA::<Constructor$anon@82>::getState,setup,package,argument
+menu/ScRandomSettings.java,271,menu::ScRandomSettings::apply,setup,package,argument
+menu/ScRandomSettings.java,274,menu::ScRandomSettings::apply,setup,package,argument
+settlement/battle/invasion/ArtilleryPlacer.java,57,settlement.battle.invasion::ArtilleryPlacer::getRace,city,reached from city,player-state
+settlement/battle/invasion/Attack.java,71,settlement.battle.invasion::Attack::Attack,city,package (unreached),realm
+settlement/battle/invasion/Attack.java,73,settlement.battle.invasion::Attack::Attack,city,package (unreached),realm
+settlement/battle/invasion/Attack.java,105,settlement.battle.invasion::Attack::afterExit,city,package (unreached),argument
+settlement/battle/invasion/Attack.java,176,settlement.battle.invasion::Attack::afterExit,city,package (unreached),realm
+settlement/battle/invasion/Attack.java,194,settlement.battle.invasion::Attack::afterExit,city,package (unreached),realm
+settlement/battle/invasion/Attack.java,210,settlement.battle.invasion::Attack::armies,city,package (unreached),realm
+settlement/battle/invasion/Attack.java,211,settlement.battle.invasion::Attack::armies,city,package (unreached),is-human
+settlement/battle/invasion/Attack.java,218,settlement.battle.invasion::Attack::armies,city,package (unreached),argument
+settlement/battle/invasion/Attack.java,227,settlement.battle.invasion::Attack::armies,city,package (unreached),is-human
+settlement/battle/invasion/Attack.java,378,settlement.battle.invasion::Attack::MVictory2::make::<ButtPanel$anon@370>::clickA,host-world,reached from world and city,goods
+settlement/battle/invasion/Invador.java,93,settlement.battle.invasion::Invador::Invador::<DipActivityListener$anon@87>::change,city,package (unreached),is-human
+settlement/battle/invasion/Invador.java,132,settlement.battle.invasion::Invador::invade,host-world,reached from world,player-state
+settlement/battle/invasion/Invador.java,135,settlement.battle.invasion::Invador::invade,host-world,reached from world,argument
+settlement/battle/invasion/Invasion.java,393,settlement.battle.invasion::Invasion::resolve,city,reached from city,argument
+settlement/battle/invasion/Invasion.java,420,settlement.battle.invasion::Invasion::loose,city,reached from city,player-state
+settlement/battle/invasion/Invasion.java,421,settlement.battle.invasion::Invasion::loose,city,reached from city,player-state
+settlement/entity/humanoid/ai/consume/D_PlanDrinkGround.java,57,settlement.entity.humanoid.ai.consume::D_PlanDrinkGround::walk::<Resumer$anon@45>::res,city,package (unreached),player-state
+settlement/entity/humanoid/ai/consume/F_PlanEat.java,71,settlement.entity.humanoid.ai.consume::F_PlanEat::eat::<Resumer$anon@66>::res,city,package (unreached),player-state
+settlement/entity/humanoid/ai/consume/M_PlanReturn.java,86,settlement.entity.humanoid.ai.consume::M_PlanReturn::walk::<Resumer$anon@64>::can,city,package (unreached),player-state
+settlement/entity/humanoid/ai/consume/M_PlanReturn.java,108,settlement.entity.humanoid.ai.consume::M_PlanReturn::dump,host-world,reached from world and city,player-state
+settlement/entity/humanoid/ai/crime/Theft.java,49,settlement.entity.humanoid.ai.crime::Theft::go::<Resumer$anon@39>::res,city,package (unreached),player-state
+settlement/entity/humanoid/ai/crime/Theft.java,54,settlement.entity.humanoid.ai.crime::Theft::go::<Resumer$anon@39>::res,city,package (unreached),player-state
+settlement/entity/humanoid/ai/service/M_PlanBarber.java,44,settlement.entity.humanoid.ai.service::M_PlanBarber::first::<Resumer$anon@27>::res,city,package (unreached),player-state
+settlement/entity/humanoid/ai/work/PlanOddHunt.java,201,settlement.entity.humanoid.ai.work::PlanOddHunt::PlanOddHunt::<HResumer$anon@187>::res,city,package (unreached),player-state
+settlement/entity/humanoid/ai/work/PlanOddjobber.java,948,settlement.entity.humanoid.ai.work::PlanOddjobber::dumpResource::<Resumer$anon@933>::setAction,city,package (unreached),player-state
+settlement/entry/EntryUpdater.java,51,settlement.entry::EntryUpdater::update,city,reached from city,realm
+settlement/entry/EntryUpdater.java,70,settlement.entry::EntryUpdater::update,city,reached from city,realm
+settlement/entry/EntryUpdater.java,80,settlement.entry::EntryUpdater::update,city,reached from city,counterpart
+settlement/entry/Immigration.java,77,settlement.entry::Immigration::Immigration::<Bo$anon@68>::w,city,package (unreached),argument
+settlement/entry/Immigration.java,268,settlement.entry::Immigration::Immigrator::speed,city,package (unreached),argument
+settlement/entry/Immigration.java,375,settlement.entry::Immigration::getImmigrants,city,package (unreached),argument
+settlement/entry/Immigration.java,469,settlement.entry::Immigration::hoverImmigrants,city,package (unreached),argument
+settlement/entry/PeopleSpawner.java,44,settlement.entry::PeopleSpawner::PeopleSpawner::<ACTION$anon@40>::exe,ui,reached from UI only,player-state
+settlement/entry/SENTRY.java,45,settlement.entry::SENTRY::update,city,reached from city,realm
+settlement/job/JobBuildFence.java,71,settlement.job::JobBuildFence::construct,city,package (unreached),player-state
+settlement/job/JobBuildFillCave.java,95,settlement.job::JobBuildFillCave::construct,city,package (unreached),player-state
+settlement/job/JobBuildFort.java,97,settlement.job::JobBuildFort::lockText,city,package (unreached),argument
+settlement/job/JobBuildFort.java,121,settlement.job::JobBuildFort::construct,city,package (unreached),player-state
+settlement/job/JobBuildFort.java,150,settlement.job::JobBuildFort::Stairs::construct,city,package (unreached),player-state
+settlement/job/JobBuildRoad.java,272,settlement.job::JobBuildRoad::lockText,city,package (unreached),argument
+settlement/job/JobBuildRoad.java,319,settlement.job::JobBuildRoad::construct,city,package (unreached),player-state
+settlement/job/JobBuildStructure.java,171,settlement.job::JobBuildStructure::Wall::construct,city,package (unreached),player-state
+settlement/job/JobBuildStructure.java,259,settlement.job::JobBuildStructure::Roof::construct,city,package (unreached),player-state
+settlement/job/JobClear.java,100,settlement.job::JobClear::jobPerform,city,package (unreached),player-state
+settlement/job/JobClears.java,353,settlement.job::JobClears::food::<JobClear$anon@273>::jobPerform,city,package (unreached),player-state
+settlement/job/JobClears.java,688,settlement.job::JobClears::tunnel::<JobClear$anon@656>::jobPerform,city,package (unreached),player-state
+settlement/job/JobClears.java,777,settlement.job::JobClears::structure::<JobClear$anon@752>::jobPerform,city,package (unreached),player-state
+settlement/job/JobRoom.java,202,settlement.job::JobRoom::jobPerform,city,package (unreached),player-state
+settlement/main/SETT.java,388,settlement.main::SETT::CreateFromWorldMap,ui,reached from UI only,player-state
+settlement/main/SETT.java,812,settlement.main::SETT::faction,city,package (unreached),argument
+settlement/main/TUpdater.java,122,settlement.main::TUpdater::degrade,city,reached from city,player-state
+settlement/maintenance/MFloor.java,95,settlement.maintenance::MFloor::shouldPlace,city,reached from city,argument
+settlement/maintenance/MRoom.java,270,settlement.maintenance::MRoom::locked,city,reached from city,argument
+settlement/maintenance/MRoom.java,272,settlement.maintenance::MRoom::locked,city,reached from city,argument
+settlement/misc/placers/PlacerLanding.java,70,settlement.misc.placers::PlacerLanding::get::<Tile$anon@60>::place,city,package (unreached),player-state
+settlement/misc/placers/PlacerLanding.java,133,settlement.misc.placers::PlacerLanding::get::<Tile$anon@114>::place,city,package (unreached),player-state
+settlement/room/food/cannibal/CannibalInstance.java,173,settlement.room.food.cannibal::CannibalInstance::produce,city,package (unreached),player-state
+settlement/room/food/farm/Gui.java,268,settlement.room.food.farm::Gui::appendPanel::<ACTION$anon@257>::exe::<ButtPanel$anon@264>::clickA,ui,reached from UI only,argument
+settlement/room/food/farm/Gui.java,278,settlement.room.food.farm::Gui::appendPanel::<ACTION$anon@257>::exe::<ButtPanel$anon@264>::renAction,ui,reached from UI only,argument
+settlement/room/food/orchard/OTile.java,200,settlement.room.food.orchard::OTile::OTile::<STATE$anon@194>::work,city,package (unreached),player-state
+settlement/room/food/orchard/OTile.java,225,settlement.room.food.orchard::OTile::chop,city,package (unreached),player-state
+settlement/room/food/orchard/OTile.java,229,settlement.room.food.orchard::OTile::chop,city,package (unreached),player-state
+settlement/room/food/pasture/PastureInstance.java,225,settlement.room.food.pasture::PastureInstance::work,city,package (unreached),player-state
+settlement/room/food/pasture/PastureInstance.java,256,settlement.room.food.pasture::PastureInstance::produce,city,package (unreached),player-state
+settlement/room/health/hospital/Bed.java,122,settlement.room.health.hospital::Bed::job::<SETT_JOB$anon@92>::jobResourceBitToFetch,city,package (unreached),argument
+settlement/room/health/hospital/Bed.java,124,settlement.room.health.hospital::Bed::job::<SETT_JOB$anon@92>::jobResourceBitToFetch,city,package (unreached),argument
+settlement/room/health/hospital/Bed.java,145,settlement.room.health.hospital::Bed::job::<SETT_JOB$anon@92>::jobReserveCanBe,city,package (unreached),argument
+settlement/room/health/hospital/Bed.java,147,settlement.room.health.hospital::Bed::job::<SETT_JOB$anon@92>::jobReserveCanBe,city,package (unreached),argument
+settlement/room/health/hospital/Gui.java,46,settlement.room.health.hospital::Gui::appendPanel::<ButtPanel$anon@41>::renAction,city,package (unreached),argument
+settlement/room/health/hospital/Gui.java,58,settlement.room.health.hospital::Gui::appendPanel::<ButtPanel$anon@41>::hoverInfoGet,city,package (unreached),argument
+settlement/room/health/hospital/HospitalInstance.java,54,settlement.room.health.hospital::HospitalInstance::HospitalInstance,city,package (unreached),argument
+settlement/room/industry/module/consumption/RoomConsumptionAbs.java,154,settlement.room.industry.module.consumption::RoomConsumptionAbs::IndustryResourceIn::inc,host-world,reached from world and city,player-state
+settlement/room/industry/module/Industry.java,215,settlement.room.industry.module::Industry::IndustryResourceOut::inc,city,package (unreached),player-state
+settlement/room/industry/module/ROOM_PRODUCER_INSTANCE.java,17,settlement.room.industry.module::ROOM_PRODUCER_INSTANCE::updateIndustryLocks,city,package (unreached),argument
+settlement/room/industry/module/RoomProduction.java,94,settlement.room.industry.module::RoomProduction::RoomProduction::<Source$anon@90>::am,ui,reached from UI only,player-state
+settlement/room/industry/module/RoomProduction.java,119,settlement.room.industry.module::RoomProduction::RoomProduction::<Source$anon@115>::am,ui,reached from UI only,player-state
+settlement/room/industry/module/RoomProduction.java,246,settlement.room.industry.module::RoomProduction::RoomProduction::<ACTION$anon@210>::exe::<Source$anon@238>::am,ui,reached from UI only,argument
+settlement/room/industry/module/RoomProduction.java,536,settlement.room.industry.module::RoomProduction::SourceReg::am,ui,reached from UI only,realm
+settlement/room/industry/module/RoomProduction.java,537,settlement.room.industry.module::RoomProduction::SourceReg::am,ui,reached from UI only,realm
+settlement/room/infra/export/ExportFetcher.java,118,settlement.room.infra.export::ExportFetcher::finish,city,reached from city,player-state
+settlement/room/infra/export/ExportInstance.java,427,settlement.room.infra.export::ExportInstance::updateTileDay,city,package (unreached),player-state
+settlement/room/infra/export/Gui.java,93,settlement.room.infra.export::Gui::appendPanel::<UIPickerRes$anon@77>::hoverResource,city,package (unreached),goods
+settlement/room/infra/export/ROOM_EXPORT.java,98,settlement.room.infra.export::ROOM_EXPORT::storedShouldBeHigherThan,city,package (unreached),goods
+settlement/room/infra/hauler/ROOM_HAULER.java,120,settlement.room.infra.hauler::ROOM_HAULER::removeFromEverywhere,city,package (unreached),player-state
+settlement/room/infra/importt/Gui.java,157,settlement.room.infra.importt::Gui::appendPanel::<UIPickerRes$anon@141>::hoverResource,city,package (unreached),goods
+settlement/room/infra/importt/ImportThingy.java,123,settlement.room.infra.importt::ImportThingy::finish,city,reached from city,player-state
+settlement/room/infra/inn/Gui.java,134,settlement.room.infra.inn::Gui::appendMain,city,package (unreached),player-state
+settlement/room/infra/inn/Gui.java,141,settlement.room.infra.inn::Gui::appendMain::<GStaples$anon@135>::hover,ui,reached from UI only,player-state
+settlement/room/infra/inn/Gui.java,144,settlement.room.infra.inn::Gui::appendMain::<GStaples$anon@135>::hover,ui,reached from UI only,player-state
+settlement/room/infra/inn/Gui.java,150,settlement.room.infra.inn::Gui::appendMain::<GStaples$anon@135>::getValue,ui,reached from UI only,player-state
+settlement/room/infra/janitor/JM.java,181,settlement.room.infra.janitor::JM::Job::jobReserveCancel,host-world,reached from world and city,player-state
+settlement/room/infra/janitor/JM.java,197,settlement.room.infra.janitor::JM::Job::jobReserve,host-world,reached from world and city,player-state
+settlement/room/law/guard/GuardPower.java,49,settlement.room.law.guard::GuardPower::spec::<DIV_SPEC$anon@25>::faction,city,package (unreached),argument
+settlement/room/law/prison/Food.java,107,settlement.room.law.prison::Food::jobPerform,city,package (unreached),player-state
+settlement/room/main/construction/ConstructionInstance.java,110,settlement.room.main.construction::ConstructionInstance::ConstructionInstance,city,package (unreached),argument
+settlement/room/main/construction/ConstructionInstance.java,563,settlement.room.main.construction::ConstructionInstance::jobFinsih,city,package (unreached),player-state
+settlement/room/main/construction/ConstructionInstance.java,585,settlement.room.main.construction::ConstructionInstance::jobFinsih,city,package (unreached),player-state
+settlement/room/main/construction/ConstructionInstance.java,853,settlement.room.main.construction::ConstructionInstance::releaseResources,city,package (unreached),player-state
+settlement/room/main/construction/ConstructionInstance.java,865,settlement.room.main.construction::ConstructionInstance::releaseResources,city,package (unreached),player-state
+settlement/room/main/construction/ConstructionInstance.java,957,settlement.room.main.construction::ConstructionInstance::releaseItem,city,package (unreached),player-state
+settlement/room/main/copy/BSwap.java,69,settlement.room.main.copy::BSwap::init,city,package (unreached),argument
+settlement/room/main/copy/BSwap.java,76,settlement.room.main.copy::BSwap::init,city,package (unreached),argument
+settlement/room/main/copy/BSwap.java,128,settlement.room.main.copy::BSwap::addGroup::<Panel$anon@122>::renAction,city,package (unreached),argument
+settlement/room/main/copy/BSwap.java,137,settlement.room.main.copy::BSwap::addGroup::<Panel$anon@122>::hoverInfoGet,city,package (unreached),argument
+settlement/room/main/copy/BSwap.java,138,settlement.room.main.copy::BSwap::addGroup::<Panel$anon@122>::hoverInfoGet,city,package (unreached),argument
+settlement/room/main/copy/BSwap.java,144,settlement.room.main.copy::BSwap::addGroup::<Panel$anon@122>::clickA,city,package (unreached),argument
+settlement/room/main/copy/Copier.java,194,settlement.room.main.copy::Copier::isPlacable,city,package (unreached),argument
+settlement/room/main/copy/CopierMass.java,72,settlement.room.main.copy::CopierMass::canCopy,city,package (unreached),argument
+settlement/room/main/employment/RoomEmploymentIns.java,181,settlement.room.main.employment::RoomEmploymentIns::updateTools,city,package (unreached),player-state
+settlement/room/main/employment/RoomEmploymentIns.java,530,settlement.room.main.employment::RoomEmploymentIns::toolDeliver,city,package (unreached),player-state
+settlement/room/main/employment/RoomEquip.java,350,settlement.room.main.employment::RoomEquip::Target::availableMax,city,package (unreached),argument
+settlement/room/main/furnisher/Furnisher.java,229,settlement.room.main.furnisher::Furnisher::floor,city,package (unreached),player-state
+settlement/room/main/furnisher/FurnisherStat.java,421,settlement.room.main.furnisher::FurnisherStat::FurnisherStatProduction2::get,host-world,reached from world and city,argument
+settlement/room/main/placement/UtilStats.java,58,settlement.room.main.placement::UtilStats::removeTile,city,package (unreached),player-state
+settlement/room/main/placement/UtilStats.java,70,settlement.room.main.placement::UtilStats::removeItem,city,package (unreached),player-state
+settlement/room/main/throne/Sprite.java,91,settlement.room.main.throne::Sprite::renderFloor,city,package (unreached),player-state
+settlement/room/main/throne/Sprite.java,92,settlement.room.main.throne::Sprite::renderFloor,city,package (unreached),player-state
+settlement/room/main/throne/Sprite.java,101,settlement.room.main.throne::Sprite::renderThrone,city,package (unreached),player-state
+settlement/room/main/throne/Sprite.java,102,settlement.room.main.throne::Sprite::renderThrone,city,package (unreached),player-state
+settlement/room/main/util/Deleter.java,159,settlement.room.main.util::Deleter::scatterMaterials,city,reached from city,player-state
+settlement/room/main/util/RoomState.java,82,settlement.room.main.util::RoomState::RoomStateInstance::apply,city,package (unreached),argument
+settlement/room/military/supply/Cache.java,30,settlement.room.military.supply::Cache::needed,ui,reached from UI only,argument
+settlement/room/military/supply/Cache.java,38,settlement.room.military.supply::Cache::deliverableSecret,ui,reached from UI only,realm
+settlement/room/military/supply/Cache.java,68,settlement.room.military.supply::Cache::deliver,city,package (unreached),realm
+settlement/room/military/supply/Crate.java,126,settlement.room.military.supply::Crate::deliver,city,package (unreached),player-state
+settlement/room/military/supply/Crate.java,332,settlement.room.military.supply::Crate::job::<SETT_JOB$anon@278>::jobPerform,city,package (unreached),player-state
+settlement/room/military/supply/Gui.java,332,settlement.room.military.supply::Gui::hoverNeeded,ui,reached from UI only,argument
+settlement/room/military/supply/Gui.java,333,settlement.room.military.supply::Gui::hoverNeeded,ui,reached from UI only,argument
+settlement/room/military/supply/Gui.java,334,settlement.room.military.supply::Gui::hoverNeeded,ui,reached from UI only,argument
+settlement/room/military/supply/Gui.java,335,settlement.room.military.supply::Gui::hoverNeeded,ui,reached from UI only,argument
+settlement/room/military/supply/Gui.java,408,settlement.room.military.supply::Gui::appendMain::<ClickableAbs$anon@398>::render,city,package (unreached),argument
+settlement/room/military/supply/Gui.java,409,settlement.room.military.supply::Gui::appendMain::<ClickableAbs$anon@398>::render,city,package (unreached),argument
+settlement/room/service/food/canteen/ROOM_CANTEEN.java,173,settlement.room.service.food.canteen::ROOM_CANTEEN::grab,city,package (unreached),player-state
+settlement/room/service/food/canteen/ROOM_CANTEEN.java,189,settlement.room.service.food.canteen::ROOM_CANTEEN::grab,city,package (unreached),player-state
+settlement/room/service/food/canteen/ROOM_CANTEEN.java,204,settlement.room.service.food.canteen::ROOM_CANTEEN::grab,city,package (unreached),player-state
+settlement/room/service/food/eatery/RoomDistribution.java,302,settlement.room.service.food.eatery::consume,city,package (unreached),player-state
+settlement/room/spirit/temple/TempleJob.java,130,settlement.room.spirit.temple::TempleJob::Resources::jobPerform,city,package (unreached),player-state
+settlement/stats/colls/StatsBattle.java,132,settlement.stats.colls::StatsBattle::StatsBattle::<STATFakeRace$anon@128>::getDD,ui,reached from UI only,argument
+settlement/stats/colls/StatsBattle.java,141,settlement.stats.colls::StatsBattle::StatsBattle::<STATFakeRace$anon@137>::getDD,ui,reached from UI only,argument
+settlement/stats/colls/StatsBattle.java,150,settlement.stats.colls::StatsBattle::StatsBattle::<STATFakeRace$anon@145>::getDD,ui,reached from UI only,argument
+settlement/stats/colls/StatsGovern.java,82,settlement.stats.colls::StatsGovern::StatsGovern::<STATFakeRace$anon@76>::getDD,ui,reached from UI only,player-state
+settlement/stats/colls/StatsGovern.java,95,settlement.stats.colls::StatsGovern::StatsGovern::<STATFakeRace$anon@76>::hover,city,package (unreached),player-state
+settlement/stats/colls/StatsHome.java,270,(field initializer or static block),city,package (unreached),player-state
+settlement/stats/colls/StatsHome.java,395,settlement.stats.colls::StatsHome::StatFurniture::set,host-world,reached from world and city,player-state
+settlement/stats/equip/Equip.java,115,settlement.stats.equip::Equip::set,host-world,reached from world and city,player-state
+settlement/stats/Induvidual.java,71,settlement.stats::Induvidual::Induvidual,city,package (unreached),player-state
+settlement/stats/Induvidual.java,245,settlement.stats::Induvidual::faction,host-world,reached from world and city,argument
+settlement/stats/law/StatPunishment.java,38,settlement.stats.law::StatPunishment::report,city,package (unreached),argument
+settlement/stats/law/StatPunishment.java,40,settlement.stats.law::StatPunishment::report,city,package (unreached),argument
+settlement/stats/muls/StatsMultipliers.java,973,settlement.stats.muls::StatsMultipliers::Handout::maxAmount,city,reached from city,player-state
+settlement/stats/muls/StatsMultipliers.java,983,settlement.stats.muls::StatsMultipliers::Handout::mark,city,reached from city,player-state
+settlement/stats/muls/StatsMultipliers.java,1003,settlement.stats.muls::StatsMultipliers::Handout::canBeMarked,city,package (unreached),player-state
+settlement/stats/standing/StandingCitizen.java,290,settlement.stats.standing::StandingCitizen::prognosis,city,package (unreached),player-state
+settlement/stats/standing/StandingCitizen.java,340,settlement.stats.standing::StandingCitizen::expectation,city,package (unreached),is-human
+settlement/stats/standing/StandingCitizen.java,368,settlement.stats.standing::StandingCitizen::current,city,package (unreached),player-state
+settlement/stats/SValues.java,90,settlement.stats::SValues::SValues::<BOOLEANO$anon@86>::is,host-world,reached from world and city,is-human
+settlement/thing/halfEntity/caravan/TypeDeliver.java,110,settlement.thing.halfEntity.caravan::TypeDeliver::deliverExport,city,reached from city,player-state
+settlement/thing/halfEntity/caravan/TypeDeliver.java,150,settlement.thing.halfEntity.caravan::TypeDeliver::update,city,reached from city,player-state
+settlement/thing/halfEntity/caravan/TypeDeliver.java,175,settlement.thing.halfEntity.caravan::TypeDeliver::cancel,city,reached from city,player-state
+settlement/thing/halfEntity/caravan/TypeWithDraw.java,106,settlement.thing.halfEntity.caravan::TypeWithDraw::pickup,city,reached from city,player-state
+settlement/thing/halfEntity/caravan/TypeWithDraw.java,151,settlement.thing.halfEntity.caravan::TypeWithDraw::cancel,city,reached from city,player-state
+settlement/thing/halfEntity/caravan/TypeWithDraw.java,160,settlement.thing.halfEntity.caravan::TypeWithDraw::cancel,city,reached from city,player-state
+settlement/thing/ThingsResources.java,110,settlement.thing::ThingsResources::create,city,package (unreached),player-state
+settlement/thing/ThingsResources.java,125,settlement.thing::ThingsResources::create,city,package (unreached),player-state
+settlement/thing/ThingsResources.java,153,settlement.thing::ThingsResources::createPrecise,city,package (unreached),player-state
+settlement/thing/ThingsResources.java,168,settlement.thing::ThingsResources::createPrecise,city,package (unreached),player-state
+settlement/tilemap/generator/GeneratorMinerals.java,69,settlement.tilemap.generator::GeneratorMinerals::GeneratorMinerals,setup,package,realm
+settlement/trade/PBuyer.java,133,settlement.trade::PBuyer::addReserve,city,package (unreached),player-state
+settlement/trade/PBuyer.java,170,settlement.trade::PBuyer::buyPriority,city,package (unreached),player-state
+settlement/trade/PBuyer.java,175,settlement.trade::PBuyer::buyPriority,city,package (unreached),player-state
+settlement/trade/PBuyer.java,211,settlement.trade::PBuyer::problem,city,package (unreached),argument
+settlement/trade/PBuyer.java,220,settlement.trade::PBuyer::warning,city,package (unreached),argument
+settlement/trade/PBuyer.java,222,settlement.trade::PBuyer::warning,city,package (unreached),player-state
+settlement/trade/PBuyer.java,229,settlement.trade::PBuyer::warning,city,package (unreached),player-state
+settlement/trade/PBuyer.java,267,settlement.trade::PBuyer::hover,city,package (unreached),argument
+settlement/trade/PBuyer.java,293,settlement.trade::PBuyer::tradeCredits,city,package (unreached),argument
+settlement/trade/PBuyer.java,308,settlement.trade::PBuyer::hoverTradeValue,city,package (unreached),argument
+settlement/trade/PSeller.java,141,settlement.trade::PSeller::remove,city,package (unreached),player-state
+settlement/trade/PSeller.java,161,settlement.trade::PSeller::problem,city,package (unreached),argument
+settlement/trade/PSeller.java,173,settlement.trade::PSeller::warning,city,package (unreached),argument
+settlement/trade/PSeller.java,204,settlement.trade::PSeller::hover,city,package (unreached),argument
+settlement/trade/PSeller.java,243,settlement.trade::PSeller::tradeCredits,city,package (unreached),argument
+settlement/trade/PSellerRes.java,133,settlement.trade::PSellerRes::hoverTradeValue,city,package (unreached),argument
+settlement/weather/WeatherMoisture.java,88,settlement.weather::WeatherMoisture::setD,host-world,reached from world and city,argument
+util/colors/COLOR_MAP.java,48,util.colors::COLOR_MAP::get,host-world,reached from world and city,is-human
+util/colors/COLOR_MAP.java,52,util.colors::COLOR_MAP::get,host-world,reached from world and city,counterpart
+util/text/InsertFaction.java,34,util.text::InsertFaction::InsertFaction::<II$anon@30>::set,unreached,no path from a loop root,is-human
+util/text/InsertFaction.java,35,util.text::InsertFaction::InsertFaction::<II$anon@30>::set,unreached,no path from a loop root,argument
+util/text/InsertFaction.java,46,util.text::InsertFaction::InsertFaction::<II$anon@42>::set,unreached,no path from a loop root,is-human
+util/text/InsertFaction.java,47,util.text::InsertFaction::InsertFaction::<II$anon@42>::set,unreached,no path from a loop root,player-state
+util/text/InsertFaction.java,50,util.text::InsertFaction::InsertFaction::<II$anon@42>::set,unreached,no path from a loop root,player-state
+util/text/InsertFaction.java,51,util.text::InsertFaction::InsertFaction::<II$anon@42>::set,unreached,no path from a loop root,player-state
+util/text/InsertFaction.java,52,util.text::InsertFaction::InsertFaction::<II$anon@42>::set,unreached,no path from a loop root,player-state
+util/text/InsertFaction.java,62,util.text::InsertFaction::InsertFaction::<II$anon@58>::set,unreached,no path from a loop root,is-human
+util/text/InsertFaction.java,76,util.text::InsertFaction::InsertFaction::<II$anon@72>::set,unreached,no path from a loop root,is-human
+util/text/InsertFaction.java,77,util.text::InsertFaction::InsertFaction::<II$anon@72>::set,unreached,no path from a loop root,argument
+util/text/InsertPlayer.java,27,util.text::InsertPlayer::InsertPlayer::<II$anon@23>::set,unreached,no path from a loop root,realm
+util/text/InsertPlayer.java,31,util.text::InsertPlayer::InsertPlayer::<II$anon@23>::set,unreached,no path from a loop root,is-human
+util/text/InsertPlayer.java,48,util.text::InsertPlayer::InsertPlayer::<II$anon@44>::set,unreached,no path from a loop root,realm
+util/text/InsertPlayer.java,52,util.text::InsertPlayer::InsertPlayer::<II$anon@44>::set,unreached,no path from a loop root,is-human
+util/text/InsertPlayer.java,73,util.text::InsertPlayer::InsertPlayer::<II$anon@65>::set,unreached,no path from a loop root,is-human
+util/text/InsertPlayer.java,96,util.text::InsertPlayer::InsertPlayer::<II$anon@88>::set,unreached,no path from a loop root,is-human
+util/text/InsertPlayer.java,128,util.text::InsertPlayer::InsertPlayer::<II$anon@113>::set,unreached,no path from a loop root,is-human
+util/text/InsertRegion.java,33,util.text::InsertRegion::InsertRegion::<GETTER_TRANS$anon@26>::get,unreached,no path from a loop root,argument
+view/battle/editor/Army.java,36,view.battle.editor::Army::Army,ui,package,argument
+view/battle/editor/Army.java,57,view.battle.editor::Army::Army,ui,package,argument
+view/battle/editor/ArmyFactionButt.java,39,view.battle.editor::ArmyFactionButt::ArmyFactionButt,ui,package,is-human
+view/menu/IMenuSave.java,104,view.menu::IMenuSave::IMenuSave::<ScreenButton$anon@101>::clickA,ui,package,argument
+view/sett/SettViewStart.java,108,view.sett::SettViewStart::SettViewStart::<ToolConfig$anon@96>::update,ui,package,argument
+view/sett/ToolDefault.java,314,view.sett::ToolDefault::click,ui,package,argument
+view/sett/ui/army/Actions.java,85,view.sett.ui.army::Actions::Actions::<ButtPanel$anon@77>::clickA,ui,package,player-state
+view/sett/ui/army/Actions.java,146,view.sett.ui.army::Actions::Actions,ui,package,argument
+view/sett/ui/army/Actions.java,272,view.sett.ui.army::Actions::Actions::<ButtPanel$anon@226>::hardProblem,ui,package,argument
+view/sett/ui/army/Actions.java,375,view.sett.ui.army::Actions::sendProblem,ui,package,argument
+view/sett/ui/army/Edit.java,72,view.sett.ui.army::Edit::Edit::<GStat$anon@54>::ti,ui,package,argument
+view/sett/ui/bottom/BuildMain.java,201,view.sett.ui.bottom::BuildMain::create::<ACTION$anon@196>::exe,ui,package,argument
+view/sett/ui/bottom/BuildMain.java,228,view.sett.ui.bottom::BuildMain::create::<B$anon@213>::renAction,ui,package,argument
+view/sett/ui/bottom/BuildMain.java,609,view.sett.ui.bottom::BuildMain::BRoom::BRoom::<ACTION$anon@605>::exe,ui,package,argument
+view/sett/ui/bottom/BuildMain.java,645,view.sett.ui.bottom::BuildMain::BRoom::renAction,ui,package,argument
+view/sett/ui/bottom/RoomUpgrader.java,248,view.sett.ui.bottom::RoomUpgrader::canUpgrade,ui,package,argument
+view/sett/ui/bottom/UIRoomBuild.java,82,view.sett.ui.bottom::UIRoomBuild::hoverRoomBuild,ui,package,argument
+view/sett/ui/bottom/UIRoomBuild.java,151,view.sett.ui.bottom::UIRoomBuild::hoverRoomBuild,ui,package,argument
+view/sett/ui/bottom/UIRoomBuild.java,158,view.sett.ui.bottom::UIRoomBuild::hoverRoomBuild,ui,package,argument
+view/sett/ui/bottom/UIRoomBuild.java,167,view.sett.ui.bottom::UIRoomBuild::hoverRoomBuild,ui,package,argument
+view/sett/ui/bottom/UIRoomBuild.java,175,view.sett.ui.bottom::UIRoomBuild::hoverRoomBuild,ui,package,argument
+view/sett/ui/bottom/UIRoomBuild.java,178,view.sett.ui.bottom::UIRoomBuild::hoverRoomBuild,ui,package,argument
+view/sett/ui/food/UIFood.java,319,view.sett.ui.food::UIFood::UIFood::<GStaples$anon@269>::hover,ui,package,player-state
+view/sett/ui/food/UIFood.java,320,view.sett.ui.food::UIFood::UIFood::<GStaples$anon@269>::hover,ui,package,player-state
+view/sett/ui/home/UIHomes.java,101,view.sett.ui.home::UIHomes::UIHomes::<ButtPanel$anon@92>::renAction,ui,package,argument
+view/sett/ui/home/UIHomes.java,108,view.sett.ui.home::UIHomes::UIHomes::<ButtPanel$anon@92>::hoverInfoGet,ui,package,argument
+view/sett/ui/home/UIHomes.java,109,view.sett.ui.home::UIHomes::UIHomes::<ButtPanel$anon@92>::hoverInfoGet,ui,package,argument
+view/sett/ui/law/Selector.java,46,view.sett.ui.law::Selector::Selector::<Imp$anon@38>::render,ui,package,argument
+view/sett/ui/law/Selector.java,51,view.sett.ui.law::Selector::Selector::<Imp$anon@38>::render,ui,package,argument
+view/sett/ui/law/Selector.java,54,view.sett.ui.law::Selector::Selector::<Imp$anon@38>::render,ui,package,argument
+view/sett/ui/law/Selector.java,64,view.sett.ui.law::Selector::Selector::<ButtPanel$anon@61>::clickA,ui,package,argument
+view/sett/ui/law/Selector.java,69,view.sett.ui.law::Selector::Selector::<ButtPanel$anon@61>::renAction,ui,package,is-human
+view/sett/ui/law/Selector.java,74,view.sett.ui.law::Selector::Selector::<ButtPanel$anon@61>::hoverInfoGet,ui,package,argument
+view/sett/ui/law/Selector.java,89,view.sett.ui.law::Selector::getRace,ui,package,player-state
+view/sett/ui/right/UIMiniRaces.java,150,view.sett.ui.right::UIMiniRaces::RaceUI::RaceUI::<Imp$anon@146>::render,ui,package,argument
+view/sett/ui/right/UIMiniRaces.java,185,view.sett.ui.right::UIMiniRaces::RaceUI::RaceUI::<GStat$anon@181>::update,ui,package,argument
+view/sett/ui/right/UIMiniRaces.java,201,view.sett.ui.right::UIMiniRaces::RaceUI::hoverInfoGet,ui,package,argument
+view/sett/ui/right/UIMiniRaces.java,242,view.sett.ui.right::UIMiniRaces::RaceUI::hoverInfoGet,ui,package,argument
+view/sett/ui/right/UIMiniRaces.java,318,view.sett.ui.right::UIMiniRaces::RaceUI::render,ui,package,argument
+view/sett/ui/right/UIMiniRaces.java,343,view.sett.ui.right::UIMiniRaces::RaceUI::render,ui,package,argument
+view/sett/ui/right/UIMiniRaces.java,354,view.sett.ui.right::UIMiniRaces::RaceUI::click,ui,package,argument
+view/sett/ui/right/UIMiniResources.java,278,view.sett.ui.right::UIMiniResources::resBody::<GuiSection$anon@248>::render,ui,package,goods
+view/sett/ui/right/UIMiniResources.java,319,view.sett.ui.right::UIMiniResources::resBody::<GuiSection$anon@248>::click,ui,package,argument
+view/sett/ui/room/construction/SCollection.java,72,view.sett.ui.room.construction::SCollection::IButt::renAction,ui,package,argument
+view/sett/ui/room/construction/State.java,47,view.sett.ui.room.construction::State::init,ui,package,argument
+view/sett/ui/room/construction/State.java,54,(field initializer or static block),ui,package,argument
+view/sett/ui/room/ModuleDegrade.java,76,view.sett.ui.room::ModuleDegrade::Hover::hover,ui,package,argument
+view/sett/ui/room/ModuleDegrade.java,78,view.sett.ui.room::ModuleDegrade::Hover::hover,ui,package,argument
+view/sett/ui/room/ModuleDegrade.java,182,view.sett.ui.room::ModuleDegrade::I::appendPanelIcon::<GStat$anon@160>::hoverInfoGet,ui,package,argument
+view/sett/ui/room/ModuleDegrade.java,184,view.sett.ui.room::ModuleDegrade::I::appendPanelIcon::<GStat$anon@160>::hoverInfoGet,ui,package,argument
+view/sett/ui/room/ModuleIndustry.java,591,view.sett.ui.room::ModuleIndustry::I::appendPanel::<BSection$anon@587>::clickA,ui,package,argument
+view/sett/ui/room/ModuleIndustry.java,623,view.sett.ui.room::ModuleIndustry::I::appendPanel::<BSection$anon@587>::hoverInfoGet,ui,package,argument
+view/sett/ui/room/ModuleIndustry.java,629,view.sett.ui.room::ModuleIndustry::I::appendPanel::<BSection$anon@587>::renAction,ui,package,argument
+view/sett/ui/room/ModuleInstance.java,102,view.sett.ui.room::ModuleInstance::I::appendManageScr::<ButtPanel$anon@90>::hoverInfoGet,ui,package,argument
+view/sett/ui/room/ModuleUpgradable.java,89,view.sett.ui.room::ModuleUpgradable::I::appendTableFilters::<UIRoomBulkApplier$anon@82>::apply,ui,package,argument
+view/sett/ui/room/ModuleUpgradable.java,118,view.sett.ui.room::ModuleUpgradable::I::appendTableFilters::<UIRoomBulkApplier$anon@82>::hover,ui,package,argument
+view/sett/ui/room/ModuleUpgradable.java,245,view.sett.ui.room::ModuleUpgradable::I::appendPanel::<BSection$anon@220>::hoverInfoGet,ui,package,argument
+view/sett/ui/room/ModuleUpgradable.java,298,view.sett.ui.room::ModuleUpgradable::I::appendPanel::<BSection$anon@220>::renAction,ui,package,argument
+view/sett/ui/room/prints/List.java,78,view.sett.ui.room.prints::List::get,ui,package,argument
+view/sett/ui/room/prints/UISavedPrints.java,318,view.sett.ui.room.prints::UISavedPrints::RPrint::clickA,ui,package,argument
+view/sett/ui/standing/CitizenMain.java,70,view.sett.ui.standing::CitizenMain::render,ui,package,player-state
+view/sett/ui/standing/CitizenMain.java,82,view.sett.ui.standing::CitizenMain::infoButt::<ButtPanel$anon@79>::clickA,ui,package,player-state
+view/sett/ui/standing/UICitizens.java,93,view.sett.ui.standing::UICitizens::makeList::<BSection$anon@89>::clickA,ui,package,argument
+view/sett/ui/standing/UICitizens.java,98,view.sett.ui.standing::UICitizens::makeList::<BSection$anon@89>::renAction,ui,package,is-human
+view/sett/ui/standing/UICitizens.java,103,view.sett.ui.standing::UICitizens::makeList::<BSection$anon@89>::hoverInfoGet,ui,package,argument
+view/sett/ui/standing/UICitizens.java,112,view.sett.ui.standing::UICitizens::makeList::<Imp$anon@108>::render,ui,package,argument
+view/sett/ui/standing/UICitizens.java,119,view.sett.ui.standing::UICitizens::makeList::<DOUBLE$anon@115>::getD,ui,package,argument
+view/sett/ui/standing/UICitizens.java,127,view.sett.ui.standing::UICitizens::makeList::<GStat$anon@123>::update,ui,package,argument
+view/sett/ui/subject/UISubjectActions.java,144,view.sett.ui.subject::UISubjectActions::UISubjectActions::<ButtPanel$anon@127>::clickA,ui,package,argument
+view/sett/ui/subject/UISubjectActions.java,155,view.sett.ui.subject::UISubjectActions::UISubjectActions::<ButtPanel$anon@127>::hoverInfoGet,ui,package,argument
+view/sett/UIPanelTopSett.java,318,view.sett::UIPanelTopSett::UIPanelTopSett::<Buttt$anon@248>::hoverInfoGet,ui,package,argument
+view/ui/advice/UIAdvice.java,123,view.ui.advice::UIAdvice::restart::<ACTION$anon@118>::exe,ui,package,player-state
+view/ui/advice/UIAdvice.java,124,view.ui.advice::UIAdvice::restart::<ACTION$anon@118>::exe,ui,package,argument
+view/ui/advice/UIAdvice.java,125,view.ui.advice::UIAdvice::restart::<ACTION$anon@118>::exe,ui,package,player-state
+view/ui/advice/UIAdvice.java,146,view.ui.advice::UIAdvice::restart::<ACTION$anon@118>::exe::<Constructor$anon@134>::doAfterSet,ui,package,argument
+view/ui/advice/UIAdvice.java,379,view.ui.advice::UIAdvice::UIAdvice::<Entry$anon@375>::is,ui,package,player-state
+view/ui/advice/UIAdvice.java,482,view.ui.advice::UIAdvice::UIAdvice::<Entry$anon@462>::count::<Count$anon@464>::count,ui,package,argument
+view/ui/advice/UIAdvice.java,483,view.ui.advice::UIAdvice::UIAdvice::<Entry$anon@462>::count::<Count$anon@464>::count,ui,package,argument
+view/ui/advice/UIAdvice.java,484,view.ui.advice::UIAdvice::UIAdvice::<Entry$anon@462>::count::<Count$anon@464>::count,ui,package,argument
+view/ui/advice/UIAdvice.java,488,view.ui.advice::UIAdvice::UIAdvice::<Entry$anon@462>::count::<Count$anon@464>::count,ui,package,argument
+view/ui/advice/UIAdvice.java,489,view.ui.advice::UIAdvice::UIAdvice::<Entry$anon@462>::count::<Count$anon@464>::count,ui,package,argument
+view/ui/advice/UIAdvice.java,490,view.ui.advice::UIAdvice::UIAdvice::<Entry$anon@462>::count::<Count$anon@464>::count,ui,package,argument
+view/ui/diplomacy/UIDealConfig.java,203,view.ui.diplomacy::UIDealConfig::Reslist::Reslist::<UIPicker$anon@193>::addToRow::<GuiSection$anon@197>::hoverInfoSelf,ui,package,is-human
+view/ui/diplomacy/UIDealConfig.java,205,view.ui.diplomacy::UIDealConfig::Reslist::Reslist::<UIPicker$anon@193>::addToRow::<GuiSection$anon@197>::hoverInfoSelf,ui,package,is-human
+view/ui/diplomacy/UIDealConfig.java,209,view.ui.diplomacy::UIDealConfig::Reslist::Reslist::<UIPicker$anon@193>::addToRow::<GuiSection$anon@197>::hoverInfoSelf,ui,package,is-human
+view/ui/diplomacy/UIDealListSaved.java,51,view.ui.diplomacy::UIDealListSaved::UIDealListSaved,ui,package,argument
+view/ui/diplomacy/UIDipMessDeal.java,60,view.ui.diplomacy::UIDipMessDeal::UIDipMessDeal,ui,package,player-state
+view/ui/diplomacy/UIDipMessDeal.java,211,view.ui.diplomacy::UIDipMessDeal::pactive,ui,package,player-state
+view/ui/economy/MainChart.java,26,(field initializer or static block),ui,package,player-state
+view/ui/economy/MainChart.java,47,view.ui.economy::MainChart::render,ui,package,player-state
+view/ui/economy/MainChart.java,51,view.ui.economy::MainChart::render,ui,package,player-state
+view/ui/economy/MainChart.java,94,view.ui.economy::MainChart::amount::<GStaples$anon@67>::getValue,ui,package,player-state
+view/ui/economy/MainChart.java,118,view.ui.economy::MainChart::hoverInfoGet,ui,package,argument
+view/ui/economy/MainChart.java,170,view.ui.economy::MainChart::Profits::render,ui,package,player-state
+view/ui/economy/MainChart.java,236,view.ui.economy::MainChart::Losses::render,ui,package,player-state
+view/ui/economy/MainDetails.java,34,view.ui.economy::MainDetails::MainDetails,ui,package,player-state
+view/ui/economy/MainDetails.java,41,view.ui.economy::MainDetails::MainDetails::<SDetail$anon@35>::up,ui,package,player-state
+view/ui/economy/MainDetails.java,42,view.ui.economy::MainDetails::MainDetails::<SDetail$anon@35>::up,ui,package,player-state
+view/ui/economy/MainDetails.java,61,view.ui.economy::MainDetails::MainDetails::<HoverableAbs$anon@52>::render,ui,package,player-state
+view/ui/economy/MainDetails.java,62,view.ui.economy::MainDetails::MainDetails::<HoverableAbs$anon@52>::render,ui,package,player-state
+view/ui/economy/MainDetails.java,63,view.ui.economy::MainDetails::MainDetails::<HoverableAbs$anon@52>::render,ui,package,player-state
+view/ui/economy/MainDetails.java,79,view.ui.economy::MainDetails::MainDetails::<HoverableAbs$anon@70>::render,ui,package,player-state
+view/ui/economy/MainDetails.java,80,view.ui.economy::MainDetails::MainDetails::<HoverableAbs$anon@70>::render,ui,package,player-state
+view/ui/economy/MainDetails.java,81,view.ui.economy::MainDetails::MainDetails::<HoverableAbs$anon@70>::render,ui,package,player-state
+view/ui/economy/RRow.java,61,view.ui.economy::RRow::RRow,ui,package,argument
+view/ui/economy/RRow.java,62,view.ui.economy::RRow::RRow,ui,package,argument
+view/ui/economy/RRow.java,117,view.ui.economy::RRow::hoverInfoGet,ui,package,player-state
+view/ui/economy/RRow.java,125,view.ui.economy::RRow::hoverInfoGet,ui,package,goods
+view/ui/economy/RRow.java,129,view.ui.economy::RRow::hoverInfoGet,ui,package,argument
+view/ui/economy/RRow.java,139,view.ui.economy::RRow::hoverInfoGet,ui,package,argument
+view/ui/economy/RRow.java,143,view.ui.economy::RRow::hoverInfoGet,ui,package,argument
+view/ui/economy/RRow.java,147,view.ui.economy::RRow::hoverInfoGet,ui,package,argument
+view/ui/economy/RRow.java,151,view.ui.economy::RRow::hoverInfoGet,ui,package,argument
+view/ui/economy/RRow.java,160,view.ui.economy::RRow::hoverInfoGet,ui,package,argument
+view/ui/economy/RRow.java,164,view.ui.economy::RRow::hoverInfoGet,ui,package,argument
+view/ui/economy/RRow.java,168,view.ui.economy::RRow::hoverInfoGet,ui,package,argument
+view/ui/economy/RRow.java,172,view.ui.economy::RRow::hoverInfoGet,ui,package,argument
+view/ui/economy/RRow.java,178,view.ui.economy::RRow::hoverInfoGet,ui,package,argument
+view/ui/economy/RRow.java,195,view.ui.economy::RRow::TradeDiagram::tprofits::<GStat$anon@191>::update,ui,package,argument
+view/ui/economy/RRow.java,215,view.ui.economy::RRow::TradeDiagram::getValue,ui,package,argument
+view/ui/economy/RRow.java,227,view.ui.economy::RRow::TradeDiagram::setColor,ui,package,argument
+view/ui/economy/RRowPriceDia.java,77,view.ui.economy::RRowPriceDia::render,ui,package,is-human
+view/ui/economy/UITreasury.java,156,view.ui.economy::hoverInfoGet,ui,package,player-state
+view/ui/economy/UITreasury.java,162,view.ui.economy::hoverInfoGet,ui,package,goods
+view/ui/economy/UITreasury.java,168,view.ui.economy::hoverInfoGet,ui,package,goods
+view/ui/economy/UITreasury.java,179,view.ui.economy::hoverInfoGet,ui,package,goods
+view/ui/economy/UITreasury.java,187,view.ui.economy::hoverInfoGet,ui,package,goods
+view/ui/economy/UITreasury.java,205,view.ui.economy::Prices::Prices,ui,package,player-state
+view/ui/economy/YearlyFinansials.java,55,view.ui.economy::YearlyFinansials::YearlyFinansials,ui,package,player-state
+view/ui/economy/YearlyFinansials.java,60,view.ui.economy::YearlyFinansials::YearlyFinansials,ui,package,player-state
+view/ui/economy/YearlyFinansials.java,203,view.ui.economy::YearlyFinansials::Data::Data,ui,package,player-state
+view/ui/economy/YearlyFinansials.java,204,view.ui.economy::YearlyFinansials::Data::Data,ui,package,player-state
+view/ui/goods/Pop.java,84,view.ui.goods::Pop::render,ui,package,realm
+view/ui/goods/Pop.java,85,view.ui.goods::Pop::render,ui,package,realm
+view/ui/goods/Row.java,44,(field initializer or static block),ui,package,player-state
+view/ui/goods/Row.java,116,view.ui.goods::Row::hoverInfoGet,ui,package,player-state
+view/ui/goods/Row.java,130,view.ui.goods::Row::hoverInfoGet,ui,package,player-state
+view/ui/goods/Row.java,143,view.ui.goods::Row::hoverInfoGet,ui,package,player-state
+view/ui/goods/Row.java,151,view.ui.goods::Row::hoverInfoGet,ui,package,argument
+view/ui/goods/Row.java,155,view.ui.goods::Row::hoverInfoGet,ui,package,argument
+view/ui/goods/Row.java,160,view.ui.goods::Row::hoverInfoGet,ui,package,argument
+view/ui/goods/Row.java,167,view.ui.goods::Row::hoverInfoGet,ui,package,argument
+view/ui/goods/Row.java,231,view.ui.goods::Row::ProductionDiagram::t::<GStat$anon@227>::update,ui,package,player-state
+view/ui/goods/Row.java,251,view.ui.goods::Row::ProductionDiagram::getValue,ui,package,player-state
+view/ui/goods/Row.java,262,view.ui.goods::Row::ProductionDiagram::setColor,ui,package,player-state
+view/ui/goods/Row.java,319,view.ui.goods::Row::prod::<ClickableAbs$anon@310>::render,ui,package,realm
+view/ui/goods/Row.java,320,view.ui.goods::Row::prod::<ClickableAbs$anon@310>::render,ui,package,realm
+view/ui/goods/Row.java,334,view.ui.goods::Row::prod::<ClickableAbs$anon@310>::clickA,ui,package,realm
+view/ui/goods/Row.java,335,view.ui.goods::Row::prod::<ClickableAbs$anon@310>::clickA,ui,package,realm
+view/ui/goods/UIGoodsExport.java,103,view.ui.goods::UIGoodsExport::UIGoodsExport::<ButtPanel$anon@99>::render,ui,package,argument
+view/ui/goods/UIGoodsExport.java,123,view.ui.goods::UIGoodsExport::UIGoodsExport::<ButtPanel$anon@99>::hoverInfoGet,ui,package,goods
+view/ui/goods/UIGoodsExport.java,163,view.ui.goods::UIGoodsExport::UIGoodsExport::<ButtPanel$anon@158>::render,ui,package,argument
+view/ui/goods/UIGoodsExport.java,191,view.ui.goods::UIGoodsExport::UIGoodsExport::<ButtPanel$anon@158>::hoverInfoGet,ui,package,goods
+view/ui/goods/UIGoodsExport.java,217,view.ui.goods::UIGoodsExport::mini::<GuiSection$anon@213>::hoverInfoGet,ui,package,goods
+view/ui/goods/UIGoodsExport.java,247,view.ui.goods::UIGoodsExport::mini::<RenderImp$anon@238>::render,ui,package,goods
+view/ui/goods/UIGoodsExport.java,250,view.ui.goods::UIGoodsExport::mini::<RenderImp$anon@238>::render,ui,package,goods
+view/ui/goods/UIGoodsExport.java,269,view.ui.goods::UIGoodsExport::priceH,ui,package,argument
+view/ui/goods/UIGoodsExport.java,295,view.ui.goods::UIGoodsExport::price::<INTE$anon@286>::max,ui,package,goods
+view/ui/goods/UIGoodsExport.java,300,view.ui.goods::UIGoodsExport::price::<INTE$anon@286>::get,ui,package,goods
+view/ui/goods/UIGoodsExport.java,305,view.ui.goods::UIGoodsExport::price::<INTE$anon@286>::set,ui,package,goods
+view/ui/goods/UIGoodsExport.java,322,view.ui.goods::UIGoodsExport::amount::<GuiSection$anon@319>::hoverInfoGet,ui,package,goods
+view/ui/goods/UIGoodsExport.java,335,view.ui.goods::UIGoodsExport::amount::<INTE$anon@326>::max,ui,package,goods
+view/ui/goods/UIGoodsExport.java,340,view.ui.goods::UIGoodsExport::amount::<INTE$anon@326>::get,ui,package,goods
+view/ui/goods/UIGoodsExport.java,345,view.ui.goods::UIGoodsExport::amount::<INTE$anon@326>::set,ui,package,goods
+view/ui/goods/UIGoodsExport.java,472,view.ui.goods::UIGoodsExport::problem::<HoverableAbs$anon@465>::render,ui,package,goods
+view/ui/goods/UIGoodsExport.java,481,view.ui.goods::UIGoodsExport::problem::<HoverableAbs$anon@465>::render,ui,package,goods
+view/ui/goods/UIGoodsImport.java,120,view.ui.goods::UIGoodsImport::UIGoodsImport::<ButtPanel$anon@116>::render,ui,package,argument
+view/ui/goods/UIGoodsImport.java,140,view.ui.goods::UIGoodsImport::UIGoodsImport::<ButtPanel$anon@116>::hoverInfoGet,ui,package,goods
+view/ui/goods/UIGoodsImport.java,184,view.ui.goods::UIGoodsImport::UIGoodsImport::<ButtPanel$anon@179>::render,ui,package,argument
+view/ui/goods/UIGoodsImport.java,212,view.ui.goods::UIGoodsImport::UIGoodsImport::<ButtPanel$anon@179>::hoverInfoGet,ui,package,goods
+view/ui/goods/UIGoodsImport.java,236,view.ui.goods::UIGoodsImport::priceH,ui,package,argument
+view/ui/goods/UIGoodsImport.java,276,view.ui.goods::UIGoodsImport::priceChart::<GStaples$anon@246>::hover,ui,package,player-state
+view/ui/goods/UIGoodsImport.java,309,view.ui.goods::UIGoodsImport::price::<INTE$anon@300>::max,ui,package,goods
+view/ui/goods/UIGoodsImport.java,314,view.ui.goods::UIGoodsImport::price::<INTE$anon@300>::get,ui,package,goods
+view/ui/goods/UIGoodsImport.java,319,view.ui.goods::UIGoodsImport::price::<INTE$anon@300>::set,ui,package,goods
+view/ui/goods/UIGoodsImport.java,351,view.ui.goods::UIGoodsImport::credlim::<INTE$anon@342>::max,ui,package,goods
+view/ui/goods/UIGoodsImport.java,356,view.ui.goods::UIGoodsImport::credlim::<INTE$anon@342>::get,ui,package,goods
+view/ui/goods/UIGoodsImport.java,361,view.ui.goods::UIGoodsImport::credlim::<INTE$anon@342>::set,ui,package,goods
+view/ui/goods/UIGoodsImport.java,379,view.ui.goods::UIGoodsImport::amount::<INTE$anon@375>::get,ui,package,goods
+view/ui/goods/UIGoodsImport.java,389,view.ui.goods::UIGoodsImport::amount::<INTE$anon@375>::max,ui,package,goods
+view/ui/goods/UIGoodsImport.java,394,view.ui.goods::UIGoodsImport::amount::<INTE$anon@375>::set,ui,package,goods
+view/ui/goods/UIGoodsImport.java,416,view.ui.goods::UIGoodsImport::amount::<GSliderInt$anon@397>::hoverInfoGet,ui,package,goods
+view/ui/goods/UIGoodsImport.java,528,view.ui.goods::UIGoodsImport::problem::<HoverableAbs$anon@521>::render,ui,package,goods
+view/ui/goods/UIGoodsImport.java,537,view.ui.goods::UIGoodsImport::problem::<HoverableAbs$anon@521>::render,ui,package,goods
+view/ui/goods/UIGoodsImport.java,570,view.ui.goods::UIGoodsImport::miniControl::<GuiSection$anon@566>::hoverInfoGet,ui,package,goods
+view/ui/goods/UIGoodsImport.java,615,view.ui.goods::UIGoodsImport::miniControl::<RenderImp$anon@611>::render,ui,package,goods
+view/ui/goods/UIGoodsImport.java,616,view.ui.goods::UIGoodsImport::miniControl::<RenderImp$anon@611>::render,ui,package,goods
+view/ui/goods/UIGoodsImport.java,619,view.ui.goods::UIGoodsImport::miniControl::<RenderImp$anon@611>::render,ui,package,goods
+view/ui/manage/IManager.java,218,view.ui.manage::IManager::butt::<GStat$anon@201>::update,ui,package,goods
+view/ui/manage/IManager.java,220,view.ui.manage::IManager::butt::<GStat$anon@201>::update,ui,package,goods
+view/ui/manage/IManager.java,225,view.ui.manage::IManager::butt::<GStat$anon@201>::update,ui,package,goods
+view/ui/manage/IManager.java,227,view.ui.manage::IManager::butt::<GStat$anon@201>::update,ui,package,goods
+view/ui/manage/IManager.java,236,view.ui.manage::IManager::butt::<GStat$anon@201>::update,ui,package,player-state
+view/ui/manage/IManager.java,261,view.ui.manage::IManager::butt::<GStat$anon@256>::update,ui,package,argument
+view/ui/profile/ColorPop.java,55,view.ui.profile::ColorPop::ColorPop::<ButtPanel$anon@51>::clickA,ui,package,argument
+view/ui/profile/Level.java,44,view.ui.profile::Level::Level::<GTextR$anon@39>::render,ui,package,player-state
+view/ui/profile/Level.java,45,view.ui.profile::Level::Level::<GTextR$anon@39>::render,ui,package,argument
+view/ui/profile/Level.java,46,view.ui.profile::Level::Level::<GTextR$anon@39>::render,ui,package,argument
+view/ui/profile/Level.java,64,view.ui.profile::Level::Level::<RenderImp$anon@53>::render,ui,package,argument
+view/ui/profile/Level.java,120,view.ui.profile::Level::Level::<GStat$anon@116>::update,ui,package,realm
+view/ui/profile/Level.java,127,view.ui.profile::Level::Level,ui,package,player-state
+view/ui/profile/Level.java,129,view.ui.profile::Level::Level,ui,package,player-state
+view/ui/profile/Level.java,203,view.ui.profile::Level::TRow::render,ui,package,player-state
+view/ui/profile/Titles.java,53,view.ui.profile::Titles::Titles::<GStat$anon@49>::update,ui,package,argument
+view/ui/profile/Titles.java,79,view.ui.profile::Titles::Titles,ui,package,argument
+view/ui/profile/Titles.java,82,view.ui.profile::Titles::Titles,ui,package,argument
+view/ui/profile/Titles.java,133,view.ui.profile::Titles::Butt::Butt::<RenderImp$anon@123>::render,ui,package,player-state
+view/ui/profile/Titles.java,136,view.ui.profile::Titles::Butt::Butt::<RenderImp$anon@123>::render,ui,package,argument
+view/ui/profile/Titles.java,146,view.ui.profile::Titles::Butt::Butt::<RenderImp$anon@142>::render,ui,package,player-state
+view/ui/profile/Titles.java,194,view.ui.profile::Titles::Butt::hoverInfoGet,ui,package,argument
+view/ui/profile/Titles.java,204,view.ui.profile::Titles::Butt::hoverInfoGet,ui,package,argument
+view/ui/profile/UILevel.java,57,view.ui.profile::UILevel::UILevel::<GETTER$anon@53>::get,ui,package,argument
+view/ui/profile/UILevel.java,83,view.ui.profile::UILevel::picker,ui,package,player-state
+view/ui/profile/UILevel.java,93,view.ui.profile::UILevel::picker,ui,package,player-state
+view/ui/profile/UILevel.java,95,view.ui.profile::UILevel::picker,ui,package,argument
+view/ui/profile/UILevel.java,104,view.ui.profile::UILevel::picker::<ButtPanel$anon@95>::renAction,ui,package,argument
+view/ui/profile/UILevel.java,112,view.ui.profile::UILevel::picker,ui,package,argument
+view/ui/profile/UIProfile.java,30,view.ui.profile::UIProfile::UIProfile,ui,package,argument
+view/ui/profile/UIProfile.java,41,view.ui.profile::UIProfile::section,ui,package,argument
+view/ui/profile/UIProfile.java,58,view.ui.profile::UIProfile::loadButts::<ButtPanel$anon@55>::clickA,ui,package,argument
+view/ui/profile/UIProfile.java,66,view.ui.profile::UIProfile::loadButts::<ButtPanel$anon@62>::renAction,ui,package,argument
+view/ui/profile/UIProfile.java,71,view.ui.profile::UIProfile::loadButts::<ButtPanel$anon@62>::clickA,ui,package,argument
+view/ui/profile/UIProfile.java,85,view.ui.profile::UIProfile::info::<StringInputSprite$anon@81>::text,ui,package,argument
+view/ui/profile/UIProfile.java,90,view.ui.profile::UIProfile::info::<StringInputSprite$anon@81>::change,ui,package,realm
+view/ui/profile/UIProfile.java,91,view.ui.profile::UIProfile::info::<StringInputSprite$anon@81>::change,ui,package,realm
+view/ui/profile/UIProfile.java,105,view.ui.profile::UIProfile::info::<StringInputSprite$anon@100>::text,ui,package,argument
+view/ui/profile/UIProfile.java,116,view.ui.profile::UIProfile::info,ui,package,argument
+view/ui/raider/Info.java,65,view.ui.raider::Info::Info::<GStat$anon@51>::hoverInfoGet,ui,package,realm
+view/ui/raider/Info.java,70,view.ui.raider::Info::Info::<GStat$anon@51>::hoverInfoGet,ui,package,realm
+view/ui/raider/Info.java,71,view.ui.raider::Info::Info::<GStat$anon@51>::hoverInfoGet,ui,package,is-human
+view/ui/raider/Info.java,73,view.ui.raider::Info::Info::<GStat$anon@51>::hoverInfoGet,ui,package,is-human
+view/ui/raider/Info.java,89,view.ui.raider::Info::Info::<GStat$anon@51>::hoverInfoGet,ui,package,realm
+view/ui/raider/Info.java,90,view.ui.raider::Info::Info::<GStat$anon@51>::hoverInfoGet,ui,package,realm
+view/ui/raider/Info.java,110,view.ui.raider::Info::Info::<GStat$anon@105>::update,ui,package,realm
+view/ui/raider/Info.java,120,view.ui.raider::Info::Info::<GStat$anon@105>::hoverInfoGet,ui,package,realm
+view/ui/raider/Info.java,135,view.ui.raider::Info::Info::<GStat$anon@105>::hoverInfoGet,ui,package,realm
+view/ui/raider/Info.java,136,view.ui.raider::Info::Info::<GStat$anon@105>::hoverInfoGet,ui,package,is-human
+view/ui/tech/Info.java,43,view.ui.tech::Info::Info,ui,package,player-state
+view/ui/tech/Info.java,51,view.ui.tech::Info::Info,ui,package,player-state
+view/ui/tech/InfoBonuses.java,162,view.ui.tech::InfoBonuses::Boo::render,ui,package,argument
+view/ui/tech/InfoBonuses.java,164,view.ui.tech::InfoBonuses::Boo::render,ui,package,argument
+view/ui/tech/InfoBonuses.java,193,view.ui.tech::InfoBonuses::Boo::hoverInfoGet,ui,package,argument
+view/ui/tech/InfoBonuses.java,195,view.ui.tech::InfoBonuses::Boo::hoverInfoGet,ui,package,argument
+view/ui/tech/Node.java,130,view.ui.tech::Node::render,ui,package,argument
+view/ui/tech/Node.java,134,view.ui.tech::Node::render,ui,package,argument
+view/ui/tech/Node.java,192,view.ui.tech::Node::render,ui,package,argument
+view/ui/tech/Node.java,193,view.ui.tech::Node::render,ui,package,argument
+view/ui/tech/Node.java,230,view.ui.tech::Node::render,ui,package,argument
+view/ui/tech/Node.java,231,view.ui.tech::Node::render,ui,package,argument
+view/ui/tech/Node.java,248,view.ui.tech::Node::render,ui,package,argument
+view/ui/tech/Node.java,249,view.ui.tech::Node::render,ui,package,argument
+view/ui/tech/Node.java,284,view.ui.tech::Node::hoverInfoGet,ui,package,player-state
+view/ui/tech/Node.java,289,view.ui.tech::Node::hoverInfoGet,ui,package,argument
+view/ui/tech/Node.java,353,view.ui.tech::Node::hoverInfoGet,ui,package,argument
+view/ui/tech/Node.java,370,view.ui.tech::Node::hoverInfoGet,ui,package,argument
+view/ui/tech/Prompt.java,35,view.ui.tech::Prompt::unlock,ui,package,player-state
+view/ui/tech/Prompt.java,37,view.ui.tech::Prompt::unlock,ui,package,player-state
+view/ui/tech/Prompt.java,41,view.ui.tech::Prompt::unlock,ui,package,player-state
+view/ui/tech/Prompt.java,45,view.ui.tech::Prompt::unlock,ui,package,argument
+view/ui/tech/Prompt.java,71,view.ui.tech::Prompt::unlock,ui,package,player-state
+view/ui/tech/Prompt.java,84,view.ui.tech::Prompt::addUnlocks,ui,package,player-state
+view/ui/tech/Prompt.java,97,view.ui.tech::Prompt::pUnlock,ui,package,player-state
+view/ui/tech/Prompt.java,101,view.ui.tech::Prompt::pUnlock,ui,package,player-state
+view/ui/tech/Prompt.java,105,view.ui.tech::Prompt::forget,ui,package,player-state
+view/ui/tech/Prompt.java,118,view.ui.tech::Prompt::forget,ui,package,player-state
+view/ui/tech/Prompt.java,141,view.ui.tech::Prompt::askforget::<ACTION$anon@137>::exe,ui,package,player-state
+view/ui/tech/Prompt.java,145,view.ui.tech::Prompt::askforget::<ACTION$anon@137>::exe,ui,package,player-state
+view/ui/tech/Prompt.java,149,view.ui.tech::Prompt::askforget::<ACTION$anon@137>::exe,ui,package,player-state
+view/ui/tech/Prompt.java,157,view.ui.tech::Prompt::askUnlock::<ACTION$anon@153>::exe,ui,package,player-state
+view/ui/top/UINotifications.java,316,view.ui.top::UINotifications::UINotifications::<UINotification$anon@282>::hoverInfoGet,ui,package,argument
+view/ui/top/UINotifications.java,334,view.ui.top::UINotifications::UINotifications::<UINotification$anon@327>::get,ui,package,realm
+view/ui/top/UINotifications.java,335,view.ui.top::UINotifications::UINotifications::<UINotification$anon@327>::get,ui,package,realm
+view/ui/top/UINotifications.java,337,view.ui.top::UINotifications::UINotifications::<UINotification$anon@327>::get,ui,package,counterpart
+view/ui/top/UINotifications.java,352,view.ui.top::UINotifications::UINotifications::<UINotification$anon@327>::clickA,ui,package,realm
+view/ui/top/UINotifications.java,353,view.ui.top::UINotifications::UINotifications::<UINotification$anon@327>::clickA,ui,package,realm
+view/ui/top/UINotifications.java,355,view.ui.top::UINotifications::UINotifications::<UINotification$anon@327>::clickA,ui,package,counterpart
+view/ui/top/UINotifications.java,398,view.ui.top::UINotifications::UINotifications::<UINotification$anon@373>::get,ui,package,is-human
+view/ui/top/UINotifications.java,417,view.ui.top::UINotifications::UINotifications::<UINotification$anon@373>::clickA,ui,package,realm
+view/ui/top/UINotifications.java,418,view.ui.top::UINotifications::UINotifications::<UINotification$anon@373>::clickA,ui,package,realm
+view/ui/top/UINotifications.java,419,view.ui.top::UINotifications::UINotifications::<UINotification$anon@373>::clickA,ui,package,realm
+view/ui/top/UINotifications.java,465,view.ui.top::UINotifications::UINotifications::<UINotification$anon@448>::get,ui,package,is-human
+view/ui/top/UINotifications.java,481,view.ui.top::UINotifications::UINotifications::<UINotification$anon@448>::clickA,ui,package,realm
+view/ui/top/UINotifications.java,482,view.ui.top::UINotifications::UINotifications::<UINotification$anon@448>::clickA,ui,package,realm
+view/ui/top/UINotifications.java,483,view.ui.top::UINotifications::UINotifications::<UINotification$anon@448>::clickA,ui,package,realm
+view/ui/top/UINotifications.java,505,view.ui.top::UINotifications::UINotifications::<UINotification$anon@448>::hoverInfoGet,ui,package,realm
+view/ui/top/UINotifications.java,506,view.ui.top::UINotifications::UINotifications::<UINotification$anon@448>::hoverInfoGet,ui,package,realm
+view/ui/top/UINotifications.java,507,view.ui.top::UINotifications::UINotifications::<UINotification$anon@448>::hoverInfoGet,ui,package,realm
+view/ui/top/UINotifications.java,531,view.ui.top::UINotifications::UINotifications::<UINotification$anon@524>::get,ui,package,realm
+view/ui/top/UINotifications.java,532,view.ui.top::UINotifications::UINotifications::<UINotification$anon@524>::get,ui,package,realm
+view/ui/top/UINotifications.java,548,view.ui.top::UINotifications::UINotifications::<UINotification$anon@524>::clickA,ui,package,realm
+view/ui/top/UINotifications.java,549,view.ui.top::UINotifications::UINotifications::<UINotification$anon@524>::clickA,ui,package,realm
+view/ui/top/UINotifications.java,562,view.ui.top::UINotifications::UINotifications::<UINotification$anon@524>::hoverInfoGet,ui,package,realm
+view/ui/top/UINotifications.java,563,view.ui.top::UINotifications::UINotifications::<UINotification$anon@524>::hoverInfoGet,ui,package,realm
+view/ui/top/UINotifications.java,583,view.ui.top::UINotifications::UINotifications::<UINotification$anon@574>::get,ui,package,realm
+view/ui/top/UINotifications.java,589,view.ui.top::UINotifications::UINotifications::<UINotification$anon@574>::get,ui,package,realm
+view/ui/top/UINotifications.java,662,view.ui.top::UINotifications::Siege::render,ui,package,realm
+view/ui/top/UINotifications.java,684,view.ui.top::UINotifications::Siege::clickA,ui,package,realm
+view/ui/top/UINotifications.java,694,view.ui.top::UINotifications::Siege::am,ui,package,realm
+view/ui/top/UINotifications.java,700,view.ui.top::UINotifications::Siege::am,ui,package,realm
+view/ui/top/UINotifications.java,714,view.ui.top::UINotifications::Siege::hoverInfoGet,ui,package,realm
+view/ui/top/UINotifications.java,911,view.ui.top::UINotifications::NotiStat::hoverInfoGet,ui,package,argument
+view/ui/tourism/Tourism.java,170,view.ui.tourism::Tourism::stats,ui,package,player-state
+view/ui/UIEmissaries.java,55,view.ui::UIEmissaries::UIEmissaries::<GStat$anon@51>::update,ui,package,argument
+view/ui/UIEmissaries.java,61,view.ui::UIEmissaries::UIEmissaries::<GStat$anon@51>::hoverInfoGet,ui,package,argument
+view/ui/UIEmissaries.java,69,view.ui::UIEmissaries::UIEmissaries::<GStat$anon@65>::update,ui,package,argument
+view/ui/UIEmissaries.java,85,view.ui::UIEmissaries::UIEmissaries::<GTableBuilder$anon@73>::nrOFEntries,ui,package,argument
+view/ui/UIEmissaries.java,100,view.ui::UIEmissaries::UIEmissaries::<GTableBuilder$anon@73>::nrOFEntries,ui,package,argument
+view/world/editor/WorldViewEditor.java,41,view.world.editor::WorldViewEditor::WorldViewEditor,ui,package,argument
+view/world/generator/StageCapitol.java,179,view.world.generator::StageCapitol::StageCapitol::<PlacableFixedImp$anon@86>::placeInfo,ui,package,player-state
+view/world/generator/StageFinish.java,156,view.world.generator::StageFinish::StageFinish::<ButtPanel$anon@147>::clickA,ui,package,realm
+view/world/generator/StagePickRace.java,50,view.world.generator::StagePickRace::StagePickRace::<GETTER$anon@46>::get,ui,package,player-state
+view/world/generator/StagePickRace.java,61,view.world.generator::StagePickRace::StagePickRace::<GStat$anon@57>::update,ui,package,player-state
+view/world/generator/StagePickRace.java,72,view.world.generator::StagePickRace::StagePickRace::<RenderImp$anon@66>::render,ui,package,player-state
+view/world/generator/StagePickRace.java,120,view.world.generator::StagePickRace::rButt::<ButtPanel$anon@116>::clickA,ui,package,argument
+view/world/generator/StagePickRace.java,125,view.world.generator::StagePickRace::rButt::<ButtPanel$anon@116>::renAction,ui,package,player-state
+view/world/generator/StagePickTitles.java,44,view.world.generator::StagePickTitles::StagePickTitles::<GStat$anon@40>::update,ui,package,argument
+view/world/generator/StagePickTitles.java,49,view.world.generator::StagePickTitles::StagePickTitles,ui,package,argument
+view/world/generator/StagePickTitles.java,51,view.world.generator::StagePickTitles::StagePickTitles,ui,package,argument
+view/world/generator/StagePickTitles.java,77,view.world.generator::StagePickTitles::StagePickTitles::<ButtPanel$anon@57>::clickA,ui,package,argument
+view/world/generator/StagePickTitles.java,95,view.world.generator::StagePickTitles::Butt::Butt,ui,package,argument
+view/world/generator/StagePickTitles.java,163,view.world.generator::StagePickTitles::Butt::clickA,ui,package,argument
+view/world/generator/WorldViewGenerator.java,57,view.world.generator::WorldViewGenerator::WorldViewGenerator,ui,package,argument
+view/world/generator/WorldViewGenerator.java,77,view.world.generator::WorldViewGenerator::setresettle,ui,package,argument
+view/world/generator/WorldViewGenerator.java,146,view.world.generator::WorldViewGenerator::set,ui,package,argument
+view/world/panel/UIPanelTopWorld.java,151,view.world.panel::UIPanelTopWorld::UIPanelTopWorld::<UIPanelTopButtL$anon@128>::cache,ui,package,realm
+view/world/panel/UIPanelTopWorld.java,152,view.world.panel::UIPanelTopWorld::UIPanelTopWorld::<UIPanelTopButtL$anon@128>::cache,ui,package,realm
+view/world/panel/UIPanelTopWorld.java,165,view.world.panel::UIPanelTopWorld::UIPanelTopWorld::<UIPanelTopButtL$anon@128>::isActive,ui,package,realm
+view/world/panel/UIPanelTopWorld.java,170,view.world.panel::UIPanelTopWorld::UIPanelTopWorld::<UIPanelTopButtL$anon@128>::getNumber,ui,package,realm
+view/world/panel/UIPanelTopWorld.java,209,view.world.panel::UIPanelTopWorld::UIPanelTopWorld::<UIPanelTopButtL$anon@199>::value,ui,package,argument
+view/world/panel/UIPanelTopWorld.java,214,view.world.panel::UIPanelTopWorld::UIPanelTopWorld::<UIPanelTopButtL$anon@199>::isActive,ui,package,argument
+view/world/panel/UIPanelTopWorld.java,219,view.world.panel::UIPanelTopWorld::UIPanelTopWorld::<UIPanelTopButtL$anon@199>::getNumber,ui,package,argument
+view/world/panel/UIPanelTopWorld.java,272,view.world.panel::UIPanelTopWorld::UIPanelTopWorld::<UIPanelTopButtS$anon@249>::getNumber,ui,package,argument
+view/world/panel/UIPanelTopWorld.java,362,view.world.panel::UIPanelTopWorld::UIPanelTopWorld::<UIPanelTopButtS$anon@350>::value,ui,package,argument
+view/world/panel/UIPanelTopWorld.java,365,view.world.panel::UIPanelTopWorld::UIPanelTopWorld::<UIPanelTopButtS$anon@350>::value,ui,package,argument
+view/world/panel/UIPanelTopWorld.java,371,view.world.panel::UIPanelTopWorld::UIPanelTopWorld::<UIPanelTopButtS$anon@350>::isActive,ui,package,argument
+view/world/panel/UIPanelTopWorld.java,376,view.world.panel::UIPanelTopWorld::UIPanelTopWorld::<UIPanelTopButtS$anon@350>::getNumber,ui,package,argument
+view/world/panel/UIPanelTopWorld.java,415,view.world.panel::UIPanelTopWorld::UIPanelTopWorld::<UIPanelTopButtS$anon@403>::value,ui,package,argument
+view/world/panel/UIPanelTopWorld.java,421,view.world.panel::UIPanelTopWorld::UIPanelTopWorld::<UIPanelTopButtS$anon@403>::isActive,ui,package,argument
+view/world/panel/UIPanelTopWorld.java,426,view.world.panel::UIPanelTopWorld::UIPanelTopWorld::<UIPanelTopButtS$anon@403>::getNumber,ui,package,argument
+view/world/panel/UIPanelTopWorld.java,463,view.world.panel::UIPanelTopWorld::UIPanelTopWorld::<Buttt$anon@460>::clickA,ui,package,realm
+view/world/ToolDefault.java,63,view.world::ToolDefault::hover,ui,package,is-human
+view/world/ToolDefault.java,119,view.world::ToolDefault::click,ui,package,is-human
+view/world/ToolDefault.java,122,view.world::ToolDefault::click,ui,package,is-human
+view/world/ui/army/Army.java,314,view.world.ui.army::Army::Army::<ButtPanel$anon@298>::hoverInfoGet,ui,package,argument
+view/world/ui/army/Army.java,321,view.world.ui.army::Army::Army::<ButtPanel$anon@298>::hoverInfoGet,ui,package,argument
+view/world/ui/army/Army.java,450,view.world.ui.army::Army::Army,ui,package,argument
+view/world/ui/army/Army.java,481,view.world.ui.army::Army::Army::<ButtPanel$anon@448>::renAction,ui,package,realm
+view/world/ui/army/ArmyRecruit.java,51,view.world.ui.army::ArmyRecruit::ArmyRecruit::<GStat$anon@47>::update,ui,package,argument
+view/world/ui/army/ArmyRecruit.java,80,view.world.ui.army::ArmyRecruit::ArmyRecruit::<GStat$anon@62>::ti,ui,package,argument
+view/world/ui/army/ArmyRecruit.java,172,view.world.ui.army::ArmyRecruit::problem,ui,package,argument
+view/world/ui/army/ArmyRecruit.java,183,view.world.ui.army::ArmyRecruit::warning,ui,package,argument
+view/world/ui/army/Hoverer.java,57,view.world.ui.army::Hoverer::Hoverer::<GStat$anon@53>::update,ui,package,counterpart
+view/world/ui/army/Hoverer.java,126,view.world.ui.army::Hoverer::hover,ui,package,is-human
+view/world/ui/army/List.java,47,(field initializer or static block),ui,package,argument
+view/world/ui/army/List.java,207,view.world.ui.army::List::List::<ButtPanel$anon@195>::clickA,ui,package,realm
+view/world/ui/army/List.java,208,view.world.ui.army::List::List::<ButtPanel$anon@195>::clickA,ui,package,realm
+view/world/ui/army/List.java,211,view.world.ui.army::List::List::<ButtPanel$anon@195>::clickA,ui,package,argument
+view/world/ui/army/List.java,286,view.world.ui.army::List::Button::Button::<RenderImp$anon@281>::render,ui,package,counterpart
+view/world/ui/army/List.java,356,view.world.ui.army::List::Placer::place,ui,package,argument
+view/world/ui/army/List.java,364,view.world.ui.army::List::Placer::renderOverlay,ui,package,argument
+view/world/ui/army/UIMerenaries.java,80,view.world.ui.army::UIMerenaries::UIMerenaries::<GStat$anon@76>::update,ui,package,player-state
+view/world/ui/army/UIMerenaries.java,89,view.world.ui.army::UIMerenaries::UIMerenaries::<GStat$anon@84>::update,ui,package,player-state
+view/world/ui/army/UIMerenaries.java,102,view.world.ui.army::UIMerenaries::UIMerenaries::<ButtPanel$anon@98>::renAction,ui,package,player-state
+view/world/ui/army/UIMerenaries.java,110,view.world.ui.army::UIMerenaries::UIMerenaries::<ButtPanel$anon@98>::clickA,ui,package,player-state
+view/world/ui/army/UIMerenaries.java,112,view.world.ui.army::UIMerenaries::UIMerenaries::<ButtPanel$anon@98>::clickA,ui,package,player-state
+view/world/ui/army/UIMerenaries.java,211,view.world.ui.army::UIMerenaries::Card::render,ui,package,player-state
+view/world/ui/army/UIMerenaries.java,249,view.world.ui.army::UIMerenaries::Card::render,ui,package,player-state
+view/world/ui/battle/Conquer.java,167,view.world.ui.battle::Conquer::Conquer,ui,package,argument
+view/world/ui/battle/Conquer.java,172,view.world.ui.battle::Conquer::Conquer::<Butt$anon@167>::clickA,ui,package,argument
+view/world/ui/battle/Conquer.java,183,view.world.ui.battle::Conquer::Conquer::<Butt$anon@178>::clickA,ui,package,argument
+view/world/ui/battle/Conquer.java,195,view.world.ui.battle::Conquer::Conquer::<Butt$anon@189>::clickA,ui,package,argument
+view/world/ui/battle/Res.java,120,view.world.ui.battle::Res::Res::<Butt$anon@114>::clickA,ui,package,argument
+view/world/ui/battle/Res.java,450,(field initializer or static block),ui,package,argument
+view/world/ui/camps/CampInfo.java,52,view.world.ui.camps::CampInfo::CampInfo::<GStat$anon@48>::update,ui,package,argument
+view/world/ui/camps/CampInfo.java,60,view.world.ui.camps::CampInfo::CampInfo::<GStat$anon@56>::update,ui,package,argument
+view/world/ui/camps/CampInfo.java,68,view.world.ui.camps::CampInfo::CampInfo::<GStat$anon@64>::update,ui,package,argument
+view/world/ui/camps/CampInfo.java,106,view.world.ui.camps::CampInfo::hoverInfoGet,ui,package,argument
+view/world/ui/camps/CampInfo.java,111,view.world.ui.camps::CampInfo::hoverInfoGet,ui,package,argument
+view/world/ui/camps/CampInfo.java,116,view.world.ui.camps::CampInfo::hoverInfoGet,ui,package,argument
+view/world/ui/camps/CampInfo.java,121,view.world.ui.camps::CampInfo::hoverInfoGet,ui,package,argument
+view/world/ui/camps/CampInfo.java,156,view.world.ui.camps::CampInfo::hover,ui,package,is-human
+view/world/ui/camps/UICampList.java,53,view.world.ui.camps::UICampList::sort::<Comparator$anon@43>::get,ui,package,is-human
+view/world/ui/camps/UICampList.java,55,view.world.ui.camps::UICampList::sort::<Comparator$anon@43>::get,ui,package,is-human
+view/world/ui/camps/UICampList.java,195,view.world.ui.camps::UICampList::Button::render,ui,package,is-human
+view/world/ui/faction/Court.java,216,view.world.ui.faction::Court::trust::<GStat$anon@201>::update,ui,package,argument
+view/world/ui/faction/Court.java,305,view.world.ui.faction::Court::opinions::<GStat$anon@289>::update,ui,package,argument
+view/world/ui/faction/Court.java,354,view.world.ui.faction::Court::emmisaries::<GStat$anon@349>::update,ui,package,argument
+view/world/ui/faction/Court.java,366,view.world.ui.faction::Court::emmisaries::<GStat$anon@362>::update,ui,package,argument
+view/world/ui/faction/Court.java,372,view.world.ui.faction::Court::emmisaries,ui,package,argument
+view/world/ui/faction/Court.java,373,view.world.ui.faction::Court::emmisaries,ui,package,is-human
+view/world/ui/faction/Court.java,427,view.world.ui.faction::Court::emmisaries,ui,package,argument
+view/world/ui/faction/Debug.java,55,view.world.ui.faction::Debug::Debug::<ButtPanel$anon@51>::clickA,ui,package,counterpart
+view/world/ui/faction/Goods.java,671,view.world.ui.faction::Goods::Goods::<GRowBuilder$anon@605>::build::<GStat$anon@609>::hoverInfoGet,ui,package,argument
+view/world/ui/faction/Goods.java,778,view.world.ui.faction::Goods::Goods::<GRowBuilder$anon@706>::build::<GStat$anon@710>::hoverInfoGet,ui,package,argument
+view/world/ui/faction/Hoverer.java,235,view.world.ui.faction::Hoverer::facts::<GStat$anon@222>::hoverInfoGet,ui,package,player-state
+view/world/ui/faction/Hoverer.java,269,view.world.ui.faction::Hoverer::facts::<GStat$anon@265>::update,ui,package,argument
+view/world/ui/faction/UIFactionList.java,64,view.world.ui.faction::UIFactionList::sorter::<Tree$anon@55>::value,ui,package,counterpart
+view/world/ui/faction/UIFactionList.java,66,view.world.ui.faction::UIFactionList::sorter::<Tree$anon@55>::value,ui,package,counterpart
+view/world/ui/faction/UIFactionList.java,259,view.world.ui.faction::UIFactionList::Button::render,ui,package,counterpart
+view/world/ui/panels/UIAdminPanel.java,31,view.world.ui.panels::UIAdminPanel::UIAdminPanel::<GStat$anon@27>::update,ui,package,argument
+view/world/ui/panels/UIAdminPanel.java,42,view.world.ui.panels::UIAdminPanel::UIAdminPanel::<GTableBuilder$anon@38>::nrOFEntries,ui,package,realm
+view/world/ui/panels/UIAdminPanel.java,54,view.world.ui.panels::UIAdminPanel::UIAdminPanel::<GRowBuilder$anon@47>::build::<GuiSection$anon@51>::clickA,ui,package,realm
+view/world/ui/panels/UIAdminPanel.java,64,view.world.ui.panels::UIAdminPanel::UIAdminPanel::<GRowBuilder$anon@47>::build::<GuiSection$anon@51>::hoverInfoGet,ui,package,realm
+view/world/ui/panels/UIAdminPanel.java,74,view.world.ui.panels::UIAdminPanel::UIAdminPanel::<GRowBuilder$anon@47>::build::<GStat$anon@70>::update,ui,package,realm
+view/world/ui/panels/UIAdminPanel.java,84,view.world.ui.panels::UIAdminPanel::UIAdminPanel::<GRowBuilder$anon@47>::build::<GStat$anon@80>::update,ui,package,realm
+view/world/ui/panels/UIAdminPanel.java,88,view.world.ui.panels::UIAdminPanel::UIAdminPanel::<GRowBuilder$anon@47>::build::<GStat$anon@80>::update,ui,package,argument
+view/world/ui/panels/UICaravanList.java,128,view.world.ui.panels::UICaravanList::all,ui,package,is-human
+view/world/ui/region/ListAll.java,45,view.world.ui.region::ListAll::sorter::<GTableSorter$anon@41>::getUnsorted,ui,package,is-human
+view/world/ui/region/ListAll.java,77,view.world.ui.region::ListAll::sort::<GTSort$anon@61>::get,ui,package,is-human
+view/world/ui/region/ListAll.java,188,view.world.ui.region::ListAll::Button::render,ui,package,counterpart
+view/world/ui/region/ListPlayer.java,40,view.world.ui.region::ListPlayer::ListPlayer::<GTableBuilder$anon@36>::nrOFEntries,ui,package,realm
+view/world/ui/region/ListPlayer.java,45,view.world.ui.region::ListPlayer::ListPlayer::<GTableBuilder$anon@36>::hoverInfo,ui,package,realm
+view/world/ui/region/ListPlayer.java,51,view.world.ui.region::ListPlayer::ListPlayer::<GTableBuilder$anon@36>::click,ui,package,realm
+view/world/ui/region/ListPlayer.java,61,view.world.ui.region::ListPlayer::ListPlayer::<GTableBuilder$anon@36>::selectedIs,ui,package,realm
+view/world/ui/region/ListPlayer.java,197,view.world.ui.region::ListPlayer::reg,ui,package,realm
+view/world/ui/region/Other.java,103,view.world.ui.region::Other::banner::<ClickableAbs$anon@86>::render,ui,package,counterpart
+view/world/ui/region/Other.java,173,view.world.ui.region::Other::Emiss::Emiss::<INTE$anon@164>::max,ui,package,argument
+view/world/ui/region/Other.java,178,view.world.ui.region::Other::Emiss::Emiss::<INTE$anon@164>::get,ui,package,argument
+view/world/ui/region/Other.java,183,view.world.ui.region::Other::Emiss::Emiss::<INTE$anon@164>::set,ui,package,argument
+view/world/ui/region/Other.java,203,view.world.ui.region::Other::Emiss::hoverInfoGet,ui,package,argument
+view/world/ui/region/Other.java,207,view.world.ui.region::Other::Emiss::hoverInfoGet,ui,package,argument
+view/world/ui/region/OtherHov.java,73,view.world.ui.region::OtherHov::hover,ui,package,argument
+view/world/ui/region/OtherHov.java,78,view.world.ui.region::OtherHov::hover,ui,package,counterpart
+view/world/ui/region/OtherHov.java,91,view.world.ui.region::OtherHov::hover,ui,package,realm
+view/world/ui/region/PlayBuildingsPop.java,333,view.world.ui.region::PlayBuildingsPop::hoverCosts,ui,package,player-state
+view/world/ui/region/PlayBuildingsPop.java,638,view.world.ui.region::PlayBuildingsPop::Info::Info::<ButtPanel$anon@635>::clickA,ui,package,is-human
+view/world/ui/region/PlayBuildingsPop.java,639,view.world.ui.region::PlayBuildingsPop::Info::Info::<ButtPanel$anon@635>::clickA,ui,package,player-state
+view/world/ui/region/PlayBuildingsPop.java,719,view.world.ui.region::PlayBuildingsPop::Info::Info::<GStat$anon@713>::update,ui,package,player-state
+view/world/ui/region/PlayDebug.java,60,view.world.ui.region::PlayDebug::PlayDebug::<Checkbox$anon@56>::renAction,ui,package,argument
+view/world/ui/region/PlayDebug.java,69,view.world.ui.region::PlayDebug::PlayDebug::<Checkbox$anon@56>::clickA,ui,package,argument
+view/world/ui/region/PlayInfo.java,248,view.world.ui.region::PlayInfo::actions::<ButtPanel$anon@239>::aa::<ACTION$anon@241>::exe,ui,package,player-state
+view/world/ui/region/PlayInfo.java,250,view.world.ui.region::PlayInfo::actions::<ButtPanel$anon@239>::aa::<ACTION$anon@241>::exe,ui,package,counterpart
+view/world/ui/region/UIRegions.java,40,view.world.ui.region::UIRegions::get,ui,package,is-human
+view/world/ui/region/UIRegions.java,50,view.world.ui.region::UIRegions::getp,ui,package,is-human
+view/world/WorldView.java,109,view.world::WorldView::update,ui,package,realm
+world/army/ADConscripts.java,76,world.army::ADConscripts::ADConscripts::<DataInt$anon@71>::get,unreached,"package world/game, no path from a loop root",is-human
+world/army/ADConscripts.java,116,world.army::ADConscripts::ADConscripts::<ACTION$anon@111>::exe,ui,reached from UI only,argument
+world/army/ADStats.java,213,world.army::ADStats::report,host-world,reached from world and city,is-human
+world/army/ADSupplies.java,157,world.army::ADSupplies::ADSupplies::<Updater$anon@146>::update,unreached,"package world/game, no path from a loop root",is-human
+world/army/ADUpdaterDiv.java,34,world.army::ADUpdaterDiv::update,host-world,reached from world and city,is-human
+world/army/ai/Attacker.java,131,world.army.ai::Attacker::attack,host-world,reached from world and city,counterpart
+world/army/ai/Chiller.java,30,world.army.ai::Chiller::chill,host-world,reached from world and city,argument
+world/army/ai/Rebel.java,54,world.army.ai::Rebel::updateRebel,host-world,reached from world and city,is-human
+world/army/ai/Rebel.java,93,world.army.ai::Rebel::rebelTarget::<Sel$anon@89>::is,unreached,"package world/game, no path from a loop root",is-human
+world/army/ai/Rebel.java,99,world.army.ai::Rebel::rebelTarget::<Sel$anon@89>::power,unreached,"package world/game, no path from a loop root",counterpart
+world/army/ai/War.java,50,world.army.ai::War::update,host-world,reached from world and city,is-human
+world/army/ai/War.java,79,world.army.ai::War::planForWar,host-world,reached from world and city,is-human
+world/army/ai/War.java,85,world.army.ai::War::planForWar,host-world,reached from world and city,is-human
+world/army/WDivMercenaries.java,47,world.army::WDivMercenaries::updater::<IUpdater$anon@39>::update,host-world,reached from world and city,is-human
+world/army/WDivMercenaries.java,54,world.army::WDivMercenaries::updater::<IUpdater$anon@39>::update,host-world,reached from world and city,player-state
+world/army/WDivMercenaries.java,62,world.army::WDivMercenaries::updater::<IUpdater$anon@39>::update,host-world,reached from world and city,player-state
+world/army/WDivMercenaries.java,64,world.army::WDivMercenaries::updater::<IUpdater$anon@39>::update,host-world,reached from world and city,player-state
+world/army/WDivMercenaries.java,65,world.army::WDivMercenaries::updater::<IUpdater$anon@39>::update,host-world,reached from world and city,player-state
+world/army/WDivMercenaries.java,160,world.army::WDivMercenaries::max,host-world,reached from world and city,realm
+world/army/WDivMercenaries.java,161,world.army::WDivMercenaries::max,host-world,reached from world and city,counterpart
+world/army/WDivMercenaries.java,164,world.army::WDivMercenaries::max,host-world,reached from world and city,counterpart
+world/army/WDivMercenary.java,60,world.army::WDivMercenary::randomize,host-world,reached from world and city,argument
+world/army/WDivMercenary.java,64,world.army::WDivMercenary::randomize,host-world,reached from world and city,argument
+world/army/WDivMercenary.java,128,world.army::WDivMercenary::armyChange,host-world,reached from world and city,is-human
+world/battle/PRegAttack.java,75,world.battle::PRegAttack::poll,host-world,reached from world,is-human
+world/battle/PRegAttack.java,108,world.battle::PRegAttack::create,host-world,reached from world,is-human
+world/battle/PRegAttack.java,157,world.battle::PRegAttack::create,host-world,reached from world,is-human
+world/battle/PRegAttack.java,159,world.battle::PRegAttack::create,host-world,reached from world,is-human
+world/battle/PSiege.java,153,world.battle::PSiege::besige,host-world,reached from world and city,is-human
+world/battle/PSiege.java,170,world.battle::PSiege::besige,host-world,reached from world and city,is-human
+world/battle/PSiege.java,182,world.battle::PSiege::poll,host-world,reached from world,is-human
+world/battle/PSiege.java,215,world.battle::PSiege::create,host-world,reached from world,is-human
+world/battle/PSiege.java,244,world.battle::PSiege::create,host-world,reached from world,is-human
+world/battle/ResolverPlayer.java,72,world.battle::ResolverPlayer::battle,host-world,reached from world,is-human
+world/battle/ResolverPlayer.java,188,world.battle::ResolverPlayer::besige::<WBattleSiege$anon@156>::retreat,host-world,reached from world,is-human
+world/battle/ResolverPlayer.java,534,world.battle::ResolverPlayer::Conquer::occupy,unreached,"package world/game, no path from a loop root",argument
+world/battle/ResolverPlayer.java,552,world.battle::ResolverPlayer::Conquer::puppet,unreached,"package world/game, no path from a loop root",player-state
+world/battle/ResolverPlayer.java,554,world.battle::ResolverPlayer::Conquer::puppet,unreached,"package world/game, no path from a loop root",counterpart
+world/battle/ResolverSide.java,64,world.battle::ResolverSide::init,host-world,reached from world,is-human
+world/battle/Side.java,196,world.battle::Side::SideUnit::power,host-world,reached from world,is-human
+world/battle/Side.java,197,world.battle::Side::SideUnit::power,host-world,reached from world,is-human
+world/battle/Util.java,106,world.battle::Util::getBesieger,host-world,reached from world,is-human
+world/battle/Util.java,218,world.battle::Util::conquer,host-world,reached from world,is-human
+world/battle/Util.java,257,world.battle::Util::conquer,host-world,reached from world,is-human
+world/entity/army/WArmy.java,153,world.entity.army::WArmy::renderAboveTerrain,unreached,"package world/game, no path from a loop root",is-human
+world/entity/army/WArmy.java,163,world.entity.army::WArmy::handleFow,unreached,"package world/game, no path from a loop root",is-human
+world/entity/army/WArmy.java,193,world.entity.army::WArmy::update,host-world,reached from world,is-human
+world/entity/army/WArmy.java,215,world.entity.army::WArmy::checkForResources,host-world,reached from world and city,is-human
+world/entity/army/WArmy.java,230,world.entity.army::WArmy::returnResources,host-world,reached from world and city,realm
+world/entity/army/WArmyConstructor.java,36,world.entity.army::WArmyConstructor::WArmyConstructor::<PlacableSingle$anon@32>::placeFirst,unreached,"package world/game, no path from a loop root",realm
+world/entity/army/WArmyConstructor.java,38,world.entity.army::WArmyConstructor::WArmyConstructor::<PlacableSingle$anon@32>::placeFirst,unreached,"package world/game, no path from a loop root",argument
+world/entity/army/WArmyConstructor.java,59,world.entity.army::WArmyConstructor::WArmyConstructor::<PlacableSingle$anon@55>::placeFirst,unreached,"package world/game, no path from a loop root",argument
+world/entity/army/WArmyConstructor.java,135,world.entity.army::WArmyConstructor::WArmyConstructor::<PlacableSingle$anon@119>::placeFirst,unreached,"package world/game, no path from a loop root",counterpart
+world/entity/army/WArmyState.java,54,world.entity.army::WArmyState::fortified::<WArmyState$anon@49>::update,unreached,"package world/game, no path from a loop root",is-human
+world/entity/army/WArmyState.java,78,world.entity.army::WArmyState::fortifying::<WArmyState$anon@73>::update,unreached,"package world/game, no path from a loop root",is-human
+world/entity/army/WArmyState.java,192,world.entity.army::WArmyState::raiding::<WArmyState$anon@118>::update,unreached,"package world/game, no path from a loop root",is-human
+world/entity/army/WArmyState.java,338,world.entity.army::WArmyState::besieging::<WArmyState$anon@329>::besiege::<ACTION$anon@333>::exe,ui,reached from UI only,counterpart
+world/entity/army/WArmyState.java,364,world.entity.army::WArmyState::besieging::<WArmyState$anon@329>::update,unreached,"package world/game, no path from a loop root",is-human
+world/entity/haven/Player.java,85,world.entity.haven::Player::update,unreached,"package world/game, no path from a loop root",argument
+world/entity/haven/Player.java,88,world.entity.haven::Player::update,unreached,"package world/game, no path from a loop root",argument
+world/entity/haven/Player.java,99,world.entity.haven::Player::update,unreached,"package world/game, no path from a loop root",argument
+world/entity/haven/Player.java,111,world.entity.haven::Player::update,unreached,"package world/game, no path from a loop root",argument
+world/entity/haven/Player.java,129,world.entity.haven::Player::get,host-world,reached from world and city,is-human
+world/entity/haven/Player.java,152,world.entity.haven::Player::MessOwn::first,unreached,"package world/game, no path from a loop root",is-human
+world/entity/haven/WHavenType.java,178,world.entity.haven::WHavenType::amount,unreached,"package world/game, no path from a loop root",argument
+world/entity/haven/WHavenType.java,189,world.entity.haven::WHavenType::amount,unreached,"package world/game, no path from a loop root",argument
+world/entity/haven/WHavenType.java,232,world.entity.haven::WHavenType::hoverProgress,ui,reached from UI only,argument
+world/entity/haven/WHavenType.java,257,world.entity.haven::WHavenType::progress,unreached,"package world/game, no path from a loop root",argument
+world/entity/haven/WHavenType.java,275,world.entity.haven::WHavenType::Gauge::render,unreached,"package world/game, no path from a loop root",argument
+world/map/fow/FOW.java,64,world.map.fow::FOW::update,host-world,reached from world,realm
+world/map/fow/FOW.java,65,world.map.fow::FOW::update,host-world,reached from world,realm
+world/map/fow/FOW.java,85,world.map.fow::FOW::update,host-world,reached from world,counterpart
+world/map/fow/FOW.java,145,world.map.fow::FOW::is,host-world,reached from world and city,is-human
+world/map/fow/FOW.java,158,world.map.fow::FOW::update,host-world,reached from world,realm
+world/map/pathing/WRegFinder.java,364,world.map.pathing::WRegFinder::Treaty::FACTION_REACHABLE_NPC_TRADE::<Treaty$anon@337>::can,host-world,reached from world and city,is-human
+world/map/pathing/WRegSel.java,64,world.map.pathing::WRegSel::ENEMYFACTION::<WRegSel$anon@59>::is,unreached,"package world/game, no path from a loop root",is-human
+world/map/regions/Gen.java,54,world.map.regions::Gen::Gen,setup,package,argument
+world/map/regions/GenInit.java,53,world.map.regions::GenInit::centre,setup,package,argument
+world/map/regions/GenInit.java,55,world.map.regions::GenInit::centre,setup,package,argument
+world/map/regions/GenName.java,80,world.map.regions::GenName::GenName,setup,package,argument
+world/map/regions/GenPlayer.java,124,world.map.regions::GenPlayer::gen,setup,package,argument
+world/map/regions/Placer.java,311,world.map.regions::Placer::placeInfo,unreached,"package world/game, no path from a loop root",player-state
+world/overlay/OverlayDiplomacy.java,46,world.overlay::OverlayDiplomacy::renderBelow,unreached,"package world/game, no path from a loop root",is-human
+world/overlay/OverlayRegnames.java,130,world.overlay::OverlayRegnames::render,unreached,"package world/game, no path from a loop root",is-human
+world/overlay/OverlayRegnames.java,162,world.overlay::OverlayRegnames::render,unreached,"package world/game, no path from a loop root",counterpart
+world/overlay/OverlayRegnames.java,177,world.overlay::OverlayRegnames::render,unreached,"package world/game, no path from a loop root",is-human
+world/overlay/OverlayRegnames.java,188,world.overlay::OverlayRegnames::render,unreached,"package world/game, no path from a loop root",counterpart
+world/overlay/OverlayRegnames.java,194,world.overlay::OverlayRegnames::render,unreached,"package world/game, no path from a loop root",counterpart
+world/overlay/WorldOverlays.java,59,world.overlay::WorldOverlays::raiders::<OverlayRegAbs$anon@50>::is,unreached,"package world/game, no path from a loop root",is-human
+world/overlay/WorldOverlays.java,90,world.overlay::WorldOverlays::health::<OverlayRegAbs$anon@81>::is,unreached,"package world/game, no path from a loop root",is-human
+world/overlay/WorldOverlays.java,104,world.overlay::WorldOverlays::loyalty::<OverlayRegAbs$anon@95>::is,unreached,"package world/game, no path from a loop root",is-human
+world/region/building/Creator.java,465,world.region.building::Creator::Bo::vGet,unreached,"package world/game, no path from a loop root",argument
+world/region/building/Creator.java,470,world.region.building::Creator::Bo::vGet,unreached,"package world/game, no path from a loop root",argument
+world/region/building/RDBuilding.java,94,world.region.building::RDBuilding::RDBuilding::<DataNibble$anon@89>::set,unreached,"package world/game, no path from a loop root",is-human
+world/region/building/RDBuilding.java,115,world.region.building::RDBuilding::RDBuilding::<RDOwnerChanger$anon@102>::change,unreached,"package world/game, no path from a loop root",is-human
+world/region/building/RDBuilding.java,327,world.region.building::RDBuilding::connect::<BoosterImp$anon@323>::vGet,unreached,"package world/game, no path from a loop root",is-human
+world/region/building/RDBuilding.java,494,world.region.building::RDBuilding::BBoost::BBoost,unreached,"package world/game, no path from a loop root",argument
+world/region/building/RDBuildings.java,52,world.region.building::RDBuildings::RDBuildings::<RDBoostCache$anon@49>::pget,unreached,"package world/game, no path from a loop root",is-human
+world/region/building/RDBuildPoints.java,105,world.region.building::RDBuildPoints::calc,host-world,reached from world and city,realm
+world/region/building/RDBuildPoints.java,106,world.region.building::RDBuildPoints::calc,host-world,reached from world and city,realm
+world/region/building/RDBuildPoints.java,121,world.region.building::RDBuildPoints::calc,host-world,reached from world and city,realm
+world/region/building/RDBuildPoints.java,122,world.region.building::RDBuildPoints::calc,host-world,reached from world and city,realm
+world/region/building/RDBuildPoints.java,237,world.region.building::RDBuildPoints::RDBuildPoint::eff,host-world,reached from world and city,is-human
+world/region/building/RDLevelsTmp.java,73,world.region.building::RDLevelsTmp::canAfford,unreached,"package world/game, no path from a loop root",player-state
+world/region/Gen.java,47,world.region::Gen::generatePlayer,setup,package,argument
+world/region/Gen.java,49,world.region::Gen::generatePlayer,setup,package,argument
+world/region/pop/RDEdicts.java,63,world.region.pop::RDEdicts::RDEdicts::<RDOwnerChanger$anon@59>::change,unreached,"package world/game, no path from a loop root",is-human
+world/region/pop/RDEdicts.java,118,world.region.pop::RDEdicts::Up::init,ui,reached from UI only,is-human
+world/region/pop/RDRace.java,276,world.region.pop::RDRace::RDRacePopulation::RDRacePopulation,unreached,"package world/game, no path from a loop root",is-human
+world/region/pop/RDRace.java,460,world.region.pop::RDRace::RDNameList::next,unreached,"package world/game, no path from a loop root",is-human
+world/region/pop/RDRaces.java,298,world.region.pop::RDRaces::capacity,host-world,reached from world and city,is-human
+world/region/RD.java,238,world.region::RD::saver::<WorldResourceManager$anon@155>::validateInit,unreached,"package world/game, no path from a loop root",argument
+world/region/RD.java,240,world.region::RD::saver::<WorldResourceManager$anon@155>::validateInit,unreached,"package world/game, no path from a loop root",argument
+world/region/RD.java,491,world.region::RD::setFaction,host-world,reached from world and city,is-human
+world/region/RDDistance.java,96,world.region::RDDistance::RDDistance::<ACTION$anon@89>::exe::<RBooster$anon@93>::get,ui,reached from UI only,is-human
+world/region/RDDistance.java,198,world.region::RDDistance::init,host-world,reached from world and city,realm
+world/region/RDDistance.java,227,world.region::RDDistance::init,host-world,reached from world and city,is-human
+world/region/RDDistance.java,303,world.region::RDDistance::capitolDist,unreached,"package world/game, no path from a loop root",argument
+world/region/RDHealth.java,164,world.region::RDHealth::RDHealth::<RDUpdatable$anon@144>::update,host-world,reached from world and city,is-human
+world/region/RDHealth.java,188,world.region::RDHealth::RDHealth::<RDOwnerChanger$anon@184>::change,unreached,"package world/game, no path from a loop root",is-human
+world/region/RDMilitary.java,55,world.region::RDMilitary::RDMilitary::<DataShort$anon@52>::get,unreached,"package world/game, no path from a loop root",realm
+world/region/RDMilitary.java,152,world.region::RDMilitary::garrisonTarget,host-world,reached from world and city,is-human
+world/region/RDMilitary.java,180,world.region::RDMilitary::conscripts,host-world,reached from world and city,is-human
+world/region/RDMilitary.java,242,world.region::RDMilitary::extractSpoils,unreached,"package world/game, no path from a loop root",realm
+world/region/RDMilitaryGar.java,74,world.region::RDMilitaryGar::divisions,host-world,reached from world and city,realm
+world/region/RDMilitaryGar.java,133,world.region::RDMilitaryGar::divisions,host-world,reached from world and city,player-state
+world/region/RDMilitaryGar.java,319,world.region::RDMilitaryGar::extractLostEquipment,unreached,"package world/game, no path from a loop root",player-state
+world/region/RDMilitaryGar.java,650,world.region::RDMilitaryGar::WDivsCapitol::WDivCity::faction,unreached,"package world/game, no path from a loop root",argument
+world/region/RDOwner.java,51,world.region::RDOwner::RDOwner::<ACTION$anon@43>::exe::<RBooster$anon@47>::get,ui,reached from UI only,is-human
+world/region/RDOwner.java,70,world.region::RDOwner::update,host-world,reached from world and city,is-human
+world/region/RDOwner.java,73,world.region::RDOwner::update,host-world,reached from world and city,is-human
+world/region/RDOwner.java,74,world.region::RDOwner::update,host-world,reached from world and city,argument
+world/region/updating/Builder.java,71,world.region.updating::Builder::build,host-world,reached from world and city,is-human
+world/region/updating/RDUpdater.java,53,world.region.updating::RDUpdater::uper::<IUpdater$anon@42>::update,host-world,reached from world and city,is-human
+world/region/updating/Shipper.java,40,world.region.updating::Shipper::ship,host-world,reached from world and city,is-human
+world/WorldMinimap.java,66,world::WorldMinimap::WorldMinimap::<RDOwnerChanger$anon@61>::change,unreached,"package world/game, no path from a loop root",is-human
+world/WorldMinimap.java,151,world::WorldMinimap::render,unreached,"package world/game, no path from a loop root",is-human
+world/WorldMinimap.java,165,world::WorldMinimap::render,unreached,"package world/game, no path from a loop root",is-human
