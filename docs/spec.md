@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.4 · 2026-10-20
+Version 0.5 · 2026-10-20
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -108,7 +108,7 @@ Players trade through direct contracts and through a shared market.
 
 When two players' armies meet, a real-time battle is mandatory. Battles against NPC armies and attacks on NPC towns can be auto-resolved, as in vanilla.
 
-- **Battle size** has no limit beyond vanilla's. If any PC cannot keep up, a spectator's included, the battle slows down for everyone.
+- **Battle size** has no limit beyond vanilla's. The host's PC runs every field battle and the other PCs only display it ([ADR 0002](decisions/0002-battle-streaming.md)). If the host's PC cannot keep up, the battle slows down for everyone; a spectator's PC never slows it down.
 - **Latency.** Up to 1 second between giving an order and seeing it carried out is acceptable.
 - **Allies** can join a battle or siege when they are within range, as in vanilla.
 - **Deployment.** Each player's army spawns as a separate army. Allied armies stand side by side on the same side of the field, 20 tiles apart, and the enemy's armies are placed the same way. Every player can rearrange their own army before the battle, as in vanilla.
@@ -186,7 +186,7 @@ The mod must meet these targets on the reference PC: an Intel Core i5-11600K wit
 | Latency inside your own city | None; your own city never waits on the network |
 | Ping | No limit; players can be anywhere in the world |
 | City size | No hard limit; a city larger than 10,000 may run slower than 1× |
-| Battles too large for one PC | The battle slows down for everyone instead of desyncing |
+| Battles too large for the host's PC | The battle slows down for everyone |
 
 ### Sync and desync
 
@@ -194,10 +194,10 @@ These targets are tested with 2 players at 300 ms ping.
 
 | Target | Requirement |
 | --- | --- |
-| Battle stability | A battle with 2,000 units per side runs for 30 minutes with no desync |
-| Desync detection | Any desync is detected within 2 seconds |
-| Desync recovery | Any desync is recovered within 10 seconds, without ending the battle |
-| Desync reports | Every desync writes a report that can replay the battle |
+| Battle stability | A battle with 2,000 units per side runs for 30 minutes, and every player's view stays at most 1 second behind the host's |
+| Desync detection | Any world map desync is detected within 2 seconds |
+| Desync recovery | Any world map desync is recovered within 10 seconds |
+| Desync reports | Every world map desync writes a report for debugging |
 | Battle order latency | At or under 1 second between an order and its effect |
 | World map | The world map recovers automatically from any mismatch with the host |
 
@@ -251,9 +251,8 @@ A v1 feature is accepted when every criterion below passes. **[CI]** marks an au
 - When player armies meet, a real-time battle always starts. Battles against NPC armies offer auto-resolve. [PT]
 - Allied armies spawn side by side, 20 tiles apart, and each player can rearrange only their own army. [PT]
 - A majority vote of commanders changes battle speed; a tie keeps the current speed. [CI]
-- A battle with 2,000 units per side runs 30 minutes with no desync. [CI + PT]
-- When any PC is slow, the battle slows for everyone and never desyncs. [CI]
-- A forced desync is detected within 2 seconds, recovered within 10 seconds, and writes a report that replays the battle. [CI]
+- A battle with 2,000 units per side runs 30 minutes, and every player's view stays at most 1 second behind the host's. [CI + PT]
+- When the host's PC is slow, the battle slows for everyone; a slow spectator's PC never slows it. [CI]
 
 ### Sieges
 
@@ -304,4 +303,5 @@ Every card on the board, not only features, is done when:
 ## 16. Open questions
 
 - [ ] **Prioritized market trading:** a fuller design of how bypassing NPC limits works.
+- [ ] **Battle streaming limits:** the bandwidth a battle may use per player, and how fast a player whose stream drops catches up again. To be set after the battle streaming spike.
 - [ ] **Release App ID:** Spacewar (480) is for development only. Which App ID does the released mod use?

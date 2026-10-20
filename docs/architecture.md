@@ -10,7 +10,7 @@ Whoever owns a piece of state simulates it; everyone else gets reports or stream
 | --- | --- | --- | --- |
 | World map | Host-authoritative state sync | Host only; clients mirror | Commands up, state deltas down |
 | A player's city | Local authority | Its owner only | City reports and ledger transactions |
-| Field battle | Deterministic lockstep, host as referee | Every player, from one start state | Orders only, plus state hashes |
+| Field battle | Host-authoritative streaming ([ADR 0002](decisions/0002-battle-streaming.md)) | Host only; other PCs display | Commander orders up, battle state down |
 | Siege assault | Defender-authoritative streaming (v1) | Defender's PC | Visible city state down, attacker orders up |
 | Goods, soldiers, money crossing city ↔ world | Ledger with transaction IDs | Host | Two-phase transactions, applied exactly once |
 
@@ -20,7 +20,7 @@ Other players appear on each client as puppet NPC factions: AI off, state overwr
 
 - **World tick (host):** fixed rate, e.g. 10 per second at 1× speed. Everything shared is stamped with it: army moves, treaties, caravans, pauses, saves.
 - **City clock (each player):** runs locally at full speed, reports the world tick it has reached, never runs ahead of the host. The host does not advance the world more than a small cap ahead of the slowest city; that is how "slowest PC sets the speed" works.
-- **Battle tick:** fixed timestep, grouped into turns of about 100 ms.
+- **Battle clock:** the simulating PC's own game clock. Snapshots are sent about every 100 ms, and viewers interpolate between them.
 
 ## World map
 
@@ -31,15 +31,18 @@ Other players appear on each client as puppet NPC factions: AI off, state overwr
 
 ## Field battles
 
-- The host sends one start state: terrain seed, army records, deployment.
-- Each commander sends its orders for every turn, even when empty, scheduled a few turns ahead (input delay from measured ping, capped at 1 s). The host bundles them and sends the confirmed bundle to everyone.
-- No machine runs a turn before its bundle arrives. A late machine, spectators included, slows the battle for everyone.
-- Every ~1 s each peer sends per-subsystem state hashes (positions, health, morale, projectiles, RNG). On mismatch the host's state is canonical: it sends a serialized battle state to the diverged peer, and a desync report (hashes, recent orders, start state) is written for replay.
-- Determinism rules: `.claude/rules/determinism.md`.
+Decided in [ADR 0002](decisions/0002-battle-streaming.md): streaming, not lockstep.
+
+- **Simulation.** The host simulates the battle with the vanilla engine, even when it is only spectating.
+- **Starting the battle.** Every PC builds the same battlefield, either from a reseeded generator or from a map the host sends at the start; to be settled in the battle streaming spike.
+- **Orders.** Commanders send orders to the host, which applies them on arrival.
+- **Snapshots.** The host streams battle snapshots (units, health, morale, projectiles) about every 100 ms. The other PCs render them in a display-only mode and don't simulate.
+- **Speed.** Battle speed is the host's simulation speed, set by the commanders' vote and lowered when the host's PC can't keep up.
+- **Determinism.** Not needed. `.claude/rules/determinism.md` applies only if lockstep is ever brought back.
 
 ## Siege assault
 
-The defender's PC runs the city and the assault and streams the area around each viewer's camera at 5–10 updates per second. Attacker orders go through the host to the defender. Alternative to test in a spike: every player loads the defender's city snapshot at assault start and runs city + battle in lockstep (needs a deterministic city simulation).
+The defender's PC runs the city and the assault and streams the area around each viewer's camera at 5–10 updates per second. Attacker orders go through the host to the defender. This uses the same streaming mechanism as field battles ([ADR 0002](decisions/0002-battle-streaming.md)).
 
 ## Saves, disconnects, viewing
 
@@ -49,5 +52,5 @@ The defender's PC runs the city and the assault and streams the area around each
 
 ## Code layout
 
-- `mod/` holds the multiplayer module: networking, world mirror, ledger, lockstep, snapshots, observer mode. Domain logic here does not import game classes (adapter boundary, AGENTS.md).
+- `mod/` holds the multiplayer module: networking, world mirror, ledger, battle streaming, snapshots, observer mode. Domain logic here does not import game classes (adapter boundary, AGENTS.md).
 - The game's own code is changed only through small, named hooks. Each hook is listed in `docs/hooks.md` with the reason it exists.
