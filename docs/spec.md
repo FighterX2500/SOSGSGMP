@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.3 · 2026-10-20
+Version 0.4 · 2026-10-20
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -58,6 +58,7 @@ All players are online at the same time. A campaign is saved and resumed later, 
 
 - **Pausing.** Any player can pause and any player can unpause a normal pause. While paused, every player sees who paused the game. A priority pause can only be unpaused by the host; the game enters one when a player disconnects (section 11).
 - **Game speed.** The host sets the speed. It is capped by the slowest PC: if one player's game falls behind, the speed drops for everyone, as in Paradox grand strategy games.
+- **Menus don't pause.** Opening a menu or window never pauses or slows the game in multiplayer, unlike vanilla. The player's city and the world keep running while it is open. Only the pause in this section stops time.
 - **Manual battles pause the world.** While a real-time battle or siege assault runs, the world map and every city are paused, and every player watches it. Otherwise a single battle could let years pass outside, because real-time battles are slow compared to city time.
 
 ## 5. Lobby and world setup
@@ -230,6 +231,7 @@ A v1 feature is accepted when every criterion below passes. **[CI]** marks an au
 - Any player can pause and unpause a normal pause, and every player sees who paused. [PT]
 - Only the host can unpause a priority pause. [CI]
 - When one PC falls behind, game speed drops for everyone, and no city ever runs ahead of world time. [CI]
+- While a player has a menu or window open, their city and the world keep running and the game speed doesn't drop. [PT]
 
 ### Diplomacy
 
