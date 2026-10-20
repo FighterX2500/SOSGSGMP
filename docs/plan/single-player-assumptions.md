@@ -118,7 +118,13 @@ Each group lists typical call sites (V71 line numbers) and the hook points it ma
 - **Puppet humans run NPC code paths.** Other humans are `FactionNPC`s on the host (architecture). Every `instanceof FactionNPC` branch (48) and cast (85) treats them as NPCs: court, stockpile, opinion. F2 (AI off) and F8 cover the known ones; the rest need a review per feature.
 - **Battle sides (B6) are a structural limit,** not a one-line check: the engine has one "player" army and one "enemy" army. Allied players on one side and per-player control of divisions need a design inside the battle streaming spike.
 
-## 7. Questions for you
+## 7. Questions for you (answered 2026-10-20)
+
+**Answers from the owner:**
+- SP1: yes, per human.
+- SP2: yes, each human separately.
+- SP3: keep the puppet structure.
+- SP4: decide after the battle streaming spike's measurements.
 
 - **SP1: How do NPCs relate to several humans?** Vanilla first (spec §1) suggests each NPC keeps a separate opinion, stance history and war plan **for each human**, as if each human were the vanilla player. My recommendation: yes, per human. The alternative, one shared opinion of "the humans", is simpler but not vanilla.
 - **SP2: Who do world events and raids target?** For example NPC war declarations, rebellions, raider armies and ransom demands. Recommendation: each human gets their own event timers and raiders, as if alone (vanilla first). Events that happen inside a city (uprisings, killers) run on that city's owner's PC.
