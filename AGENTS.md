@@ -90,7 +90,7 @@ Multiplayer needs entry points the game's script/mod API may not offer. Use, in 
 A hook only calls into the mod (for example `isLocalPlayer(f)` asking the multiplayer module); the logic stays in the mod, behind the adapter boundary. Every hook is listed in `docs/hooks.md` with the game file it touches and why no API or adapter route was enough. How hooks are distributed to players is decided in an ADR; until then, do not add one without approval.
 
 ### Determinism
-Code that runs in lockstep (battles) follows `.claude/rules/determinism.md`. Those rules are stricter than "Performance in Hot Paths" and win where they differ.
+Code that runs in lockstep follows `.claude/rules/determinism.md`. In v1 no code does: battles are simulated on one PC and streamed (ADR 0002). Those rules are stricter than "Performance in Hot Paths" and win where they differ.
 
 ### Persistence (Save/Load)
 *   `save` and `load` must write and read the same fields in exactly the same order. Change them together, in the same commit.

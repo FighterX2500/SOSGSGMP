@@ -1,6 +1,5 @@
 ---
 paths:
-  - "mod/**/battle/**"
   - "mod/**/lockstep/**"
 ---
 

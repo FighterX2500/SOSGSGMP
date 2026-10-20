@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.5 · 2026-10-20
+Version 0.6 · 2026-10-20
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -58,7 +58,7 @@ All players are online at the same time. A campaign is saved and resumed later, 
 
 - **Pausing.** Any player can pause and any player can unpause a normal pause. While paused, every player sees who paused the game. A priority pause can only be unpaused by the host; the game enters one when a player disconnects (section 11).
 - **Game speed.** The host sets the speed. It is capped by the slowest PC: if one player's game falls behind, the speed drops for everyone, as in Paradox grand strategy games.
-- **Menus don't pause.** Opening a menu or window never pauses or slows the game in multiplayer, unlike vanilla. The player's city and the world keep running while it is open. Only the pause in this section stops time.
+- **Menus and notifications don't pause.** Opening a menu or window, or getting a notification popup, never pauses or slows the game in multiplayer, unlike vanilla. The player's city and the world keep running. Only the pause in this section stops time.
 - **Manual battles pause the world.** While a real-time battle or siege assault runs, the world map and every city are paused, and every player watches it. Otherwise a single battle could let years pass outside, because real-time battles are slow compared to city time.
 
 ## 5. Lobby and world setup
@@ -122,7 +122,7 @@ Real-time sieges of player cities are part of v1. A siege runs in three phases:
 
 1. **Siege.** The attacking army besieges the city, and the vanilla siege rules apply. The city is blockaded, and the attacking army needs supplies as in vanilla.
 2. **Waiting period.** The attacker cannot assault until 1 in-game season has passed for every started 1,000 people in the city, up to a maximum of 4 seasons.
-3. **Assault.** The city is simulated in real time while the attacker storms it. The world is paused and every player watches.
+3. **Assault.** The city is simulated in real time while the attacker storms it. The defender's PC runs the assault, because the city exists only there; it acts as the server for the assault, as the host does for field battles ([ADR 0002](decisions/0002-battle-streaming.md)). The attacker sends orders, and every other PC only displays the assault. The world is paused and every player watches.
 
 During the siege, the defender can attack the besieging army. That creates a real-time field battle under the rules in section 8. Allies can lift the siege only by defeating the besieging army.
 
@@ -187,6 +187,7 @@ The mod must meet these targets on the reference PC: an Intel Core i5-11600K wit
 | Ping | No limit; players can be anywhere in the world |
 | City size | No hard limit; a city larger than 10,000 may run slower than 1× |
 | Battles too large for the host's PC | The battle slows down for everyone |
+| Battle network traffic | No limit in v1; measured in later tests |
 
 ### Sync and desync
 
@@ -231,7 +232,7 @@ A v1 feature is accepted when every criterion below passes. **[CI]** marks an au
 - Any player can pause and unpause a normal pause, and every player sees who paused. [PT]
 - Only the host can unpause a priority pause. [CI]
 - When one PC falls behind, game speed drops for everyone, and no city ever runs ahead of world time. [CI]
-- While a player has a menu or window open, their city and the world keep running and the game speed doesn't drop. [PT]
+- While a player has a menu, window or notification popup open, their city and the world keep running and the game speed doesn't drop. [PT]
 
 ### Diplomacy
 
@@ -303,5 +304,5 @@ Every card on the board, not only features, is done when:
 ## 16. Open questions
 
 - [ ] **Prioritized market trading:** a fuller design of how bypassing NPC limits works.
-- [ ] **Battle streaming limits:** the bandwidth a battle may use per player, and how fast a player whose stream drops catches up again. To be set after the battle streaming spike.
+- [ ] **Battle stream catch-up:** how fast a player whose battle stream drops catches up again. To be set after the battle streaming spike.
 - [ ] **Release App ID:** Spacewar (480) is for development only. Which App ID does the released mod use?

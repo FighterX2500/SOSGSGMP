@@ -28,7 +28,7 @@ Planning tasks, in rough order:
 2. **Hook surface:** map where the multiplayer features need to hook into the game: the main update loop, world tick, faction/player handling, battle start and end, save/load, city boundary crossings (soldiers, goods, caravans), pause and speed. For each, say whether the game's script/mod API is enough or the game's code must change.
 3. **Single-player assumptions:** find the places that assume exactly one player faction.
 4. **Spikes:**
-    - Battle determinism: same seed and orders on two runs (then two PCs), compare state hashes.
+    - Battle streaming (ADR 0002): the same battlefield from the host's seed on two PCs, snapshot size, order latency at 300 ms ping, display-only mode for viewers.
     - Late-game save size and save time.
     - Two game processes on one PC (city viewer) and their RAM use.
     - Steam P2P under App ID 480 from inside the game process.
