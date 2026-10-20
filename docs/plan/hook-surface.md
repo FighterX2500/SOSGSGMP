@@ -29,13 +29,13 @@ Source references use paths relative to the source folder, and line numbers are 
 4. **Vanilla battles are not deterministic.** They run on five worker threads that tick on wall-clock time, with an AI general that reads `System.currentTimeMillis()` and a global, randomly seeded RNG. This ruled out the lockstep plan: battles are now simulated on the host and streamed ([ADR 0002](../decisions/0002-battle-streaming.md), §7 Q1).
 5. **A vanilla field battle replaces the city in memory.** It saves the whole game, generates the battlefield inside the city engine, and reloads the save when the battle ends. That fits spec §4 ("battles pause the world and every city"), but it costs a full save and a full load on every PC in the battle (§11, question Q2).
 
-Tally of the 41 points in §4:
+Tally of the 46 points in §4:
 
 | Route | Count | Notes |
 | --- | --- | --- |
 | API | 19 | Several work only once a hook elsewhere exists, for example B5 after P1. |
-| Hook | 12 | |
-| Hook or reflection | 4 | Decided per point. |
+| Hook | 16 | |
+| Hook or reflection | 5 | Decided per point. |
 | Reflection | 2 | |
 | API plus reflection | 2 | |
 | Mod UI plus API | 1 | |
@@ -97,6 +97,7 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 | W2 | World state setters: `WArmy.setDestination/teleport/stop`, `WORLD.ENTITIES().caravans.create`, `DipStance.set`, region owner changes (`RD`). Change sources on the host: the four listeners in §2. | Collect changes on the host; apply them on clients. | **API** where a setter or listener exists; **reflection** for fields with no setter | Coverage isn't known yet: army movement and caravan progress have no listener and must be polled or snapshotted. A spike should list every field a delta must carry. |
 | W3 | `WORLD.save/load(FilePutter/FileGetter)` (protected) | Full world snapshot for resync (spec §13: "recovers automatically") and reconnect. | **Reflection** (call the protected `save/load` of the `WORLD` and `FACTIONS` sections) | — |
 | W4 | Same | World hash every few seconds (architecture §World map). | **Reflection** (hash the serialized `WORLD` and `FACTIONS` sections), or **API** getters for a smaller key-state hash | — |
+| W5 | `world/map/fow/FOW.java`, `world/WorldMinimap.java`, world overlays: world resources that are really display for the local player | Keep running on clients for the local player while the rest of the world loop is off (A2). | **Hook or reflection**, decided with A2 | Same mechanism as A2. Found in [single-player-assumptions.md](single-player-assumptions.md) G8. |
 
 ### Faction and player handling (spec §5, §6, §11)
 
@@ -106,9 +107,12 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 | F2 | `FactionNPC.update` (`game/faction/npc/FactionNPC.java:179`), `FACTIONS` updater (`FACTIONS.java:40`), `TradeManager.buy` (`game/faction/trade/TradeManager.java:194`) | A puppet runs **no** NPC economy, AI requests or trading on its own. | **Hook**: early return when the faction is a remote player | These are protected or package-private methods called inside the game loop. Nothing can skip them from outside. |
 | F3 | `world/army/ai/WArmyAI.update` (`planForWar`), `world/army/ai/Recruiter` | No NPC war planning or army recruiting for puppet factions. | **Hook** | Same as F2. |
 | F4 | `Faction.buyer(res)` / `seller(res)` for a `FactionNPC` (NPC stockpile) | On the host, trade with a puppet must go to the remote player's real city through the ledger, not to an NPC stockpile. | **Hook** (return a ledger-backed `FBUYER`/`FSELLER`), or **reflection** if the backing field can be replaced | Needs a closer look at `FactionNPC`'s buyer/seller fields. |
-| F5 | 1,047 × `FACTIONS.player()` (`world/` 51 files, `game/` 73, `settlement/` 68, `view/` 87) | Host world logic must treat every human as "a player". Examples: `Resolver.init` checks `looser.player`; `ResolverPlayer.battle` shows the battle UI only for `FACTIONS.player()`; `TradeManager.sellPlayer`; `WArmy.java:230` sends spoils to `FACTIONS.player()`. | **Hook** (many) | **Planning task 3** will sort them into "local player is right" (most of `settlement/` and `view/`) and "means any human" (most of `world/` and `game/`). |
+| F5 | 1,075 call sites of `FACTIONS.player()` / `GAME.player()` in 310 files | Host world logic must treat every human as "a player". | **Hook** (many) | Classified in [single-player-assumptions.md](single-player-assumptions.md): about 363 host-side lines in about 140 files. The largest group, "is this faction a human?", is 139 one-line checks in 68 files. |
 | F6 | `game/faction/diplomacy/DipStance.set(instigator, accepter)`, `DIP.get(a, b)` | Treaties between players, applied by the host (spec §6). | **API**: stances are a general faction-to-faction table | — |
 | F7 | `game/faction/diplomacy/deal/Deal`: one `player` side and one `npc` side; `DealParty.execute` | Player-to-player offers and acceptance (spec §6: no opinion requirement). | **Mod UI + API** to apply the result (stance, goods, regions) | The vanilla deal screen is player-to-NPC only. Reusing it for player-to-player would need **hooks in `view/`**; drawing the mod's own screen through `render`/`mouseClick` avoids that. To be decided in the diplomacy story. |
+| F8 | `game/faction/royalty/opinion/*` (`ROPINION`), one-argument `DIP.get(npc)` / `DipStance.is/set(npc)`, `DipWarPlayer`, `Deal`, `UpVassal` | Each NPC keeps opinion, stance history, war plans and tribute **per human**. | **Hook** | The data is stored per NPC toward one player; nothing outside can split it. [single-player-assumptions.md](single-player-assumptions.md) G2, question SP1. |
+| F9 | `game/events/faction/player/*`, `EventFactionWar`, `EventFactionExpand`, `EventWorldRebellion`, `game/raiding/*` | World events and raiders target a chosen human; raids into a city run on its owner's PC. | **Hook** | Targets are hard-wired to `FACTIONS.player()`. [single-player-assumptions.md](single-player-assumptions.md) G6, question SP2. |
+| F10 | Reads of `Player` state from world code (`credits()`, `level()`, `titles`, `race()`, `offensivePower()`, `emissaries`) | For a remote human, the host uses values from that human's latest city report. | **Hook** | Remote humans are `FactionNPC` puppets on the host and have no `Player` state. [single-player-assumptions.md](single-player-assumptions.md) G7. |
 
 ### Battle start and end (spec §8)
 
@@ -119,6 +123,7 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 | B3 | `game/battle/Armies` (`ARMIES`) and `game/battle/thread/BattleThreads`: five `SlaveThread`s (orders, centres, status, trajectories, `Strategos2000`) | Streaming ([ADR 0002](../decisions/0002-battle-streaming.md)). **Host:** human orders are applied on arrival; a human-controlled army gets **no** AI general; the battle state is read every ~100 ms for snapshots. **Viewers:** display-only, so no battle simulation or threads run, and units are positioned from snapshots. | **Hook** (several) | The battle update and threads are internal, and nothing can stop them or set unit state from outside. |
 | B4 | `BattleStateExiter.exit` (public abstract) → reloads `__beforeBattle` → `afterExit(result)` | The host decides the result; each PC reloads its own pre-battle save; the host applies losses to the world. | **API**: the mod passes its own `BattleStateExiter` | — |
 | B5 | `BattleState.view()` sets `SPEED.speedSet(0)`; `GAME.SPEED` during the battle | Battle speed by commanders' majority vote (spec §8). | **API** once P1 exists | — |
+| B6 | `game/battle/Armies.player()/enemy()` (165 uses), `Army.faction()` (`Army.java:100`), `Div.faction()`, `DivInfo.faction()` | Battles run on the host between other humans: each side's faction is the real human; with allies, several humans per side and per-division ownership (spec §8). | **Hook** | The engine has two sides with one fixed faction each (`FACTIONS.player()` / `FACTIONS.otherFaction()`). [single-player-assumptions.md](single-player-assumptions.md) §2, question SP4. |
 
 ### Sieges (spec §9)
 
@@ -179,13 +184,18 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 | `game/GameSpeed.java` | P1 | 2 calls |
 | `view/main/VIEW.java` | P4 | 1 call |
 | `game/GAME.java` (`Notify`, `Warn`) | P5 | 2 calls |
+| `game/faction/royalty/opinion/**`, `game/faction/diplomacy/**` | F8 | data change per human; see SP1 |
+| `game/events/faction/**`, `game/events/world/**`, `game/raiding/**` | F9 | unknown until SP2 |
+| World code reading `Player` state | F10 | about 60 lines (G7) |
+| `world/map/fow/FOW.java`, `world/WorldMinimap.java`, overlays | W5 | with A2 |
+| `game/battle/Armies.java`, `Army.java`, `div/Div.java`, `div/DivInfo.java` | B6 | unknown until the battle streaming spike |
 | `game/faction/npc/FactionNPC.java`, `game/faction/FACTIONS.java`, `game/faction/trade/TradeManager.java` | F2, F4 | 3–4 calls |
 | `world/army/ai/WArmyAI.java`, `world/army/ai/Recruiter.java` | F3 | 2 calls |
 | `world/battle/Resolver.java`, `world/battle/ResolverPlayer.java` | B1, F5 (part) | 2–3 calls |
 | `world/battle/PSiege.java` | S1 | 1–2 calls |
 | `game/battle/**`, `settlement/**` invader AI | B3, S3 | unknown until the battle streaming spike |
 | `world/army/WDivStoredAll.java`, `PlanJoinArmy.java` | C5 | unknown; task 3 |
-| Others from the `FACTIONS.player()` review | F5 | task 3 |
+| 68 files with "is this faction a human?" checks (G1) | F5 | 139 one-line calls |
 
 ## 7. Open questions and risks (raised, not decided)
 
@@ -212,7 +222,7 @@ Making this deterministic would mean reworking the battle's threading, time and 
 
 ## 8. What this needs next
 
-- **Planning task 3 (single-player assumptions):** go through F5 and C5 one by one.
+- **Planning task 3 (single-player assumptions):** done in [single-player-assumptions.md](single-player-assumptions.md). It added W5, F8, F9, F10 and B6.
 - **Planning task 4 spikes:**
   - 4.1 battle streaming (replaces battle determinism, [ADR 0002](../decisions/0002-battle-streaming.md)) answers B2/B3: snapshot size, bandwidth, latency, the same battlefield on every PC, display-only mode;
   - 4.2 save size and time answers Q2 and Q3;
