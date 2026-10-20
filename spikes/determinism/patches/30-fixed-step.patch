@@ -19,7 +19,7 @@
  			for (GameResource s : GameResource.all) {
  				if (s.isBattle || !VIEW.b().isActive())
  					s.update(0, game.profiler);
-@@ -266,12 +269,24 @@
+@@ -266,12 +269,25 @@
  			saver.autoSave(ds);
  			int fulls = (int) (ds/max);
  			double last = ds - fulls*max;
@@ -33,6 +33,7 @@
 +			}
  			
  			for (int i = 0; i < fulls; i++){
++				snake2d.SosMpDeterminism.simThread = Thread.currentThread();
 +				snake2d.SosMpDeterminism.inSim = true;
  				for (GameResource s : GameResource.all) {
  					if (s.isBattle|| !VIEW.b().isActive())

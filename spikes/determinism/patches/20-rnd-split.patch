@@ -1,6 +1,6 @@
 --- a/snake2d/util/rnd/RND.java
 +++ b/snake2d/util/rnd/RND.java
-@@ -9,37 +9,47 @@
+@@ -9,37 +9,70 @@
  
  	private static Random rnd;
  	private static int seed;
@@ -11,7 +11,13 @@
 +			return rnd;
 +		if (!snake2d.SosMpDeterminism.inSim)
 +			return cosmetic;
++		if (Thread.currentThread() != snake2d.SosMpDeterminism.simThread) {
++			snake2d.SosMpDeterminism.foreignDraws++;
++			return cosmetic;
++		}
 +		snake2d.SosMpDeterminism.simDraws++;
++		if (snake2d.SosMpDeterminism.trace != null)
++			snake2d.SosMpDeterminism.traceDraw();
 +		return rnd;
 +	}
  	
@@ -27,6 +33,23 @@
  		//seed stuff
  	}
  	
++	/** SOS-11 spike: cosmetic draws (sound, visuals); never from the simulation stream once the streams are split. */
++	private static Random c() {
++		return snake2d.SosMpDeterminism.splitRnd ? cosmetic : rnd;
++	}
++
++	public static int cInt(int max) {
++		return c().nextInt(max);
++	}
++
++	public static float cFloat(double d) {
++		return (float) (c().nextFloat()*d);
++	}
++
++	public static float cFloat1(double d) {
++		return (float) ((1.0 -d ) + c().nextFloat()*d*2.0);
++	}
++
  	public static int rInt(){
 -		return rnd.nextInt();
 +		return r().nextInt();
@@ -55,7 +78,7 @@
  	}
  	
  	public static float rFloatP(float exponent){
-@@ -52,7 +62,7 @@
+@@ -52,7 +85,7 @@
  	}
  	
  	public static float rFloat(double d) {
@@ -64,7 +87,7 @@
  	}
  
  	/**
-@@ -61,7 +71,7 @@
+@@ -61,7 +94,7 @@
  	 * @return get a float from 1-d to 1+d
  	 */
  	public static float rFloat1(double d) {
@@ -73,7 +96,7 @@
  	}
  	
  	/**
-@@ -70,13 +80,13 @@
+@@ -70,13 +103,13 @@
  	 * @return a float f, f >= -d, f < d
  	 */
  	public static float rFloat0(double d) {
@@ -89,7 +112,7 @@
  	}
  	
  	public static boolean oneIn(double what){
-@@ -96,7 +106,7 @@
+@@ -96,7 +129,7 @@
  	}
  
  	public static long rLong() {

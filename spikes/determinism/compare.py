@@ -7,7 +7,8 @@ import os
 import pathlib
 import sys
 
-DET = pathlib.Path(os.environ["APPDATA"]) / "songsofsyx" / "sosmp-spike" / "det"
+# SOSMP_DET overrides the folder (matrix.sh collects every copy's logs into one place).
+DET = pathlib.Path(os.environ.get("SOSMP_DET") or pathlib.Path(os.environ["APPDATA"]) / "songsofsyx" / "sosmp-spike" / "det")
 
 
 def load(tag):

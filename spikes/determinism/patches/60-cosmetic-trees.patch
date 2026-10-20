@@ -1,0 +1,14 @@
+--- a/settlement/tilemap/terrain/TForest.java
++++ b/settlement/tilemap/terrain/TForest.java
+@@ -119,7 +119,11 @@
+ 	}
+ 
+ 	void update(double ds) {
++		// SOS-11 spike: tree sway is visual only; keep its random draws off the simulation stream
++		boolean sim = snake2d.SosMpDeterminism.inSim;
++		snake2d.SosMpDeterminism.inSim = false;
+ 		sprites.update(ds);
++		snake2d.SosMpDeterminism.inSim = sim;
+ 	}
+ 	
+ 	public static final int MAX_AMOUNT = 4;

@@ -1,6 +1,6 @@
 --- a/game/battle/thread/BattleThreads.java
 +++ b/game/battle/thread/BattleThreads.java
-@@ -105,10 +105,21 @@
+@@ -105,10 +105,23 @@
  
  	
  	
@@ -14,6 +14,7 @@
 +		if (!snake2d.SosMpDeterminism.syncThreads || !started || ds <= 0)
 +			return;
 +		syncStep++;
++		snake2d.SosMpDeterminism.syncJob = true;
 +		((BattleThread)orders).doThreadJob();
 +		((BattleThread)centres).doThreadJob();
 +		((BattleThread)trajs).doThreadJob();
@@ -21,19 +22,29 @@
 +		((BattleThread)strat).doThreadJob();
 +		if (syncStep % 30 == 0)
 +			((BattleThread)status).doThreadJob();
++		snake2d.SosMpDeterminism.syncJob = false;
  	}
  
  	@Override
-@@ -145,7 +156,8 @@
+@@ -142,6 +155,7 @@
+ 	
+ 	public void unpause(boolean init) {
+ 		started = true;
++		syncStep = 0; // SOS-11 spike: the status beat counts from battle start
  		for (BattleThread t : threads) {
  			if (init)
  				t.init();
--			t.start();
-+			if (!snake2d.SosMpDeterminism.syncThreads)
-+				t.start();
- 		}
- 		
+--- a/game/battle/thread/BattleThread.java
++++ b/game/battle/thread/BattleThread.java
+@@ -42,6 +42,8 @@
  	}
+ 	
+ 	protected void start() {
++		if (snake2d.SosMpDeterminism.syncThreads)
++			return; // SOS-11 spike: the job runs inside the simulation step
+ 		thread.start(job);
+ 	}
+ 
 --- a/settlement/path/thread/FinderThread.java
 +++ b/settlement/path/thread/FinderThread.java
 @@ -19,7 +19,11 @@
@@ -69,7 +80,7 @@
  	
  	public boolean working() {
 +		if (snake2d.SosMpDeterminism.syncThreads)
-+			return true; // SOS-11 spike: jobs run inside the simulation step
++			return snake2d.SosMpDeterminism.syncJob; // SOS-11 spike: jobs run inside the simulation step, never on the thread
  		return shouldWork && !shouldDie;
  	}
  	

@@ -1,0 +1,20 @@
+--- a/menu/Menu.java
++++ b/menu/Menu.java
+@@ -121,9 +121,17 @@
+ 		current.hover(mCoo);
+ 	}
+ 
++	private static boolean sosmpAutoloaded;
++
+ 	@Override
+ 	public void update(float ds, double slow) {
+ 		hover(CORE.getInput().getMouse().getCoo(), false);
++		if (!sosmpAutoloaded && System.getenv("SOSMP_AUTOLOAD") != null) {
++			// SOS-11 spike: load the named save at start-up, like Continue, so tests need no clicks
++			sosmpAutoloaded = true;
++			start(new game.save.GameLoader(init.paths.PATHS.local().save().get(System.getenv("SOSMP_AUTOLOAD"))));
++			return;
++		}
+ 		if (hasLogo) {
+ 			hasLogo = logo.update(ds);
+ 			return;

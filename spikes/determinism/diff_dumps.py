@@ -1,6 +1,6 @@
 """SOS-11 spike: compare two per-soldier dumps (det/<tag>-step<N>.csv) field by field.
 
-    python diff_dumps.py TAG_A TAG_B STEP
+    python diff_dumps.py TAG_A TAG_B STEP      (STEP "gen" = the dump taken right after generation)
 """
 import collections
 import csv
@@ -8,11 +8,12 @@ import os
 import pathlib
 import sys
 
-DET = pathlib.Path(os.environ["APPDATA"]) / "songsofsyx" / "sosmp-spike" / "det"
+# SOSMP_DET overrides the folder (matrix.sh collects every copy's logs into one place).
+DET = pathlib.Path(os.environ.get("SOSMP_DET") or pathlib.Path(os.environ["APPDATA"]) / "songsofsyx" / "sosmp-spike" / "det")
 
 
 def load(tag, step):
-    with open(DET / ("%s-step%s.csv" % (tag, step)), encoding="utf-8") as f:
+    with open(DET / (("%s-gen.csv" % tag) if step == "gen" else ("%s-step%s.csv" % (tag, step))), encoding="utf-8") as f:
         return {row["i"]: row for row in csv.DictReader(f)}
 
 

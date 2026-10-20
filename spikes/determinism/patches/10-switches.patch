@@ -1,6 +1,6 @@
 --- a/snake2d/SosMpDeterminism.java
 +++ b/snake2d/SosMpDeterminism.java
-@@ -0,0 +1,24 @@
+@@ -0,0 +1,51 @@
 +package snake2d;
 +
 +/**
@@ -13,6 +13,8 @@
 +	public static double fixedStep = 0;
 +	/** Run the battle worker threads' jobs inside the simulation step instead of on their own threads. */
 +	public static boolean syncThreads = false;
++	/** True while a battle thread job runs inside the simulation step (sync mode). */
++	public static boolean syncJob = false;
 +	/** Compute paths on the calling thread instead of the path worker thread. */
 +	public static boolean syncPaths = false;
 +	/** Separate random streams: simulation draws vs everything else (render, UI, saving). */
@@ -21,6 +23,31 @@
 +	public static boolean inSim = false;
 +	/** Number of draws from the simulation stream. */
 +	public static long simDraws = 0;
++	/** The thread that runs the simulation step; draws from any other thread go to the cosmetic stream. */
++	public static Thread simThread;
++	/** Draws made by other threads while the simulation step ran. */
++	public static long foreignDraws = 0;
++	/** When not null, every simulation draw appends its callers here (debugging only, allocates). */
++	public static StringBuilder trace;
++
++	public static void traceDraw() {
++		trace.append(simDraws).append(':');
++		traceStack(new Throwable().getStackTrace(), 3);
++	}
++
++	public static void traceEvent(String label) {
++		trace.append(label).append(" @").append(simDraws).append(':');
++		traceStack(new Throwable().getStackTrace(), 2);
++	}
++
++	private static void traceStack(StackTraceElement[] st, int from) {
++		for (int i = from; i < Math.min(st.length, from + 9); i++) {
++			if (st[i].getClassName().equals("game.GAME"))
++				break; // the frames above the game update differ per frame and say nothing
++			trace.append(' ').append(st[i].getClassName()).append('.').append(st[i].getMethodName()).append(':').append(st[i].getLineNumber());
++		}
++		trace.append('\n');
++	}
 +
 +	private SosMpDeterminism() {
 +	}

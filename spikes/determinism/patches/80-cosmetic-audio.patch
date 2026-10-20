@@ -1,0 +1,108 @@
+--- a/game/audio/Sound.java
++++ b/game/audio/Sound.java
+@@ -16,7 +16,7 @@
+ 	}
+ 
+ 	public void rnd(RECTANGLE body) {
+-		rnd(body, 0.8f + RND.rFloat(0.2));
++		rnd(body, 0.8f + RND.cFloat(0.2));
+ 	}
+ 	
+ 	public void rnd(RECTANGLE body,double gain) {
+@@ -24,7 +24,7 @@
+ 	}
+ 	
+ 	public void rnd(int cx, int cy) {
+-		rnd(cx, cy, 0.8f + RND.rFloat(0.2));
++		rnd(cx, cy, 0.8f + RND.cFloat(0.2));
+ 	}
+ 	
+ 	public void rnd(int x, int y, double gain) {
+@@ -36,7 +36,7 @@
+ 		
+ 		if (VIEW.world().isActive())
+ 			return;
+-		all.rnd().rnd(x, y, gain*AUDIO.mono().sGain);
++		all.get(RND.cInt(all.size())).rnd(x, y, gain*AUDIO.mono().sGain);
+ 	}
+ 	
+ 	
+--- a/game/audio/SoundFile.java
++++ b/game/audio/SoundFile.java
+@@ -40,7 +40,7 @@
+ 	}
+ 	
+ 	public void rnd(RECTANGLE body) {
+-		rnd(body, 0.8f + RND.rFloat(0.2));
++		rnd(body, 0.8f + RND.cFloat(0.2));
+ 	}
+ 	
+ 	public void rnd(RECTANGLE body,double gain) {
+@@ -51,7 +51,7 @@
+ 		gain *= this.gain;
+ 		if (gain <= 0)
+ 			return;
+-		float pitch = RND.rFloat1(this.pitch);
++		float pitch = RND.cFloat1(this.pitch);
+ 		sound.play(x, y, pitch, (float)gain, false);
+ 	}
+ 
+--- a/game/audio/SoundRace.java
++++ b/game/audio/SoundRace.java
+@@ -57,18 +57,20 @@
+ 	}
+ 	
+ 	public void play(Race race, int cx, int cy) {
+-		SoundFile f = all[FACTIONS.player().race().index].all.rnd();
++		snake2d.util.sets.LIST<SoundFile> fs = all[FACTIONS.player().race().index].all;
++		SoundFile f = fs.get(RND.cInt(fs.size()));
+ 		f.sound.play(cx, cy, 1.0f, (float)f.gain, false);
+ 	}
+ 	
+ 	@Override
+ 	public boolean play(boolean priority) {
+-		SoundFile f = all[FACTIONS.player().race().index].all.rnd();
++		snake2d.util.sets.LIST<SoundFile> fs = all[FACTIONS.player().race().index].all;
++		SoundFile f = fs.get(RND.cInt(fs.size()));
+ 		return f.sound.play(1.0f, (float)f.gain, false);
+ 	}
+ 	
+ 	public void rnd(RECTANGLE body) {
+-		rnd(body, 0.8f + RND.rFloat(0.2));
++		rnd(body, 0.8f + RND.cFloat(0.2));
+ 	}
+ 	
+ 	public void rnd(RECTANGLE body,double gain) {
+--- a/game/audio/AmbianceChannel.java
++++ b/game/audio/AmbianceChannel.java
+@@ -42,7 +42,7 @@
+ 	
+ 	public void init(Ambiance c) {
+ 		current = c;
+-		stream = c.streams.rnd();
++		stream = c.streams.get(snake2d.util.rnd.RND.cInt(c.streams.size()));
+ 		stream.setLooping(false);
+ 		gain = 0;
+ 		stream.setGain(gain);
+--- a/game/audio/AmbianceUpdater.java
++++ b/game/audio/AmbianceUpdater.java
+@@ -139,7 +139,7 @@
+ 		public void init(Ambiance c) {
+ 			c.channel = this;
+ 			current = c;
+-			stream = c.streams.rnd();
++			stream = c.streams.get(snake2d.util.rnd.RND.cInt(c.streams.size()));
+ 			stream.setLooping(false);
+ 			gain = 0;
+ 			stream.setGain(gain);
+--- a/game/audio/Music.java
++++ b/game/audio/Music.java
+@@ -77,7 +77,7 @@
+ 					currentA = normal;
+ 					shuffle = false;
+ 					fade = 1;
+-					timeout = 2 + RND.rInt(10);
++					timeout = 2 + RND.cInt(10);
+ 				}else {
+ 					current.setGain(fade);
+ 				}

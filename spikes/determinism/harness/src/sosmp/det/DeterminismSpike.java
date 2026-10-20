@@ -47,8 +47,13 @@ import view.main.VIEW;
  *   ping
  *   load <saveName>                                                      load a save (the harness restarts with the game)
  *   mode <fixedStep> <syncThreads 0|1> <syncPaths 0|1> <splitRnd 0|1>   switches of the patched build
- *   generate <seed> <menPerSide>                                         seed set after the pre-battle save
- *   run <battleSeconds> <tag> [speed]                                    start like the Start button, hash every step
+ *   loadbattle <saveName>                                                load a battle save and enter its deployment
+ *   reload                                                               reload the battle save (__battle) like the game's own reload
+ *   hash                                                                 current state hash
+ *   seed <n>                                                             seed the simulation random stream
+ *   generate <seed> <menPerSide> [dumpTag]                               seed set after the pre-battle save; dumpTag = also dump soldiers
+ *   run <battleSeconds> <tag> [speed] [dumpSteps|-] [traceSteps]          start like the Start button, hash every step;
+ *                                                                        traceSteps = log the caller of every simulation draw
  */
 public final class DeterminismSpike implements SCRIPT {
 
@@ -96,6 +101,8 @@ public final class DeterminismSpike implements SCRIPT {
 		private long frameStart = -1;
 		private long simNanos;
 		private String dumpSteps = "";
+		private int traceSteps;
+		private int traceFrom;
 
 		Instance() {
 			try {
@@ -156,10 +163,36 @@ public final class DeterminismSpike implements SCRIPT {
 				return;
 			case "generate":
 				generate(Integer.parseInt(c[1]), Integer.parseInt(c[2]));
+				if (c.length > 3)
+					dump(c[3] + "-gen.csv");
+				return;
+			case "loadbattle":
+				// SOS-11: load a battle save made by another copy, as a lockstep peer would load the host's
+				loadBattle(String.join(" ", java.util.Arrays.copyOfRange(c, 1, c.length)));
+				return;
+			case "reload":
+				// SOS-11: start the battle from the freshly loaded battle save, as every lockstep peer would
+				write("{\"event\":\"loading\",\"save\":\"__battle\"}");
+				VIEW.b().state().reloadBattle();
+				return;
+			case "seed":
+				RND.setSeed(Integer.parseInt(c[1]));
+				write("{\"event\":\"seeded\",\"seed\":" + Integer.parseInt(c[1]) + "}");
+				return;
+			case "hash":
+				write(String.format(Locale.ROOT, "{\"event\":\"hash\",\"stateHash\":\"%016x\"}", stateHash()));
 				return;
 			case "run":
 				run(Double.parseDouble(c[1]), c[2], c.length > 3 ? Double.parseDouble(c[3]) : 1);
 				dumpSteps = c.length > 4 ? c[4] : "";
+				// traceSteps: "N" = steps 1..N, "A-B" = steps A..B
+				String ts = c.length > 5 ? c[5] : "0";
+				traceFrom = ts.contains("-") ? Integer.parseInt(ts.substring(0, ts.indexOf('-'))) : 1;
+				traceSteps = Integer.parseInt(ts.substring(ts.indexOf('-') + 1));
+				if (switches != null)
+					set("simDraws", 0L);
+				if (traceSteps > 0 && traceFrom <= 1)
+					set("trace", new StringBuilder());
 				return;
 			default:
 				write(json("error", "unknown command: " + String.join(" ", c)));
@@ -214,8 +247,10 @@ public final class DeterminismSpike implements SCRIPT {
 				PATHS.local().save().create("__battle");
 
 			if (switches != null) {
+				set("simThread", Thread.currentThread());
 				set("inSim", true);
 				set("simDraws", 0L);
+				set("foreignDraws", 0L);
 			}
 			RND.setSeed(seed);
 			BattleStateSpec spec = new BattleStateSpec();
@@ -241,6 +276,21 @@ public final class DeterminismSpike implements SCRIPT {
 			view.invoke(s);
 			write(String.format(Locale.ROOT, "{\"event\":\"generated\",\"seed\":%d,\"menPerSide\":%d,\"stateHash\":\"%016x\",\"simDraws\":%s}",
 					seed, menPerSide, h, get("simDraws")));
+		}
+
+		private void loadBattle(String name) {
+			Path p = PATHS.local().save().get(name);
+			write("{\"event\":\"loading\",\"save\":\"" + name + "\"}");
+			new game.save.GameLoader(p) {
+				@Override
+				public void doAfterSet() {
+					BattleState.setLoaded(new BattleStateExiter() {
+						@Override
+						public void afterExit(BattleStateResult res) {
+						}
+					}, p, true);
+				}
+			}.set();
 		}
 
 		private static void fillSide(BattleStateSpec.SpecSide side, int men, int wx, int wy) {
@@ -307,7 +357,15 @@ public final class DeterminismSpike implements SCRIPT {
 		// ---------- run and hash ----------
 
 		private void run(double seconds, String runTag, double speed) throws ReflectiveOperationException {
+			// Battle start is part of the simulation: deploy initialises the battle AI, which draws random numbers
+			// (Strategos offence Context.flanking). Run it on the seeded simulation stream, as a lockstep tick 0 would.
+			if (switches != null) {
+				set("simThread", Thread.currentThread());
+				set("inSim", true);
+			}
 			VIEW.b().state().deploy();
+			if (switches != null)
+				set("inSim", false);
 			hideDeployPanel();
 			VIEW.inters().load.deactivate(); // the "click to continue" screen after a load also pauses the game
 			tag = runTag;
@@ -358,8 +416,10 @@ public final class DeterminismSpike implements SCRIPT {
 			steps++;
 			battleTime += ds;
 			battleLeft -= ds;
+			if (traceSteps > 0)
+				trace();
 			if (!dumpSteps.isEmpty() && ("," + dumpSteps + ",").contains("," + steps + ","))
-				dump();
+				dump(tag + "-step" + steps + ".csv");
 			try {
 				long draws = switches == null ? -1 : (Long) get("simDraws");
 				log.write(steps + "," + String.format(Locale.ROOT, "%.4f", battleTime) + ","
@@ -372,6 +432,14 @@ public final class DeterminismSpike implements SCRIPT {
 				finish();
 		}
 
+		private Object foreignDraws() {
+			try {
+				return get("foreignDraws");
+			} catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("SOSMP-SPIKE: no foreignDraws", e);
+			}
+		}
+
 		private void finish() {
 			running = false;
 			GAME.SPEED.speedSet(0);
@@ -381,15 +449,36 @@ public final class DeterminismSpike implements SCRIPT {
 				throw new IllegalStateException("SOSMP-SPIKE: cannot close log", e);
 			}
 			write(String.format(Locale.ROOT,
-					"{\"event\":\"finished\",\"tag\":\"%s\",\"steps\":%d,\"battleTime\":%.2f,\"playerMen\":%d,\"enemyMen\":%d,\"simMsPerStep\":%.3f}",
+					"{\"event\":\"finished\",\"tag\":\"%s\",\"steps\":%d,\"battleTime\":%.2f,\"playerMen\":%d,\"enemyMen\":%d,\"simMsPerStep\":%.3f,\"foreignDraws\":%s}",
 					tag, steps, battleTime, GAME.ARMIES().player().men(), GAME.ARMIES().enemy().men(),
-					simNanos / 1e6 / Math.max(1, steps)));
+					simNanos / 1e6 / Math.max(1, steps), foreignDraws()));
+		}
+
+		/** Step marker in the draw trace; after traceSteps steps, write it to det/<tag>-trace.txt and stop tracing. */
+		private void trace() {
+			try {
+				if (steps == traceFrom - 1) {
+					set("trace", new StringBuilder());
+					return;
+				}
+				StringBuilder t = (StringBuilder) get("trace");
+				if (t == null)
+					return;
+				t.append("--- step ").append(steps).append(" (harness update)\n");
+				if (steps < traceSteps)
+					return;
+				Files.write(dir.resolve("det").resolve(tag + "-trace.txt"), t.toString().getBytes(StandardCharsets.UTF_8));
+				set("trace", null);
+				traceSteps = 0;
+			} catch (IOException | ReflectiveOperationException e) {
+				throw new IllegalStateException("SOSMP-SPIKE: trace failed", e);
+			}
 		}
 
 		/** Every soldier's fields at this step, to find what differs first between two runs. */
-		private void dump() {
-			try (BufferedWriter w = Files.newBufferedWriter(dir.resolve("det").resolve(tag + "-step" + steps + ".csv"), StandardCharsets.UTF_8)) {
-				w.write("i,id,x1,y1,speedX,speedY,health,div,tx,ty\n");
+		private void dump(String file) {
+			try (BufferedWriter w = Files.newBufferedWriter(dir.resolve("det").resolve(file), StandardCharsets.UTF_8)) {
+				w.write("i,id,x1,y1,speedX,speedY,health,div,tx,ty,nX,nY,mag,dir\n");
 				ENTITY[] all = SETT.ENTITIES().getAllEnts();
 				int max = Math.min(all.length, SETT.ENTITIES().Imax() + 1);
 				for (int i = 0; i < max; i++) {
@@ -400,10 +489,35 @@ public final class DeterminismSpike implements SCRIPT {
 					w.write(i + "," + e.id() + "," + e.body().x1() + "," + e.body().y1() + ","
 							+ Double.toHexString(e.speed.x()) + "," + Double.toHexString(e.speed.y()) + ","
 							+ Double.toHexString(STATS.NEEDS().INJURIES.COUNT.indu().getD(s.indu())) + ","
-							+ s.division().index() + "," + e.tc().x() + "," + e.tc().y() + "\n");
+							+ s.division().index() + "," + e.tc().x() + "," + e.tc().y() + ","
+							+ Double.toHexString(e.speed.nX()) + "," + Double.toHexString(e.speed.nY()) + ","
+							+ Double.toHexString(e.speed.magnitude()) + "," + e.speed.dir().id() + "\n");
 				}
 			} catch (IOException e) {
 				throw new IllegalStateException("SOSMP-SPIKE: dump failed", e);
+			}
+			dumpDivisions(file.replace(".csv", "-divs.csv"));
+		}
+
+		/** Every division's order, target, formation and closest enemy: the decisions behind the soldiers' moves. */
+		private void dumpDivisions(String file) {
+			game.battle.thread.order.BattleOrderTask task = new game.battle.thread.order.BattleOrderTask();
+			try (BufferedWriter w = Files.newBufferedWriter(dir.resolve("det").resolve(file), StandardCharsets.UTF_8)) {
+				w.write("i,men,task,targetDiv,ttx,tty,cx,cy,dir,enemyClosest,enemyDist,fighting\n");
+				for (game.battle.div.Div d : GAME.ARMIES().divisions()) {
+					if (d.menNrOf() == 0)
+						continue;
+					d.order().task.get(task);
+					game.battle.div.Div t = task.targetDiv();
+					game.battle.div.Div ec = d.status().enemyClosest();
+					snake2d.util.datatypes.COORDINATE c = d.position().centreTile();
+					w.write(d.index() + "," + d.menNrOf() + "," + task.task() + "," + (t == null ? -1 : t.index()) + ","
+							+ task.targetTileX() + "," + task.targetTileY() + ","
+							+ (c == null ? "-" : c.x() + "," + c.y()) + "," + (d.position().dir() == null ? -1 : d.position().dir().id()) + ","
+							+ (ec == null ? -1 : ec.index()) + "," + d.status().enemyClosestDist() + "," + d.status().isFighting() + "\n");
+				}
+			} catch (IOException e) {
+				throw new IllegalStateException("SOSMP-SPIKE: division dump failed", e);
 			}
 		}
 
