@@ -75,6 +75,19 @@ def main(folder):
                 verdict = "identical for %d steps (lengths differ)" % min(len(ra), len(rb))
             else:
                 verdict = "diverges at step %s; draw count at step %s" % (div, draws)
+        # SOS-23 AI on the host: the reference must be the host (mode 1); every other copy a peer (mode 2) that applied
+        # exactly as many logged changes as the host. A folder of peers only (-P) has no host: all want mode 2.
+        ai, rai = f.get("ai"), events(folder, ref).get("finished", {}).get("ai")
+        if ai or rai:
+            want = 1 if tag == ref and not (rai and rai.get("mode") == 2) else 2
+            if not ai or ai.get("mode") != want:
+                verdict += " AI MODE %s (want %d)" % (ai and ai.get("mode"), want)
+            elif tag != ref and (not rai or ai.get("applied") != rai.get("applied")):
+                verdict += " AI APPLIED %s vs host %s" % (ai.get("applied"), rai and rai.get("applied"))
+            elif tag == ref and not ai.get("entries"):
+                verdict += " AI LOG EMPTY"
+        if "ABORT" in (folder / (tag + ".drive.log")).read_text(encoding="utf-8"):
+            verdict += " ABORTED"
         h = e.get("hash", {})
         print("%-12s %-17s %-17s %6s %11s %9s %9s %8s  %s" % (
             tag, g.get("stateHash", "?"), h.get("cityHash", h.get("stateHash", "-")), f.get("steps", "?"),

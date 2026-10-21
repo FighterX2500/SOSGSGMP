@@ -1,6 +1,14 @@
 --- a/game/GAME.java
 +++ b/game/GAME.java
-@@ -78,6 +78,7 @@
+@@ -5,6 +5,7 @@
+ import game.audio.AUDIO;
+ import game.battle.Armies;
+ import game.battle.thread.BattleThreads;
++import game.battle.thread.general.SosMpAiLog;
+ import game.battle.util.BattleUtil;
+ import game.boosting.superb.SuperBoostables;
+ import game.boosting.tmp.TmpBoosting;
+@@ -78,6 +79,7 @@
  	private final GCOUNTS counts;
  	
  	private int updateI = 0;
@@ -8,7 +16,7 @@
  	private final int version;
  	private Profiler profiler = Profiler.DUMMY;
  	private boolean achieving = true;
-@@ -255,7 +256,9 @@
+@@ -255,7 +257,9 @@
  		double speed = SPEED.update(slowDown);
  		
  		
@@ -19,7 +27,7 @@
  			for (GameResource s : GameResource.all) {
  				if (s.isBattle || !VIEW.b().isActive())
  					s.update(0, game.profiler);
-@@ -263,15 +266,38 @@
+@@ -263,15 +267,43 @@
  			game.updateI++;
  		}else {
  			ds *= speed;
@@ -46,6 +54,11 @@
 +					snake2d.SosMpDeterminism.stepsLeft--;
 +				snake2d.SosMpDeterminism.simThread = Thread.currentThread();
 +				snake2d.SosMpDeterminism.inSim = true;
++				if (snake2d.SosMpDeterminism.fixedStep > 0) {
++					// SOS-23 spike: the AI general's logged changes due at this step, before anything else runs
++					snake2d.SosMpDeterminism.step++;
++					SosMpAiLog.step(snake2d.SosMpDeterminism.step);
++				}
  				for (GameResource s : GameResource.all) {
 -					if (s.isBattle|| !VIEW.b().isActive())
 +					// SOS-23 spike: freezeWorld holds the world still in the city view, as a battle does
@@ -54,13 +67,13 @@
  				}
 +				if (snake2d.SosMpDeterminism.fixedStep > 0 && VIEW.b().isActive() && VIEW.b().state() != null)
 +					VIEW.b().state().update(max);
-+				if (snake2d.SosMpDeterminism.fixedStep > 0)
++				if (snake2d.SosMpDeterminism.fixedStep > 0 && !snake2d.SosMpDeterminism.frameAfterTick)
 +					afterTickAll(); // SOS-23 spike: once per step, not once per frame (maintenance, room isolation)
 +				snake2d.SosMpDeterminism.inSim = false;
  				game.updateI++;
  			}
  			
-@@ -289,11 +315,18 @@
+@@ -289,11 +321,18 @@
  		
  		game.profiler.logEnd(game);
  		game.profiler.log();
@@ -71,7 +84,7 @@
  	}
  	
  	public void afterTick() {
-+		if (snake2d.SosMpDeterminism.fixedStep > 0)
++		if (snake2d.SosMpDeterminism.fixedStep > 0 && !snake2d.SosMpDeterminism.frameAfterTick)
 +			return; // SOS-23 spike: runs at the end of each fixed step instead (afterTickAll)
 +		afterTickAll();
 +	}

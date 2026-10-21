@@ -1,6 +1,6 @@
 --- a/snake2d/SosMpDeterminism.java
 +++ b/snake2d/SosMpDeterminism.java
-@@ -0,0 +1,60 @@
+@@ -0,0 +1,70 @@
 +package snake2d;
 +
 +/**
@@ -36,6 +36,16 @@
 +	/** SOS-23: path worker jobs requested, and nanoseconds spent on them on the simulation thread (sync mode). */
 +	public static long pathJobs = 0;
 +	public static long pathNanos = 0;
++	/** SOS-23: fixed steps since the run started (set by the game loop at the start of each step). */
++	public static long step = 0;
++	/** SOS-23: AI general, 0 = inside the step (syncThreads), 1 = host (own thread, changes logged), 2 = peer (off, log replayed). */
++	public static int aiMode = 0;
++	/** SOS-23: steps between the host taking an AI change and every PC applying it. */
++	public static int aiDelay = 30;
++	/** SOS-23: the host's AI general thread (set by the general when its job starts there). */
++	public static volatile Thread aiThread;
++	/** SOS-23 test: with fixed steps, still run afterTick once per drawn frame as vanilla does (not once per step). */
++	public static boolean frameAfterTick = false;
 +	/** When not null, every simulation draw appends its callers here (debugging only, allocates). */
 +	public static StringBuilder trace;
 +

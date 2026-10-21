@@ -55,8 +55,11 @@ import view.main.VIEW;
  *   run <battleSeconds> <tag> [speed] [dumpSteps|-] [traceSteps]          start like the Start button, hash every step;
  *                                                                        traceSteps = log the caller of every simulation draw
  *   world <0|1>                                                          SOS-23: 1 = hold the world still in the city view
+ *   aftertick <frame|step>                                               SOS-23 test: afterTick per drawn frame (vanilla) or per step
  *   cityrun <seconds> <tag> [speed] [dumpSteps|-] [traceSteps]           SOS-23: run the loaded city, hash every person and
  *                                                                        animal every step
+ *   ai <0|1|2> <delay> <logFile>                                         SOS-23: AI general in the step / on the host's
+ *                                                                        own thread with an order log / off, log replayed
  */
 public final class DeterminismSpike implements SCRIPT {
 
@@ -119,6 +122,7 @@ public final class DeterminismSpike implements SCRIPT {
 		private boolean city;
 		private int invadeMen;
 		private int saveAt;
+		private int aiMode;
 		// SOS-23 timing: per frame, the game update time (known one frame later) with that frame's game time and steps
 		private BufferedWriter timingLog;
 		private long frameNo;
@@ -127,7 +131,7 @@ public final class DeterminismSpike implements SCRIPT {
 		private java.util.Map<String, Long> cpuAtStart;
 		private long processCpuAtStart;
 		// SOS-23 stall sampler: when no step has finished for STALL_MS, record the update thread's stack
-		private static final long STALL_MS = 500;
+		private static final long STALL_MS = 100; // SOS-23: pass rule counts steps over 100 ms
 		private volatile long lastStepNanos;
 		private volatile Thread updateThread;
 		private volatile boolean sampling;
@@ -192,11 +196,20 @@ public final class DeterminismSpike implements SCRIPT {
 			sampling = true;
 			Thread t = new Thread(() -> {
 				try (BufferedWriter w = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
+					long stall = -1, nextSample = 0;
 					while (sampling) {
-						Thread.sleep(100);
-						long idle = (System.nanoTime() - lastStepNanos) / 1000000;
+						Thread.sleep(20);
+						long last = lastStepNanos;
+						long idle = (System.nanoTime() - last) / 1000000;
 						if (idle < STALL_MS || GAME.SPEED.speed() == 0)
 							continue;
+						if (last != stall) { // a new stall: sample now, then once per further STALL_MS
+							stall = last;
+							nextSample = STALL_MS;
+						}
+						if (idle < nextSample)
+							continue;
+						nextSample = idle + STALL_MS;
 						StringBuilder sb = new StringBuilder("--- step ").append(steps).append(" idle ").append(idle).append(" ms\n");
 						for (StackTraceElement e : updateThread.getStackTrace()) {
 							if (e.getClassName().startsWith("snake2d.Updater"))
@@ -354,6 +367,17 @@ public final class DeterminismSpike implements SCRIPT {
 				// SOS-23: every field of the room at a tile (and its superclasses up to Room), to find unsaved state
 				write(json("roomat", roomFields(Integer.parseInt(c[1]), Integer.parseInt(c[2]))));
 				return;
+			case "ai":
+				// SOS-23: AI general mode for the next run (0 in the step, 1 host + order log, 2 peer replaying the log);
+				// before deploy, which starts the host's general thread. The log path is relative to sosmp-spike.
+				// The log carries the start state's hash, so a peer can't replay a log made from another start.
+				long startHash = stateHash() * 31 + cityHash(); // both: "city" is only known at the run command
+				Class.forName("game.battle.thread.general.SosMpAiLog").getMethod("start", int.class, int.class, Path.class, long.class)
+						.invoke(null, Integer.parseInt(c[1]), Integer.parseInt(c[2]), dir.resolve(c[3]), startHash);
+				aiMode = Integer.parseInt(c[1]);
+				write(String.format(Locale.ROOT, "{\"event\":\"ai\",\"mode\":%d,\"delay\":%d,\"log\":\"%s\",\"startHash\":\"%016x\"}",
+						aiMode, Integer.parseInt(c[2]), c[3], startHash));
+				return;
 			case "saveat":
 				// SOS-23: the next run holds after this many steps and saves (sosmp-step<N>-<tag>), then runs on
 				saveAt = Integer.parseInt(c[1]);
@@ -367,6 +391,11 @@ public final class DeterminismSpike implements SCRIPT {
 			case "world":
 				set("freezeWorld", c[1].equals("1"));
 				write("{\"event\":\"world\",\"frozen\":" + c[1].equals("1") + "}");
+				return;
+			case "aftertick":
+				// SOS-23 test: "frame" = afterTick once per drawn frame as vanilla does, "step" = once per fixed step
+				set("frameAfterTick", c[1].equals("frame"));
+				write("{\"event\":\"aftertick\",\"frame\":" + c[1].equals("frame") + "}");
 				return;
 			case "run":
 			case "cityrun":
@@ -585,7 +614,8 @@ public final class DeterminismSpike implements SCRIPT {
 			}
 			running = true;
 			GAME.SPEED.speedSet(speed);
-			write("{\"event\":\"running\",\"tag\":\"" + tag + "\"}");
+			// SOS-23: steps already counted by the game loop since the ai command (must be 0 on every copy)
+			write("{\"event\":\"running\",\"tag\":\"" + tag + "\",\"gameStep\":" + (switches == null ? -1 : get("step")) + "}");
 		}
 
 		/** What the Start button does besides deploy(): hide the panel that pauses the game every frame. */
@@ -691,16 +721,20 @@ public final class DeterminismSpike implements SCRIPT {
 			}
 			long pathNanos;
 			Object pathJobs;
+			String ai = "null";
 			try {
 				pathNanos = switches == null ? 0 : (Long) get("pathNanos");
 				pathJobs = get("pathJobs");
+				if (aiMode != 0) // SOS-23: the host writes its order log here; counts per kind of AI change
+					ai = (String) Class.forName("game.battle.thread.general.SosMpAiLog").getMethod("finish").invoke(null);
+				aiMode = 0;
 			} catch (ReflectiveOperationException e) {
-				throw new IllegalStateException("SOSMP-SPIKE: no path counters", e);
+				throw new IllegalStateException("SOSMP-SPIKE: no path counters or AI log", e);
 			}
 			write(String.format(Locale.ROOT,
-					"{\"event\":\"finished\",\"tag\":\"%s\",\"steps\":%d,\"battleTime\":%.2f,\"playerMen\":%d,\"enemyMen\":%d,\"simMsPerStep\":%.3f,\"foreignDraws\":%s,\"pathJobs\":%s,\"pathMsPerStep\":%.3f,\"cpuMs\":%s}",
+					"{\"event\":\"finished\",\"tag\":\"%s\",\"steps\":%d,\"battleTime\":%.2f,\"playerMen\":%d,\"enemyMen\":%d,\"simMsPerStep\":%.3f,\"foreignDraws\":%s,\"pathJobs\":%s,\"pathMsPerStep\":%.3f,\"cpuMs\":%s,\"ai\":%s}",
 					tag, steps, battleTime, men(), GAME.ARMIES().enemy().men(),
-					simNanos / 1e6 / Math.max(1, steps), foreignDraws(), pathJobs, pathNanos / 1e6 / Math.max(1, steps), cpu));
+					simNanos / 1e6 / Math.max(1, steps), foreignDraws(), pathJobs, pathNanos / 1e6 / Math.max(1, steps), cpu, ai));
 		}
 
 		/** Battle: the player's soldiers. City: every person (citizens, slaves, soldiers, visitors, invaders). */
