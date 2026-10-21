@@ -126,6 +126,11 @@ public final class DeterminismSpike implements SCRIPT {
 		private int frameSteps, pendingSteps;
 		private java.util.Map<String, Long> cpuAtStart;
 		private long processCpuAtStart;
+		// SOS-23 stall sampler: when no step has finished for STALL_MS, record the update thread's stack
+		private static final long STALL_MS = 500;
+		private volatile long lastStepNanos;
+		private volatile Thread updateThread;
+		private volatile boolean sampling;
 
 		Instance() {
 			try {
@@ -175,6 +180,38 @@ public final class DeterminismSpike implements SCRIPT {
 			pendingSteps = frameSteps;
 			frameGameSec = 0;
 			frameSteps = 0;
+		}
+
+		/**
+		 * SOS-23: a daemon thread (spike measurement only) that, every 100 ms, checks whether a step has finished in
+		 * the last STALL_MS; if not, it appends the update thread's stack to the stalls file.
+		 */
+		private void startStallSampler(Path file) {
+			updateThread = Thread.currentThread();
+			lastStepNanos = System.nanoTime();
+			sampling = true;
+			Thread t = new Thread(() -> {
+				try (BufferedWriter w = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
+					while (sampling) {
+						Thread.sleep(100);
+						long idle = (System.nanoTime() - lastStepNanos) / 1000000;
+						if (idle < STALL_MS || GAME.SPEED.speed() == 0)
+							continue;
+						StringBuilder sb = new StringBuilder("--- step ").append(steps).append(" idle ").append(idle).append(" ms\n");
+						for (StackTraceElement e : updateThread.getStackTrace()) {
+							if (e.getClassName().startsWith("snake2d.Updater"))
+								break;
+							sb.append("  ").append(e).append('\n');
+						}
+						w.write(sb.toString());
+						w.flush();
+					}
+				} catch (IOException | InterruptedException e) {
+					write(json("error", "stall sampler: " + e));
+				}
+			}, "sosmp-stall-sampler");
+			t.setDaemon(true);
+			t.start();
 		}
 
 		/** CPU time per thread, grouped by name without digits (updater, Path offloade #, ...). */
@@ -542,6 +579,7 @@ public final class DeterminismSpike implements SCRIPT {
 				pendingGameSec = -1;
 				cpuAtStart = threadCpu();
 				processCpuAtStart = processCpu();
+				startStallSampler(dir.resolve("det").resolve(tag + "-stalls.txt"));
 			} catch (IOException e) {
 				throw new IllegalStateException("SOSMP-SPIKE: cannot open log", e);
 			}
@@ -584,6 +622,7 @@ public final class DeterminismSpike implements SCRIPT {
 			battleLeft -= ds;
 			frameGameSec += ds;
 			frameSteps++;
+			lastStepNanos = System.nanoTime();
 			if (city && invadeMen > 0 && steps <= 3)
 				invasion();
 			if (traceSteps > 0)
@@ -641,6 +680,7 @@ public final class DeterminismSpike implements SCRIPT {
 		private void finish() {
 			running = false;
 			GAME.SPEED.speedSet(0);
+			sampling = false;
 			String cpu = cpuSinceStart();
 			try {
 				log.close();
