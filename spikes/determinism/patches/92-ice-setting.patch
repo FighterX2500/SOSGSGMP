@@ -1,0 +1,12 @@
+--- a/settlement/tilemap/terrain/TWater.java
++++ b/settlement/tilemap/terrain/TWater.java
+@@ -349,7 +349,8 @@
+ 
+ 	void update(double ds) {
+ 		sprites.update(ds);
+-		iceI = (int) (SETT.WEATHER().ice.getD()*0x01FFFF)*S.get().downpour.get();
++		// SOS-23 spike: walkable ice must not depend on this PC's weather-effects setting
++		iceI = (int) (SETT.WEATHER().ice.getD()*0x01FFFF);
+ 	}
+ 	
+ 	private final Minimap mini = new Minimap();

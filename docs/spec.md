@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.8 · 2026-10-21
+Version 0.9 · 2026-10-21
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -108,7 +108,7 @@ Players trade through direct contracts and through a shared market.
 
 When two players' armies meet, a real-time battle is mandatory. Battles against NPC armies and attacks on NPC towns can be auto-resolved, as in vanilla.
 
-- **Battle size** has no limit beyond vanilla's. Every PC simulates every field battle, and only orders cross the network ([ADR 0003](decisions/0003-battle-lockstep.md)). If any PC cannot keep up, the battle slows down for everyone, spectators included, as with the world speed (section 4).
+- **Battle size** has no limit beyond vanilla's. Every PC simulates every field battle, and only orders, the host's AI orders and state checks cross the network ([ADR 0003](decisions/0003-battle-lockstep.md)). The battle AI runs on the host, and every PC applies its orders at the same moment. If any PC cannot keep up, the battle slows down for everyone, spectators included, as with the world speed (section 4).
 - **Battle start.** The host generates the battlefield and sends it to every PC; every PC starts from the same battle state.
 - **Desyncs.** If one PC's battle ever differs from the host's, the battle pauses briefly, every PC reloads the host's current battle state, and the battle continues.
 - **Latency.** Up to 1 second between giving an order and seeing it carried out is acceptable.

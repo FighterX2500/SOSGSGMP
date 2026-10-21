@@ -1,0 +1,29 @@
+--- a/snake2d/SosMpTiming.java
++++ b/snake2d/SosMpTiming.java
+@@ -0,0 +1,14 @@
++package snake2d;
++
++/**
++ * SOS-23 spike timing (not game code): how long the game update of the last frame took.
++ * Measures only; it changes no behaviour, so the baseline build carries it too.
++ */
++public final class SosMpTiming {
++
++	/** Nanoseconds the last GAME.update call took (the whole simulation of one frame). */
++	public static long lastUpdateNanos = -1;
++
++	private SosMpTiming() {
++	}
++}
+--- a/view/main/VIEW.java
++++ b/view/main/VIEW.java
+@@ -254,7 +254,9 @@
+ 			return;
+ 		}
+ 		
++		long sosmpT0 = System.nanoTime(); // SOS-23 spike: time the simulation of this frame
+ 		game.update(ds, slowDown);
++		snake2d.SosMpTiming.lastUpdateNanos = System.nanoTime() - sosmpT0;
+ 
+ 	}
+ 	

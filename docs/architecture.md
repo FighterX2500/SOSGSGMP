@@ -34,7 +34,8 @@ Other players appear on each client as puppet NPC factions: AI off, state overwr
 Decided in [ADR 0003](decisions/0003-battle-lockstep.md): deterministic lockstep, proven on one PC by spike SOS-11 ([report](plan/spikes/determinism.md)).
 
 - **Starting the battle.** The host generates the battlefield with the vanilla generator and sends the battle save (about 1.9 MB for 2,000 vs 2,000). Every PC, the host included, loads it, seeds the simulation random stream from the host's seed, and runs deploy as step 0.
-- **Simulation.** Every PC runs fixed 1/60 s steps. The battle worker jobs and path finding run inside the step in a fixed order; nothing runs while paused.
+- **Simulation.** Every PC runs fixed 1/60 s steps. The other battle worker jobs and path finding run inside the step in a fixed order; nothing runs while paused.
+- **AI general.** Only the host runs it, on its own thread. Its orders, settings and artillery targets go into the AI log, stamped 30 steps ahead (0.5 s); every PC applies them at that step (ADR 0003 amendment, SOS-23).
 - **Random numbers.** A simulation stream for the step, and a cosmetic stream for rendering, sound, light and UI. No simulation draw depends on a local setting.
 - **Orders.** Commanders send orders stamped with a future step; the host confirms the step, and every PC applies them exactly then.
 - **Pace and speed.** Commanders vote on the speed; the slowest PC caps it.

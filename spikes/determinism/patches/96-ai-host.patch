@@ -1,0 +1,513 @@
+--- a/game/battle/thread/general/SosMpAiLog.java
++++ b/game/battle/thread/general/SosMpAiLog.java
+@@ -0,0 +1,315 @@
++package game.battle.thread.general;
++
++import java.io.IOException;
++import java.nio.file.Path;
++import java.util.ArrayDeque;
++import java.util.concurrent.ConcurrentLinkedQueue;
++
++import game.GAME;
++import game.battle.div.Div;
++import game.battle.formation.DIV_FORMATION;
++import game.battle.formation.DivFormationImp;
++import game.battle.thread.order.BattleOrder;
++import game.battle.thread.order.BattleOrderPath;
++import game.battle.thread.order.BattleOrderTask;
++import settlement.main.SETT;
++import settlement.room.main.Room;
++import settlement.room.military.artillery.ArtilleryInstance;
++import snake2d.SosMpDeterminism;
++import snake2d.util.file.FileGetter;
++import snake2d.util.file.FilePutter;
++
++/**
++ * SOS-23 spike (not game code): the AI general on the host, in lockstep.
++ *
++ * Host (aiMode 1): the general runs on its own thread, as in vanilla. Every change it makes to the simulation
++ * (division orders, division settings, artillery targets) is queued instead of applied. At the start of each step the
++ * simulation thread stamps the queued changes for that step + aiDelay, writes them to the order log, and applies the
++ * changes due at that step. The host confirms the step, so no change can arrive after its step.
++ * Peer (aiMode 2): the general never runs; the host's order log is applied at the stamped steps.
++ * Every PC applies on the simulation thread at the start of the step, in log order.
++ */
++public final class SosMpAiLog {
++
++	public static final int PATH = 0, DEST = 1, TASK = 2, GUARD = 3, RUNNING = 4, FIRE_AT_WILL = 5, FORMATION = 6,
++			ARTILLERY = 7;
++	private static final String[] KINDS = { "path", "dest", "task", "guard", "running", "fireAtWill", "formation",
++			"artillery" };
++	private static final int VERSION = 1;
++	private static final int LOG_BYTES = 128 << 20;
++
++	private static final class Entry {
++		final int kind;
++		final int div;
++		long stamp;
++		int seq;
++		Object order;
++		int value;
++		int x, y, tx, ty;
++
++		Entry(int kind, int div) {
++			this.kind = kind;
++			this.div = div;
++		}
++	}
++
++	private static final ConcurrentLinkedQueue<Entry> queued = new ConcurrentLinkedQueue<>();
++	private static final ArrayDeque<Entry> pending = new ArrayDeque<>();
++	private static FilePutter out;
++	private static int countPos;
++	private static FileGetter in;
++	private static int inLeft;
++	private static Entry next;
++	private static int seq;
++	private static final long[] counts = new long[KINDS.length];
++	private static long applied;
++	private static long artilleryMissed;
++	/** After finish(): nothing is stamped or applied any more (the mode stays, so the host's general writes nothing live). */
++	private static boolean closed;
++
++	/**
++	 * Harness: before the run (and before deploy, which starts the general's thread on the host). startHash = a hash of
++	 * the start state; the host writes it into the log and a peer refuses a log made from another start.
++	 */
++	public static void start(int mode, int delay, Path log, long startHash) throws IOException {
++		if (mode == 1 && SosMpDeterminism.fixedStep <= 0)
++			throw new IllegalStateException("SOSMP-SPIKE: the host's order log needs fixed steps");
++		SosMpDeterminism.aiMode = 0;
++		closed = false;
++		queued.clear();
++		pending.clear();
++		out = null;
++		in = null;
++		next = null;
++		seq = 0;
++		applied = 0;
++		artilleryMissed = 0;
++		java.util.Arrays.fill(counts, 0);
++		SosMpDeterminism.step = 0;
++		SosMpDeterminism.aiDelay = delay;
++		if (mode == 1) {
++			out = new FilePutter(log, LOG_BYTES);
++			out.i(VERSION);
++			out.l(startHash);
++			out.i(delay);
++			countPos = out.getPosition();
++			out.i(0);
++		} else if (mode == 2) {
++			in = new FileGetter(log);
++			if (in.i() != VERSION)
++				throw new IOException("SOSMP-SPIKE: order log version, " + log);
++			long h = in.l();
++			if (h != startHash)
++				throw new IOException("SOSMP-SPIKE: order log made from another start (" + Long.toHexString(h) + " vs "
++						+ Long.toHexString(startHash) + "), " + log);
++			SosMpDeterminism.aiDelay = in.i();
++			inLeft = in.i();
++			next = read();
++		}
++		SosMpDeterminism.aiMode = mode;
++		if (mode == 1)
++			GAME.BATTLE_THREADS().strat.sosmpHost(GAME.BATTLE_THREADS().sosmpStarted());
++	}
++
++	/**
++	 * Harness: after the run. Host: writes the log. Nothing is stamped or applied after this; the mode stays until the
++	 * next start(), so the host's general (still running) never writes live state. Returns a JSON object with the counts.
++	 */
++	public static String finish() {
++		int mode = SosMpDeterminism.aiMode;
++		closed = true;
++		StringBuilder sb = new StringBuilder("{\"mode\":").append(mode).append(",\"delay\":").append(SosMpDeterminism.aiDelay)
++				.append(",\"entries\":").append(seq).append(",\"applied\":").append(applied)
++				.append(",\"artilleryMissed\":").append(artilleryMissed);
++		if (out != null) {
++			sb.append(",\"bytes\":").append(out.getPosition()).append(",\"notApplied\":").append(pending.size() + queued.size());
++			out.setAtPosition(countPos, seq);
++			out.save();
++			out = null;
++		}
++		if (in != null)
++			sb.append(",\"left\":").append(inLeft + (next == null ? 0 : 1));
++		for (int k = 0; k < KINDS.length; k++)
++			sb.append(",\"").append(KINDS[k]).append("\":").append(counts[k]);
++		in = null;
++		next = null;
++		return sb.append('}').toString();
++	}
++
++	/** True on the host's general thread: the change goes into the log instead of the live state. */
++	private static boolean capturing() {
++		return SosMpDeterminism.aiMode == 1 && Thread.currentThread() == SosMpDeterminism.aiThread;
++	}
++
++	/** BattleOrder.Locked.set: a copy of the order, for division div. */
++	public static boolean order(int kind, int div, Object from) {
++		if (!capturing())
++			return false;
++		Entry e = new Entry(kind, div);
++		if (kind == PATH) {
++			BattleOrderPath p = new BattleOrderPath();
++			p.copy((BattleOrderPath) from);
++			e.order = p;
++		} else if (kind == DEST) {
++			DivFormationImp f = new DivFormationImp();
++			f.copy((DivFormationImp) from);
++			e.order = f;
++		} else {
++			BattleOrderTask t = new BattleOrderTask();
++			t.copy((BattleOrderTask) from);
++			e.order = t;
++		}
++		queued.add(e);
++		return true;
++	}
++
++	public static void guard(Div d, boolean v) {
++		if (!setting(GUARD, d, v ? 1 : 0))
++			d.settings().guard = v;
++	}
++
++	public static void running(Div d, boolean v) {
++		if (!setting(RUNNING, d, v ? 1 : 0))
++			d.settings().running = v;
++	}
++
++	public static void fireAtWill(Div d, boolean v) {
++		if (!setting(FIRE_AT_WILL, d, v ? 1 : 0))
++			d.settings().fireAtWill = v;
++	}
++
++	public static void formation(Div d, DIV_FORMATION f) {
++		if (!setting(FORMATION, d, f.ordinal()))
++			d.settings().formation = f;
++	}
++
++	private static boolean setting(int kind, Div d, int value) {
++		if (!capturing())
++			return false;
++		Entry e = new Entry(kind, d.index());
++		e.value = value;
++		queued.add(e);
++		return true;
++	}
++
++	/** StepArtilleryBombard: the artillery room is found again by one of its tiles. */
++	public static void artilleryTarget(ArtilleryInstance a, int tx, int ty) {
++		if (!capturing()) {
++			a.targetCooSet(tx, ty, false, false);
++			return;
++		}
++		Entry e = new Entry(ARTILLERY, -1);
++		e.x = a.mX();
++		e.y = a.mY();
++		e.tx = tx;
++		e.ty = ty;
++		queued.add(e);
++	}
++
++	/** GAME: at the start of every fixed step, on the simulation thread. */
++	public static void step(long step) {
++		if (closed)
++			return;
++		if (SosMpDeterminism.aiMode == 1) {
++			Entry e;
++			while ((e = queued.poll()) != null) {
++				e.stamp = step + SosMpDeterminism.aiDelay;
++				e.seq = seq++;
++				write(e);
++				pending.add(e);
++			}
++			while (!pending.isEmpty() && pending.peekFirst().stamp <= step) {
++				e = pending.pollFirst();
++				if (e.stamp != step)
++					throw new IllegalStateException("SOSMP-SPIKE: AI change " + e.seq + " for step " + e.stamp + " still pending at step " + step);
++				apply(e);
++			}
++		} else if (SosMpDeterminism.aiMode == 2) {
++			while (next != null && next.stamp <= step) {
++				if (next.stamp != step)
++					throw new IllegalStateException("SOSMP-SPIKE: logged AI change " + next.seq + " for step " + next.stamp + " missed at step " + step);
++				apply(next);
++				next = read();
++			}
++		}
++	}
++
++	private static void apply(Entry e) {
++		applied++;
++		counts[e.kind]++;
++		if (e.kind == ARTILLERY) {
++			Room r = SETT.ROOMS().map.get(e.x, e.y);
++			if (r instanceof ArtilleryInstance)
++				((ArtilleryInstance) r).targetCooSet(e.tx, e.ty, false, false);
++			else
++				artilleryMissed++; // the room is gone by the stamped step (the same on every PC)
++			return;
++		}
++		Div d = GAME.ARMIES().division((short) e.div);
++		BattleOrder o = d.order();
++		switch (e.kind) {
++		case PATH: o.path.set((BattleOrderPath) e.order); break;
++		case DEST: o.dest.set((DivFormationImp) e.order); break;
++		case TASK: o.task.set((BattleOrderTask) e.order); break;
++		case GUARD: d.settings().guard = e.value != 0; break;
++		case RUNNING: d.settings().running = e.value != 0; break;
++		case FIRE_AT_WILL: d.settings().fireAtWill = e.value != 0; break;
++		case FORMATION: d.settings().formation = DIV_FORMATION.all.get(e.value); break;
++		default: throw new IllegalStateException("SOSMP-SPIKE: AI change kind " + e.kind);
++		}
++	}
++
++	/** One log entry: stamp, sequence, kind, division, then the order's own save() or the setting's value. */
++	private static void write(Entry e) {
++		out.l(e.stamp);
++		out.i(e.seq);
++		out.i(e.kind);
++		out.i(e.div);
++		if (e.kind <= TASK)
++			((snake2d.util.file.SAVABLE) e.order).save(out);
++		else if (e.kind == ARTILLERY)
++			out.i(e.x).i(e.y).i(e.tx).i(e.ty);
++		else
++			out.i(e.value);
++	}
++
++	private static Entry read() {
++		if (inLeft <= 0)
++			return null;
++		inLeft--;
++		try {
++			long stamp = in.l();
++			int s = in.i();
++			Entry e = new Entry(in.i(), in.i());
++			e.stamp = stamp;
++			e.seq = s;
++			if (e.kind == PATH) {
++				BattleOrderPath p = new BattleOrderPath();
++				p.load(in);
++				e.order = p;
++			} else if (e.kind == DEST) {
++				DivFormationImp f = new DivFormationImp();
++				f.load(in);
++				e.order = f;
++			} else if (e.kind == TASK) {
++				BattleOrderTask t = new BattleOrderTask();
++				t.load(in);
++				e.order = t;
++			} else if (e.kind == ARTILLERY) {
++				e.x = in.i();
++				e.y = in.i();
++				e.tx = in.i();
++				e.ty = in.i();
++			} else {
++				e.value = in.i();
++			}
++			seq = Math.max(seq, s + 1);
++			return e;
++		} catch (IOException ex) {
++			throw new IllegalStateException("SOSMP-SPIKE: reading the order log", ex);
++		}
++	}
++
++	private SosMpAiLog() {
++	}
++}
+--- a/game/battle/thread/general/Strategos2000.java
++++ b/game/battle/thread/general/Strategos2000.java
+@@ -103,8 +103,23 @@
+ 		offense.clear();
+ 	}
+ 
++	/** SOS-23 spike: the host switches to its own general thread while the battle threads already run (city). */
++	public void sosmpHost(boolean threadsStarted) {
++		if (threadsStarted)
++			start();
++	}
++
++	@Override
++	protected void start() {
++		if (snake2d.SosMpDeterminism.aiMode == 1)
++			stop(); // SOS-23 spike: sosmpHost may have started it already; it runs once
++		super.start();
++	}
++
+ 	@Override
+ 	protected void doThreadJob() {
++		if (snake2d.SosMpDeterminism.aiMode == 1 && Thread.currentThread() != snake2d.SosMpDeterminism.simThread)
++			snake2d.SosMpDeterminism.aiThread = Thread.currentThread(); // SOS-23 spike: changes from this thread are logged
+ 		int newDivs = 0;
+ 		for (int di = 0; di < context.getArmy().divisions().size(); di++) {
+ 			if (context.getArmy().divisions().get(di).active())
+--- a/game/battle/thread/order/BattleOrder.java
++++ b/game/battle/thread/order/BattleOrder.java
+@@ -15,9 +15,16 @@
+ 	public final Locked<BattleOrderTask> task = new Locked<BattleOrderTask>(new BattleOrderTask());
+ 	
+ 	BattleOrder() {
+-		
++
+ 	}
+-	
++
++	/** SOS-23 spike: which division these orders belong to, for the AI order log. */
++	void sosmpIndex(int div) {
++		path.sosmpId(div, game.battle.thread.general.SosMpAiLog.PATH);
++		dest.sosmpId(div, game.battle.thread.general.SosMpAiLog.DEST);
++		task.sosmpId(div, game.battle.thread.general.SosMpAiLog.TASK);
++	}
++
+ 	void save(FilePutter file) {
+ 		path.save(file);
+ 		dest.save(file);
+@@ -61,14 +68,33 @@
+ 			lock = false;
+ 		}
+ 		
++		private int sosmpDiv = -1;
++		private int sosmpKind;
++
++		void sosmpId(int div, int kind) {
++			sosmpDiv = div;
++			sosmpKind = kind;
++		}
++
+ 		public void set(T from) {
++			if (sosmpDiv >= 0 && game.battle.thread.general.SosMpAiLog.order(sosmpKind, sosmpDiv, from))
++				return; // SOS-23 spike: the host's AI general; applied at the stamped step instead
+ 			lock();
+ 			t.copy(from);
++			if (snake2d.SosMpDeterminism.trace != null) // SOS-11 spike: log every order with its caller
++				snake2d.SosMpDeterminism.traceEvent(from instanceof game.battle.formation.DivFormation
++						? "ORDER dest " + sosmpDest((game.battle.formation.DivFormation) from)
++						: from instanceof BattleOrderTask ? "ORDER task " + ((BattleOrderTask) from).task() : "ORDER");
+ 			setI++;
+ 			lock = false;
+ 			hasNew = true;
+ 		}
+ 		
++		private static String sosmpDest(game.battle.formation.DivFormation f) {
++			snake2d.util.datatypes.COORDINATE c = f.centreTile();
++			return (c == null ? "-" : c.x() + "," + c.y()) + " dir " + (f.dir() == null ? -1 : f.dir().id());
++		}
++
+ 		public boolean consumeNew(T copyTo) {
+ 			if (hasNew) {
+ 				get(copyTo);
+--- a/game/battle/thread/order/BattleOrders.java
++++ b/game/battle/thread/order/BattleOrders.java
+@@ -23,6 +23,7 @@
+ 		super(1.0/60);
+ 		for (int i = 0; i < orders.length; i++) {
+ 			orders[i] = new BattleOrder();
++			orders[i].sosmpIndex(i); // SOS-23 spike: AI order log
+ 			nexts[i] = new DivFormationImp();
+ 		}
+ 	}
+--- a/game/battle/thread/general/offence/StepAttackEnemyNear.java
++++ b/game/battle/thread/general/offence/StepAttackEnemyNear.java
+@@ -170,12 +170,12 @@
+ 		}
+ 
+ 		if (ee != null && counts[ee.index()] > tot/2) {
+-			d.settings().guard = false;
+-			d.settings().formation = DIV_FORMATION.TIGHT;
++			game.battle.thread.general.SosMpAiLog.guard(d, false); // SOS-23 spike: logged on the host
++			game.battle.thread.general.SosMpAiLog.formation(d, DIV_FORMATION.TIGHT);
+ 			attack(ee, d);
+ 		}else {
+-			d.settings().guard = true;
+-			d.settings().formation = DIV_FORMATION.TIGHT;
++			game.battle.thread.general.SosMpAiLog.guard(d, true); // SOS-23 spike: logged on the host
++			game.battle.thread.general.SosMpAiLog.formation(d, DIV_FORMATION.TIGHT);
+ 			task.stop(d);
+ 			d.order().task.set(task);
+ 		}
+@@ -194,7 +194,7 @@
+ 		mDiv.order().task.set(task);
+ 		context.deployedToLine.set(mDiv.indexArmy(), true);
+ 		attacked[d.indexArmy()] += d.menNrOf();
+-		mDiv.settings().formation = d.settings().ammo() == null ? DIV_FORMATION.TIGHT : DIV_FORMATION.LOOSE;
++		game.battle.thread.general.SosMpAiLog.formation(mDiv, d.settings().ammo() == null ? DIV_FORMATION.TIGHT : DIV_FORMATION.LOOSE); // SOS-23 spike: logged on the host
+ 	}
+ 		
+ }
+--- a/game/battle/thread/general/offence/StepAttackOthers.java
++++ b/game/battle/thread/general/offence/StepAttackOthers.java
+@@ -139,8 +139,8 @@
+ 		mDiv.order().task.set(task);
+ 		context.deployedToLine.set(mDiv.indexArmy(), true);
+ 		attacked.set(enemy.indexArmy(), true);
+-		mDiv.settings().running = true;
+-		mDiv.settings().formation = enemy.settings().ammo() == null ? DIV_FORMATION.TIGHT : DIV_FORMATION.LOOSE;
++		game.battle.thread.general.SosMpAiLog.running(mDiv, true); // SOS-23 spike: logged on the host
++		game.battle.thread.general.SosMpAiLog.formation(mDiv, enemy.settings().ammo() == null ? DIV_FORMATION.TIGHT : DIV_FORMATION.LOOSE);
+ 	}
+ 
+ 
+--- a/game/battle/thread/general/offence/StepLinesMoveTo.java
++++ b/game/battle/thread/general/offence/StepLinesMoveTo.java
+@@ -139,7 +139,7 @@
+ 		for (int i = 0; i < Config.battle().DIVISIONS_PER_ARMY; i++) {
+ 			if (deployed.get(i)) {
+ 				Div d = util.getArmy().divisions().get(i);
+-				d.settings().running = dists[i] > dist;
++				game.battle.thread.general.SosMpAiLog.running(d, dists[i] > dist); // SOS-23 spike: logged on the host
+ 			}
+ 		}
+ 		
+@@ -329,7 +329,7 @@
+ 			
+ 		}
+ 		
+-		div.settings().formation = f;
++		game.battle.thread.general.SosMpAiLog.formation(div, f); // SOS-23 spike: logged on the host
+ 		
+ 	}
+ 	
+--- a/game/battle/thread/general/offence/Strategos2000UpdaterOffense.java
++++ b/game/battle/thread/general/offence/Strategos2000UpdaterOffense.java
+@@ -130,8 +130,8 @@
+ 				for (int di = 0; di < Config.battle().DIVISIONS_PER_ARMY; di++) {
+ 					Div d = u.getArmy().divisions().get(di);
+ 					if (d.active() && d.settings().ammo() != null && BattleTrajectories.trajectories(d) > d.men()/2) {
+-						d.settings().fireAtWill = true;
+-						d.settings().formation = DIV_FORMATION.LOOSE;
++						game.battle.thread.general.SosMpAiLog.fireAtWill(d, true); // SOS-23 spike: logged on the host
++						game.battle.thread.general.SosMpAiLog.formation(d, DIV_FORMATION.LOOSE);
+ 						task.stop(d);
+ 						d.order().task.set(task);
+ 						c.deployedToLine.set(di, true);
+--- a/game/battle/thread/general/offence/StepArtilleryBombard.java
++++ b/game/battle/thread/general/offence/StepArtilleryBombard.java
+@@ -167,7 +167,7 @@
+ 				if (SETT.PATH().availability.get(x, y).isSolid(c.getArmy()) || GAME.ARMIES().map.attackable.is(x, y, c.getArmy())) {
+ 					for (ArtilleryInstance i : tmp) {
+ 						if (i.testTarget(x, y, traj, false) == null) {
+-							i.targetCooSet(x,y, false, false);
++							game.battle.thread.general.SosMpAiLog.artilleryTarget(i, x, y); // SOS-23 spike: logged on the host
+ 							tmp.remove(i);
+ 							ins.remove(i);
+ 							break;
+--- a/settlement/thing/projectiles/Updater.java
++++ b/settlement/thing/projectiles/Updater.java
+@@ -21,6 +21,8 @@
+ 
+ 	private final SProjectiles p;
+ 	private static final VectorImp vec = new VectorImp();
++	/** SOS-23 spike: test() from the host's AI general thread (artillery targeting) must not share vec with the step. */
++	private static final VectorImp vecAi = new VectorImp();
+ 	private final double max = 1/64.0;
+ 	
+ 	Updater(SProjectiles p) {
+@@ -256,6 +258,7 @@
+ 		float vz = (float) traj.vz();
+ //		float vx = (float) traj.vx();
+ //		float vy = (float) traj.vy();
++		final VectorImp vec = Thread.currentThread() == snake2d.SosMpDeterminism.aiThread ? vecAi : Updater.vec;
+ 		double mag = vec.set(traj.vx(), traj.vy());
+ 		double length = Trajectory.getLength(mag, time);
+ 		

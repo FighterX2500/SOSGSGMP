@@ -1,0 +1,20 @@
+--- a/settlement/entity/humanoid/ai/crime/SerialKiller.java
++++ b/settlement/entity/humanoid/ai/crime/SerialKiller.java
+@@ -15,7 +15,6 @@
+ import settlement.thing.ThingsCorpses.Corpse;
+ import snake2d.util.rnd.RND;
+ import util.text.D;
+-import view.main.VIEW;
+ 
+ final class SerialKiller extends AIPLAN.PLANRES{
+ 	
+@@ -122,8 +121,7 @@
+ 			if (!isVictim(d.otherEntity()))
+ 				return null;
+ 			
+-			if (VIEW.s().getWindow().zoomout() <= 1 && VIEW.s().getWindow().pixels().touches(d.otherEntity()))
+-				return null;
++			// SOS-23 spike: the outcome must not depend on where this PC's camera is (was: no kill while on screen)
+ 			
+ 			Humanoid v = d.otherEntity();
+ 			int tx = v.tc().x();

@@ -54,6 +54,12 @@ import view.main.VIEW;
  *   generate <seed> <menPerSide> [dumpTag]                               seed set after the pre-battle save; dumpTag = also dump soldiers
  *   run <battleSeconds> <tag> [speed] [dumpSteps|-] [traceSteps]          start like the Start button, hash every step;
  *                                                                        traceSteps = log the caller of every simulation draw
+ *   world <0|1>                                                          SOS-23: 1 = hold the world still in the city view
+ *   aftertick <frame|step>                                               SOS-23 test: afterTick per drawn frame (vanilla) or per step
+ *   cityrun <seconds> <tag> [speed] [dumpSteps|-] [traceSteps]           SOS-23: run the loaded city, hash every person and
+ *                                                                        animal every step
+ *   ai <0|1|2> <delay> <logFile>                                         SOS-23: AI general in the step / on the host's
+ *                                                                        own thread with an order log / off, log replayed
  */
 public final class DeterminismSpike implements SCRIPT {
 
@@ -85,6 +91,16 @@ public final class DeterminismSpike implements SCRIPT {
 	private static final class Instance implements SCRIPT_INSTANCE {
 
 		private static final int POLL_EVERY_CALLS = 30;
+		/** SosMpTiming.lastUpdateNanos of a build with patch 05, else null (the shipped jar has no such class). */
+		private static final Field LAST_UPDATE_NANOS = timingField();
+
+		private static Field timingField() {
+			try {
+				return Class.forName("snake2d.SosMpTiming").getField("lastUpdateNanos");
+			} catch (ReflectiveOperationException e) {
+				return null;
+			}
+		}
 
 		private final Path dir = Paths.get(System.getenv("APPDATA"), "songsofsyx", "sosmp-spike");
 		private final Path commandFile = dir.resolve("command.txt");
@@ -103,6 +119,22 @@ public final class DeterminismSpike implements SCRIPT {
 		private String dumpSteps = "";
 		private int traceSteps;
 		private int traceFrom;
+		private boolean city;
+		private int invadeMen;
+		private int saveAt;
+		private int aiMode;
+		// SOS-23 timing: per frame, the game update time (known one frame later) with that frame's game time and steps
+		private BufferedWriter timingLog;
+		private long frameNo;
+		private double frameGameSec, pendingGameSec = -1;
+		private int frameSteps, pendingSteps;
+		private java.util.Map<String, Long> cpuAtStart;
+		private long processCpuAtStart;
+		// SOS-23 stall sampler: when no step has finished for STALL_MS, record the update thread's stack
+		private static final long STALL_MS = 100; // SOS-23: pass rule counts steps over 100 ms
+		private volatile long lastStepNanos;
+		private volatile Thread updateThread;
+		private volatile boolean sampling;
 
 		Instance() {
 			try {
@@ -117,6 +149,10 @@ public final class DeterminismSpike implements SCRIPT {
 						simNanos += System.nanoTime() - frameStart;
 						frameStart = -1;
 					}
+					timing();
+					saveAtStep();
+					if (running && city && invadeMen > 0)
+						VIEW.inters().messages.hide(); // SOS-23: invasion messages would pause the game (UI only)
 					poll();
 				}
 			});
@@ -127,6 +163,115 @@ public final class DeterminismSpike implements SCRIPT {
 		public void update(double ds) {
 			if (running && ds > 0)
 				step(ds);
+		}
+
+		/**
+		 * SOS-23: once per frame, after the update. SosMpTiming (patch 05) holds the previous frame's update time, so
+		 * write the previous frame's line now.
+		 */
+		private void timing() {
+			if (!running || timingLog == null || LAST_UPDATE_NANOS == null)
+				return;
+			try {
+				if (pendingGameSec >= 0)
+					timingLog.write(frameNo + "," + LAST_UPDATE_NANOS.getLong(null) + ","
+							+ String.format(Locale.ROOT, "%.6f", pendingGameSec) + "," + pendingSteps + "\n");
+			} catch (IOException | IllegalAccessException e) {
+				throw new IllegalStateException("SOSMP-SPIKE: timing log failed", e);
+			}
+			frameNo++;
+			pendingGameSec = frameGameSec;
+			pendingSteps = frameSteps;
+			frameGameSec = 0;
+			frameSteps = 0;
+		}
+
+		/**
+		 * SOS-23: a daemon thread (spike measurement only) that, every 100 ms, checks whether a step has finished in
+		 * the last STALL_MS; if not, it appends the update thread's stack to the stalls file.
+		 */
+		private void startStallSampler(Path file) {
+			updateThread = Thread.currentThread();
+			lastStepNanos = System.nanoTime();
+			sampling = true;
+			Thread t = new Thread(() -> {
+				try (BufferedWriter w = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
+					long stall = -1, nextSample = 0;
+					while (sampling) {
+						Thread.sleep(20);
+						long last = lastStepNanos;
+						long idle = (System.nanoTime() - last) / 1000000;
+						if (idle < STALL_MS || GAME.SPEED.speed() == 0)
+							continue;
+						if (last != stall) { // a new stall: sample now, then once per further STALL_MS
+							stall = last;
+							nextSample = STALL_MS;
+						}
+						if (idle < nextSample)
+							continue;
+						nextSample = idle + STALL_MS;
+						StringBuilder sb = new StringBuilder("--- step ").append(steps).append(" idle ").append(idle).append(" ms\n");
+						for (StackTraceElement e : updateThread.getStackTrace()) {
+							if (e.getClassName().startsWith("snake2d.Updater"))
+								break;
+							sb.append("  ").append(e).append('\n');
+						}
+						w.write(sb.toString());
+						w.flush();
+					}
+				} catch (IOException | InterruptedException e) {
+					write(json("error", "stall sampler: " + e));
+				}
+			}, "sosmp-stall-sampler");
+			t.setDaemon(true);
+			t.start();
+		}
+
+		/** CPU time per thread, grouped by name without digits (updater, Path offloade #, ...). */
+		private static java.util.Map<String, Long> threadCpu() {
+			java.lang.management.ThreadMXBean mx = java.lang.management.ManagementFactory.getThreadMXBean();
+			java.util.Map<String, Long> out = new java.util.TreeMap<>();
+			for (java.lang.management.ThreadInfo ti : mx.getThreadInfo(mx.getAllThreadIds())) {
+				if (ti == null)
+					continue;
+				long t = mx.getThreadCpuTime(ti.getThreadId());
+				if (t > 0)
+					out.merge(ti.getThreadName().replaceAll("[0-9]", "").trim(), t, Long::sum);
+			}
+			return out;
+		}
+
+		private static long processCpu() {
+			return ((com.sun.management.OperatingSystemMXBean) java.lang.management.ManagementFactory.getOperatingSystemMXBean())
+					.getProcessCpuTime();
+		}
+
+		/** SOS-23: CPU milliseconds per thread group spent since the run started, as a JSON object. */
+		private String cpuSinceStart() {
+			java.util.Map<String, Long> now = threadCpu();
+			StringBuilder sb = new StringBuilder("{\"process\":").append((processCpu() - processCpuAtStart) / 1000000);
+			for (java.util.Map.Entry<String, Long> e : now.entrySet()) {
+				long d = e.getValue() - cpuAtStart.getOrDefault(e.getKey(), 0L);
+				if (d >= 50000000L)
+					sb.append(",\"").append(e.getKey().replace("\"", "'")).append("\":").append(d / 1000000);
+			}
+			return sb.append('}').toString();
+		}
+
+		/** SOS-23: the game held at step saveAt (switch stepsLeft); save the whole state there, then let it run on. */
+		private void saveAtStep() {
+			if (!running || saveAt <= 0 || steps != saveAt)
+				return;
+			try {
+				if ((Long) get("stepsLeft") != 0)
+					return;
+				String name = "sosmp-step" + saveAt + "-" + tag;
+				write("{\"event\":\"saved\",\"step\":" + steps + ",\"path\":\"" + String.valueOf(GAME.saver().save(name)).replace("\\", "/") + "\"}");
+				saveAt = 0;
+				set("stepsLeft", -1L);
+			} catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("SOSMP-SPIKE: save at step failed", e);
+			}
 		}
 
 		/** Once per frame from GAME.addAfterUpdate, so commands work while the simulation is paused. */
@@ -180,17 +325,94 @@ public final class DeterminismSpike implements SCRIPT {
 				write("{\"event\":\"seeded\",\"seed\":" + Integer.parseInt(c[1]) + "}");
 				return;
 			case "hash":
-				write(String.format(Locale.ROOT, "{\"event\":\"hash\",\"stateHash\":\"%016x\"}", stateHash()));
+				write(String.format(Locale.ROOT, "{\"event\":\"hash\",\"stateHash\":\"%016x\",\"cityHash\":\"%016x\"}", stateHash(), cityHash()));
+				return;
+			case "statdump":
+				// SOS-23: every person's stats by name plus the raw packed data, to name a stat that differs between copies
+				statDump(c[1]);
+				write("{\"event\":\"statdump\",\"file\":\"" + c[1] + "\"}");
+				return;
+			case "save":
+				// SOS-23: save the current state, to compare whole saves between copies
+				write("{\"event\":\"saved\",\"path\":\"" + String.valueOf(GAME.saver().save(c[1])).replace("\\", "/") + "\"}");
+				return;
+			case "invade":
+				// SOS-23: the next cityrun starts an invasion of this many men at step 1 and skips its warning at steps 2-3
+				invadeMen = Integer.parseInt(c[1]);
+				write("{\"event\":\"invade\",\"men\":" + invadeMen + "}");
+				return;
+			case "tracestart":
+				// SOS-23: trace every simulation draw from now (survives a load: the trace is a static switch)
+				set("trace", new StringBuilder());
+				write("{\"event\":\"tracestart\"}");
+				return;
+			case "tracewrite":
+				StringBuilder tr = (StringBuilder) get("trace");
+				set("trace", null);
+				try {
+					Files.write(dir.resolve("det").resolve(c[1]), (tr == null ? "" : tr.toString()).getBytes(StandardCharsets.UTF_8));
+				} catch (IOException e) {
+					throw new IllegalStateException("SOSMP-SPIKE: cannot write " + c[1], e);
+				}
+				write("{\"event\":\"tracewrite\",\"file\":\"" + c[1] + "\"}");
+				return;
+			case "speakeracts":
+				// SOS-23: the speakers' cheer/boo table, drawn from RND when the room type is created and not saved
+				StringBuilder sa = new StringBuilder();
+				for (Object sp : SETT.ROOMS().SPEAKERS)
+					sa.append(java.util.Arrays.toString((byte[]) field(field(sp, "spec"), "acts"))).append(' ');
+				write(json("speakeracts", sa.toString()));
+				return;
+			case "roomat":
+				// SOS-23: every field of the room at a tile (and its superclasses up to Room), to find unsaved state
+				write(json("roomat", roomFields(Integer.parseInt(c[1]), Integer.parseInt(c[2]))));
+				return;
+			case "ai":
+				// SOS-23: AI general mode for the next run (0 in the step, 1 host + order log, 2 peer replaying the log);
+				// before deploy, which starts the host's general thread. The log path is relative to sosmp-spike.
+				// The log carries the start state's hash, so a peer can't replay a log made from another start.
+				long startHash = stateHash() * 31 + cityHash(); // both: "city" is only known at the run command
+				Class.forName("game.battle.thread.general.SosMpAiLog").getMethod("start", int.class, int.class, Path.class, long.class)
+						.invoke(null, Integer.parseInt(c[1]), Integer.parseInt(c[2]), dir.resolve(c[3]), startHash);
+				aiMode = Integer.parseInt(c[1]);
+				write(String.format(Locale.ROOT, "{\"event\":\"ai\",\"mode\":%d,\"delay\":%d,\"log\":\"%s\",\"startHash\":\"%016x\"}",
+						aiMode, Integer.parseInt(c[2]), c[3], startHash));
+				return;
+			case "saveat":
+				// SOS-23: the next run holds after this many steps and saves (sosmp-step<N>-<tag>), then runs on
+				saveAt = Integer.parseInt(c[1]);
+				write("{\"event\":\"saveat\",\"step\":" + saveAt + "}");
+				return;
+			case "loadseed":
+				// SOS-23: 0 = vanilla loading; otherwise loads run on the simulation stream seeded with this
+				set("loadSeed", Long.parseLong(c[1]));
+				write("{\"event\":\"loadseed\",\"seed\":" + Long.parseLong(c[1]) + "}");
+				return;
+			case "world":
+				set("freezeWorld", c[1].equals("1"));
+				write("{\"event\":\"world\",\"frozen\":" + c[1].equals("1") + "}");
+				return;
+			case "aftertick":
+				// SOS-23 test: "frame" = afterTick once per drawn frame as vanilla does, "step" = once per fixed step
+				set("frameAfterTick", c[1].equals("frame"));
+				write("{\"event\":\"aftertick\",\"frame\":" + c[1].equals("frame") + "}");
 				return;
 			case "run":
+			case "cityrun":
+				city = c[0].equals("cityrun");
 				run(Double.parseDouble(c[1]), c[2], c.length > 3 ? Double.parseDouble(c[3]) : 1);
 				dumpSteps = c.length > 4 ? c[4] : "";
 				// traceSteps: "N" = steps 1..N, "A-B" = steps A..B
 				String ts = c.length > 5 ? c[5] : "0";
 				traceFrom = ts.contains("-") ? Integer.parseInt(ts.substring(0, ts.indexOf('-'))) : 1;
 				traceSteps = Integer.parseInt(ts.substring(ts.indexOf('-') + 1));
-				if (switches != null)
+				if (switches != null) {
 					set("simDraws", 0L);
+					set("pathJobs", 0L);
+					set("pathNanos", 0L);
+					set("foreignDraws", 0L);
+					set("stepsLeft", saveAt > 0 ? (long) saveAt : -1L);
+				}
 				if (traceSteps > 0 && traceFrom <= 1)
 					set("trace", new StringBuilder());
 				return;
@@ -359,14 +581,16 @@ public final class DeterminismSpike implements SCRIPT {
 		private void run(double seconds, String runTag, double speed) throws ReflectiveOperationException {
 			// Battle start is part of the simulation: deploy initialises the battle AI, which draws random numbers
 			// (Strategos offence Context.flanking). Run it on the seeded simulation stream, as a lockstep tick 0 would.
-			if (switches != null) {
-				set("simThread", Thread.currentThread());
-				set("inSim", true);
+			if (!city) {
+				if (switches != null) {
+					set("simThread", Thread.currentThread());
+					set("inSim", true);
+				}
+				VIEW.b().state().deploy();
+				if (switches != null)
+					set("inSim", false);
+				hideDeployPanel();
 			}
-			VIEW.b().state().deploy();
-			if (switches != null)
-				set("inSim", false);
-			hideDeployPanel();
 			VIEW.inters().load.deactivate(); // the "click to continue" screen after a load also pauses the game
 			tag = runTag;
 			battleLeft = seconds;
@@ -375,13 +599,23 @@ public final class DeterminismSpike implements SCRIPT {
 			simNanos = 0;
 			try {
 				log = Files.newBufferedWriter(dir.resolve("det").resolve(tag + ".csv"), StandardCharsets.UTF_8);
-				log.write("step,battleTime,hash,playerMen,enemyMen,simDraws\n");
+				log.write("step,battleTime,hash,playerMen,enemyMen,simDraws,pathJobs\n");
+				timingLog = Files.newBufferedWriter(dir.resolve("det").resolve(tag + "-timing.txt"), StandardCharsets.UTF_8);
+				timingLog.write("frame,updateNanos,gameSeconds,steps\n");
+				frameNo = 0;
+				frameGameSec = 0;
+				frameSteps = 0;
+				pendingGameSec = -1;
+				cpuAtStart = threadCpu();
+				processCpuAtStart = processCpu();
+				startStallSampler(dir.resolve("det").resolve(tag + "-stalls.txt"));
 			} catch (IOException e) {
 				throw new IllegalStateException("SOSMP-SPIKE: cannot open log", e);
 			}
 			running = true;
 			GAME.SPEED.speedSet(speed);
-			write("{\"event\":\"running\",\"tag\":\"" + tag + "\"}");
+			// SOS-23: steps already counted by the game loop since the ai command (must be 0 on every copy)
+			write("{\"event\":\"running\",\"tag\":\"" + tag + "\",\"gameStep\":" + (switches == null ? -1 : get("step")) + "}");
 		}
 
 		/** What the Start button does besides deploy(): hide the panel that pauses the game every frame. */
@@ -416,20 +650,53 @@ public final class DeterminismSpike implements SCRIPT {
 			steps++;
 			battleTime += ds;
 			battleLeft -= ds;
+			frameGameSec += ds;
+			frameSteps++;
+			lastStepNanos = System.nanoTime();
+			if (city && invadeMen > 0 && steps <= 3)
+				invasion();
 			if (traceSteps > 0)
 				trace();
 			if (!dumpSteps.isEmpty() && ("," + dumpSteps + ",").contains("," + steps + ","))
 				dump(tag + "-step" + steps + ".csv");
 			try {
 				long draws = switches == null ? -1 : (Long) get("simDraws");
+				long paths = switches == null ? -1 : (Long) get("pathJobs");
 				log.write(steps + "," + String.format(Locale.ROOT, "%.4f", battleTime) + ","
-						+ Long.toHexString(stateHash()) + "," + GAME.ARMIES().player().men() + ","
-						+ GAME.ARMIES().enemy().men() + "," + draws + "\n");
+						+ Long.toHexString(city ? cityHash() : stateHash()) + "," + men() + ","
+						+ GAME.ARMIES().enemy().men() + "," + draws + "," + paths + "\n");
 			} catch (IOException | ReflectiveOperationException e) {
 				throw new IllegalStateException("SOSMP-SPIKE: log failed", e);
 			}
 			if (battleLeft <= 0)
 				finish();
+		}
+
+		/**
+		 * SOS-23: inside the step, so on the simulation stream. Step 1: the debug panel's invasion. Step 2: its launch()
+		 * (what the end of the warning time does): no field battle offered, the army deploys into the city.
+		 */
+		private void invasion() {
+			try {
+				Object invador = SETT.INVADOR();
+				if (steps == 1) {
+					Method invade = invador.getClass().getDeclaredMethod("invade", int.class, double.class);
+					invade.setAccessible(true);
+					invade.invoke(invador, invadeMen, 0.2);
+					write("{\"event\":\"invaded\",\"men\":" + invadeMen + ",\"step\":" + steps + "}");
+				} else if (steps == 2) {
+					for (Object inv : (Iterable<?>) field(invador, "active")) {
+						Method launch = inv.getClass().getDeclaredMethod("launch");
+						launch.setAccessible(true);
+						launch.invoke(inv);
+						write("{\"event\":\"launched\",\"step\":" + steps + "}");
+						break;
+					}
+				}
+			} catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("SOSMP-SPIKE: invasion failed at step " + steps, e);
+			}
+			VIEW.inters().messages.hide();
 		}
 
 		private Object foreignDraws() {
@@ -443,15 +710,44 @@ public final class DeterminismSpike implements SCRIPT {
 		private void finish() {
 			running = false;
 			GAME.SPEED.speedSet(0);
+			sampling = false;
+			String cpu = cpuSinceStart();
 			try {
 				log.close();
+				timingLog.close();
+				timingLog = null;
 			} catch (IOException e) {
 				throw new IllegalStateException("SOSMP-SPIKE: cannot close log", e);
 			}
+			long pathNanos;
+			Object pathJobs;
+			String ai = "null";
+			try {
+				pathNanos = switches == null ? 0 : (Long) get("pathNanos");
+				pathJobs = get("pathJobs");
+				if (aiMode != 0) // SOS-23: the host writes its order log here; counts per kind of AI change
+					ai = (String) Class.forName("game.battle.thread.general.SosMpAiLog").getMethod("finish").invoke(null);
+				aiMode = 0;
+			} catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("SOSMP-SPIKE: no path counters or AI log", e);
+			}
 			write(String.format(Locale.ROOT,
-					"{\"event\":\"finished\",\"tag\":\"%s\",\"steps\":%d,\"battleTime\":%.2f,\"playerMen\":%d,\"enemyMen\":%d,\"simMsPerStep\":%.3f,\"foreignDraws\":%s}",
-					tag, steps, battleTime, GAME.ARMIES().player().men(), GAME.ARMIES().enemy().men(),
-					simNanos / 1e6 / Math.max(1, steps), foreignDraws()));
+					"{\"event\":\"finished\",\"tag\":\"%s\",\"steps\":%d,\"battleTime\":%.2f,\"playerMen\":%d,\"enemyMen\":%d,\"simMsPerStep\":%.3f,\"foreignDraws\":%s,\"pathJobs\":%s,\"pathMsPerStep\":%.3f,\"cpuMs\":%s,\"ai\":%s}",
+					tag, steps, battleTime, men(), GAME.ARMIES().enemy().men(),
+					simNanos / 1e6 / Math.max(1, steps), foreignDraws(), pathJobs, pathNanos / 1e6 / Math.max(1, steps), cpu, ai));
+		}
+
+		/** Battle: the player's soldiers. City: every person (citizens, slaves, soldiers, visitors, invaders). */
+		private int men() {
+			if (!city)
+				return GAME.ARMIES().player().men();
+			int n = 0;
+			ENTITY[] all = SETT.ENTITIES().getAllEnts();
+			int max = Math.min(all.length, SETT.ENTITIES().Imax() + 1);
+			for (int i = 0; i < max; i++)
+				if (all[i] instanceof Humanoid && !all[i].isRemoved())
+					n++;
+			return n;
 		}
 
 		/** Step marker in the draw trace; after traceSteps steps, write it to det/<tag>-trace.txt and stop tracing. */
@@ -477,6 +773,10 @@ public final class DeterminismSpike implements SCRIPT {
 
 		/** Every soldier's fields at this step, to find what differs first between two runs. */
 		private void dump(String file) {
+			if (city) {
+				dumpCity(file);
+				return;
+			}
 			try (BufferedWriter w = Files.newBufferedWriter(dir.resolve("det").resolve(file), StandardCharsets.UTF_8)) {
 				w.write("i,id,x1,y1,speedX,speedY,health,div,tx,ty,nX,nY,mag,dir\n");
 				ENTITY[] all = SETT.ENTITIES().getAllEnts();
@@ -543,6 +843,106 @@ public final class DeterminismSpike implements SCRIPT {
 				h = mix(h, s.division().index());
 			}
 			return h;
+		}
+
+		/** SOS-23: FNV-1a over every entity (people and animals): index, type, id, position, speed; people also health. */
+		private static long cityHash() {
+			long h = 0xcbf29ce484222325L;
+			ENTITY[] all = SETT.ENTITIES().getAllEnts();
+			int max = Math.min(all.length, SETT.ENTITIES().Imax() + 1);
+			for (int i = 0; i < max; i++) {
+				ENTITY e = all[i];
+				if (e == null || e.isRemoved())
+					continue;
+				h = mix(h, i);
+				h = mix(h, e.getClass().getName().hashCode());
+				h = mix(h, e.id());
+				h = mix(h, e.body().x1());
+				h = mix(h, e.body().y1());
+				h = mix(h, Double.doubleToLongBits(e.speed.x()));
+				h = mix(h, Double.doubleToLongBits(e.speed.y()));
+				if (e instanceof Humanoid)
+					h = mix(h, Double.doubleToLongBits(STATS.NEEDS().INJURIES.COUNT.indu().getD(((Humanoid) e).indu())));
+			}
+			return h;
+		}
+
+		/** SOS-23: every entity with its AI plan and state, to see which behaviour differs first. */
+		private void dumpCity(String file) {
+			try (BufferedWriter w = Files.newBufferedWriter(dir.resolve("det").resolve(file), StandardCharsets.UTF_8)) {
+				w.write("i,type,id,x1,y1,speedX,speedY,tx,ty,plan,state,planTx,planTy\n");
+				ENTITY[] all = SETT.ENTITIES().getAllEnts();
+				int max = Math.min(all.length, SETT.ENTITIES().Imax() + 1);
+				for (int i = 0; i < max; i++) {
+					ENTITY e = all[i];
+					if (e == null || e.isRemoved())
+						continue;
+					String plan = "-", state = "-", planTile = "-,-";
+					if (e instanceof Humanoid && ((Humanoid) e).ai() instanceof settlement.entity.humanoid.ai.main.AIManager) {
+						settlement.entity.humanoid.ai.main.AIManager m = (settlement.entity.humanoid.ai.main.AIManager) ((Humanoid) e).ai();
+						plan = m.plan() == null ? "null" : m.plan().getClass().getName();
+						state = m.state() == null ? "null" : m.state().getClass().getName();
+						planTile = m.planTile.x() + "," + m.planTile.y();
+					}
+					w.write(i + "," + e.getClass().getSimpleName() + "," + e.id() + "," + e.body().x1() + "," + e.body().y1() + ","
+							+ Double.toHexString(e.speed.x()) + "," + Double.toHexString(e.speed.y()) + ","
+							+ e.tc().x() + "," + e.tc().y() + "," + plan + "," + state + "," + planTile + "\n");
+				}
+			} catch (IOException e) {
+				throw new IllegalStateException("SOSMP-SPIKE: city dump failed", e);
+			}
+		}
+
+		private static String roomFields(int tx, int ty) throws ReflectiveOperationException {
+			settlement.room.main.Room r = SETT.ROOMS().map.get(tx, ty);
+			if (r == null)
+				return "no room at " + tx + "," + ty;
+			StringBuilder sb = new StringBuilder(r.getClass().getName()).append(" @").append(tx).append(',').append(ty);
+			for (Class<?> k = r.getClass(); k != null && k != Object.class; k = k.getSuperclass()) {
+				for (Field f : k.getDeclaredFields()) {
+					if (java.lang.reflect.Modifier.isStatic(f.getModifiers()))
+						continue;
+					f.setAccessible(true);
+					Object v = f.get(r);
+					if (v == null || v instanceof Number || v instanceof Boolean || v instanceof CharSequence || v instanceof Enum)
+						sb.append(' ').append(k.getSimpleName()).append('.').append(f.getName()).append('=').append(v);
+				}
+			}
+			return sb.toString();
+		}
+
+		private void statDump(String file) throws ReflectiveOperationException {
+			Field data = settlement.stats.Induvidual.class.getDeclaredField("data");
+			data.setAccessible(true);
+			Method count = STATS.class.getDeclaredMethod("count");
+			count.setAccessible(true);
+			Iterable<?> entries = (Iterable<?>) field(field(count.invoke(null), "entries"), "entries");
+			Method entryGet = Class.forName("util.data.LONG_O").getMethod("get", Object.class);
+			try (BufferedWriter w = Files.newBufferedWriter(dir.resolve("det").resolve(file), StandardCharsets.UTF_8)) {
+				ENTITY[] all = SETT.ENTITIES().getAllEnts();
+				int max = Math.min(all.length, SETT.ENTITIES().Imax() + 1);
+				for (int i = 0; i < max; i++) {
+					if (!(all[i] instanceof Humanoid) || all[i].isRemoved())
+						continue;
+					settlement.stats.Induvidual in = ((Humanoid) all[i]).indu();
+					StringBuilder sb = new StringBuilder().append(i).append(" raw");
+					for (long l : (long[]) data.get(in))
+						sb.append(' ').append(Long.toHexString(l));
+					w.write(sb.append('\n').toString());
+					for (Object e : entries)
+						w.write(i + " " + field(e, "mkey") + " " + entryGet.invoke(field(e, "ii"), in) + "\n");
+				}
+				// where each packed field was created (the entry keeps a stack trace from its creation)
+				for (Object e : entries) {
+					StackTraceElement[] st = ((RuntimeException) field(e, "ee")).getStackTrace();
+					StringBuilder sb = new StringBuilder("site ").append(field(e, "mkey"));
+					for (int k = 0; k < Math.min(st.length, 8); k++)
+						sb.append(' ').append(st[k].getClassName()).append(':').append(st[k].getLineNumber());
+					w.write(sb.append('\n').toString());
+				}
+			} catch (IOException e) {
+				throw new IllegalStateException("SOSMP-SPIKE: stat dump failed", e);
+			}
 		}
 
 		private static long mix(long h, long v) {

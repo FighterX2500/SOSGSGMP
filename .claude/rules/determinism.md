@@ -5,12 +5,13 @@ paths:
 
 # Determinism rules (lockstep code)
 
-Field battles run in lockstep ([ADR 0003](../../docs/decisions/0003-battle-lockstep.md)). Code that runs in lockstep must produce bit-identical results on every player's PC from the same start state and the same orders. Adjust the `paths` above when the real package layout is decided; the battle hooks in the game's own code (hook-surface B7–B14) follow these rules too. Spike SOS-11 ([report](../../docs/plan/spikes/determinism.md)) found each rule marked *SOS-11* breaking in practice.
+Field battles run in lockstep ([ADR 0003](../../docs/decisions/0003-battle-lockstep.md)). Code that runs in lockstep must produce bit-identical results on every player's PC from the same start state and the same orders. Adjust the `paths` above when the real package layout is decided; the battle hooks in the game's own code (hook-surface B7–B15) follow these rules too. Spike SOS-11 ([report](../../docs/plan/spikes/determinism.md)) found each rule marked *SOS-11* breaking in practice.
 
 ## Time and threads
 
 - Advance the simulation only with the fixed step (1/60 s). Never use frame time, `System.currentTimeMillis()` or `System.nanoTime()` in simulation logic.
 - No multithreaded updates of battle state. Battle jobs and path finding run inside the step, in a fixed order. If work is ever split across threads, inputs are a snapshot and results are applied at a fixed later step.
+- One exception: the AI general runs only on the host, on its own thread (ADR 0003, amended in SOS-23). It never writes battle state directly. Every write it makes goes through the AI log: orders, division settings and artillery targets. The host's simulation thread stamps each entry for a later step, and every PC applies it at that step. Shared scratch objects need a separate copy for the general's thread. *SOS-23:* a static vector in projectile `Updater.test` was shared with the trajectories job.
 - A switch that says "the job runs inside the step" must be true only while the job runs. *SOS-11:* a flag that was always true made `BattleOrders.init` restart the real thread.
 
 ## Random numbers
