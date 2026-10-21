@@ -12,11 +12,15 @@ AGENTS.md holds the coding rules: Java, the game, hooks, threads, saves, network
 - `docs/architecture.md`: the proposed architecture. It is a direction, not a decision, until an ADR confirms it.
 - `docs/decisions/`: ADRs, one per decision, numbered `0001-short-name.md`. Each records context, the decision, the options rejected and why.
 - `docs/plan/`: plans per milestone or sprint.
-- `docs/hooks.md`: every change to the game's own code, with the reason it exists.
+- `docs/hooks.md`: every change to the game's own code that the mod makes, with the reason it exists.
+- The deterministic engine is a separate project, [SOSDET](https://github.com/FighterX2500/SOSDET), with its own docs, rules and hooks ([ADR 0004](docs/decisions/0004-engine-split.md)). The mod uses it only through its API.
 
-## Current phase: planning (Sprint 0)
+## Current phase
 
-Do not write feature code yet. Allowed work:
+- **Engine (SOSDET): implementation** (owner, 2026-10-22). Cards SOS-25 to SOS-32 under the epic SOS-22; the work happens in the SOSDET repository and follows its CLAUDE.md.
+- **Mod (this repository): planning (Sprint 0)**, resumed after the engine is built (owner, 2026-10-22). The rest of this section applies to it.
+
+Do not write feature code for the mod yet. Allowed work:
 
 - Read the game source (path in AGENTS.md Project Facts) and the docs.
 - Write plans, ADRs and reports under `docs/`.
@@ -32,7 +36,7 @@ Planning tasks, in rough order:
     - Late-game save size and save time.
     - Two game processes on one PC (city viewer) and their RAM use.
     - Steam P2P under App ID 480 from inside the game process.
-5. **Distribution:** how players get the changed game code and the mod, without committing game files.
+5. **Distribution:** how players get the changed game code (the engine's patches and the mod's) and the mod, without committing game files. SOS-25 covers the engine's half.
 6. **Test plan:** how CI gets the game's source and libraries (self-hosted Windows runner or private storage), what runs headless, and how [CI] acceptance criteria in spec section 15 become automated tests.
 7. **Walking skeleton plan:** two players connect over Steam P2P and see the same world map, with one army's movement synced.
 8. **Board:** propose Jira cards (spikes, decisions, stories) with acceptance criteria. Don't create them until I approve the list.

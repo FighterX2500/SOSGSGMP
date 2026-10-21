@@ -52,7 +52,7 @@ Field battles run in **deterministic lockstep**: every PC in the game simulates 
   - capturing the AI general's writes into the log, and applying the log at the step (B15, SOS-23).
 
   How hooks reach players is still the distribution ADR (planning task 5). B2, setting the seed after the pre-battle save, becomes plain API, because peers no longer generate.
-- **Determinism rules apply.** `.claude/rules/determinism.md` covers lockstep battle code again, extended with what the spike found.
+- **Determinism rules apply.** `.claude/rules/determinism.md` covers lockstep battle code again, extended with what the spike found. Since [ADR 0004](0004-engine-split.md) the rules and the lockstep code live in the engine's repository, SOSDET.
 - **Cost (SOS-23).** With the general inside the step, its planning froze the game for 1–4 s, dozens of times in 10 minutes. With the general on the host, a city assault (Mogus-72, 1,000 attackers) and a 2,000 v 2,000 field battle meet the owner's timing rule at 1× on the test PC: p99.9 at most 20 ms, no step over 1 s, and stalls no more often than vanilla. The field battle passes once its vanilla load stall at step 1 is left out. Its p99 is about twice vanilla's (11.8 v 5.8 ms), so high battle speeds are untested and may be limited by the slowest PC.
 - **AI log traffic:** about 18 kbit/s in a city assault and 3.6 kbit/s in a 2,000 v 2,000 field battle (SOS-23, before any size optimisation).
 - **Resync and host change** must carry the step number and the AI log entries not yet applied. A new host starts its own general.
