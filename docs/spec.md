@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.9 · 2026-10-21
+Version 0.10 · 2026-10-22
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -197,7 +197,7 @@ The mod must meet these targets on the reference PC: an Intel Core i5-11600K wit
 
 ### Sync and desync
 
-These targets are tested with 2 players at 300 ms ping.
+These targets are tested with 2 players at 300 ms ping. The battle targets depend on the deterministic engine (section 14), which must keep every PC's battle identical; the mod carries its data between PCs.
 
 | Target | Requirement |
 | --- | --- |
@@ -217,6 +217,7 @@ The project lives in a private GitHub repository, and every change goes through 
 
 - **Work tracking:** a Kanban board in Jira, connected to the repository through the Jira API.
 - **CI/CD:** each change is built and tested automatically before it is merged.
+- **Deterministic engine:** a separate project in its own private repository, SOSDET, with its own requirements and tests ([ADR 0004](decisions/0004-engine-split.md)). The mod uses it only through its API. Engine work is tracked on the same board.
 
 ## 15. Acceptance criteria
 

@@ -31,7 +31,7 @@ Other players appear on each client as puppet NPC factions: AI off, state overwr
 
 ## Field battles
 
-Decided in [ADR 0003](decisions/0003-battle-lockstep.md): deterministic lockstep, proven on one PC by spike SOS-11 ([report](plan/spikes/determinism.md)).
+Decided in [ADR 0003](decisions/0003-battle-lockstep.md): deterministic lockstep, proven on one PC by spike SOS-11 ([report](plan/spikes/determinism.md)). The deterministic part is a separate project, [SOSDET](https://github.com/FighterX2500/SOSDET) ([ADR 0004](decisions/0004-engine-split.md)): it owns the step, the random streams, the jobs, the AI log, the hash and save and load at a step. The mod carries the battle save, orders, the AI log and hashes between PCs.
 
 - **Starting the battle.** The host generates the battlefield with the vanilla generator and sends the battle save (about 1.9 MB for 2,000 vs 2,000). Every PC, the host included, loads it, seeds the simulation random stream from the host's seed, and runs deploy as step 0.
 - **Simulation.** Every PC runs fixed 1/60 s steps. The other battle worker jobs and path finding run inside the step in a fixed order; nothing runs while paused.
@@ -40,7 +40,7 @@ Decided in [ADR 0003](decisions/0003-battle-lockstep.md): deterministic lockstep
 - **Orders.** Commanders send orders stamped with a future step; the host confirms the step, and every PC applies them exactly then.
 - **Pace and speed.** Commanders vote on the speed; the slowest PC caps it.
 - **Desyncs.** Every PC sends a state hash every few steps. On a mismatch the host sends its battle save at the current step and every PC reloads it. Every desync writes a report.
-- **Determinism.** Battle code follows `.claude/rules/determinism.md`.
+- **Determinism.** Battle code lives in the engine and follows its determinism rules.
 
 ## Siege assault
 
@@ -56,5 +56,6 @@ The defender's PC runs the city and the assault and streams the area around each
 
 ## Code layout
 
-- `mod/` holds the multiplayer module: networking, world mirror, ledger, battle lockstep (orders, hashes, resync), siege streaming, snapshots, observer mode. Domain logic here does not import game classes (adapter boundary, AGENTS.md).
-- The game's own code is changed only through small, named hooks. Each hook is listed in `docs/hooks.md` with the reason it exists.
+- `mod/` holds the multiplayer module: networking, world mirror, ledger, battle lockstep transport (orders, AI log, hashes, resync saves), siege streaming, snapshots, observer mode. Domain logic here does not import game classes (adapter boundary, AGENTS.md).
+- The deterministic engine is in its own repository, SOSDET, and the mod pins one engine release ([ADR 0004](decisions/0004-engine-split.md)).
+- The game's own code is changed only through small, named hooks. The mod's hooks are listed in `docs/hooks.md` and applied on top of the engine's patches; the engine lists its own.
