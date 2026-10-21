@@ -221,9 +221,9 @@ Streaming also has its own costs:
 
 **Proposed for SOS-17:** lockstep for siege assaults, subject to the save size spike and a test with a player attacker on a larger city. The work in points 2–4 goes onto the siege cards.
 
-## Proposed ADR 0003 amendment (for owner approval; not applied)
+## ADR 0003 amendment (approved by the owner, 2026-10-21; applied in this PR)
 
-Replace "only orders cross the network" in the Decision's lead sentence with "only orders, the host's AI log, and hashes cross the network". Replace the "Battle jobs" bullet with:
+The text below is what was proposed and applied. Replace "only orders cross the network" in the Decision's lead sentence with "only orders, the host's AI log, and hashes cross the network". Replace the "Battle jobs" bullet with:
 
 > **Battle jobs.** Four of the five battle worker jobs (orders, division centres, trajectories, status) and path finding run inside the step, in a fixed order and beat, on the simulation thread. **The AI general (Strategos2000) runs only on the host, on its own thread as in vanilla.** Every change it makes is captured instead of applied:
 > - orders through `BattleOrder.Locked.set`: path, destination and task;
@@ -252,10 +252,15 @@ Hook changes (patch 96, plus parts of 10, 30 and 40):
 >     - its own vector in projectile `Updater`;
 >     - a new log class.
 
-The same approval would also update:
+The ADR also gained:
+- an SOS-23 context paragraph;
+- "AI general inside the step" under the options rejected.
+
+The same approval updated:
 - `.claude/rules/determinism.md`: one exception to "no multithreaded updates", for the host's general, whose writes go only through the log;
-- `docs/plan/hook-surface.md`: B7, B8 and the new capture point;
-- spec §8: "only orders cross the network" would also include the host's AI log.
+- `docs/plan/hook-surface.md`: B7, B8 and the new capture point B15 (now 55 points, 22 of them hooks);
+- `docs/architecture.md`: the AI general bullet under field battles;
+- spec §8 (version 0.9): orders and the host's AI orders cross the network.
 
 Siege assaults stay open in ADR 0003 until SOS-17.
 
@@ -281,7 +286,6 @@ Also not covered:
 
 ## Spec sections touched
 
-None changed by this PR.
-- **§9 (sieges) and the §16 open question:** this report feeds them through SOS-17.
-- **§13 and §15:** the timing results bear on the performance and sync targets, and on the battle and siege acceptance criteria.
-- **§8:** if the owner approves the ADR 0003 amendment, "only orders cross the network" changes to include the host's AI log, in the same PR as the ADR change.
+- **§8, changed (spec 0.9):** "only orders cross the network" now includes the host's AI orders, and the battle AI runs on the host (ADR 0003 amendment, owner approval 2026-10-21).
+- **§9 (sieges) and the §16 open question:** this report feeds them through SOS-17; neither changed.
+- **§13 and §15:** the timing results bear on the performance and sync targets, and on the battle and siege acceptance criteria; neither changed.

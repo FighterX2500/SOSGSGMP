@@ -26,15 +26,15 @@ Source references use paths relative to the source folder, and line numbers are 
    - local speed changes,
    - battle AI for human-controlled armies.
 3. **The game assumes one player in more than 1,000 places** (`FACTIONS.player()` appears 1,047 times in 292 files, and `AD.cityDivs()` 53 times). On the host, world code that branches on "is this the player?" would treat every other human as an NPC. This is the biggest source of hooks and is planning task 3.
-4. **Vanilla battles are not deterministic, but can be made so.** They run on five worker threads that tick on wall-clock time, with variable time steps and one global, randomly seeded RNG. ADR 0002 first chose streaming for that reason. Spike SOS-11 then made battles deterministic with spike patches, and field battles now run in lockstep ([ADR 0003](../decisions/0003-battle-lockstep.md), §7 Q1). That costs eight battle points, B7–B14.
+4. **Vanilla battles are not deterministic, but can be made so.** They run on five worker threads that tick on wall-clock time, with variable time steps and one global, randomly seeded RNG. ADR 0002 first chose streaming for that reason. Spike SOS-11 then made battles deterministic with spike patches, and field battles now run in lockstep ([ADR 0003](../decisions/0003-battle-lockstep.md), §7 Q1). That costs nine battle points, B7–B15 (B15 added in SOS-23 for the AI general on the host).
 5. **A vanilla field battle replaces the city in memory.** It saves the whole game, generates the battlefield inside the city engine, and reloads the save when the battle ends. That fits spec §4 ("battles pause the world and every city"), but it costs a full save and a full load on every PC in the battle (§11, question Q2).
 
-Tally of the 54 points in §4:
+Tally of the 55 points in §4:
 
 | Route | Count | Notes |
 | --- | --- | --- |
 | API | 22 | Several work only once a hook elsewhere exists, for example B5 after P1, or B12 after B10. |
-| Hook | 21 | |
+| Hook | 22 | |
 | Hook or reflection | 5 | Decided per point. |
 | Reflection | 2 | |
 | API plus reflection | 2 | |
@@ -124,14 +124,15 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 | B4 | `BattleStateExiter.exit` (public abstract) → reloads `__beforeBattle` → `afterExit(result)` | The host decides the result; each PC reloads its own pre-battle save; the host applies losses to the world. | **API**: the mod passes its own `BattleStateExiter` | — |
 | B5 | `BattleState.view()` sets `SPEED.speedSet(0)`; `GAME.SPEED` during the battle | Battle speed by commanders' majority vote (spec §8). | **API** once P1 exists | — |
 | B6 | `game/battle/Armies.player()/enemy()` (165 uses), `Army.faction()` (`Army.java:100`), `Div.faction()`, `DivInfo.faction()` | Battles between humans: each side's faction is the real human; with allies, several humans per side and per-division ownership (spec §8). | **Hook** | The engine has two sides with one fixed faction each (`FACTIONS.player()` / `FACTIONS.otherFaction()`). [single-player-assumptions.md](single-player-assumptions.md) §2, question SP4. |
-| B7 | `game/GAME.java:241` `update(ds, slowDown)`, sub-step loop; `view/battle/BattleView.update` (runs `BattleState.update`) | Battles advance in fixed 1/60 s steps from an accumulator, numbered from deploy; `BattleState.update` runs inside the step; nothing runs while paused. | **Hook** (spike patch 30) | The sub-step length comes from frame time inside a private loop. Shares the loop with A1. |
-| B8 | `game/battle/thread/BattleThreads.update` (empty in vanilla), `BattleThread.start`, `snake2d/SlaveThread.working` | The five battle jobs run inside the step in a fixed order and beat (orders, centres, trajectories, AI twice, status every 30 steps); the real threads never start. | **Hook** (spike patch 40) | The jobs are protected and run on their own wall-clock threads. `working()` must be true only during a job, or `BattleOrders.init` restarts the real thread (found in SOS-11). |
+| B7 | `game/GAME.java:241` `update(ds, slowDown)`, sub-step loop; `view/battle/BattleView.update` (runs `BattleState.update`) | Battles advance in fixed 1/60 s steps from an accumulator, numbered from deploy; `BattleState.update` runs inside the step; nothing runs while paused. Each step first applies the AI log entries due at it (B15). | **Hook** (spike patch 30) | The sub-step length comes from frame time inside a private loop. Shares the loop with A1. |
+| B8 | `game/battle/thread/BattleThreads.update` (empty in vanilla), `BattleThread.start`, `snake2d/SlaveThread.working` | Four battle jobs run inside the step in a fixed order and beat (orders, centres, trajectories, status every 30 steps); their real threads never start. The AI general's thread starts on the host only, and is off on peers (B15). | **Hook** (spike patch 40) | The jobs are protected and run on their own wall-clock threads. `working()` must be true only during a job, or `BattleOrders.init` restarts the real thread (found in SOS-11). |
 | B9 | `settlement/path/thread/FinderThread.prep` | Paths requested during a battle are computed at once, on the simulation thread. | **Hook** (spike patch 40) | Answers otherwise arrive from a worker thread a varying number of frames later. |
 | B10 | `snake2d/util/rnd/RND`, plus cosmetic call sites: `TForest.update`, `game/audio/*` (6 files), `game/time/Light.update` | Two random streams: simulation draws only inside the step on the simulation thread, everything else cosmetic. Visual and audio code always draws cosmetic. | **Hook** (spike patches 20, 60, 80, 85) | `RND` is a static class used everywhere. Tree sway, sound picks (skipped at zero volume) and night light flicker (only with the light-cycle setting on) draw from it inside the step. |
 | B11 | `util/updating/TileUpdater` static initializer | The city-map tile visiting order is the same in every game process. | **Hook** (spike patch 70) | The order is shuffled once per process at class load, from an unseeded generator. |
 | B12 | `BattleState.deploy()` → `GAME.setGameStart` → `BattleThreads.unpause(true)` → `Strategos2000.init` | Battle start is step 0: deploy runs inside the simulation context, so AI start-up (`Context.flanking`) draws from the simulation stream. | **API** once B10 exists | `deploy()` is public; the mod sets the simulation context around it. |
 | B13 | `SETT.ENTITIES().getAllEnts()`, soldier fields, `GAME.ARMIES().divisions()` | A battle state hash every few steps for desync detection, and a desync report. | **API** | All read through public accessors (the spike harness does this). |
 | B14 | `game/save/GameLoader` with `doAfterSet` → `BattleState.setLoaded(exiter, path, true)` | Every PC loads the host's battle save at battle start and on resync. | **API** | Both public. AI state that isn't saved (`flanking`) still needs B12-style handling after a resync load. |
+| B15 | `game/battle/thread/general/Strategos2000` and its offence steps (`StepAttackEnemyNear`, `StepAttackOthers`, `StepLinesMoveTo`, `Strategos2000UpdaterOffense`, `StepArtilleryBombard`), `game/battle/thread/order/BattleOrder.Locked.set`, `BattleOrders`, `settlement/thing/projectiles/Updater.test` | The AI general runs on the host only ([ADR 0003](../decisions/0003-battle-lockstep.md) amendment, SOS-23). Each of its writes is captured into the AI log instead of applied: locked orders (path, destination, task), division settings (guard, formation, running, fire at will) and artillery targets. Entries are stamped for step N + 30, and every PC applies them at that step (B7). | **Hook** (spike patch 96) | The general writes orders and settings directly from its own thread, at 11 call sites plus `Locked.set`. Its projectile checks share a static vector with the trajectories job, so its thread needs its own. |
 
 ### Sieges (spec §9)
 
@@ -192,6 +193,7 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 | `view/battle/BattleView.java` | B7 | 1 line |
 | `game/battle/thread/BattleThreads.java`, `BattleThread.java`, `snake2d/SlaveThread.java` | B8 | about 25 lines |
 | `settlement/path/thread/FinderThread.java` | B9 | about 10 lines |
+| `game/battle/thread/general/Strategos2000.java` and 5 offence steps, `BattleOrder.java`, `BattleOrders.java`, `settlement/thing/projectiles/Updater.java` | B15 | 11 setting writes and 1 artillery call redirected, a capture check in `Locked.set`, thread start on the host; the log itself is mod code (`SosMpAiLog` in the spike) |
 | `snake2d/util/rnd/RND.java`, `settlement/tilemap/terrain/TForest.java`, `game/audio/*` (6 files), `game/time/Light.java` | B10 | about 40 lines in 10 files |
 | `util/updating/TileUpdater.java` | B11 | 2 lines |
 | `game/GameSpeed.java` | P1 | 2 calls |
@@ -237,7 +239,7 @@ Making this deterministic needed more than these four. SOS-11 also found tree sw
 
 - **Planning task 3 (single-player assumptions):** done in [single-player-assumptions.md](single-player-assumptions.md). It added W5, F8, F9, F10 and B6.
 - **Planning task 4 spikes:**
-  - 4.1 battle streaming ([SOS-10](spikes/battle-streaming.md)) and battle determinism ([SOS-11](spikes/determinism.md)): done; field battles use lockstep, points B7–B14;
+  - 4.1 battle streaming ([SOS-10](spikes/battle-streaming.md)) and battle determinism ([SOS-11](spikes/determinism.md)): done; field battles use lockstep, points B7–B15 (B15 from SOS-23);
   - 4.2 save size and time answers Q2 and Q3;
   - 4.3 two processes answers V1;
   - 4.4 Steam P2P answers Q4.
