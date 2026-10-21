@@ -5,6 +5,8 @@
 # RELOAD=1: after generating, reload the battle save and re-seed (seed 777) before the run.
 # GEN_ONLY=1: only load the base save and generate (writes the battle save __battle).
 # BATTLE=<save>: skip generation; load that battle save, re-seed (seed 777) and run.
+# CITY=<anything>: SOS-23 city run; load sosmp-city, hold the world still, re-seed (seed 777) and run the city.
+# INVADE=<men>: with CITY, an invasion of that many men starts at step 1 of the run.
 # SOS-11 driver: every run = load the same save, set switches, generate from the seed, run.
 D="$APPDATA/songsofsyx/sosmp-spike"; R="$D/results.jsonl"; SAVE="sosmp-det-base"
 send() { local want="$2"; local n=$(wc -l < "$R"); echo "$1" > "$D/command.txt"
@@ -21,6 +23,20 @@ from_battle() { local mode="$1" tag="$2" secs="${3:-180}" speed="${4:-3}" dumps=
   send "mode $mode" '"mode"' >/dev/null; send "loadbattle $BATTLE" '"loaded"' >/dev/null; sleep 5
   send "seed 777" '"seeded"' >/dev/null; send hash '"hash"'
   send "run $secs $tag $speed $dumps $trace" '"finished"'; }
-if [ "${GEN_ONLY:-0}" = 1 ]; then gen_only "$1"
+city() { local mode="$1" tag="$2" secs="${3:-180}" speed="${4:-3}" dumps="${5:--}" trace="${6:-0}"
+  send "mode $mode" '"mode"' >/dev/null; send "world 1" '"world"' >/dev/null
+  send "loadseed ${LOADSEED:-555}" '"loadseed"' >/dev/null
+  [ -n "${LOADTRACE:-}" ] && send tracestart '"tracestart"' >/dev/null  # SOS-23: every simulation draw during the load
+  send "load sosmp-city" '"loaded"' >/dev/null; sleep 5
+  [ -n "${LOADTRACE:-}" ] && send "tracewrite $tag-load-trace.txt" '"tracewrite"' >/dev/null
+  if [ -n "${STATDUMP:-}" ]; then send "statdump $tag-stats-a.txt" '"statdump"' >/dev/null; sleep 10
+    send "statdump $tag-stats-b.txt" '"statdump"' >/dev/null; fi  # SOS-23: right after load, and after 10 s of paused frames
+  send "seed 777" '"seeded"' >/dev/null; send hash '"hash"'
+  send "save sosmp-step0-$tag" '"saved"' >/dev/null  # SOS-23: whole state at the start, for compare_saves.py
+  [ -n "${SAVEAT:-}" ] && send "saveat $SAVEAT" '"saveat"' >/dev/null  # SOS-23: whole state at that exact step
+  [ -n "${INVADE:-}" ] && send "invade $INVADE" '"invade"' >/dev/null
+  send "cityrun $secs $tag $speed $dumps $trace" '"finished"'; }
+if [ -n "${CITY:-}" ]; then city "$@"
+elif [ "${GEN_ONLY:-0}" = 1 ]; then gen_only "$1"
 elif [ -n "${BATTLE:-}" ]; then from_battle "$@"
 else run1 "$@"; fi

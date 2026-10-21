@@ -1,0 +1,37 @@
+--- a/util/data/RANMAP.java
++++ b/util/data/RANMAP.java
+@@ -2,7 +2,6 @@
+ 
+ import snake2d.util.file.Alloc;
+ import snake2d.util.map.MAP_INT;
+-import snake2d.util.rnd.RND;
+ 
+ public final class RANMAP implements MAP_INT{
+ 
+@@ -13,9 +12,11 @@
+ 	
+ 	private final int[] ran = Alloc.ii(SIZE*SIZE);
+ 	
+-	public RANMAP(){
++	/** SOS-23 spike: a fixed seed per table, so every process has the same tables (they were drawn from RND at game start). */
++	public RANMAP(long seed){
++		java.util.Random r = new java.util.Random(seed);
+ 		for (int i = 0; i < ran.length; i++)
+-			ran[i] = RND.rInt()&0x7FFFFFFF;
++			ran[i] = r.nextInt()&0x7FFFFFFF;
+ 	}
+ 	
+ 	@Override
+--- a/util/GUTIL.java
++++ b/util/GUTIL.java
+@@ -47,8 +47,8 @@
+ 		private final ArrayCooShort coos = new ArrayCooShort(Room.MAX_SIZE+1);
+ 		//final PathThreadManager pathManager;
+ 		private final PathUtilOnline pathOnline;
+-		private final RANMAP ran1 = new RANMAP();
+-		private final RANMAP ran2 = new RANMAP();
++		private final RANMAP ran1 = new RANMAP(0x52414E31L);
++		private final RANMAP ran2 = new RANMAP(0x52414E32L);
+ 		private ArrayList<Object> humans = new ArrayList<Object>(ENTETIES.MAX);
+ 
+ 		TextureHolder texture;

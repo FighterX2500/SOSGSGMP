@@ -1,0 +1,24 @@
+--- a/game/save/GameLoader.java
++++ b/game/save/GameLoader.java
+@@ -27,6 +27,21 @@
+ 	
+ 	@Override
+ 	public CORE_STATE getState() {
++		if (snake2d.SosMpDeterminism.loadSeed == 0)
++			return getStateVanilla();
++		// SOS-23 spike: loading is part of the simulation. Draws made while loading (e.g. a prisoner's crime picked in
++		// CrimesData.addPrivate) come from the simulation stream, seeded the same on every PC.
++		snake2d.util.rnd.RND.setSeed((int) snake2d.SosMpDeterminism.loadSeed);
++		snake2d.SosMpDeterminism.simThread = Thread.currentThread();
++		snake2d.SosMpDeterminism.inSim = true;
++		try {
++			return getStateVanilla();
++		} finally {
++			snake2d.SosMpDeterminism.inSim = false;
++		}
++	}
++
++	private CORE_STATE getStateVanilla() {
+ 		FileGetter fg = null;
+ 		GameSpec ss = null;
+ 		CharSequence error = "No detectable error";

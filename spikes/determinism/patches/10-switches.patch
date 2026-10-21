@@ -1,6 +1,6 @@
 --- a/snake2d/SosMpDeterminism.java
 +++ b/snake2d/SosMpDeterminism.java
-@@ -0,0 +1,51 @@
+@@ -0,0 +1,60 @@
 +package snake2d;
 +
 +/**
@@ -27,6 +27,15 @@
 +	public static Thread simThread;
 +	/** Draws made by other threads while the simulation step ran. */
 +	public static long foreignDraws = 0;
++	/** SOS-23: in the city view too, update only the systems a battle updates (world, factions, events... held still). */
++	public static boolean freezeWorld = false;
++	/** SOS-23: when not 0, loading a save runs on the simulation stream seeded with this (load = part of the simulation). */
++	public static long loadSeed = 0;
++	/** SOS-23: steps the game may still run before it holds (-1 = no limit); the harness saves at that exact step. */
++	public static long stepsLeft = -1;
++	/** SOS-23: path worker jobs requested, and nanoseconds spent on them on the simulation thread (sync mode). */
++	public static long pathJobs = 0;
++	public static long pathNanos = 0;
 +	/** When not null, every simulation draw appends its callers here (debugging only, allocates). */
 +	public static StringBuilder trace;
 +

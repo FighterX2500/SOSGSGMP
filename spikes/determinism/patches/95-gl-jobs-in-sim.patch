@@ -1,0 +1,58 @@
+--- a/snake2d/CORE.java
++++ b/snake2d/CORE.java
+@@ -150,7 +150,7 @@
+ 		newState = null;
+ 		while (running && !swapping) {
+ 			if (glJob != null) {
+-				glJob.doJob();
++				sosmpDoJob(glJob);
+ 				glJob = null;
+ 			}
+ 			if (newState != null) {
+@@ -194,7 +194,7 @@
+ 			}
+ 
+ 			if (glJob != null) {
+-				glJob.doJob();
++				sosmpDoJob(glJob);
+ 				glJob = null;
+ 				killSwitch = System.currentTimeMillis();
+ 				kills = 0;
+@@ -326,11 +326,29 @@
+ 		return clientDisposables;
+ 	}
+ 
++	/** SOS-23 spike: run a GL job; while it runs, the GL thread is the simulation thread if the job came from it.
++	 * The submitting thread waits for the job, so no other simulation draws happen meanwhile. */
++	private static void sosmpDoJob(GlJob j) {
++		if (!j.sosmpSim) {
++			j.doJob();
++			return;
++		}
++		Thread prev = SosMpDeterminism.simThread;
++		SosMpDeterminism.simThread = Thread.currentThread();
++		try {
++			j.doJob();
++		} finally {
++			SosMpDeterminism.simThread = prev;
++		}
++	}
++
+ 	public static abstract class GlJob {
+ 		
+ 		protected abstract void doJob();
+ 
+ 		private volatile boolean ru = true;
++		/** SOS-23 spike: submitted by the simulation thread, so its draws belong to the simulation stream. */
++		volatile boolean sosmpSim;
+ 		
+ 		public final void gc() {
+ 			System.gc();
+@@ -371,6 +389,7 @@
+ 			if (Thread.currentThread() == glThread && !swapping)
+ 				doJob();
+ 			else {
++				sosmpSim = snake2d.SosMpDeterminism.inSim && Thread.currentThread() == snake2d.SosMpDeterminism.simThread;
+ 				glJob = this;
+ 				while (glJob != null && running)
+ 					sleep(1);
