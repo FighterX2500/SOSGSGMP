@@ -7,6 +7,7 @@
 # BATTLE=<save>: skip generation; load that battle save, re-seed (seed 777) and run.
 # CITY=<anything>: SOS-23 city run; load sosmp-city, hold the world still, re-seed (seed 777) and run the city.
 # INVADE=<men>: with CITY, an invasion of that many men starts at step 1 of the run.
+# BASELINE=1: the untouched game (SOS-23 baseline): no switches, no load seed, vanilla stepping.
 # SOS-11 driver: every run = load the same save, set switches, generate from the seed, run.
 D="$APPDATA/songsofsyx/sosmp-spike"; R="$D/results.jsonl"; SAVE="sosmp-det-base"
 send() { local want="$2"; local n=$(wc -l < "$R"); echo "$1" > "$D/command.txt"
@@ -24,8 +25,9 @@ from_battle() { local mode="$1" tag="$2" secs="${3:-180}" speed="${4:-3}" dumps=
   send "seed 777" '"seeded"' >/dev/null; send hash '"hash"'
   send "run $secs $tag $speed $dumps $trace" '"finished"'; }
 city() { local mode="$1" tag="$2" secs="${3:-180}" speed="${4:-3}" dumps="${5:--}" trace="${6:-0}"
-  send "mode $mode" '"mode"' >/dev/null; send "world 1" '"world"' >/dev/null
-  send "loadseed ${LOADSEED:-555}" '"loadseed"' >/dev/null
+  if [ "${BASELINE:-0}" != 1 ]; then
+    send "mode $mode" '"mode"' >/dev/null; send "world 1" '"world"' >/dev/null
+    send "loadseed ${LOADSEED:-555}" '"loadseed"' >/dev/null; fi
   [ -n "${LOADTRACE:-}" ] && send tracestart '"tracestart"' >/dev/null  # SOS-23: every simulation draw during the load
   send "load sosmp-city" '"loaded"' >/dev/null; sleep 5
   [ -n "${LOADTRACE:-}" ] && send "tracewrite $tag-load-trace.txt" '"tracewrite"' >/dev/null

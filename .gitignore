@@ -35,3 +35,4 @@ desktop.ini
 
 # Code index (codegraph)
 .codegraph/
+spikes/**/build-baseline/

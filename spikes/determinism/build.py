@@ -15,7 +15,8 @@ import subprocess
 import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
-BUILD = HERE / "build"
+# SOS-23: SOSMP_BUILD=build-baseline keeps a second build (e.g. "prepare 05-timing 50-autoload") apart
+BUILD = HERE / os.environ.get("SOSMP_BUILD", "build")
 SRC = BUILD / "src"
 PATCHES = HERE / "patches"
 REBUILD = HERE.parent / "rebuild-check" / "rebuild.py"

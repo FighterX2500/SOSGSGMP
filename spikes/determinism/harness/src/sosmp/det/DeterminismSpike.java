@@ -88,6 +88,16 @@ public final class DeterminismSpike implements SCRIPT {
 	private static final class Instance implements SCRIPT_INSTANCE {
 
 		private static final int POLL_EVERY_CALLS = 30;
+		/** SosMpTiming.lastUpdateNanos of a build with patch 05, else null (the shipped jar has no such class). */
+		private static final Field LAST_UPDATE_NANOS = timingField();
+
+		private static Field timingField() {
+			try {
+				return Class.forName("snake2d.SosMpTiming").getField("lastUpdateNanos");
+			} catch (ReflectiveOperationException e) {
+				return null;
+			}
+		}
 
 		private final Path dir = Paths.get(System.getenv("APPDATA"), "songsofsyx", "sosmp-spike");
 		private final Path commandFile = dir.resolve("command.txt");
@@ -109,6 +119,13 @@ public final class DeterminismSpike implements SCRIPT {
 		private boolean city;
 		private int invadeMen;
 		private int saveAt;
+		// SOS-23 timing: per frame, the game update time (known one frame later) with that frame's game time and steps
+		private BufferedWriter timingLog;
+		private long frameNo;
+		private double frameGameSec, pendingGameSec = -1;
+		private int frameSteps, pendingSteps;
+		private java.util.Map<String, Long> cpuAtStart;
+		private long processCpuAtStart;
 
 		Instance() {
 			try {
@@ -123,7 +140,10 @@ public final class DeterminismSpike implements SCRIPT {
 						simNanos += System.nanoTime() - frameStart;
 						frameStart = -1;
 					}
+					timing();
 					saveAtStep();
+					if (running && city && invadeMen > 0)
+						VIEW.inters().messages.hide(); // SOS-23: invasion messages would pause the game (UI only)
 					poll();
 				}
 			});
@@ -134,6 +154,58 @@ public final class DeterminismSpike implements SCRIPT {
 		public void update(double ds) {
 			if (running && ds > 0)
 				step(ds);
+		}
+
+		/**
+		 * SOS-23: once per frame, after the update. SosMpTiming (patch 05) holds the previous frame's update time, so
+		 * write the previous frame's line now.
+		 */
+		private void timing() {
+			if (!running || timingLog == null || LAST_UPDATE_NANOS == null)
+				return;
+			try {
+				if (pendingGameSec >= 0)
+					timingLog.write(frameNo + "," + LAST_UPDATE_NANOS.getLong(null) + ","
+							+ String.format(Locale.ROOT, "%.6f", pendingGameSec) + "," + pendingSteps + "\n");
+			} catch (IOException | IllegalAccessException e) {
+				throw new IllegalStateException("SOSMP-SPIKE: timing log failed", e);
+			}
+			frameNo++;
+			pendingGameSec = frameGameSec;
+			pendingSteps = frameSteps;
+			frameGameSec = 0;
+			frameSteps = 0;
+		}
+
+		/** CPU time per thread, grouped by name without digits (updater, Path offloade #, ...). */
+		private static java.util.Map<String, Long> threadCpu() {
+			java.lang.management.ThreadMXBean mx = java.lang.management.ManagementFactory.getThreadMXBean();
+			java.util.Map<String, Long> out = new java.util.TreeMap<>();
+			for (java.lang.management.ThreadInfo ti : mx.getThreadInfo(mx.getAllThreadIds())) {
+				if (ti == null)
+					continue;
+				long t = mx.getThreadCpuTime(ti.getThreadId());
+				if (t > 0)
+					out.merge(ti.getThreadName().replaceAll("[0-9]", "").trim(), t, Long::sum);
+			}
+			return out;
+		}
+
+		private static long processCpu() {
+			return ((com.sun.management.OperatingSystemMXBean) java.lang.management.ManagementFactory.getOperatingSystemMXBean())
+					.getProcessCpuTime();
+		}
+
+		/** SOS-23: CPU milliseconds per thread group spent since the run started, as a JSON object. */
+		private String cpuSinceStart() {
+			java.util.Map<String, Long> now = threadCpu();
+			StringBuilder sb = new StringBuilder("{\"process\":").append((processCpu() - processCpuAtStart) / 1000000);
+			for (java.util.Map.Entry<String, Long> e : now.entrySet()) {
+				long d = e.getValue() - cpuAtStart.getOrDefault(e.getKey(), 0L);
+				if (d >= 50000000L)
+					sb.append(",\"").append(e.getKey().replace("\"", "'")).append("\":").append(d / 1000000);
+			}
+			return sb.append('}').toString();
 		}
 
 		/** SOS-23: the game held at step saveAt (switch stepsLeft); save the whole state there, then let it run on. */
@@ -462,6 +534,14 @@ public final class DeterminismSpike implements SCRIPT {
 			try {
 				log = Files.newBufferedWriter(dir.resolve("det").resolve(tag + ".csv"), StandardCharsets.UTF_8);
 				log.write("step,battleTime,hash,playerMen,enemyMen,simDraws,pathJobs\n");
+				timingLog = Files.newBufferedWriter(dir.resolve("det").resolve(tag + "-timing.txt"), StandardCharsets.UTF_8);
+				timingLog.write("frame,updateNanos,gameSeconds,steps\n");
+				frameNo = 0;
+				frameGameSec = 0;
+				frameSteps = 0;
+				pendingGameSec = -1;
+				cpuAtStart = threadCpu();
+				processCpuAtStart = processCpu();
 			} catch (IOException e) {
 				throw new IllegalStateException("SOSMP-SPIKE: cannot open log", e);
 			}
@@ -502,6 +582,8 @@ public final class DeterminismSpike implements SCRIPT {
 			steps++;
 			battleTime += ds;
 			battleLeft -= ds;
+			frameGameSec += ds;
+			frameSteps++;
 			if (city && invadeMen > 0 && steps <= 3)
 				invasion();
 			if (traceSteps > 0)
@@ -522,8 +604,8 @@ public final class DeterminismSpike implements SCRIPT {
 		}
 
 		/**
-		 * SOS-23: inside the step, so on the simulation stream. Step 1: the debug panel's invasion. Steps 2-3: its
-		 * fast-forward (warning -> bombardment -> launch), as the debug panel's "Invasion Finish" does.
+		 * SOS-23: inside the step, so on the simulation stream. Step 1: the debug panel's invasion. Step 2: its launch()
+		 * (what the end of the warning time does): no field battle offered, the army deploys into the city.
 		 */
 		private void invasion() {
 			try {
@@ -533,18 +615,19 @@ public final class DeterminismSpike implements SCRIPT {
 					invade.setAccessible(true);
 					invade.invoke(invador, invadeMen, 0.2);
 					write("{\"event\":\"invaded\",\"men\":" + invadeMen + ",\"step\":" + steps + "}");
-					return;
-				}
-				Iterable<?> active = (Iterable<?>) field(invador, "active");
-				for (Object inv : active) {
-					Method ff = inv.getClass().getDeclaredMethod("fastForward");
-					ff.setAccessible(true);
-					ff.invoke(inv);
-					break;
+				} else if (steps == 2) {
+					for (Object inv : (Iterable<?>) field(invador, "active")) {
+						Method launch = inv.getClass().getDeclaredMethod("launch");
+						launch.setAccessible(true);
+						launch.invoke(inv);
+						write("{\"event\":\"launched\",\"step\":" + steps + "}");
+						break;
+					}
 				}
 			} catch (ReflectiveOperationException e) {
 				throw new IllegalStateException("SOSMP-SPIKE: invasion failed at step " + steps, e);
 			}
+			VIEW.inters().messages.hide();
 		}
 
 		private Object foreignDraws() {
@@ -558,8 +641,11 @@ public final class DeterminismSpike implements SCRIPT {
 		private void finish() {
 			running = false;
 			GAME.SPEED.speedSet(0);
+			String cpu = cpuSinceStart();
 			try {
 				log.close();
+				timingLog.close();
+				timingLog = null;
 			} catch (IOException e) {
 				throw new IllegalStateException("SOSMP-SPIKE: cannot close log", e);
 			}
@@ -572,9 +658,9 @@ public final class DeterminismSpike implements SCRIPT {
 				throw new IllegalStateException("SOSMP-SPIKE: no path counters", e);
 			}
 			write(String.format(Locale.ROOT,
-					"{\"event\":\"finished\",\"tag\":\"%s\",\"steps\":%d,\"battleTime\":%.2f,\"playerMen\":%d,\"enemyMen\":%d,\"simMsPerStep\":%.3f,\"foreignDraws\":%s,\"pathJobs\":%s,\"pathMsPerStep\":%.3f}",
+					"{\"event\":\"finished\",\"tag\":\"%s\",\"steps\":%d,\"battleTime\":%.2f,\"playerMen\":%d,\"enemyMen\":%d,\"simMsPerStep\":%.3f,\"foreignDraws\":%s,\"pathJobs\":%s,\"pathMsPerStep\":%.3f,\"cpuMs\":%s}",
 					tag, steps, battleTime, men(), GAME.ARMIES().enemy().men(),
-					simNanos / 1e6 / Math.max(1, steps), foreignDraws(), pathJobs, pathNanos / 1e6 / Math.max(1, steps)));
+					simNanos / 1e6 / Math.max(1, steps), foreignDraws(), pathJobs, pathNanos / 1e6 / Math.max(1, steps), cpu));
 		}
 
 		/** Battle: the player's soldiers. City: every person (citizens, slaves, soldiers, visitors, invaders). */

@@ -7,6 +7,7 @@
 #                  [-C saveFile: SOS-23 city run; every copy loads that save (from the user's saves) as sosmp-city,
 #                   holds the world still, re-seeds and runs the city for -s seconds]
 #                  [-I men: with -C, an invasion of that many men starts at step 1]
+#                  [-B: SOS-23 baseline: the untouched game (only patches 05-timing and 50-autoload), vanilla stepping]
 # Each copy gets its own data folder (build/inst/<k>/songsofsyx), so copies never share saves or results and the
 # user's own settings are only read. Every copy plays the same battle (seed 12345, 2000 v 2000) from the same save,
 # at its own game speed; all logs are compared with copy 1, run 1. Logs and summary.txt end up in build/matrix/<prefix>.
@@ -16,10 +17,10 @@ export SOS_GAME_DIR="${SOS_GAME_DIR:-C:\\ClaudeFolder\\Songs of Syx}"
 export JAVA_HOME="${JAVA_HOME:-C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.12.101-hotspot}"
 REAL="$APPDATA/songsofsyx"
 SAVE=sosmp-det-base
-N=4 MODE="0.016666666666666666 1 1 1" RUNS=1 SECS=180 SPEEDS="3 1 5 2 4 6" TRACE=0 DUMPS=- PREFIX=X KEEP=0 BUILD=0 RELOAD=0 SHARED=0 CITY= INVADE=
-while getopts "n:m:r:s:v:t:d:p:C:I:kbLG" o; do
+N=4 MODE="0.016666666666666666 1 1 1" RUNS=1 SECS=180 SPEEDS="3 1 5 2 4 6" TRACE=0 DUMPS=- PREFIX=X KEEP=0 BUILD=0 RELOAD=0 SHARED=0 CITY= INVADE= BASE=0
+while getopts "n:m:r:s:v:t:d:p:C:I:kbLGB" o; do
   case $o in n) N=$OPTARG;; m) MODE=$OPTARG;; r) RUNS=$OPTARG;; s) SECS=$OPTARG;; v) SPEEDS=$OPTARG;; t) TRACE=$OPTARG;;
-    d) DUMPS=$OPTARG;; p) PREFIX=$OPTARG;; C) CITY=$OPTARG;; I) INVADE=$OPTARG;; k) KEEP=1;; b) BUILD=1;; L) RELOAD=1;; G) SHARED=1;; *) sed -n 2,6p "$0"; exit 2;; esac
+    d) DUMPS=$OPTARG;; p) PREFIX=$OPTARG;; C) CITY=$OPTARG;; I) INVADE=$OPTARG;; k) KEEP=1;; b) BUILD=1;; L) RELOAD=1;; G) SHARED=1;; B) BASE=1;; *) sed -n 2,6p "$0"; exit 2;; esac
 done
 [ -n "$CITY" ] && SAVE=sosmp-city
 INST="$HERE/build/inst"; OUT="$HERE/build/matrix/$PREFIX"
@@ -41,6 +42,14 @@ if [ $BUILD = 1 ] || [ ! -f "$HJAR" ] || [ -n "$(find "$HERE/harness/src" -newer
   log "building the harness"
   ps -File "$(cygpath -w "$HERE/harness/build.ps1")" >/dev/null || exit 1
 fi
+BJAR="$HERE/build-baseline/out/SongsOfSyx-rebuilt.jar"
+if [ $BASE = 1 ] && { [ $BUILD = 1 ] || [ ! -f "$BJAR" ] || [ -n "$(find "$HERE/patches/05-timing.patch" "$HERE/patches/50-autoload.patch" -newer "$BJAR")" ]; }; then
+  log "building the baseline game (untouched source + timing + autoload)"
+  SOSMP_BUILD=build-baseline python "$HERE/build.py" prepare 05-timing 50-autoload >/dev/null || exit 1
+  SOSMP_BUILD=build-baseline python "$HERE/build.py" compile | tail -2
+  [ -f "$BJAR" ] || exit 1
+fi
+JARARG=(); [ $BASE = 1 ] && JARARG=(-Jar "$(cygpath -w "$BJAR")")
 
 # 2. One data folder per copy: settings (windowed, muted, mod on, no auto-minimise), the mod, the base save.
 stop_copies
@@ -70,7 +79,7 @@ done
 
 # 3. Start every copy; each loads the base save by itself (patch 50-autoload).
 for k in $(seq 1 "$N"); do
-  ps -File "$(cygpath -w "$HERE/run.ps1")" -AppData "$(cygpath -w "$INST/$k")" -Autoload "$SAVE" || exit 1
+  ps -File "$(cygpath -w "$HERE/run.ps1")" -AppData "$(cygpath -w "$INST/$k")" -Autoload "$SAVE" "${JARARG[@]}" || exit 1
   sleep 3
 done
 for k in $(seq 1 "$N"); do
@@ -78,7 +87,7 @@ for k in $(seq 1 "$N"); do
   for i in $(seq 1 300); do grep -qs '"loaded"' "$R" && break; sleep 2; done
   grep -qs '"loaded"' "$R" || { log "copy $k did not load"; [ $KEEP = 1 ] || stop_copies; exit 1; }
 done
-log "$N copies loaded; mode '$MODE', $RUNS run(s) of $SECS s, speeds '$SPEEDS', trace $TRACE, reload $RELOAD, shared battle $SHARED, city ${CITY:-no}, invasion ${INVADE:-no}"
+log "$N copies loaded; mode '$MODE', $RUNS run(s) of $SECS s, speeds '$SPEEDS', trace $TRACE, reload $RELOAD, shared battle $SHARED, city ${CITY:-no}, invasion ${INVADE:-no}, baseline $BASE"
 
 # 4. Runs: all copies at once, each at its own speed.
 BATTLE=
@@ -95,7 +104,7 @@ for r in $(seq 1 "$RUNS"); do
   for k in $(seq 1 "$N"); do
     speed=$(echo $SPEEDS | cut -d' ' -f"$k"); speed=${speed:-3}
     tag="$PREFIX-c$k-r$r"
-    CITY=$CITY INVADE=$INVADE BATTLE=$BATTLE RELOAD=$RELOAD APPDATA="$(cygpath -w "$INST/$k")" bash "$HERE/drive.sh" "$MODE" "$tag" "$SECS" "$speed" "$DUMPS" "$TRACE" > "$OUT/$tag.drive.log" 2>&1 &
+    BASELINE=$BASE CITY=$CITY INVADE=$INVADE BATTLE=$BATTLE RELOAD=$RELOAD APPDATA="$(cygpath -w "$INST/$k")" bash "$HERE/drive.sh" "$MODE" "$tag" "$SECS" "$speed" "$DUMPS" "$TRACE" > "$OUT/$tag.drive.log" 2>&1 &
   done
   wait
   log "run $r done"
