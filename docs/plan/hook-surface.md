@@ -110,8 +110,8 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 | F5 | 1,075 call sites of `FACTIONS.player()` / `GAME.player()` in 310 files | Host world logic must treat every human as "a player". | **Hook** (many) | Classified in [single-player-assumptions.md](single-player-assumptions.md): about 363 host-side lines in about 140 files. The largest group, "is this faction a human?", is 139 one-line checks in 68 files. |
 | F6 | `game/faction/diplomacy/DipStance.set(instigator, accepter)`, `DIP.get(a, b)` | Treaties between players, applied by the host (spec §6). | **API**: stances are a general faction-to-faction table | — |
 | F7 | `game/faction/diplomacy/deal/Deal`: one `player` side and one `npc` side; `DealParty.execute` | Player-to-player offers and acceptance (spec §6: no opinion requirement). | **Mod UI + API** to apply the result (stance, goods, regions) | The vanilla deal screen is player-to-NPC only. Reusing it for player-to-player would need **hooks in `view/`**; drawing the mod's own screen through `render`/`mouseClick` avoids that. To be decided in the diplomacy story. |
-| F8 | `game/faction/royalty/opinion/*` (`ROPINION`), one-argument `DIP.get(npc)` / `DipStance.is/set(npc)`, `DipWarPlayer`, `Deal`, `UpVassal` | Each NPC keeps opinion, stance history, war plans and tribute **per human**. | **Hook** | The data is stored per NPC toward one player; nothing outside can split it. [single-player-assumptions.md](single-player-assumptions.md) G2, question SP1. |
-| F9 | `game/events/faction/player/*`, `EventFactionWar`, `EventFactionExpand`, `EventWorldRebellion`, `game/raiding/*` | World events and raiders target a chosen human; raids into a city run on its owner's PC. | **Hook** | Targets are hard-wired to `FACTIONS.player()`. [single-player-assumptions.md](single-player-assumptions.md) G6, question SP2. |
+| F8 | `game/faction/royalty/opinion/*` (`ROPINION`), one-argument `DIP.get(npc)` / `DipStance.is/set(npc)`, `DipWarPlayer`, `Deal`, `UpVassal` | Each NPC keeps opinion, stance history, war plans and tribute **per human**. | **Hook** | The data is stored per NPC toward one player; nothing outside can split it. [single-player-assumptions.md](single-player-assumptions.md) G2; SP1 decided: per human. |
+| F9 | `game/events/faction/player/*`, `EventFactionWar`, `EventFactionExpand`, `EventWorldRebellion`, `game/raiding/*` | World events and raiders target a chosen human; raids into a city run on its owner's PC. | **Hook** | Targets are hard-wired to `FACTIONS.player()`. [single-player-assumptions.md](single-player-assumptions.md) G6; SP2 decided: each human's own timers and raiders. |
 | F10 | Reads of `Player` state from world code (`credits()`, `level()`, `titles`, `race()`, `offensivePower()`, `emissaries`) | For a remote human, the host uses values from that human's latest city report. | **Hook** | Remote humans are `FactionNPC` puppets on the host and have no `Player` state. [single-player-assumptions.md](single-player-assumptions.md) G7. |
 
 ### Battle start and end (spec §8)
@@ -199,8 +199,8 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 | `game/GameSpeed.java` | P1 | 2 calls |
 | `view/main/VIEW.java` | P4 | 1 call |
 | `game/GAME.java` (`Notify`, `Warn`) | P5 | 2 calls |
-| `game/faction/royalty/opinion/**`, `game/faction/diplomacy/**` | F8 | data change per human; see SP1 |
-| `game/events/faction/**`, `game/events/world/**`, `game/raiding/**` | F9 | unknown until SP2 |
+| `game/faction/royalty/opinion/**`, `game/faction/diplomacy/**` | F8 | data change per human (SP1, decided: per human) |
+| `game/events/faction/**`, `game/events/world/**`, `game/raiding/**` | F9 | each human's own timers and raiders (SP2, decided); size unknown until designed |
 | World code reading `Player` state | F10 | about 60 lines (G7) |
 | `world/map/fow/FOW.java`, `world/WorldMinimap.java`, overlays | W5 | with A2 |
 | `game/battle/Armies.java`, `Army.java`, `div/Div.java`, `div/DivInfo.java` | B6 | unknown; SP4 |
