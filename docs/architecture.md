@@ -4,30 +4,33 @@ Status: proposal from the design discussion, not yet validated. Sprint 0 spikes 
 
 ## Core rule
 
-Whoever owns a piece of state simulates it; everyone else gets reports or streams of it. A city is too heavy to copy or simulate twice, so each city runs only on its owner's PC. The world map is small, so the host owns it and everyone mirrors it. Field battles are the exception: every PC simulates them in lockstep from the host's battle save ([ADR 0003](decisions/0003-battle-lockstep.md)).
+Whoever owns a piece of state simulates it; everyone else gets reports or streams of it. A city is too heavy to copy or simulate twice, so each city runs only on its owner's PC. The world map and field battles are the exceptions: every PC simulates them in lockstep ([ADR 0005](decisions/0005-world-lockstep-and-city-world-link.md), [ADR 0003](decisions/0003-battle-lockstep.md)).
 
 | State | Model | Simulated by | Crosses the network |
 | --- | --- | --- | --- |
-| World map | Host-authoritative state sync | Host only; clients mirror | Commands up, state deltas down |
-| A player's city | Local authority | Its owner only | City reports and ledger transactions |
+| World map | Deterministic lockstep ([ADR 0005](decisions/0005-world-lockstep-and-city-world-link.md)) | Every PC | Commands and city reports with their step; the host's AI log; state hashes; the host's world save on a desync |
+| A player's city | Local authority | Its owner only | City reports, every 30 steps |
 | Field battle | Deterministic lockstep ([ADR 0003](decisions/0003-battle-lockstep.md)) | Every PC | Battle save at start; commander orders with their step; state hashes |
 | Siege assault | Defender-authoritative streaming (ADR 0002; open, spec §16) | Defender's PC | Visible city state down, attacker orders up |
-| Goods, soldiers, money crossing city ↔ world | Ledger with transaction IDs | Host | Two-phase transactions, applied exactly once |
+| Goods, soldiers, money crossing city ↔ world | Transactions with IDs | Every PC (part of the world step) | Nothing: each PC computes them; the city applies its own exactly once, and reports what a withdrawal actually took |
 
-Other players appear on each client as puppet NPC factions: AI off, state overwritten from host deltas.
+Other players appear in the world as factions whose city values come from their city reports.
 
 ## Clocks
 
-- **World tick (host):** fixed rate, e.g. 10 per second at 1× speed. Everything shared is stamped with it: army moves, treaties, caravans, pauses, saves.
-- **City clock (each player):** runs locally at full speed, reports the world tick it has reached, never runs ahead of the host. The host does not advance the world more than a small cap ahead of the slowest city; that is how "slowest PC sets the speed" works.
+- **Step (every PC):** one step counter for the city and the world. Each step runs the PC's own city part, then the lockstep world part. Everything shared is stamped with a step: commands, city reports, treaties, caravans, pauses, saves.
+- **Pace:** a PC runs world step N only once every city report stamped for N has arrived, so the slowest PC sets the speed and no city runs ahead of world time.
 - **Battle clock:** fixed steps of 1/60 s, numbered from deploy (step 0). Orders carry the step they apply at. The slowest PC sets the pace.
 
 ## World map
 
-- A client sends a command; the host validates it, applies it at world tick N and broadcasts the changes stamped with N.
-- Clients don't run NPC AI or world logic.
-- Every few seconds the host sends a hash of key world state. A client whose mirror differs requests a full world snapshot.
-- Pause and priority pause are commands applied at a world tick, so everyone stops at the same moment.
+Decided in [ADR 0005](decisions/0005-world-lockstep-and-city-world-link.md); built by the engine (SOSDET stage E).
+
+- Every PC runs the world in lockstep: the same steps, seed and commands, and the host's AI log.
+- The world never reads a live city. Each city sends a report of the values the world reads every 30 steps, applied on every PC at its stamped step.
+- The world's changes to a city are transactions with IDs that every PC computes; the city applies its own exactly once.
+- Every PC hashes the world. A PC whose hash differs reloads the host's world; its city keeps running.
+- Pause and priority pause are commands applied at a step, so everyone stops at the same moment.
 
 ## Field battles
 
@@ -48,7 +51,7 @@ The defender's PC runs the city and the assault and streams the area around each
 
 ## Saves, disconnects, viewing
 
-- **Save barrier:** host announces "save at world tick T"; every city runs to exactly T, saves, and reports a save hash; the host saves the world; play resumes. A campaign save = world save + every city save.
+- **Save barrier:** host announces "save at step T"; every PC runs to exactly T, saves, and reports a save hash; the host saves the world; play resumes. A campaign save = world save + every city save.
 - **Save before battles:** the same save barrier runs before every battle or siege assault starts (spec §11).
 - **Disconnect:** priority pause; the player's city, empire and armies freeze; reconnect = load own city save + full world snapshot.
 - **Host disconnect:** every client stops all simulation and shows "host disconnected". Any player can host the resumed campaign, usually from the pre-battle save.
@@ -56,6 +59,6 @@ The defender's PC runs the city and the assault and streams the area around each
 
 ## Code layout
 
-- `mod/` holds the multiplayer module: networking, world mirror, ledger, battle lockstep transport (orders, AI log, hashes, resync saves), siege streaming, snapshots, observer mode. Domain logic here does not import game classes (adapter boundary, AGENTS.md).
+- `mod/` holds the multiplayer module: networking, lockstep transport for the world and battles (commands, orders, city reports, AI log, hashes, resync saves), siege streaming, snapshots, observer mode. Domain logic here does not import game classes (adapter boundary, AGENTS.md).
 - The deterministic engine is in its own repository, SOSDET, and the mod pins one engine release ([ADR 0004](decisions/0004-engine-split.md)).
 - The game's own code is changed only through small, named hooks. The mod's hooks are listed in `docs/hooks.md` and applied on top of the engine's patches; the engine lists its own.
