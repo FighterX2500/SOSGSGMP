@@ -217,7 +217,7 @@ The project lives in a private GitHub repository, and every change goes through 
 
 - **Work tracking:** a Kanban board in Jira, connected to the repository through the Jira API.
 - **CI/CD:** each change is built and tested automatically before it is merged.
-- **Deterministic engine:** a separate project in its own private repository, SOSDET, with its own requirements and tests ([ADR 0004](decisions/0004-engine-split.md)). The mod uses it only through its API. Engine work is tracked on the same board.
+- **Deterministic engine:** a separate project in its own public repository, SOSDET, open source under the MIT license for its own code, with its own requirements and tests ([ADR 0004](decisions/0004-engine-split.md)). The game source lines in its patches stay the game developer's, published with their permission; nothing built from them is sold (owner, 2026-10-23). The mod uses it only through its API. Engine work is tracked on the same board.
 
 ## 15. Acceptance criteria
 
