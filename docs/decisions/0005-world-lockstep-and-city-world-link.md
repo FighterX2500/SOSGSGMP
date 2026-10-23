@@ -13,7 +13,7 @@ Status: Accepted (owner decision, 2026-10-23) · Card: [SOS-38](https://fighterx
   - `BOOSTABLES.*.get(player)`;
   - `SETT.INVADOR` and `SETT.ENTRY`.
 
-  It also writes to the city in about 8 ways: deliveries, credits, invasions and raid demands, immigrants, returning soldiers, garrison casualties, supply withdrawals, and event triggers.
+  It also writes to the city in about 8 ways: deliveries, credits, invasions and raid demands, immigrants, returning soldiers, garrison casualties, supply withdrawals, and event triggers. The city also writes into the world: soldiers joining armies, army supply from depots, the capitol's population, invasion results.
 - **The problem.** Once each PC runs a different city, a world that reads the live city gives a different world on every PC.
 
 ## Decision
@@ -26,20 +26,20 @@ Status: Accepted (owner decision, 2026-10-23) · Card: [SOS-38](https://fighterx
 **The city↔world link:**
 
 1. **One step, two parts.**
-   - Each PC's step runs its own city part first, then the world part, in vanilla's order.
+   - Each PC's step runs its own city part first, then the world part. Each part keeps vanilla's order among its own resources. Vanilla interleaves city and world work (tourism, nobles, the city events and the player's own update run after the world today), so the split reorders the step; in co-op mode every PC runs the same split.
    - **The city part is local.** No other PC runs it, and its state is never compared. A player's actions in their own city apply at once, with zero latency, as in vanilla. They are not lockstep commands.
    - **The world part is lockstep.** It reseeds the simulation stream at its start from (seed, step, world), so the city's draws on this PC never shift the world's draws.
    - `EVENTS`, which mixes city and world events today, is split between the two parts.
 2. **City → world: city reports.**
    - The world part never reads a live city. At each chokepoint it reads that city's last applied report instead, and this holds for the PC's own city too.
-   - Every 30 steps, each city publishes a report of the values the world reads: about 10 kinds (population by race, tradable stock and trade settings, credits, garrison and invasion power, 7 policies and the wall count, the boosts the world reads, tech, level, titles).
+   - Every 30 steps, each city publishes a report of the values the world reads: about 10 kinds (population by race, tradable stock and trade settings, credits, garrison and invasion power, 3 laws per race, the boosts the world reads, tech, level, titles). The capitol's wall count is only drawn, so it is not in the report.
    - A report is stamped to apply at a world step 30 steps ahead (the AI log's delay). Every PC, the owner's included, applies it at exactly that step.
    - Reports have a hand-written codec with a protocol version, and carry the city's faction.
    - Anything else the city part writes into world state also travels in the report, as an input applied at its stamped step. Player actions on the world map stay lockstep commands, as in V0.1. Stage E's first task is a scan for these writes.
 3. **World → city: transactions.**
    - Every PC computes the same world, so each PC already produces every world change to every city, and no message has to cross the network for them.
    - Each change becomes a transaction with an ID made from its world step and a sequence number. Each PC applies only its own city's transactions, at the start of its next city part, exactly once.
-   - **Withdrawals take two phases:** goods taken by trade, supply taken by armies, money. The world only asks; the city applies as much as it has. The amount actually taken goes back in the city's next report, and the world counts only that amount. That way a report that is up to 30 steps old can never create or destroy goods.
+   - **Withdrawals take two phases:** goods taken by trade, supply taken when a division is sent out, money. Army supply from depots and joining soldiers flows the other way, city to world, and travels in the report. The world only asks; the city applies as much as it has. The amount actually taken goes back in the city's next report, and the world counts only that amount. That way a report that is up to 30 steps old can never create or destroy goods.
 4. **Pace.**
    - A PC runs world step N only once every report stamped for N has arrived.
    - So the slowest city sets the speed for everyone (spec §4), and no city runs ahead of world time.
@@ -71,7 +71,7 @@ Status: Accepted (owner decision, 2026-10-23) · Card: [SOS-38](https://fighterx
   - nothing in the world part reads a live city;
   - city draws never reach the world stream;
   - the transaction IDs are the only state shared between the two parts.
-- **Work** is SOSDET's stage E card. The mod's work follows:
+- **Work** is SOSDET's stage E card (SOS-38). Its scan is SOSDET `docs/plan/notes/city-world-link-scan.md`. SOS-38 leaves two things to a follow-up card (owner, 2026-10-23): invasions of a player's own capitol with world battles on its region, and scripted events. Co-op mode keeps both; the own-city mode refuses them until then. The mod's work follows:
   - carrying reports over Steam;
   - several human factions;
   - city viewing, which stays a snapshot (spec §10) and is not part of this ADR.
