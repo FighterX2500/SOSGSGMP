@@ -71,7 +71,7 @@ Status: Accepted (owner decision, 2026-10-23) · Card: [SOS-38](https://fighterx
   - nothing in the world part reads a live city;
   - city draws never reach the world stream;
   - the transaction IDs are the only state shared between the two parts.
-- **Work** is SOSDET's stage E card (SOS-38). Its scan is SOSDET `docs/plan/notes/city-world-link-scan.md`. SOS-38 leaves two things to a follow-up card (owner, 2026-10-23): invasions of a player's own capitol with world battles on its region, and scripted events. Co-op mode keeps both; the own-city mode refuses them until then. The mod's work follows:
+- **Work** is SOSDET's stage E card (SOS-38). Its scan is SOSDET `docs/plan/notes/city-world-link-scan.md`. SOS-38 builds the whole link, invasions of a player's own capitol and scripted events included (owner, 2026-10-23). The mod's work follows:
   - carrying reports over Steam;
   - several human factions;
   - city viewing, which stays a snapshot (spec §10) and is not part of this ADR.
