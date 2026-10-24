@@ -327,4 +327,4 @@ Every card on the board, not only features, is done when:
 
 ## 16. Open questions
 
-- [ ] **Viewing numbers:** the catch-up numbers in section 10 (a 5-second gap closed in about 2 seconds, and how far behind a view may fall before the speed drops) are first guesses. Confirm them with the save-size spike's measurements: city save size and time, loading a city into a running game, and a 10,000-person city.
+- [ ] **Viewing numbers:** the catch-up numbers in section 10 (a 5-second gap closed in about 2 seconds, and how far behind a view may fall before the speed drops) are first guesses. Confirm them in playtests (owner, 2026-10-24): city save size and time, loading a city into a running game, and a 10,000-person city.
