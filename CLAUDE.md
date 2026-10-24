@@ -18,15 +18,15 @@ AGENTS.md holds the coding rules: Java, the game, hooks, threads, saves, network
 ## Current phase
 
 - **Engine (SOSDET): implementation** (owner, 2026-10-22). Cards under the epic SOS-22 are merged up to SOS-15 (SOSDET PR #28, 2026-10-24); SOS-31 (the scenario suite) is in progress. The work happens in the SOSDET repository and follows its CLAUDE.md.
-- **Mod (this repository): planning (Sprint 0)**, resumed after the engine is built (owner, 2026-10-22). The rest of this section applies to it.
+- **Mod (this repository): implementation of the walking skeleton** (owner, 2026-10-25), in the order of [docs/plan/walking-skeleton.md](docs/plan/walking-skeleton.md). It starts with the lobby (SOS-49); the setup and the game wait for the engine's player slots (SOSDET SOS-46). The rest of this section applies to it.
 
-Do not write feature code for the mod yet. Allowed work:
+Feature code for the mod is allowed for approved cards only. Also allowed:
 
 - Read the game source (path in AGENTS.md Project Facts) and the docs.
 - Write plans, ADRs and reports under `docs/`.
 - Write spikes under `spikes/<name>/`: small, throwaway experiments that answer one question. Spike code is never moved into `mod/` as-is; each spike ends with a short report in `docs/plan/spikes/<name>.md` and, if it settles a choice, an ADR.
 
-Planning tasks, in rough order:
+Planning tasks from Sprint 0, in rough order (7 is now the walking-skeleton plan):
 
 1. **Rebuild check:** build the untouched game source and confirm it runs exactly like the shipped game.
 2. **Hook surface:** map where the multiplayer features need to hook into the game: the main update loop, world tick, faction/player handling, battle start and end, save/load, city boundary crossings (soldiers, goods, caravans), pause and speed. For each, say whether the game's script/mod API is enough or the game's code must change.

@@ -13,10 +13,10 @@ Fill these in and keep them current. Agents must not guess them.
 *   **Game source:** `<game>/info/SongsOfSyx-sources/`, shipped with the game. Read it freely; never copy or commit it. Changes to it go through hooks only (see "Hooks into Game Code").
 *   **Script API reference:** `<game>/info/scriptGuide.odt`; example scripts in `<game>/base/script/`.
 *   **Game source index:** codegraph (`npm i -g @colbymchenry/codegraph`, telemetry off). Build it once per PC with `codegraph init -y "%SOS_GAME_DIR%\info\SongsOfSyx-sources"`; the index (`.codegraph/`, ~260 MB) stays in the game folder and is never committed. Claude Code reaches it through `.mcp.json` (tool `codegraph_explore`; CLI: `codegraph callers|callees|impact|node <symbol>` run in the source folder). Use it first to find definitions and callers; confirm with grep when a complete list matters (for example, counting every call site).
-*   **Build:** `gradlew.bat build` (Gradle not set up yet).
-*   **Fast check:** `gradlew.bat compileJava compileTestJava` (Gradle not set up yet).
-*   **Tests:** `gradlew.bat test` (Gradle not set up yet).
-*   **Install for manual testing:** `gradlew.bat installMod` → copies the jar and assets to `%APPDATA%\songsofsyx\mods\<ModName>\` (Gradle and mod name not set up yet).
+*   **Build:** `gradlew.bat build` (needs `SOS_GAME_DIR`; checks the game jar is V71 build 71.44).
+*   **Fast check:** `gradlew.bat compileJava compileTestJava`.
+*   **Tests:** `gradlew.bat test`.
+*   **Install for manual testing:** `gradlew.bat installMod` → copies the mod folder to `%APPDATA%\songsofsyx\mods\SOSGSGMP\`; enable it in the launcher after SOSDET. `uninstallMod` removes it.
 *   **Game log / crash output:** `%APPDATA%\songsofsyx\logs\` (error files `error<date>.txt`); also `<game>/errorLogs/`.
 
 ## Design Review: KISS, DRY, SRP, Cohesion, and Coupling
