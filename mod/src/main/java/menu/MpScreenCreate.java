@@ -51,12 +51,7 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 		form.addDown(8, MpMenu.row("port", port));
 
 		players.set(mp.prefs.maxPlayers);
-		form.addDown(24, new GUI.OptionLine(players, "players") {
-			@Override
-			protected void setValue(GText str) {
-				str.add(players.get());
-			}
-		});
+		form.addDown(8, MpMenu.row("players", playersField()));
 
 		mode = mp.modes.index(mp.prefs.difficulty);
 		GuiSection icons = new GuiSection();
@@ -82,6 +77,36 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 
 		form.body().centerIn(MenuScreen.inner);
 		add(form);
+	}
+
+	/** "<< 4 >>": the player limit, as a field in the form's rows (vanilla's OptionLine places its own label). */
+	private GuiSection playersField() {
+		GuiSection field = new GuiSection();
+		field.add(stepButton("<<", -1));
+		GText value = new GText(UI.FONT().H2, 4);
+		field.addRightC(8, new RENDEROBJ.RenderImp(40, UI.FONT().H2.height()) {
+			@Override
+			public void render(SPRITE_RENDERER r, float ds) {
+				value.clear().add(players.get());
+				value.renderCY(r, body.cX() - value.width() / 2, body.cY());
+			}
+		});
+		field.addRightC(8, stepButton(">>", 1));
+		return field;
+	}
+
+	private CLICKABLE stepButton(CharSequence label, int step) {
+		return new GUI.Button(GUI.getBigTexts(label)) {
+			@Override
+			protected void clickA() {
+				players.inc(step);
+			}
+
+			@Override
+			protected void renAction() {
+				activeSet(step < 0 ? players.get() > players.min() : players.get() < players.max());
+			}
+		};
 	}
 
 	private CLICKABLE modeButton(int i) {

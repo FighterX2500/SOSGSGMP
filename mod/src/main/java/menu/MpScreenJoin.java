@@ -45,7 +45,7 @@ final class MpScreenJoin extends GUI.Shadower implements SC {
 		form.addDown(8, MpMenu.row("host address", address));
 		port = new MpInput(5, true, Integer.toString(mp.prefs.port));
 		form.addDown(8, MpMenu.row("port", port));
-		form.addDown(24, MpMenu.note("The host's lobby screen shows its addresses. Over Radmin VPN, use the host's Radmin IP (26.x.x.x)."));
+		form.addDown(24, MpMenu.note("Over Radmin VPN, use the host's Radmin IP (26.x.x.x)."));
 
 		error.color(COLORS.error);
 		form.addDown(16, new RENDEROBJ.RenderImp(600, UI.FONT().M.height() * 2) {

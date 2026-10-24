@@ -12,7 +12,6 @@ import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
-import sosgsgmp.session.HostedLobby;
 import sosgsgmp.session.LobbySession;
 import util.gui.misc.GText;
 import view.menu.MenuScreen;
@@ -30,7 +29,6 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 	private final GText[] rows = new GText[LobbySettings.MAX_PLAYERS];
 	private final GText settings = new GText(UI.FONT().H2, 64);
 	private final GText status = new GText(UI.FONT().M, 256);
-	private final GText join = new GText(UI.FONT().M, 256);
 	private final CLICKABLE start;
 
 	MpScreenLobby(MpMenu mp) {
@@ -54,10 +52,12 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 			}
 		};
 		screen.addButt(start);
+		screen.addButt(gap());
 		// Steam placeholder: Steam friend invites come with the Steam card.
 		CLICKABLE invite = new MenuScreen.ScreenButton("invite Steam friends");
 		invite.activeSet(false);
 		screen.addButt(invite);
+		screen.addButt(gap());
 		screen.addButt(new MenuScreen.ScreenButton("leave") {
 			@Override
 			protected void clickA() {
@@ -85,8 +85,6 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 				COLOR.WHITE100.bind();
 				int y = body.y1() + settings.height() + 16;
 				UI.FONT().M.render(r, status, body.x1(), y, body.width(), 1.0);
-				COLORS.label.bind();
-				UI.FONT().M.render(r, join, body.x1(), y + 4 * UI.FONT().M.height(), body.width(), 1.0);
 				COLOR.unbind();
 			}
 		});
@@ -94,18 +92,19 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		add(content);
 	}
 
+	/** Extra room between the bottom buttons: their names are long, and the menu's own gap runs them together. */
+	private static RENDEROBJ gap() {
+		return new RENDEROBJ.RenderImp(24, 1) {
+			@Override
+			public void render(SPRITE_RENDERER r, float ds) {
+			}
+		};
+	}
+
 	void open(LobbySession s) {
 		session = s;
 		shownChanges = -1;
 		start.visableSet(s.isHost());
-		join.clear();
-		if (s instanceof HostedLobby h) {
-			join.add("Others join at ");
-			List<String> addresses = HostedLobby.localAddresses();
-			for (int i = 0; i < addresses.size(); i++)
-				join.add(i == 0 ? "" : " or ").add(addresses.get(i));
-			join.add(", port ").add(h.port()).add('.');
-		}
 		refresh();
 	}
 

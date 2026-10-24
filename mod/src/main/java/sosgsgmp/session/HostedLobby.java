@@ -1,12 +1,6 @@
 package sosgsgmp.session;
 
 import java.io.IOException;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,23 +33,6 @@ public final class HostedLobby implements LobbySession {
     /** The port players join on. */
     public int port() {
         return node.port();
-    }
-
-    /** This PC's IPv4 addresses other PCs may reach it on (LAN, VPNs such as Radmin), without loopback. */
-    public static List<String> localAddresses() {
-        List<String> result = new ArrayList<>();
-        try {
-            for (NetworkInterface ni : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-                if (!ni.isUp() || ni.isLoopback())
-                    continue;
-                for (InetAddress a : Collections.list(ni.getInetAddresses()))
-                    if (a instanceof Inet4Address)
-                        result.add(a.getHostAddress());
-            }
-        } catch (SocketException e) {
-            result.add("(addresses unknown: " + e.getMessage() + ")");
-        }
-        return result;
     }
 
     @Override
