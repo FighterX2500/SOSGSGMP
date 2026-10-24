@@ -11,7 +11,7 @@ Card: [SOS-48](https://fighterx2500.atlassian.net/browse/SOS-48) · Date: 2026-1
 
 ## 2. What the mod owns
 
-- **Who sits in which slot.** The lobby hands out slots once, when the world is generated (spec §5). The mod keeps the map from a player's identity (Steam ID, or a player key for direct IP) to a slot index, and saves it in the campaign save.
+- **Who sits in which slot.** The lobby hands out slots once, when the host initializes the world (spec §5). The mod keeps the map from a player's identity (Steam ID, or a player key for direct IP) to a slot index, and saves it in the campaign save.
 - **Telling the engine which slot is local** on each PC, before the world is created or loaded.
 - **Stamping** every command and city report it carries with the slot index (ADR 0005 already has reports carry their faction).
 - **The campaign rules** that decide when a slot is frozen, eliminated or removed (spec §6 to §9, §11). The engine applies them in the world part; the mod decides and sends the command.
@@ -25,7 +25,7 @@ Each item names the spec rule it comes from. "At a step" means a lockstep comman
 | # | Requirement | Spec |
 | --- | --- | --- |
 | R1 | **Up to 16 human slots** in one world, next to the NPC factions. The lobby's player count (2–16) never exceeds what the engine supports. Human slots come out of vanilla's 64, so NPC slots are 64 minus the players (Q3). | §3, §5 |
-| R2 | **Slots are created once, at world generation**, from the lobby's list: each human's race, banner and name, and their picked world location. NPC countries and routes are then generated around them (6-tile minimum distance, route guaranteed at 6–15 tiles). Each human then picks a city start spot. No slot is ever added later, since nobody joins a running campaign. | §5, §11 |
+| R2 | **Slots are created once, when the host initializes the world**, from the lobby's list: each human's race, banner and name, and their picked world location. The terrain already exists by then: the host generated and confirmed it right after Start Lobby, and every player picked their race, faction and location on it (spec 0.13). NPC countries and routes are then generated around them (6-tile minimum distance, route guaranteed at 6–15 tiles). Each human then picks a city start spot. No slot is ever added later, since nobody joins a running campaign. | §5, §11 |
 | R3 | **Local slot per PC.** An API call sets which slot is "the player" for the city part and the UI on this PC. It is never read inside the world part, so it can't desync the world (AGENTS.md "Determinism"). | §1 |
 | R4 | **Per-slot inputs.** City reports, transactions and world-map commands are each tied to a slot, and the world part reads each human's values only from that human's report (ADR 0005). | §1, §7 |
 | R5 | **A frozen slot,** set and cleared at a step: the city sends no new reports, and the world keeps reading its last one. Its armies freeze and become invulnerable and don't block roads. Its territory can't be attacked and other armies pass freely. Caravans to or from its city are deleted with their goods. Events and raids aimed at it wait until it is live again, a raider already on its way included (owner, 2026-10-25). Used for a disconnected player and for a player missing at resume. | §11 |
