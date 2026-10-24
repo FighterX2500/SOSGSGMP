@@ -138,14 +138,14 @@ During the siege, the defender can attack the besieging army. That creates a rea
 **When the attacker wins**, they choose one outcome:
 
 - **Sack:** the attacker chooses which resources and how much money to take, and can remove up to 80% of the population.
-- **Eliminate:** the attacker takes 90% of the city's resources and removes 90% of its population. The city then becomes an NPC city owned by a neutral faction, as in vanilla, and its player can only spectate from then on.
+- **Eliminate:** the attacker takes 90% of the city's resources and money, and removes 90% of its population. The city then becomes an NPC city owned by a neutral faction, as in vanilla, and its player can only spectate from then on.
 - **Vassalage:** the defender becomes the attacker's vassal (section 6).
 
 **Removed people.** In a sack or an elimination, the attacker splits the removed people between three fates, as with vanilla's captives:
 
 - **Moved:** they go to the attacker's city as prisoners, and the attacker decides there, as in vanilla, whether they become citizens or slaves.
 - **Killed.**
-- **Freed:** they leave and go to neither city.
+- **Freed:** they are released, as with vanilla's Release, and go to neither city.
 
 Each fate changes the attacker's mercy as in vanilla, and with it their nobles' Chivalry and Cruelty opinions: freeing raises it, moving lowers it, killing lowers it twice as much.
 
@@ -287,7 +287,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A defender's attack on the besiegers starts a real-time field battle. [PT]
 - The assault shows the defender's city in real time to every player, and the attacker's orders work. [PT]
 - A forced assault desync is detected within 2 seconds, recovered from the host's assault state within 10 seconds, and writes a report. [AT]
-- Each outcome works. Sack takes the chosen resources and up to 80% of the population. Eliminate takes 90% of the resources and 90% of the population, turns the city into a neutral NPC city and makes its player a spectator. Removed people are moved, killed or freed as chosen, and each fate changes the attacker's mercy as in vanilla. Vassalage applies the vassal rules. [AT + PT]
+- Each outcome works. Sack takes the chosen resources and up to 80% of the population. Eliminate takes 90% of the resources, the money and the population, turns the city into a neutral NPC city and makes its player a spectator. Removed people are moved, killed or freed as chosen, and each fate changes the attacker's mercy as in vanilla. Vassalage applies the vassal rules. [AT + PT]
 
 ### City viewing
 
