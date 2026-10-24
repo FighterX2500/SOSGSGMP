@@ -49,7 +49,7 @@ Decided in [ADR 0003](decisions/0003-battle-lockstep.md): deterministic lockstep
 
 ## Siege assault
 
-Decided in [ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md): the assault runs like a field battle. The defender's PC sends its city save at the start step, and every PC, the host and the defender included, loads it. Commanders' orders carry their step, the battle AI runs on the host and its log is applied at the stamped step, and a desync reloads the host's assault state. The world and every city stay paused, so no PC runs two cities at once.
+Decided in [ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md): the assault runs like a field battle. The defender's PC sends its city save at the start step, and every PC, the host and the defender included, loads it. Commanders' orders carry their step, the battle AI runs on the host and its log is applied at the stamped step, and a desync reloads the host's assault state. The world and every city stay paused, so no PC runs two cities at once. An NPC army's assault on a player's capital runs the same way (spec §9).
 
 ## Saves, disconnects, viewing
 
