@@ -88,6 +88,7 @@ Every player starts with the same starting resources and difficulty, set by the 
 **World rules**
 
 - NPC factions are generated as in vanilla. This may change in a later version.
+- Players use vanilla's 64 faction slots, so each player takes one slot from the NPC factions: 61 NPC factions with 3 players, 48 with 16. With many players on a big map there are fewer NPC kingdoms than in vanilla.
 - The game is a sandbox with no win condition.
 - An eliminated player becomes a spectator (section 11).
 
@@ -125,7 +126,7 @@ When two players' armies meet, a real-time battle is mandatory. Battles against 
 - **Battles against NPC armies** can be fought in real time, as in vanilla. Like any real-time battle, they pause the world and every player watches (section 4).
 - **Allies** can join a battle or siege when they are within range, as in vanilla.
 - **Captives** after a battle between players are handled as in vanilla (capture, execute or release, each changing mercy). Each winning player decides for their own share.
-- **Deployment.** Each player's army spawns as a separate army. Allied armies stand side by side on the same side of the field, 20 tiles apart, and the enemy's armies are placed the same way. Every player can rearrange their own army before the battle, as in vanilla.
+- **Deployment.** Each player's army spawns as a separate army. Allied armies stand side by side on the same side of the field, 20 tiles apart, and the enemy's armies are placed the same way. Every player can rearrange their own army before the battle, as in vanilla, and commands only their own divisions during it.
 - **Battle speed** is chosen by the commanders in the battle, by majority vote. On a tie, the speed stays as it is.
 - **Retreat.** Only a side's commanders can order that side's retreat.
 - **No restart.** Vanilla's battle restart is turned off in battles between players.
@@ -176,10 +177,10 @@ Any player can view any other player's city, enemies included. This is intended.
 - **Live view:** the viewer's PC loads the city and runs it in step with its owner's city, so it stays the same city, live ([ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md)). Nothing in a viewed city can be changed.
 - **The viewer's own city is frozen** while they view another city: it doesn't run, and they can't act in it. It resumes where it stopped when the view closes. The world runs on meanwhile: it sees the frozen city as its last city report showed it, and whatever the world sends that city (deliveries, immigrants, raids) waits and is applied when the view closes.
 - **Watch only.** While viewing, the viewer can only watch and chat. Their armies and regions keep running on their last orders. A battle, or a prompt that needs the viewer's answer, ends the view.
-- **Opening a view.** The owner saves their city and sends it; the viewer's PC loads it and runs it fast until it catches up with the owner's city. Target: a 5-second gap closes in about 2 seconds.
-- **Too slow to catch up.** If the viewer's PC can't meet that target, the game speed drops for everyone until it can, as for any slow PC (section 4), but never below 1×.
-- **Still too slow.** If the viewer hasn't caught up 1 minute after catching up started (the owner's save, the download and the load don't count), or their PC can't run the city even at 1× speed, the view ends with a message to the viewer, and the speed returns to what the host set.
-- **Keeping up.** The same applies after catching up: a view that falls behind its owner's city lowers the speed for everyone, and if that doesn't bring it back, the view ends.
+- **Only the viewer and the owner.** A view is between those two players: the host and the other players take no part, and a view never changes the game speed for anyone.
+- **Opening a view.** The owner saves their city and sends it straight to the viewer; the viewer's PC loads it and runs it fast until it catches up with the owner's city. Target: a 5-second gap closes in about 2 seconds.
+- **Too slow.** If the viewer hasn't caught up 1 minute after catching up started (the owner's save, the download and the load don't count), or their PC can't keep up with the city at the current speed, the view ends with a message to the viewer. Only that view ends; nobody else is affected.
+- **Keeping up.** The same applies after catching up: a view that falls behind its owner's city and doesn't catch up again within 1 minute ends.
 - **The owner is not slowed.** The owner keeps playing their city with zero latency while it is viewed.
 - **During a siege assault:** every player watches the city in real time (section 9).
 
@@ -206,6 +207,7 @@ Any player can view any other player's city, enemies included. This is intended.
 | Caravans to or from their city | Deleted, and their goods are lost |
 | Caravans passing through their territory | Continue as normal |
 | Their territory | Cannot be attacked; other armies can pass through freely |
+| Events and raids aimed at them | Wait until they're back; a raider already on its way to them waits too |
 | A battle or siege they are in | Forfeited by the side that disconnected, attacker or defender. That player's armies and empire freeze and become invulnerable. All armies on both sides stay intact, and the other side's armies return home. |
 
 **Elimination.** An eliminated player becomes a spectator. Spectators can view every city and battle and can use chat, but cannot act in the game.
@@ -329,8 +331,8 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A viewed city's state matches its owner's city at every check while it is viewed. [AT]
 - While a player views another city, their own city doesn't run, and it resumes exactly where it stopped when the view closes. [AT]
 - While viewing, a player can't give orders; a battle or a prompt for them ends the view. [AT]
-- When a viewer's PC can't catch up with or keep up with the viewed city, the game speed drops for everyone until it can. [AT]
-- If the viewer still hasn't caught up 1 minute after catching up started, or can't run the city at 1× speed, the view ends with a message and the speed returns to the host's setting. [AT]
+- A view never changes the game speed, and the host and other players take no part in it. [AT]
+- If the viewer hasn't caught up 1 minute after catching up started, falls behind for more than 1 minute later, or can't keep up at the current speed, only that view ends, with a message to the viewer. [AT]
 - Viewing a city causes no stutter longer than 1 second for its owner. [PT]
 
 ### Saves and resume
@@ -346,6 +348,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A disconnect triggers a priority pause within 2 seconds. [PT]
 - When the host loses connection, every player sees a "host disconnected" popup and the whole simulation stops within 2 seconds. [PT]
 - A disconnected player's city, empire and armies freeze and are invulnerable, without blocking roads. [AT]
+- Events and raids aimed at a disconnected or missing player wait until they're back, raiders already on their way included. [AT]
 - In a battle or siege, the side that disconnects forfeits, and all armies stay intact. [AT]
 - A player who reconnects returns to their city and the current world state. [PT]
 
@@ -370,5 +373,5 @@ Every card on the board, not only features, is done when:
 
 ## 16. Open questions
 
-- [ ] **Viewing numbers:** the catch-up numbers in section 10 (a 5-second gap closed in about 2 seconds, and how far behind a view may fall before the speed drops) are first guesses. Confirm them in playtests (owner, 2026-10-24): city save size and time, loading a city into a running game, and a 10,000-person city.
+- [ ] **Viewing numbers:** the catch-up numbers in section 10 (a 5-second gap closed in about 2 seconds, and the 1-minute limit before a view that can't keep up ends) are first guesses. Confirm them in playtests (owner, 2026-10-24): city save size and time, loading a city into a running game, and a 10,000-person city.
 - [ ] **Order delay above 1×:** the engine applies an order a fixed number of steps after it is given. Just above 1× speed that comes to about 1 second, plus ping, which is over the 1-second limit (section 8). Measure it in playtests and decide whether the engine's delay should shrink there.
