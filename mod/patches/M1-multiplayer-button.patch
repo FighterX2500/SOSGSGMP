@@ -1,0 +1,13 @@
+diff --git a/menu/ScMain.java b/menu/ScMain.java
+index 152020e..6049eda 100644
+--- a/menu/ScMain.java
++++ b/menu/ScMain.java
+@@ -88,6 +88,8 @@ class ScMain implements SC{
+ 		});
+ 		current.addDown(0, text);
+ 		
++		current.addDown(8, MpMenu.button(menu)); // SOSGSGMP hook M1 (docs/hooks.md)
++		
+ 		if (!menu.load.hasSaves()) {
+ 			text = new Button(UI.FONT().H1.getText(¤¤tutorial)) {
+ 
