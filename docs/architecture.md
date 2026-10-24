@@ -20,7 +20,7 @@ Other players appear in the world as factions whose city values come from their 
 
 - **Step (every PC):** one step counter for the city and the world. Each step runs the PC's own city part, then the lockstep world part. Everything shared is stamped with a step: commands, city reports, treaties, caravans, pauses, saves.
 - **Pace:** a PC runs world step N only once every city report stamped for N has arrived, so the slowest PC sets the speed and no city runs ahead of world time.
-- **Battle clock:** fixed steps of 1/60 s, numbered from deploy (step 0). Orders carry the step they apply at. The slowest PC sets the pace.
+- **Battle clock:** fixed steps, numbered from deploy (step 0): 1/60 s at 1x or slower, 1/16 s above (the engine's `StepClock`). Orders carry the step they apply at. The slowest PC sets the pace.
 
 ## World map
 
@@ -34,10 +34,10 @@ Decided in [ADR 0005](decisions/0005-world-lockstep-and-city-world-link.md); bui
 
 ## Field battles
 
-Decided in [ADR 0003](decisions/0003-battle-lockstep.md): deterministic lockstep, proven on one PC by spike SOS-11 ([report](plan/spikes/determinism.md)). The deterministic part is a separate project, [SOSDET](https://github.com/FighterX2500/SOSDET) ([ADR 0004](decisions/0004-engine-split.md)): it owns the step, the random streams, the jobs, the AI log, the hash and save and load at a step. The mod carries the battle save, orders, the AI log and hashes between PCs.
+Decided in [ADR 0003](decisions/0003-battle-lockstep.md): deterministic lockstep, proven on one PC by spike SOS-11 ([report](plan/spikes/determinism.md)). The deterministic part is a separate project, [SOSDET](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine) ([ADR 0004](decisions/0004-engine-split.md)): it owns the step, the random streams, the jobs, the AI log, the hash and save and load at a step. The mod carries the battle save, orders, the AI log and hashes between PCs.
 
 - **Starting the battle.** The host generates the battlefield with the vanilla generator and sends the battle save (about 1.9 MB for 2,000 vs 2,000). Every PC, the host included, loads it, seeds the simulation random stream from the host's seed, and runs deploy as step 0.
-- **Simulation.** Every PC runs fixed 1/60 s steps. The other battle worker jobs and path finding run inside the step in a fixed order; nothing runs while paused.
+- **Simulation.** Every PC runs the same fixed steps. The other battle worker jobs and path finding run inside the step in a fixed order; nothing runs while paused.
 - **AI general.** Only the host runs it, on its own thread. Its orders, settings and artillery targets go into the AI log, stamped 30 steps ahead (0.5 s); every PC applies them at that step (ADR 0003 amendment, SOS-23).
 - **Random numbers.** A simulation stream for the step, and a cosmetic stream for rendering, sound, light and UI. No simulation draw depends on a local setting.
 - **Orders.** Commanders send orders stamped with a future step; the host confirms the step, and every PC applies them exactly then.
