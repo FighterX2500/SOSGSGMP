@@ -14,7 +14,7 @@ Whoever owns a piece of state simulates it; everyone else gets reports of it. A 
 | Siege assault | Deterministic lockstep ([ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md)) | Every PC | Defender's city save at start; commander orders with their step; the host's AI log; state hashes |
 | Goods, soldiers, money crossing city ↔ world | Transactions with IDs | Every PC (part of the world step) | Nothing: each PC computes them; the city applies its own exactly once, and reports what a withdrawal actually took |
 
-Other players appear in the world as factions whose city values come from their city reports.
+Other players appear in the world as factions whose city values come from their city reports. Holding several human factions in the world is engine work ([SOS-46](https://fighterx2500.atlassian.net/browse/SOS-46), ADR 0005 amendment).
 
 ## Clocks
 
@@ -31,7 +31,7 @@ Decided in [ADR 0005](decisions/0005-world-lockstep-and-city-world-link.md); bui
 - The world's changes to a city are transactions with IDs that every PC computes; the city applies its own exactly once.
 - Every PC hashes the world. A PC whose hash differs reloads the host's world; its city keeps running.
 - Pause and priority pause are commands applied at a step, so everyone stops at the same moment.
-- Prompts (a world battle, a declaration of war) never hold the world in multiplayer (spec §4). The engine holds it while a world-battle prompt is open, as in single-player; that changes in the engine.
+- Prompts (a world battle, a declaration of war) never hold the world in multiplayer (spec §4). While a world-battle prompt is open, only that battle's armies wait; with no answer within 30 s, every PC gives the default answer at the same step (SOSDET SOS-45, spec §8).
 
 ## Field battles
 
@@ -49,7 +49,7 @@ Decided in [ADR 0003](decisions/0003-battle-lockstep.md): deterministic lockstep
 
 ## Siege assault
 
-Decided in [ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md): the assault runs like a field battle. The defender's PC sends its city save at the start step, and every PC, the host and the defender included, loads it. Commanders' orders carry their step, the battle AI runs on the host and its log is applied at the stamped step, and a desync reloads the host's assault state. The world and every city stay paused, so no PC runs two cities at once.
+Decided in [ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md): the assault runs like a field battle. The defender's PC sends its city save at the start step, and every PC, the host and the defender included, loads it. Commanders' orders carry their step, the battle AI runs on the host and its log is applied at the stamped step, and a desync reloads the host's assault state. The world and every city stay paused, so no PC runs two cities at once. An NPC army's assault on a player's capital runs the same way (spec §9).
 
 ## Saves, disconnects, viewing
 

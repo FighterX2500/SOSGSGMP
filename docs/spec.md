@@ -59,8 +59,10 @@ All players are online at the same time. A campaign is saved and resumed later, 
 
 - **Pausing.** Any player can pause and any player can unpause a normal pause. While paused, every player sees who paused the game. A priority pause can only be unpaused by the host; the game enters one when a player disconnects (section 11).
 - **Game speed.** The host sets the speed. It is capped by the slowest PC: if one player's game falls behind, the speed drops for everyone, as in Paradox grand strategy games.
+- **Speeds.** The host can choose 1×, 5×, 25× or 250×. Vanilla's 0.25× isn't available in multiplayer, in battles either, since 0.5× is the lowest speed.
 - **Lowest speed.** A slow PC can lower the speed to 0.5× and no further. If a PC can't hold even 0.5×, the game stops for everyone until it catches up, then resumes.
-- **Menus, notifications and prompts don't pause.** Opening a menu or window, getting a notification popup, or a prompt that needs an answer (such as a world battle or a declaration of war) never pauses, holds or slows the game in multiplayer, unlike vanilla. The player's city and the world keep running. Only the pauses in this section stop time. Single-player keeps vanilla's behaviour.
+- **Menus, notifications and prompts don't pause.** Opening a menu or window, getting a notification popup, or a prompt that needs an answer (such as a world battle or a declaration of war) never pauses, holds or slows the game in multiplayer, unlike vanilla. The player's city and the world keep running; while a world-battle prompt is open, only the armies in that battle wait (section 8). Only the pauses in this section stop time. Single-player keeps vanilla's behaviour.
+- **No debug mode or cheats** in multiplayer: the game's debug mode and cheat tools are turned off.
 - **Manual battles pause the world.** While a real-time battle or siege assault runs, the world map and every city are paused, and every player watches it. Otherwise a single battle could let years pass outside, because real-time battles are slow compared to city time.
 
 ## 5. Lobby and world setup
@@ -94,6 +96,11 @@ Every player starts with the same starting resources and difficulty, set by the 
 Players use the same agreements that exist between a player and an NPC faction in vanilla.
 
 - **No opinion requirement.** Between players, any agreement can be concluded at any time. Opinion limits apply only to NPC factions.
+- **Proposals** reach the other player as a popup (section 12). One left unanswered for 30 in-game days expires and counts as declined.
+- **No uniting.** Vanilla's "Unite" agreement, where a whole faction joins another, isn't available between players.
+- **Regions** other than capitals can be given in an agreement, as in vanilla.
+- **Emissaries** work as in vanilla against NPC factions. Against another player only Gather support works, in that player's regions; the missions aimed at a court (Flatter, Sabotage, Assassinate) aren't available.
+- **Passage.** Players at peace can move armies through each other's territory freely, with no penalty.
 - **Breaking treaties.** A player can break a treaty with another player at any time, with no penalty: unlike vanilla, NPC factions' opinion of that player doesn't drop either. Treaties with NPC factions keep their vanilla penalties.
 - **Vassalage between players** follows vanilla: the vassal pays tribute, the two share wars, and the vassal has the right to rebel. The sovereign does not join a war its vassal starts.
 
@@ -103,6 +110,7 @@ Players trade through direct contracts and through a shared market.
 
 - **Direct contracts** are agreed between two players: a player who wants a specific deal with another player proposes it as a diplomatic request (section 6).
 - **Shared market.** Players' goods join the market, and prices form as in vanilla. The market is the same for everyone: no player gets special terms on it.
+- **Trade agreements between players** (trade partners, colleagues, allies) give the same price discount on trade between the two as in vanilla.
 - **Caravans** work as in vanilla: they are visible on the map, travel to the other player, and cannot be raided.
 
 ## 8. Military
@@ -113,7 +121,10 @@ When two players' armies meet, a real-time battle is mandatory. Battles against 
 - **Battle start.** Every PC generates the battlefield in the same step, from the same random numbers, so every PC starts from the same battle state ([ADR 0003](decisions/0003-battle-lockstep.md) amendment).
 - **Desyncs.** If one PC's battle ever differs from the host's, the battle pauses briefly, every PC reloads the host's current battle state, and the battle continues.
 - **Latency.** Up to 1 second between giving an order and seeing it carried out is acceptable.
+- **World battle prompts.** When a battle on the world map needs a player's answer, such as fighting it in real time or auto-resolving it, only the armies in that battle wait in place while the prompt is open; the rest of the world runs on. If nobody answers within 30 seconds of real time, every PC gives the default answer at the same moment: auto-resolve, wait for a siege, accept a result with no captives or spoils, occupy a captured settlement.
+- **Battles against NPC armies** can be fought in real time, as in vanilla. Like any real-time battle, they pause the world and every player watches (section 4).
 - **Allies** can join a battle or siege when they are within range, as in vanilla.
+- **Captives** after a battle between players are handled as in vanilla (capture, execute or release, each changing mercy). Each winning player decides for their own share.
 - **Deployment.** Each player's army spawns as a separate army. Allied armies stand side by side on the same side of the field, 20 tiles apart, and the enemy's armies are placed the same way. Every player can rearrange their own army before the battle, as in vanilla.
 - **Battle speed** is chosen by the commanders in the battle, by majority vote. On a tie, the speed stays as it is.
 - **Retreat.** Only a side's commanders can order that side's retreat.
@@ -128,6 +139,10 @@ Real-time sieges of player cities are part of v1. A siege runs in three phases:
 1. **Siege.** The attacking army besieges the city, and the vanilla siege rules apply. The city is blockaded, and the attacking army needs supplies as in vanilla.
 2. **Waiting period.** The attacker cannot assault until 1 in-game season has passed for every started 1,000 people in the city, up to a maximum of 4 seasons.
 3. **Assault.** The city is simulated in real time while the attacker storms it. Every PC runs the assault in lockstep, like a field battle ([ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md)): the defender's PC sends its city at the start, every PC loads it, and only orders, the host's AI orders and state checks cross the network. Desyncs are recovered from the host's assault state, as in section 8. The world is paused and every player watches.
+
+**A player's other regions** (not the capital) are attacked and taken by vanilla rules, including vanilla's choices after a capture.
+
+**Invasions by NPC armies.** When an NPC army attacks a player's capital, the assault runs like a siege assault between players: every PC loads the city, the world pauses and every player watches. The outcome is vanilla's.
 
 During the siege, the defender can attack the besieging army. That creates a real-time field battle under the rules in section 8. Allies can lift the siege only by defeating the besieging army.
 
@@ -152,6 +167,8 @@ During the siege, the defender can attack the besieging army. That creates a rea
 
 Each fate changes the attacker's mercy as in vanilla, and with it their nobles' Chivalry and Cruelty opinions: freeing raises it, moving lowers it, killing lowers it twice as much.
 
+**Allied attackers.** When several players take a city together, the player with the most soldiers in the assault chooses the outcome. Taken resources, money and removed people are split between them by the number of soldiers each brought.
+
 ## 10. City viewing
 
 Any player can view any other player's city, enemies included. This is intended.
@@ -175,6 +192,8 @@ Any player can view any other player's city, enemies included. This is intended.
 **Resuming.** Any player can host when a saved campaign is resumed. If a player is missing, their city stays frozen until they join.
 
 **Joining.** New players cannot join a campaign that is already in progress.
+
+**Removing a player.** The host can remove a player who is missing at resume or disconnected. Their city becomes an NPC city owned by a neutral faction, as with Eliminate, and they can't rejoin the campaign as a player.
 
 **Host disconnect.** When the host loses connection, every player gets a popup saying the host disconnected, and the whole simulation stops: the world, every city and any battle. Play can't continue in that session. The players resume the campaign from a save with any player as host (see Resuming); the save made before the last battle is the natural point.
 
@@ -258,6 +277,8 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 
 - Any player can pause and unpause a normal pause, and every player sees who paused. [PT]
 - Only the host can unpause a priority pause. [AT]
+- The host can choose only 1×, 5×, 25× or 250×; 0.25× is never offered. [AT]
+- Debug mode and cheat tools can't be opened in multiplayer. [AT]
 - When one PC falls behind, game speed drops for everyone, and no city ever runs ahead of world time. [AT]
 - While a player has a menu, window, notification popup or prompt open, their city and the world keep running and the game speed doesn't drop. [PT]
 - A slow PC never takes the speed below 0.5×; a PC that can't hold 0.5× stops the game for everyone until it catches up. [AT]
@@ -267,11 +288,16 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - Every vanilla NPC agreement can be offered between players, with no opinion requirement. [AT]
 - A player can break a treaty with another player at any time, with no penalty, and NPC factions' opinion of them doesn't drop. [AT]
 - A vassal pays tribute and shares wars, and the sovereign is not pulled into the vassal's offensive wars. [AT]
+- A proposal unanswered for 30 in-game days expires as declined. [AT]
+- "Unite" can't be offered between players; regions other than capitals can be given. [AT]
+- Against another player, only the Gather support emissary mission is offered. [AT]
+- A player's army crosses another player's territory at peace with no penalty. [AT]
 
 ### Trade
 
 - Goods sent in a direct contract leave the sender's warehouse and arrive at the receiver's after the travel time, with the caravan visible on the map. [PT]
 - A resent or duplicated trade message never changes the amount delivered. [AT]
+- A trade agreement between two players gives the vanilla discount on their trade. [AT]
 - Disconnecting mid-delivery never creates goods. Caravans to or from a disconnected city are deleted with their goods. [AT]
 
 ### Field battles
@@ -283,6 +309,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - The same battle save, seed and orders give an identical battle state on two runs, compared every step. [AT]
 - When any PC in the game is slow, the battle slows for everyone. [AT]
 - Only a side's commanders can order its retreat, and a battle between players can't be restarted. [AT]
+- While a world-battle prompt is open, only that battle's armies wait; with no answer within 30 seconds, every PC applies the default answer at the same step. [AT]
 - A forced battle desync is detected within 2 seconds, recovered from the host's battle state within 10 seconds, and writes a report. [AT]
 
 ### Sieges
@@ -292,6 +319,8 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A defender's attack on the besiegers starts a real-time field battle. [PT]
 - The assault shows the defender's city in real time to every player, and the attacker's orders work. [PT]
 - A forced assault desync is detected within 2 seconds, recovered from the host's assault state within 10 seconds, and writes a report. [AT]
+- An NPC invasion of a player's capital pauses the world and every player watches it. [PT]
+- With allied attackers, the player with the most soldiers chooses the outcome, and the spoils are split by soldiers brought. [AT]
 - Each outcome works. Sack takes the chosen resources and up to 80% of the population. Eliminate takes 90% of the resources, the money and the population, turns the city into a neutral NPC city and makes its player a spectator. Removed people are moved, killed or freed as chosen, and each fate changes the attacker's mercy as in vanilla. Vassalage applies the vassal rules. [AT + PT]
 
 ### City viewing
@@ -310,6 +339,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - Before a battle or siege assault starts, every player has a confirmed campaign save from that moment. [AT]
 - A campaign saved under one host can be resumed with a different host. [PT]
 - A player missing at resume has a frozen city until they join. [AT]
+- A removed player's city becomes a neutral NPC city, and they can't rejoin as a player. [AT]
 
 ### Disconnects
 
@@ -341,5 +371,4 @@ Every card on the board, not only features, is done when:
 ## 16. Open questions
 
 - [ ] **Viewing numbers:** the catch-up numbers in section 10 (a 5-second gap closed in about 2 seconds, and how far behind a view may fall before the speed drops) are first guesses. Confirm them in playtests (owner, 2026-10-24): city save size and time, loading a city into a running game, and a 10,000-person city.
-- [ ] **Pending world battles:** prompts no longer stop time (section 4), so the world runs on while a player decides on a world battle. What the armies involved do meanwhile (held in place, or the battle auto-resolves after a time limit) is still to decide.
 - [ ] **Order delay above 1×:** the engine applies an order a fixed number of steps after it is given. Just above 1× speed that comes to about 1 second, plus ping, which is over the 1-second limit (section 8). Measure it in playtests and decide whether the engine's delay should shrink there.

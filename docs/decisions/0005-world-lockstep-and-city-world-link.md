@@ -1,6 +1,6 @@
 # 0005: World lockstep and the city↔world link
 
-Status: Accepted (owner decision, 2026-10-23); city viewing amended by [ADR 0006](0006-lockstep-city-viewing-and-assaults.md) (lockstep, not a snapshot) · Card: [SOS-38](https://fighterx2500.atlassian.net/browse/SOS-38) (SOSDET plan 0002, stage E)
+Status: Accepted (owner decision, 2026-10-23); city viewing amended by [ADR 0006](0006-lockstep-city-viewing-and-assaults.md) (lockstep, not a snapshot); several human factions moved to the engine (2026-10-25, see the end) · Card: [SOS-38](https://fighterx2500.atlassian.net/browse/SOS-38) (SOSDET plan 0002, stage E)
 
 ## Context
 
@@ -53,7 +53,7 @@ Status: Accepted (owner decision, 2026-10-23); city viewing amended by [ADR 0006
    - The engine gives out this PC's city reports.
    - It takes other cities' reports, each with its faction and step.
    - It runs the world part plus the own city part.
-   - Several human factions in one world stay the mod's work (plan 0002, decision 4).
+   - Several human factions in one world: engine work since 2026-10-25 ([SOS-46](https://fighterx2500.atlassian.net/browse/SOS-46), see the amendment); until then the mod's (plan 0002, decision 4).
 7. **The co-op mode stays.** V0.1's co-op mode, with every PC running the same city in lockstep, remains a supported mode. It is the engine's test mode: it checks the city part and the world part against each other on every PC.
 
 ## Options rejected
@@ -73,5 +73,12 @@ Status: Accepted (owner decision, 2026-10-23); city viewing amended by [ADR 0006
   - the transaction IDs are the only state shared between the two parts.
 - **Work** is SOSDET's stage E card (SOS-38). Its scan is SOSDET `docs/plan/notes/city-world-link-scan.md`. SOS-38 builds the whole link, invasions of a player's own capitol and scripted events included (owner, 2026-10-23). The mod's work follows:
   - carrying reports over Steam;
-  - several human factions;
+  - mapping each player to their human faction (the factions themselves are engine work, [SOS-46](https://fighterx2500.atlassian.net/browse/SOS-46));
   - city viewing, which stays a snapshot (spec §10) and is not part of this ADR.
+
+## Amendment (2026-10-25, owner, SOS-44)
+
+- **Several human factions move to the engine** ([SOS-46](https://fighterx2500.atlassian.net/browse/SOS-46)). The world part is lockstep, and every place where the world treats the player specially (about 343 references, plan 0002) runs inside the step, so it follows SOSDET's determinism rules and belongs with the engine's world patches. If the mod did it, its patches would sit on top of the engine's in the same classes.
+- **The engine** holds every human faction in the world, the same on every PC, reads each one's values from its own city report, and keeps NPC relations, events and raids per human (SP1, SP2). An engine ADR chooses how the humans are represented (single-player-assumptions SP3).
+- **The mod** maps players to those factions, carries the reports and commands between PCs, and applies the campaign rules (spec §6 to §9, §11).
+- **Rejected:** keeping it in the mod, as plan 0002 decision 4 had it.
