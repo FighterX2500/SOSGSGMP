@@ -1,6 +1,6 @@
 # 0002: Field battles are simulated on one PC and streamed
 
-Status: Superseded for field battles by [ADR 0003](0003-battle-lockstep.md) (2026-10-21); still describes siege assaults until that decision · Card: [SOS-5](https://fighterx2500.atlassian.net/browse/SOS-5)
+Status: Superseded for field battles by [ADR 0003](0003-battle-lockstep.md) (2026-10-21) and for siege assaults by [ADR 0006](0006-lockstep-city-viewing-and-assaults.md) (2026-10-24) · Card: [SOS-5](https://fighterx2500.atlassian.net/browse/SOS-5)
 
 ## Context
 

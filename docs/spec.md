@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.10 · 2026-10-22
+Version 0.11 · 2026-10-24
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -124,7 +124,7 @@ Real-time sieges of player cities are part of v1. A siege runs in three phases:
 
 1. **Siege.** The attacking army besieges the city, and the vanilla siege rules apply. The city is blockaded, and the attacking army needs supplies as in vanilla.
 2. **Waiting period.** The attacker cannot assault until 1 in-game season has passed for every started 1,000 people in the city, up to a maximum of 4 seasons.
-3. **Assault.** The city is simulated in real time while the attacker storms it. The defender's PC runs the assault, because the city exists only there; it acts as the server for the assault ([ADR 0002](decisions/0002-battle-streaming.md); open question in section 16). The attacker sends orders, and every other PC only displays the assault. The world is paused and every player watches.
+3. **Assault.** The city is simulated in real time while the attacker storms it. Every PC runs the assault in lockstep, like a field battle ([ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md)): the defender's PC sends its city at the start, every PC loads it, and only orders, the host's AI orders and state checks cross the network. Desyncs are recovered from the host's assault state, as in section 8. The world is paused and every player watches.
 
 During the siege, the defender can attack the besieging army. That creates a real-time field battle under the rules in section 8. Allies can lift the siege only by defeating the besieging army.
 
@@ -145,9 +145,10 @@ During the siege, the defender can attack the besieging army. That creates a rea
 
 Any player can view any other player's city, enemies included. This is intended.
 
-- **Normal view:** a snapshot of the city, which the viewer can refresh to get a newer one. Nothing in a viewed city can be changed.
-- **During a siege assault:** the city is shown as a real-time simulation, and every player watches it.
-- **Later:** a ghost sim (a snapshot that keeps running so the city looks alive) may be added on top of snapshots.
+- **Live view:** the viewer's PC loads the city and runs it in step with its owner's city, so it stays the same city, live ([ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md)). Nothing in a viewed city can be changed.
+- **The viewer's own city is frozen** while they view another city: it doesn't run, and they can't act in it. It resumes where it stopped when the view closes.
+- **The owner is not slowed.** The owner keeps playing their city with zero latency while it is viewed.
+- **During a siege assault:** every player watches the city in real time (section 9).
 
 ## 11. Saves, disconnects and elimination
 
@@ -273,12 +274,14 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - The besieged city receives no trade. [AT]
 - A defender's attack on the besiegers starts a real-time field battle. [PT]
 - The assault shows the defender's city in real time to every player, and the attacker's orders work. [PT]
+- A forced assault desync is detected within 2 seconds, recovered from the host's assault state within 10 seconds, and writes a report. [AT]
 - Each outcome works. Sack takes the chosen resources and up to 80% of the population, killed or moved as chosen. Eliminate turns the city into a neutral NPC city and makes its player a spectator. Vassalage applies the vassal rules. [AT + PT]
 
 ### City viewing
 
 - Any player can open any other player's city at full detail within 30 seconds, and nothing in it can be changed. [PT]
-- Refreshing a view shows a newer snapshot. [PT]
+- A viewed city's state matches its owner's city at every check while it is viewed. [AT]
+- While a player views another city, their own city doesn't run, and it resumes exactly where it stopped when the view closes. [AT]
 - Viewing a city causes no stutter longer than 1 second for its owner. [PT]
 
 ### Saves and resume
@@ -318,6 +321,6 @@ Every card on the board, not only features, is done when:
 ## 16. Open questions
 
 - [ ] **Prioritized market trading:** a fuller design of how bypassing NPC limits works.
-- [ ] **Siege assaults: streaming or lockstep.** Field battles use lockstep (ADR 0003). Siege assaults still follow ADR 0002 (the defender's PC simulates and streams). To be decided after the late-game save size spike, since lockstep would first send the defender's city to every PC.
 - [ ] **Release App ID:** Spacewar (480) is for development only. Which App ID does the released mod use?
-- [ ] **Debug test build (proposal, not decided):** a test build of the game for finding and preventing desyncs, in three stages. 1) A switch that skips rendering, so many game copies run fast on one PC. 2) A suite of battle scenarios (saves, seeds, recorded orders, expected state hashes every N steps) run by one local command; the same state hash becomes the in-game desync detector. 3) Only if stage 2 is too slow or flaky: a fully headless build with graphics and sound stubbed out. Raised during the determinism spike (SOS-11); to be decided with the test plan.
+- [ ] **Viewing and the world clock:** while a player views another city, their own city is frozen (section 10). Does the frozen city hold up the world clock for everyone, or does the world run on while that city's time stands still?
+- [ ] **Opening a view:** how a viewer catches up with the owner's city when a view opens, given the save size and save time measured by the late-game save size spike.

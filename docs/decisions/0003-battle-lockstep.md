@@ -1,6 +1,6 @@
 # 0003: Field battles run in deterministic lockstep
 
-Status: Accepted (owner decision, 2026-10-21); amended 2026-10-21 for the AI general on the host (owner approval, [SOS-23](https://fighterx2500.atlassian.net/browse/SOS-23)) · Card: [SOS-11](https://fighterx2500.atlassian.net/browse/SOS-11) · Supersedes [ADR 0002](0002-battle-streaming.md) for field battles; siege assaults are left open
+Status: Accepted (owner decision, 2026-10-21); amended 2026-10-21 for the AI general on the host (owner approval, [SOS-23](https://fighterx2500.atlassian.net/browse/SOS-23)) · Card: [SOS-11](https://fighterx2500.atlassian.net/browse/SOS-11) · Supersedes [ADR 0002](0002-battle-streaming.md) for field battles; siege assaults are left open (settled by [ADR 0006](0006-lockstep-city-viewing-and-assaults.md): lockstep)
 
 ## Context
 
