@@ -213,67 +213,67 @@ These targets are tested with 2 players at 300 ms ping. The battle targets depen
 
 ## 14. Development workflow
 
-The project lives in a private GitHub repository, and every change goes through CI/CD.
+The project lives in a private GitHub repository, and every change is built and tested before it is merged.
 
 - **Work tracking:** a Kanban board in Jira, connected to the repository through the Jira API.
-- **CI/CD:** each change is built and tested automatically before it is merged.
+- **Checks before merge:** each change passes the local check (build, unit tests and a short multi-copy smoke run) before it is merged, and its result goes in the pull request. There is no CI server for now. The build needs the game's source and jar, which never leave the developer's PC. A self-hosted runner on the public SOSDET repository would also run outside code. Revisit this when outside contributors or a second developer join, or for game version updates (owner, 2026-10-24).
 - **Deterministic engine:** a separate project in its own public repository, SOSDET, open source under the MIT license for its own code, with its own requirements and tests ([ADR 0004](decisions/0004-engine-split.md)). The game source lines in its patches stay the game developer's, published with their permission; nothing built from them is sold (owner, 2026-10-23). The mod uses it only through its API. Engine work is tracked on the same board.
 
 ## 15. Acceptance criteria
 
-A v1 feature is accepted when every criterion below passes. **[CI]** marks an automated test; **[PT]** marks a play-test with 2 players at 300 ms ping on PCs at or above the reference spec. Story-level criteria are written when each story is pulled onto the board.
+A v1 feature is accepted when every criterion below passes. **[AT]** marks an automated test, run by the local check or the scenario suite; **[PT]** marks a play-test with 2 players at 300 ms ping on PCs at or above the reference spec. Story-level criteria are written when each story is pulled onto the board.
 
 ### Lobby and setup
 
 - A host can create a lobby with chosen difficulty, map size and player count, and a friend can join it through Steam. [PT]
 - The lobby list shows every joined player within 2 seconds of them joining. [PT]
-- A location that breaks the start location rules can't be confirmed, and the reason is shown. [CI]
+- A location that breaks the start location rules can't be confirmed, and the reason is shown. [AT]
 - The game stays paused until the last player picks their city start spot, then unpauses automatically. [PT]
-- Every player starts with the same resources and difficulty. [CI]
+- Every player starts with the same resources and difficulty. [AT]
 
 ### World sync
 
 - An army move ordered by one player appears on every other player's map within 1 second. [PT]
-- After 2 hours of play, every client's world hash matches the host's at every check. [CI + PT]
-- A deliberately corrupted client world is detected and resynced automatically, without player action. [CI]
+- After 2 hours of play, every client's world hash matches the host's at every check. [AT + PT]
+- A deliberately corrupted client world is detected and resynced automatically, without player action. [AT]
 
 ### Pause and speed
 
 - Any player can pause and unpause a normal pause, and every player sees who paused. [PT]
-- Only the host can unpause a priority pause. [CI]
-- When one PC falls behind, game speed drops for everyone, and no city ever runs ahead of world time. [CI]
+- Only the host can unpause a priority pause. [AT]
+- When one PC falls behind, game speed drops for everyone, and no city ever runs ahead of world time. [AT]
 - While a player has a menu, window or notification popup open, their city and the world keep running and the game speed doesn't drop. [PT]
 
 ### Diplomacy
 
-- Every vanilla NPC agreement can be offered between players, with no opinion requirement. [CI]
-- A player can break a treaty with another player at any time, with no penalty. [CI]
-- A vassal pays tribute and shares wars, and the sovereign is not pulled into the vassal's offensive wars. [CI]
+- Every vanilla NPC agreement can be offered between players, with no opinion requirement. [AT]
+- A player can break a treaty with another player at any time, with no penalty. [AT]
+- A vassal pays tribute and shares wars, and the sovereign is not pulled into the vassal's offensive wars. [AT]
 
 ### Trade
 
 - Goods sent in a direct contract leave the sender's warehouse and arrive at the receiver's after the travel time, with the caravan visible on the map. [PT]
-- A resent or duplicated trade message never changes the amount delivered. [CI]
-- Disconnecting mid-delivery never creates goods. Caravans to or from a disconnected city are deleted with their goods. [CI]
-- A prioritized player's trades bypass NPC minimum and maximum limits. [CI]
+- A resent or duplicated trade message never changes the amount delivered. [AT]
+- Disconnecting mid-delivery never creates goods. Caravans to or from a disconnected city are deleted with their goods. [AT]
+- A prioritized player's trades bypass NPC minimum and maximum limits. [AT]
 
 ### Field battles
 
 - When player armies meet, a real-time battle always starts. Battles against NPC armies offer auto-resolve. [PT]
 - Allied armies spawn side by side, 20 tiles apart, and each player can rearrange only their own army. [PT]
-- A majority vote of commanders changes battle speed; a tie keeps the current speed. [CI]
-- A battle with 2,000 units per side runs 30 minutes with every PC's battle state identical to the host's. [CI + PT]
-- The same battle save, seed and orders give an identical battle state on two runs, compared every step. [CI]
-- When any PC in the game is slow, the battle slows for everyone. [CI]
-- A forced battle desync is detected within 2 seconds, recovered from the host's battle state within 10 seconds, and writes a report. [CI]
+- A majority vote of commanders changes battle speed; a tie keeps the current speed. [AT]
+- A battle with 2,000 units per side runs 30 minutes with every PC's battle state identical to the host's. [AT + PT]
+- The same battle save, seed and orders give an identical battle state on two runs, compared every step. [AT]
+- When any PC in the game is slow, the battle slows for everyone. [AT]
+- A forced battle desync is detected within 2 seconds, recovered from the host's battle state within 10 seconds, and writes a report. [AT]
 
 ### Sieges
 
-- The attacker can't assault before the waiting period for the city's population band ends. [CI]
-- The besieged city receives no trade. [CI]
+- The attacker can't assault before the waiting period for the city's population band ends. [AT]
+- The besieged city receives no trade. [AT]
 - A defender's attack on the besiegers starts a real-time field battle. [PT]
 - The assault shows the defender's city in real time to every player, and the attacker's orders work. [PT]
-- Each outcome works. Sack takes the chosen resources and up to 80% of the population, killed or moved as chosen. Eliminate turns the city into a neutral NPC city and makes its player a spectator. Vassalage applies the vassal rules. [CI + PT]
+- Each outcome works. Sack takes the chosen resources and up to 80% of the population, killed or moved as chosen. Eliminate turns the city into a neutral NPC city and makes its player a spectator. Vassalage applies the vassal rules. [AT + PT]
 
 ### City viewing
 
@@ -283,17 +283,17 @@ A v1 feature is accepted when every criterion below passes. **[CI]** marks an au
 
 ### Saves and resume
 
-- A host autosave makes every player save at the same world tick, and the game resumes only when all saves are confirmed. [CI]
-- Before a battle or siege assault starts, every player has a confirmed campaign save from that moment. [CI]
+- A host autosave makes every player save at the same world tick, and the game resumes only when all saves are confirmed. [AT]
+- Before a battle or siege assault starts, every player has a confirmed campaign save from that moment. [AT]
 - A campaign saved under one host can be resumed with a different host. [PT]
-- A player missing at resume has a frozen city until they join. [CI]
+- A player missing at resume has a frozen city until they join. [AT]
 
 ### Disconnects
 
 - A disconnect triggers a priority pause within 2 seconds. [PT]
 - When the host loses connection, every player sees a "host disconnected" popup and the whole simulation stops within 2 seconds. [PT]
-- A disconnected player's city, empire and armies freeze and are invulnerable, without blocking roads. [CI]
-- In a battle or siege, the side that disconnects forfeits, and all armies stay intact. [CI]
+- A disconnected player's city, empire and armies freeze and are invulnerable, without blocking roads. [AT]
+- In a battle or siege, the side that disconnects forfeits, and all armies stay intact. [AT]
 - A player who reconnects returns to their city and the current world state. [PT]
 
 ### Chat and notifications
@@ -310,8 +310,8 @@ A v1 feature is accepted when every criterion below passes. **[CI]** marks an au
 
 Every card on the board, not only features, is done when:
 
-- the code is reviewed and merged, and CI is green
-- every [CI] criterion it covers has an automated test
+- the code is reviewed and merged, and the local check passed (result in the pull request)
+- every [AT] criterion it covers has an automated test
 - every [PT] criterion it covers has passed a play-test, noted on the card
 - any rule that changed is updated in this spec
 
@@ -320,4 +320,4 @@ Every card on the board, not only features, is done when:
 - [ ] **Prioritized market trading:** a fuller design of how bypassing NPC limits works.
 - [ ] **Siege assaults: streaming or lockstep.** Field battles use lockstep (ADR 0003). Siege assaults still follow ADR 0002 (the defender's PC simulates and streams). To be decided after the late-game save size spike, since lockstep would first send the defender's city to every PC.
 - [ ] **Release App ID:** Spacewar (480) is for development only. Which App ID does the released mod use?
-- [ ] **Debug test build (proposal, not decided):** a test build of the game for finding and preventing desyncs, in three stages. 1) A switch that skips rendering, so many game copies run fast on one PC. 2) A suite of battle scenarios (saves, seeds, recorded orders, expected state hashes every N steps) run in CI on a self-hosted Windows runner; the same state hash becomes the in-game desync detector. 3) Only if stage 2 is too slow or flaky: a fully headless build with graphics and sound stubbed out. Raised during the determinism spike (SOS-11); to be decided with the test plan.
+- [ ] **Debug test build (proposal, not decided):** a test build of the game for finding and preventing desyncs, in three stages. 1) A switch that skips rendering, so many game copies run fast on one PC. 2) A suite of battle scenarios (saves, seeds, recorded orders, expected state hashes every N steps) run by one local command; the same state hash becomes the in-game desync detector. 3) Only if stage 2 is too slow or flaky: a fully headless build with graphics and sound stubbed out. Raised during the determinism spike (SOS-11); to be decided with the test plan.

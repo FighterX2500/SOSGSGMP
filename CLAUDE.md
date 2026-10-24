@@ -37,7 +37,7 @@ Planning tasks, in rough order:
     - Two game processes on one PC (city viewer) and their RAM use.
     - Steam P2P under App ID 480 from inside the game process.
 5. **Distribution:** how players get the changed game code (the engine's patches and the mod's) and the mod, without committing game files. SOS-25 covers the engine's half.
-6. **Test plan:** how CI gets the game's source and libraries (self-hosted Windows runner or private storage), what runs headless, and how [CI] acceptance criteria in spec section 15 become automated tests.
+6. **Test plan:** what runs before every pull request, before a release and in play sessions, and how each [AT] criterion in spec section 15 becomes an automated test.
 7. **Walking skeleton plan:** two players connect over Steam P2P and see the same world map, with one army's movement synced.
 8. **Board:** propose Jira cards (spikes, decisions, stories) with acceptance criteria. Don't create them until I approve the list.
 
