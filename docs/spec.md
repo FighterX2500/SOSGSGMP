@@ -59,7 +59,8 @@ All players are online at the same time. A campaign is saved and resumed later, 
 
 - **Pausing.** Any player can pause and any player can unpause a normal pause. While paused, every player sees who paused the game. A priority pause can only be unpaused by the host; the game enters one when a player disconnects (section 11).
 - **Game speed.** The host sets the speed. It is capped by the slowest PC: if one player's game falls behind, the speed drops for everyone, as in Paradox grand strategy games.
-- **Menus and notifications don't pause.** Opening a menu or window, or getting a notification popup, never pauses or slows the game in multiplayer, unlike vanilla. The player's city and the world keep running. Only the pause in this section stops time.
+- **Lowest speed.** A slow PC can lower the speed to 0.5× and no further. If a PC can't hold even 0.5×, the game stops for everyone until it catches up, then resumes.
+- **Menus, notifications and prompts don't pause.** Opening a menu or window, getting a notification popup, or a prompt that needs an answer (such as a world battle or a declaration of war) never pauses, holds or slows the game in multiplayer, unlike vanilla. The player's city and the world keep running. Only the pauses in this section stop time. Single-player keeps vanilla's behaviour.
 - **Manual battles pause the world.** While a real-time battle or siege assault runs, the world map and every city are paused, and every player watches it. Otherwise a single battle could let years pass outside, because real-time battles are slow compared to city time.
 
 ## 5. Lobby and world setup
@@ -109,12 +110,14 @@ Players trade through direct contracts and through a shared market.
 When two players' armies meet, a real-time battle is mandatory. Battles against NPC armies and attacks on NPC towns can be auto-resolved, as in vanilla.
 
 - **Battle size** has no limit beyond vanilla's. Every PC simulates every field battle, and only orders, the host's AI orders and state checks cross the network ([ADR 0003](decisions/0003-battle-lockstep.md)). The battle AI runs on the host, and every PC applies its orders at the same moment. If any PC cannot keep up, the battle slows down for everyone, spectators included, as with the world speed (section 4).
-- **Battle start.** The host generates the battlefield and sends it to every PC; every PC starts from the same battle state.
+- **Battle start.** Every PC generates the battlefield in the same step, from the same random numbers, so every PC starts from the same battle state ([ADR 0003](decisions/0003-battle-lockstep.md) amendment).
 - **Desyncs.** If one PC's battle ever differs from the host's, the battle pauses briefly, every PC reloads the host's current battle state, and the battle continues.
 - **Latency.** Up to 1 second between giving an order and seeing it carried out is acceptable.
 - **Allies** can join a battle or siege when they are within range, as in vanilla.
 - **Deployment.** Each player's army spawns as a separate army. Allied armies stand side by side on the same side of the field, 20 tiles apart, and the enemy's armies are placed the same way. Every player can rearrange their own army before the battle, as in vanilla.
 - **Battle speed** is chosen by the commanders in the battle, by majority vote. On a tie, the speed stays as it is.
+- **Retreat.** Only a side's commanders can order that side's retreat.
+- **No restart.** Vanilla's battle restart is turned off in battles between players.
 - **Spectating.** All other players watch the battle while the world is paused (section 4).
 - **Offline players** cannot be attacked. Other armies can pass through their territory freely.
 
@@ -256,7 +259,8 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - Any player can pause and unpause a normal pause, and every player sees who paused. [PT]
 - Only the host can unpause a priority pause. [AT]
 - When one PC falls behind, game speed drops for everyone, and no city ever runs ahead of world time. [AT]
-- While a player has a menu, window or notification popup open, their city and the world keep running and the game speed doesn't drop. [PT]
+- While a player has a menu, window, notification popup or prompt open, their city and the world keep running and the game speed doesn't drop. [PT]
+- A slow PC never takes the speed below 0.5×; a PC that can't hold 0.5× stops the game for everyone until it catches up. [AT]
 
 ### Diplomacy
 
@@ -278,6 +282,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A battle with 2,000 units per side runs 30 minutes with every PC's battle state identical to the host's. [AT + PT]
 - The same battle save, seed and orders give an identical battle state on two runs, compared every step. [AT]
 - When any PC in the game is slow, the battle slows for everyone. [AT]
+- Only a side's commanders can order its retreat, and a battle between players can't be restarted. [AT]
 - A forced battle desync is detected within 2 seconds, recovered from the host's battle state within 10 seconds, and writes a report. [AT]
 
 ### Sieges
@@ -336,3 +341,5 @@ Every card on the board, not only features, is done when:
 ## 16. Open questions
 
 - [ ] **Viewing numbers:** the catch-up numbers in section 10 (a 5-second gap closed in about 2 seconds, and how far behind a view may fall before the speed drops) are first guesses. Confirm them in playtests (owner, 2026-10-24): city save size and time, loading a city into a running game, and a 10,000-person city.
+- [ ] **Pending world battles:** prompts no longer stop time (section 4), so the world runs on while a player decides on a world battle. What the armies involved do meanwhile (held in place, or the battle auto-resolves after a time limit) is still to decide.
+- [ ] **Order delay above 1×:** the engine applies an order a fixed number of steps after it is given. Just above 1× speed that comes to about 1 second, plus ping, which is over the 1-second limit (section 8). Measure it in playtests and decide whether the engine's delay should shrink there.
