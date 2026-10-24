@@ -31,7 +31,7 @@ Decided in [ADR 0005](decisions/0005-world-lockstep-and-city-world-link.md); bui
 - The world's changes to a city are transactions with IDs that every PC computes; the city applies its own exactly once.
 - Every PC hashes the world. A PC whose hash differs reloads the host's world; its city keeps running.
 - Pause and priority pause are commands applied at a step, so everyone stops at the same moment.
-- Prompts (a world battle, a declaration of war) never hold the world in multiplayer (spec §4). The engine holds it while a world-battle prompt is open, as in single-player; that changes in the engine.
+- Prompts (a world battle, a declaration of war) never hold the world in multiplayer (spec §4). While a world-battle prompt is open, only that battle's armies wait; with no answer within 30 s, every PC gives the default answer at the same step (SOSDET SOS-45, spec §8).
 
 ## Field battles
 

@@ -61,7 +61,7 @@ All players are online at the same time. A campaign is saved and resumed later, 
 - **Game speed.** The host sets the speed. It is capped by the slowest PC: if one player's game falls behind, the speed drops for everyone, as in Paradox grand strategy games.
 - **Speeds.** The host can choose 1×, 5×, 25× or 250×. Vanilla's 0.25× isn't available in multiplayer, in battles either, since 0.5× is the lowest speed.
 - **Lowest speed.** A slow PC can lower the speed to 0.5× and no further. If a PC can't hold even 0.5×, the game stops for everyone until it catches up, then resumes.
-- **Menus, notifications and prompts don't pause.** Opening a menu or window, getting a notification popup, or a prompt that needs an answer (such as a world battle or a declaration of war) never pauses, holds or slows the game in multiplayer, unlike vanilla. The player's city and the world keep running. Only the pauses in this section stop time. Single-player keeps vanilla's behaviour.
+- **Menus, notifications and prompts don't pause.** Opening a menu or window, getting a notification popup, or a prompt that needs an answer (such as a world battle or a declaration of war) never pauses, holds or slows the game in multiplayer, unlike vanilla. The player's city and the world keep running; while a world-battle prompt is open, only the armies in that battle wait (section 8). Only the pauses in this section stop time. Single-player keeps vanilla's behaviour.
 - **No debug mode or cheats** in multiplayer: the game's debug mode and cheat tools are turned off.
 - **Manual battles pause the world.** While a real-time battle or siege assault runs, the world map and every city are paused, and every player watches it. Otherwise a single battle could let years pass outside, because real-time battles are slow compared to city time.
 
@@ -121,6 +121,7 @@ When two players' armies meet, a real-time battle is mandatory. Battles against 
 - **Battle start.** Every PC generates the battlefield in the same step, from the same random numbers, so every PC starts from the same battle state ([ADR 0003](decisions/0003-battle-lockstep.md) amendment).
 - **Desyncs.** If one PC's battle ever differs from the host's, the battle pauses briefly, every PC reloads the host's current battle state, and the battle continues.
 - **Latency.** Up to 1 second between giving an order and seeing it carried out is acceptable.
+- **World battle prompts.** When a battle on the world map needs a player's answer, such as fighting it in real time or auto-resolving it, only the armies in that battle wait in place while the prompt is open; the rest of the world runs on. If nobody answers within 30 seconds of real time, every PC gives the default answer at the same moment: auto-resolve, wait for a siege, accept a result with no captives or spoils, occupy a captured settlement.
 - **Battles against NPC armies** can be fought in real time, as in vanilla. Like any real-time battle, they pause the world and every player watches (section 4).
 - **Allies** can join a battle or siege when they are within range, as in vanilla.
 - **Captives** after a battle between players are handled as in vanilla (capture, execute or release, each changing mercy). Each winning player decides for their own share.
@@ -308,6 +309,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - The same battle save, seed and orders give an identical battle state on two runs, compared every step. [AT]
 - When any PC in the game is slow, the battle slows for everyone. [AT]
 - Only a side's commanders can order its retreat, and a battle between players can't be restarted. [AT]
+- While a world-battle prompt is open, only that battle's armies wait; with no answer within 30 seconds, every PC applies the default answer at the same step. [AT]
 - A forced battle desync is detected within 2 seconds, recovered from the host's battle state within 10 seconds, and writes a report. [AT]
 
 ### Sieges
@@ -369,5 +371,4 @@ Every card on the board, not only features, is done when:
 ## 16. Open questions
 
 - [ ] **Viewing numbers:** the catch-up numbers in section 10 (a 5-second gap closed in about 2 seconds, and how far behind a view may fall before the speed drops) are first guesses. Confirm them in playtests (owner, 2026-10-24): city save size and time, loading a city into a running game, and a 10,000-person city.
-- [ ] **Pending world battles:** prompts no longer stop time (section 4), so the world runs on while a player decides on a world battle. What the armies involved do meanwhile (held in place, or the battle auto-resolves after a time limit) is still to decide.
 - [ ] **Order delay above 1×:** the engine applies an order a fixed number of steps after it is given. Just above 1× speed that comes to about 1 second, plus ping, which is over the 1-second limit (section 8). Measure it in playtests and decide whether the engine's delay should shrink there.
