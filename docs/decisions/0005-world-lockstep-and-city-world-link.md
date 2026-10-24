@@ -1,6 +1,6 @@
 # 0005: World lockstep and the city↔world link
 
-Status: Accepted (owner decision, 2026-10-23) · Card: [SOS-38](https://fighterx2500.atlassian.net/browse/SOS-38) (SOSDET plan 0002, stage E)
+Status: Accepted (owner decision, 2026-10-23); city viewing amended by [ADR 0006](0006-lockstep-city-viewing-and-assaults.md) (lockstep, not a snapshot) · Card: [SOS-38](https://fighterx2500.atlassian.net/browse/SOS-38) (SOSDET plan 0002, stage E)
 
 ## Context
 
