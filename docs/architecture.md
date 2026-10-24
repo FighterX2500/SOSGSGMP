@@ -14,7 +14,7 @@ Whoever owns a piece of state simulates it; everyone else gets reports of it. A 
 | Siege assault | Deterministic lockstep ([ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md)) | Every PC | Defender's city save at start; commander orders with their step; the host's AI log; state hashes |
 | Goods, soldiers, money crossing city ↔ world | Transactions with IDs | Every PC (part of the world step) | Nothing: each PC computes them; the city applies its own exactly once, and reports what a withdrawal actually took |
 
-Other players appear in the world as factions whose city values come from their city reports.
+Other players appear in the world as factions whose city values come from their city reports. Holding several human factions in the world is engine work ([SOS-46](https://fighterx2500.atlassian.net/browse/SOS-46), ADR 0005 amendment).
 
 ## Clocks
 
