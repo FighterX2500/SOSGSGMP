@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.11 · 2026-10-24
+Version 0.12 · 2026-10-24
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -13,6 +13,7 @@ It is built for a small group of friends playing together, usually 2–3 people,
 **Guiding principles**
 
 - Vanilla first: wherever this spec says "same as vanilla", the player-to-player version reuses the vanilla rule unchanged.
+- Vanilla look: every screen, window and popup the mod adds (lobby, chat, prompts, the viewing screen) uses the game's own UI style, so it looks like part of Songs of Syx.
 - Friends trust each other: no anti-cheat, no penalties designed to stop griefing.
 - Inside their own city, every player plays with zero latency. Delay is only acceptable where players interact.
 - A sandbox with no win condition.
@@ -49,7 +50,7 @@ Version 1 includes six features:
 | Operating system | Windows only |
 | Store | Steam only |
 | Hosting | Listen server: the host plays and hosts |
-| Networking | Steam P2P, using App ID 480 (Spacewar) during development |
+| Networking | Two modes: direct IP (an open port, or a VPN such as Radmin VPN), or Steam P2P under Songs of Syx's own App ID (1162750) |
 | Game version | The version in the working folder, pinned. The mod is not updated for later game versions. |
 
 ## 4. Session and time
@@ -67,7 +68,7 @@ Every player starts with the same starting resources and difficulty, set by the 
 
 **Lobby**
 
-1. In the main menu, a player opens Multiplayer and chooses Create Lobby, Load Saved Lobby or Join Lobby.
+1. In the main menu, a player opens Multiplayer and chooses Create Lobby, Load Saved Lobby or Join Lobby. A player joins by the host's IP address or through Steam (section 3).
 2. With Create Lobby, the host chooses the difficulty, map size and number of players.
 3. The lobby waits for players to join and shows a list of everyone in it. This list will be refined later.
 4. The host clicks Start Lobby.
@@ -92,16 +93,15 @@ Every player starts with the same starting resources and difficulty, set by the 
 Players use the same agreements that exist between a player and an NPC faction in vanilla.
 
 - **No opinion requirement.** Between players, any agreement can be concluded at any time. Opinion limits apply only to NPC factions.
-- **Breaking treaties.** A player can break a treaty with another player at any time, with no penalty. Treaties with NPC factions keep their vanilla penalties.
+- **Breaking treaties.** A player can break a treaty with another player at any time, with no penalty: unlike vanilla, NPC factions' opinion of that player doesn't drop either. Treaties with NPC factions keep their vanilla penalties.
 - **Vassalage between players** follows vanilla: the vassal pays tribute, the two share wars, and the vassal has the right to rebel. The sovereign does not join a war its vassal starts.
 
 ## 7. Trade
 
 Players trade through direct contracts and through a shared market.
 
-- **Direct contracts** are agreed between two players.
-- **Shared market.** Players' goods join the market, and prices form as in vanilla.
-- **Prioritizing a player.** A player can mark other players, or one specific player, as preferred trade partners. Trades with a preferred player bypass the minimum and maximum buy and sell limits that apply to NPC factions. This rule is a first outline and needs more design.
+- **Direct contracts** are agreed between two players: a player who wants a specific deal with another player proposes it as a diplomatic request (section 6).
+- **Shared market.** Players' goods join the market, and prices form as in vanilla. The market is the same for everyone: no player gets special terms on it.
 - **Caravans** work as in vanilla: they are visible on the map, travel to the other player, and cannot be raided.
 
 ## 8. Military
@@ -146,7 +146,12 @@ During the siege, the defender can attack the besieging army. That creates a rea
 Any player can view any other player's city, enemies included. This is intended.
 
 - **Live view:** the viewer's PC loads the city and runs it in step with its owner's city, so it stays the same city, live ([ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md)). Nothing in a viewed city can be changed.
-- **The viewer's own city is frozen** while they view another city: it doesn't run, and they can't act in it. It resumes where it stopped when the view closes.
+- **The viewer's own city is frozen** while they view another city: it doesn't run, and they can't act in it. It resumes where it stopped when the view closes. The world runs on meanwhile: it sees the frozen city as its last city report showed it, and whatever the world sends that city (deliveries, immigrants, raids) waits and is applied when the view closes.
+- **Watch only.** While viewing, the viewer can only watch and chat. Their armies and regions keep running on their last orders. A battle, or a prompt that needs the viewer's answer, ends the view.
+- **Opening a view.** The owner saves their city and sends it; the viewer's PC loads it and runs it fast until it catches up with the owner's city. Target: a 5-second gap closes in about 2 seconds.
+- **Too slow to catch up.** If the viewer's PC can't meet that target, the game speed drops for everyone until it can, as for any slow PC (section 4), but never below 1×.
+- **Still too slow.** If the viewer hasn't caught up 1 minute after catching up started (the owner's save, the download and the load don't count), or their PC can't run the city even at 1× speed, the view ends with a message to the viewer, and the speed returns to what the host set.
+- **Keeping up.** The same applies after catching up: a view that falls behind its owner's city lowers the speed for everyone, and if that doesn't bring it back, the view ends.
 - **The owner is not slowed.** The owner keeps playing their city with zero latency while it is viewed.
 - **During a siege assault:** every player watches the city in real time (section 9).
 
@@ -226,7 +231,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 
 ### Lobby and setup
 
-- A host can create a lobby with chosen difficulty, map size and player count, and a friend can join it through Steam. [PT]
+- A host can create a lobby with chosen difficulty, map size and player count, and a friend can join it by direct IP and through Steam. [PT]
 - The lobby list shows every joined player within 2 seconds of them joining. [PT]
 - A location that breaks the start location rules can't be confirmed, and the reason is shown. [AT]
 - The game stays paused until the last player picks their city start spot, then unpauses automatically. [PT]
@@ -248,7 +253,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 ### Diplomacy
 
 - Every vanilla NPC agreement can be offered between players, with no opinion requirement. [AT]
-- A player can break a treaty with another player at any time, with no penalty. [AT]
+- A player can break a treaty with another player at any time, with no penalty, and NPC factions' opinion of them doesn't drop. [AT]
 - A vassal pays tribute and shares wars, and the sovereign is not pulled into the vassal's offensive wars. [AT]
 
 ### Trade
@@ -256,7 +261,6 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - Goods sent in a direct contract leave the sender's warehouse and arrive at the receiver's after the travel time, with the caravan visible on the map. [PT]
 - A resent or duplicated trade message never changes the amount delivered. [AT]
 - Disconnecting mid-delivery never creates goods. Caravans to or from a disconnected city are deleted with their goods. [AT]
-- A prioritized player's trades bypass NPC minimum and maximum limits. [AT]
 
 ### Field battles
 
@@ -279,9 +283,12 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 
 ### City viewing
 
-- Any player can open any other player's city at full detail within 30 seconds, and nothing in it can be changed. [PT]
+- Any player can open any other player's city and see it live at full detail within 1 minute of catching up starting (save, download and load not counted), and nothing in it can be changed. [PT]
 - A viewed city's state matches its owner's city at every check while it is viewed. [AT]
 - While a player views another city, their own city doesn't run, and it resumes exactly where it stopped when the view closes. [AT]
+- While viewing, a player can't give orders; a battle or a prompt for them ends the view. [AT]
+- When a viewer's PC can't catch up with or keep up with the viewed city, the game speed drops for everyone until it can. [AT]
+- If the viewer still hasn't caught up 1 minute after catching up started, or can't run the city at 1× speed, the view ends with a message and the speed returns to the host's setting. [AT]
 - Viewing a city causes no stutter longer than 1 second for its owner. [PT]
 
 ### Saves and resume
@@ -320,7 +327,4 @@ Every card on the board, not only features, is done when:
 
 ## 16. Open questions
 
-- [ ] **Prioritized market trading:** a fuller design of how bypassing NPC limits works.
-- [ ] **Release App ID:** Spacewar (480) is for development only. Which App ID does the released mod use?
-- [ ] **Viewing and the world clock:** while a player views another city, their own city is frozen (section 10). Does the frozen city hold up the world clock for everyone, or does the world run on while that city's time stands still?
-- [ ] **Opening a view:** how a viewer catches up with the owner's city when a view opens, given the save size and save time measured by the late-game save size spike.
+- [ ] **Viewing numbers:** the catch-up numbers in section 10 (a 5-second gap closed in about 2 seconds, and how far behind a view may fall before the speed drops) are first guesses. Confirm them with the save-size spike's measurements: city save size and time, loading a city into a running game, and a 10,000-person city.

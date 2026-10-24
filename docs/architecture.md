@@ -19,7 +19,7 @@ Other players appear in the world as factions whose city values come from their 
 ## Clocks
 
 - **Step (every PC):** one step counter for the city and the world. Each step runs the PC's own city part, then the lockstep world part. Everything shared is stamped with a step: commands, city reports, treaties, caravans, pauses, saves.
-- **Pace:** a PC runs world step N only once every city report stamped for N has arrived, so the slowest PC sets the speed and no city runs ahead of world time.
+- **Pace:** a PC runs world step N only once every city report stamped for N has arrived, so the slowest PC sets the speed and no city runs ahead of world time. A city frozen while its player views another keeps sending its last report, so it never holds the world up (spec §10).
 - **Battle clock:** fixed steps, numbered from deploy (step 0): 1/60 s at 1x or slower, 1/16 s above (the engine's `StepClock`). Orders carry the step they apply at. The slowest PC sets the pace.
 
 ## World map
@@ -55,7 +55,7 @@ Decided in [ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md): the
 - **Save before battles:** the same save barrier runs before every battle or siege assault starts (spec §11).
 - **Disconnect:** priority pause; the player's city, empire and armies freeze; reconnect = load own city save + full world snapshot.
 - **Host disconnect:** every client stops all simulation and shows "host disconnected". Any player can host the resumed campaign, usually from the pre-battle save.
-- **City viewing** ([ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md)): the viewer's own city freezes; the owner sends a city save at a step, and the viewer's PC runs that city in place of its own, applying each owner action at the step it applied at on the owner's PC. A city hash mismatch reloads the owner's save. Open: whether a frozen city holds up the world clock, and catching up when a view opens (spec §16).
+- **City viewing** ([ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md)): the viewer's own city freezes; the owner sends a city save at a step, and the viewer's PC runs that city in place of its own, applying each owner action at the step it applied at on the owner's PC. A city hash mismatch reloads the owner's save. The viewer's frozen city keeps sending its last report, so the world never waits on it; the world's transactions for it queue until the view closes. After loading, the viewer runs the watched city fast until it is a fixed delay behind the owner; while it is behind, the host lowers the agreed speed for everyone, never below 1×. After 1 minute of catching up, or if the viewer can't run the city at 1×, the view closes (spec §10).
 
 ## Code layout
 
