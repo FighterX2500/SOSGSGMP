@@ -13,11 +13,11 @@ AGENTS.md holds the coding rules: Java, the game, hooks, threads, saves, network
 - `docs/decisions/`: ADRs, one per decision, numbered `0001-short-name.md`. Each records context, the decision, the options rejected and why.
 - `docs/plan/`: plans per milestone or sprint.
 - `docs/hooks.md`: every change to the game's own code that the mod makes, with the reason it exists.
-- The deterministic engine is a separate project, [SOSDET](https://github.com/FighterX2500/SOSDET), with its own docs, rules and hooks ([ADR 0004](docs/decisions/0004-engine-split.md)). The mod uses it only through its API.
+- The deterministic engine is a separate project, [SOSDET](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine), with its own docs, rules and hooks ([ADR 0004](docs/decisions/0004-engine-split.md)). The mod uses it only through its API.
 
 ## Current phase
 
-- **Engine (SOSDET): implementation** (owner, 2026-10-22). Cards SOS-25 to SOS-32 under the epic SOS-22; the work happens in the SOSDET repository and follows its CLAUDE.md.
+- **Engine (SOSDET): implementation** (owner, 2026-10-22). Cards SOS-25 to SOS-32 under the epic SOS-22, then SOS-34 to SOS-38 (done); SOS-31 and SOS-32 are open. The work happens in the SOSDET repository and follows its CLAUDE.md.
 - **Mod (this repository): planning (Sprint 0)**, resumed after the engine is built (owner, 2026-10-22). The rest of this section applies to it.
 
 Do not write feature code for the mod yet. Allowed work:
