@@ -1,6 +1,6 @@
 # 0003: Field battles run in deterministic lockstep
 
-Status: Accepted (owner decision, 2026-10-21); amended 2026-10-21 for the AI general on the host (owner approval, [SOS-23](https://fighterx2500.atlassian.net/browse/SOS-23)) · Card: [SOS-11](https://fighterx2500.atlassian.net/browse/SOS-11) · Supersedes [ADR 0002](0002-battle-streaming.md) for field battles; siege assaults are left open (settled by [ADR 0006](0006-lockstep-city-viewing-and-assaults.md): lockstep)
+Status: Accepted (owner decision, 2026-10-21); amended 2026-10-21 for the AI general on the host (owner approval, [SOS-23](https://fighterx2500.atlassian.net/browse/SOS-23)); amended 2026-10-25 for the battle start and step lengths as the engine built them ([SOS-44](https://fighterx2500.atlassian.net/browse/SOS-44), see the end) · Card: [SOS-11](https://fighterx2500.atlassian.net/browse/SOS-11) · Supersedes [ADR 0002](0002-battle-streaming.md) for field battles; siege assaults are left open (settled by [ADR 0006](0006-lockstep-city-viewing-and-assaults.md): lockstep)
 
 ## Context
 
@@ -65,3 +65,12 @@ Field battles run in **deterministic lockstep**: every PC in the game simulates 
   - battle content the test didn't reach.
 - **Spec 0.8.** §8, §13, §15 and §16 are rewritten for lockstep in the same PR. ADR 0002's §9 wording for siege assaults stays until the siege decision.
 - **Spec 0.9** (SOS-23 amendment). §8 says that the host's AI orders cross the network along with players' orders, and that the battle AI runs on the host.
+
+## Amendment (2026-10-25, owner, SOS-44)
+
+The engine built two things differently from this ADR, and the engine's way stands (owner: SOS-32 has priority over the older docs):
+
+- **Battle start: every PC generates the battle.** A battle started from the world map (SOSDET SOS-32, `MapBattles`) is generated inside the step on every PC, from the simulation random stream, so every PC gets the same battlefield. Nobody sends a battle save at the start. This replaces "The host generates the battle with the vanilla generator and sends the battle save" under Decision, and the rejected option "Every PC regenerates the battle from the seed": generation on the simulation stream inside the step gives one result. The host's battle save is still what a resync loads.
+- **Step lengths (SOSDET SOS-42):** 1/60 s at 1× or slower, 1/30 s below 2×, 1/16 s from 2×. Orders and the AI log still apply 30 steps after they are given, so the delay in real time depends on the speed: 0.5 s at 1×, about 1 s just above 1×, about 0.94 s at 2× (spec §16, order delay above 1×).
+- **Lowest speed (spec 0.12 §4):** the governor never lowers the speed below 0.5×; a PC that can't hold 0.5× stops the game for everyone until it catches up. Not built in the engine yet.
+- **Retreat and restart (spec 0.12 §8):** only a side's commanders can order its retreat, and restart is off in battles between players. The engine's Retreat and Restart are commands any PC can give (SOS-41); the mod decides who may (SOS-15 spike, "What stays for the mod").

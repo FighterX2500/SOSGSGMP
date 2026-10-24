@@ -1,6 +1,6 @@
 # 0006: City viewing and siege assaults run in lockstep
 
-Status: Accepted (owner decision, 2026-10-24) · Card: [SOS-43](https://fighterx2500.atlassian.net/browse/SOS-43) · Supersedes [ADR 0002](0002-battle-streaming.md) for siege assaults; amends the city viewing line of [ADR 0005](0005-world-lockstep-and-city-world-link.md)
+Status: Accepted (owner decision, 2026-10-24); amended the same day after the spec review ([SOS-44](https://fighterx2500.atlassian.net/browse/SOS-44), see the end) · Card: [SOS-43](https://fighterx2500.atlassian.net/browse/SOS-43) · Supersedes [ADR 0002](0002-battle-streaming.md) for siege assaults; amends the city viewing line of [ADR 0005](0005-world-lockstep-and-city-world-link.md)
 
 ## Context
 
@@ -42,11 +42,21 @@ Status: Accepted (owner decision, 2026-10-24) · Card: [SOS-43](https://fighterx
 
 - **Spec 0.11.** §9 (assault), §10 (viewing), §15 (siege and city viewing criteria) and §16 (the assault question closes; the viewing questions open) change in the same PR.
 - **Architecture.** The city row, the siege assault row and section, and the city viewing bullet in [architecture.md](../architecture.md) change in the same PR.
-- **The late-game save size spike** still matters: the save is sent when a view opens and when an assault starts, so its size and save time set how long both take (spec §15: a view opens within 30 s; the owner's stutter stays under 1 s).
+- **The save size and save time** still matter (measured in playtests since the amendment, not a spike): the save is sent when a view opens and when an assault starts, so its size and save time set how long both take (spec §15: the owner's stutter stays under 1 s; since spec 0.12, a view catches up within 1 minute, the save, download and load not counted, see the amendment).
 - **The "two game processes on one PC" spike** (CLAUDE.md planning task 4) is no longer needed for viewing.
 - **Engine work (SOSDET), not yet planned:**
   - record the owner's city actions with the step they applied at, and apply them on a viewer's copy at that step (own-city actions are not lockstep commands today, ADR 0005);
   - load a city save into a PC that runs its own city, freeze and resume that own city;
   - a city hash for viewing;
   - an assault started from a player's city save, with the host's AI log, as SOS-23 ran it on one PC.
-- **Open (spec §16):** whether a viewer's frozen city holds up the world clock, and how a viewer catches up with the owner when a view opens.
+- **Open (spec §16):** whether a viewer's frozen city holds up the world clock, and how a viewer catches up with the owner when a view opens. Both settled by the amendment below; only its numbers stay open.
+
+## Amendment (2026-10-24, owner, spec review)
+
+Spec 0.12 settles how viewing runs ([SOS-44](https://fighterx2500.atlassian.net/browse/SOS-44)):
+
+- **The world runs on while a city is frozen.** The viewer's city loses that time. The world goes on reading its last city report, and the world's transactions for that city wait and are applied when the view closes. Rejected: holding the world for everyone while anyone views, which would make viewing a pause button for one player.
+- **Watch only.** The viewer can only watch and chat. Their armies and regions are world state, so they keep running on their last orders. A battle, or a prompt that needs the viewer's answer, ends the view. Rejected: world-map orders while viewing (simpler rule: nothing goes in or out of the viewer's empire's controls), and freezing the viewer's armies like a disconnected player's (viewing would become a way to make armies safe).
+- **Catching up.** After loading the owner's save, the viewer's PC runs the city fast until it is a fixed delay behind the owner. Target: a 5-second gap closes in about 2 seconds.
+- **A slow viewer slows everyone, down to 1×.** If the viewer can't meet that target, or falls behind later, the game speed drops for everyone, as for any slow PC (spec §4), never below 1×. If the viewer still hasn't caught up 1 minute after catching up started (the owner's save, the download and the load don't count), or can't run the city at 1×, the view ends and the speed returns to the host's setting. Rejected: letting the view lag without limit (the viewer would have to store ever more owner actions and transactions), and restarting the view from a new save (each restart costs the owner another save stutter).
+- **Still open:** the catch-up target and how far behind a view may fall before the speed drops are first guesses, to be confirmed in playtests, not a separate spike (owner, 2026-10-24).

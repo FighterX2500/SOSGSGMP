@@ -17,7 +17,7 @@ AGENTS.md holds the coding rules: Java, the game, hooks, threads, saves, network
 
 ## Current phase
 
-- **Engine (SOSDET): implementation** (owner, 2026-10-22). Cards SOS-25 to SOS-32 under the epic SOS-22, then SOS-34 to SOS-38 (done); SOS-31 and SOS-32 are open. The work happens in the SOSDET repository and follows its CLAUDE.md.
+- **Engine (SOSDET): implementation** (owner, 2026-10-22). Cards under the epic SOS-22 are merged up to SOS-15 (SOSDET PR #28, 2026-10-24); SOS-31 (the scenario suite) is in progress. The work happens in the SOSDET repository and follows its CLAUDE.md.
 - **Mod (this repository): planning (Sprint 0)**, resumed after the engine is built (owner, 2026-10-22). The rest of this section applies to it.
 
 Do not write feature code for the mod yet. Allowed work:
@@ -32,10 +32,10 @@ Planning tasks, in rough order:
 2. **Hook surface:** map where the multiplayer features need to hook into the game: the main update loop, world tick, faction/player handling, battle start and end, save/load, city boundary crossings (soldiers, goods, caravans), pause and speed. For each, say whether the game's script/mod API is enough or the game's code must change.
 3. **Single-player assumptions:** find the places that assume exactly one player faction.
 4. **Spikes:**
-    - Battle streaming (ADR 0002): the same battlefield from the host's seed on two PCs, snapshot size, order latency at 300 ms ping, display-only mode for viewers.
-    - Late-game save size and save time.
-    - Two game processes on one PC (city viewer) and their RAM use.
-    - Steam P2P under App ID 480 from inside the game process.
+    - ~~Battle streaming (ADR 0002)~~: replaced by lockstep (ADR 0003); the engine showed two-PC battles in SOS-15. Order latency at 300 ms ping is still to measure.
+    - ~~Late-game save size and save time~~: checked in playtests instead (owner, 2026-10-24).
+    - ~~Two game processes on one PC~~: not needed, viewing is lockstep (ADR 0006).
+    - Networking from inside the game process: direct IP, and Steam P2P under Songs of Syx's App ID (1162750).
 5. **Distribution:** how players get the changed game code (the engine's patches and the mod's) and the mod, without committing game files. SOS-25 covers the engine's half.
 6. **Test plan:** what runs before every pull request, before a release and in play sessions, and how each [AT] criterion in spec section 15 becomes an automated test.
 7. **Walking skeleton plan:** two players connect over Steam P2P and see the same world map, with one army's movement synced.
