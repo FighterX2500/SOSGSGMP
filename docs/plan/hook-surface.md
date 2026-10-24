@@ -101,6 +101,8 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 
 ### Faction and player handling (spec §5, §6, §11)
 
+**Moved to the engine (2026-10-25).** F1–F5 and F8–F10 were written for the puppet model, where other humans are `FactionNPC`s on the host. Since ADR 0005 every PC runs the world in lockstep, and SOSDET [SOS-46](https://fighterx2500.atlassian.net/browse/SOS-46) gives each human a vanilla `Player` faction in a fixed slot on every PC instead. These points become engine work under SOS-46; the mod's requirements for it are in [player-slots.md](player-slots.md). F6 and F7 stay with the mod. The rows below are kept as the record of what the world code does.
+
 | ID | Game location | Multiplayer needs | Route | Why not API or reflection |
 | --- | --- | --- | --- | --- |
 | F1 | `game/faction/FACTIONS.java`: 64 slots, 1 `Player` and 63 `FactionNPC`; `activateNext`, `remove` | Each other player appears as a puppet `FactionNPC`. Up to 16 players fit (1 local and 15 puppets), leaving 48 NPC slots. | **API** (`activateNext`, `remove`, `getByIndex`) | — |
@@ -238,6 +240,7 @@ Making this deterministic needed more than these four. SOS-11 also found tree sw
 ## 8. What this needs next
 
 - **Planning task 3 (single-player assumptions):** done in [single-player-assumptions.md](single-player-assumptions.md). It added W5, F8, F9, F10 and B6.
+- **Several human factions:** F1–F5 and F8–F10 are engine work under SOS-46 (2026-10-25); the mod's requirements are in [player-slots.md](player-slots.md).
 - **Planning task 4 spikes:**
   - 4.1 battle streaming ([SOS-10](spikes/battle-streaming.md)) and battle determinism ([SOS-11](spikes/determinism.md)): done; field battles use lockstep, points B7–B15 (B15 from SOS-23);
   - 4.2 save size and time answers Q2 and Q3;
