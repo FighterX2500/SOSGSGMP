@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.12 · 2026-10-24
+Version 0.13 · 2026-10-25
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -72,18 +72,23 @@ Every player starts with the same starting resources and difficulty, set by the 
 **Lobby**
 
 1. In the main menu, a player opens Multiplayer and chooses Create Lobby, Load Saved Lobby or Join Lobby. A player joins by the host's IP address or through Steam (section 3).
-2. With Create Lobby, the host chooses the difficulty, map size and number of players.
+2. With Create Lobby, the host chooses the difficulty and number of players.
 3. The lobby waits for players to join and shows a list of everyone in it. This list will be refined later.
 4. The host clicks Start Lobby.
-5. Each player picks their race and customizes their faction. No titles are given at this stage.
-6. When every player is done, the host can generate the world for everyone.
 
-**Starting locations**
+**Map**
 
-1. Each player picks a location on the world map. There is no maximum distance, but a location closer than 6 tiles to another player can't be picked.
-2. When everyone has picked, the host can initialize the world: NPC countries and routes are generated around the players. Any two players 6–15 tiles apart are guaranteed a land or water route between them. Players further apart are connected the vanilla way, through NPC states and other players.
-3. Each player then picks their starting spot on their own city map. The game stays paused, and nobody can unpause it, but players can already plan their city.
-4. When the last player picks their starting spot, the game unpauses automatically.
+1. The host chooses the map size and vanilla's map options (map type, latitude, seed) and generates the terrain. Vanilla's map is 256×256 tiles; the game supports 128 to 512.
+2. Every player sees the generated map. The players decide together whether it's fine, by talking; there is no vote. The host can change the options and generate again as often as they like.
+3. The host confirms the map. After that it can't be changed.
+
+**Factions and starting locations**
+
+1. Each player, at their own pace, picks their race, customizes their faction and picks a location on the world map. A player who is done doesn't wait for the others to start, and can change their picks until the host initializes the world. Customizing works as in vanilla, including saving and loading the faction profile. No titles are given at this stage.
+2. Every player sees the locations the others have picked. There is no maximum distance, but a location closer than 6 tiles to another player's can't be picked.
+3. When everyone has picked, the host can initialize the world: NPC countries and routes are generated around the players. Any two players 6–15 tiles apart are guaranteed a land or water route between them. Players further apart are connected the vanilla way, through NPC states and other players.
+4. Each player then picks their starting spot on their own city map. The game stays paused, and nobody can unpause it, but players can already plan their city.
+5. When the last player picks their starting spot, the game unpauses automatically.
 
 **World rules**
 
@@ -263,7 +268,9 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 
 ### Lobby and setup
 
-- A host can create a lobby with chosen difficulty, map size and player count, and a friend can join it by direct IP and through Steam. [PT]
+- A host can create a lobby with chosen difficulty and player count, and a friend can join it by direct IP and through Steam. [PT]
+- After the host generates the map, every player's terrain matches the host's, for every map size offered. [AT]
+- A player can pick their race, faction and location while others are still picking, and can change them until the host initializes the world. [PT]
 - The lobby list shows every joined player within 2 seconds of them joining. [PT]
 - A location that breaks the start location rules can't be confirmed, and the reason is shown. [AT]
 - The game stays paused until the last player picks their city start spot, then unpauses automatically. [PT]
