@@ -125,6 +125,11 @@ public final class SteamNode implements Node {
     }
 
     @Override
+    public String describe() {
+        return "Steam P2P, " + (hosting ? "hosting" : "joined") + " lobby " + lobby;
+    }
+
+    @Override
     public void close() {
         closing = true;
         try {

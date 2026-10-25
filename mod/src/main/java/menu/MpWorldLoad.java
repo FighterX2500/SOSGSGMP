@@ -2,6 +2,7 @@ package menu;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 
 import game.GAME;
 import game.save.GameLoader;
@@ -33,6 +34,19 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 
 	@Override
 	public CORE_STATE getState() {
+		EnginePlay engine = new EnginePlay();
+		MpLog log = MpLog.open(setup, engine);
+		try {
+			return load(engine, log);
+		} catch (RuntimeException | Error e) {
+			// the world load's boundary: the playtest log keeps what broke, and the game reports it as before
+			log.error("loading the host's world failed", e);
+			throw e;
+		}
+	}
+
+	private CORE_STATE load(EnginePlay engine, MpLog log) {
+		long t = System.nanoTime();
 		MpAutopilot autopilot = MpAutopilot.fromEnv();
 		if (autopilot != null)
 			autopilot.loading();
@@ -53,15 +67,17 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 		}
 		game.openLanding();
 		setup.worldLoaded(game.worldHash());
+		log.line(String.format(Locale.ROOT, "world loaded in %.1f s: map seed %d, this PC's slot %d, world hash %016x",
+				(System.nanoTime() - t) / 1e9, seed, f.slotOf(setup.localPlayerId()), game.worldHash()));
 		if (autopilot != null)
 			autopilot.loaded(game.worldHash());
-		EnginePlay engine = new EnginePlay();
-		MpPlay play = new MpPlay(setup, engine, game);
+		MpPlay play = new MpPlay(setup, engine, game, log);
 		GAME.addAfterUpdate(play);
 		MpSessionPanel.show(setup, game, engine);
 		engine.afterEachLoad(() -> { // a battle's loads build a new game and view (SOSDET plan 0006)
 			GAME.addAfterUpdate(play);
 			MpSessionPanel.show(setup, game, engine);
+			log.line("whole game loaded at step " + engine.step() + "; the mod is back in it");
 		});
 		return view;
 	}

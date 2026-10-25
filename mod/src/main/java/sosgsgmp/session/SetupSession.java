@@ -132,4 +132,13 @@ public interface SetupSession {
 
     /** Why the session closed; null while it isn't closed. */
     String closedReason();
+
+    /** What carries the session's connections, for the playtest log. */
+    String network();
+
+    /**
+     * Something on the network worth a line in the playtest log that nothing else shows, such as why a PC's connection
+     * dropped, oldest first and each once; null when there is none (SOS-63).
+     */
+    String takeNote();
 }

@@ -32,6 +32,9 @@ public interface Node extends AutoCloseable {
     /** The next event, or null if there is none. Game thread. */
     Event poll();
 
+    /** What carries the connections, for the playtest log: the transport and its address or lobby. */
+    String describe();
+
     /** Sends what is queued (briefly), then closes every connection. No events after this. */
     @Override
     void close();

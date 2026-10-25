@@ -45,6 +45,7 @@ public final class HostedSetup implements SetupSession {
     /** The world this PC built, until it takes it to load; null otherwise. */
     private byte[] save;
     private final Cursors cursors = new Cursors();
+    private final Notes notes = new Notes();
     /** The engine's streams once this PC plays; null before. */
     private EngineLink link;
     /** The latest world resync's transfer number; 0 before the first. */
@@ -77,9 +78,13 @@ public final class HostedSetup implements SetupSession {
             switch (e) {
                 case Node.Event.Connected c -> {
                     // A late PC: refused when it says hello.
+                    notes.add("peer " + c.peer() + " connected after the start");
                 }
                 case Node.Event.Received r -> received(r.peer(), r.message());
-                case Node.Event.Disconnected d -> removeJoined(d.peer());
+                case Node.Event.Disconnected d -> {
+                    notes.add(peerName(d.peer()) + " disconnected: " + d.reason());
+                    removeJoined(d.peer());
+                }
             }
         }
     }
@@ -118,6 +123,7 @@ public final class HostedSetup implements SetupSession {
                         node.send(p.getKey(), relayed);
             }
             case Message.Leave l when id != null -> {
+                notes.add(name(id) + " left");
                 node.disconnect(peer);
                 removeJoined(peer);
             }
@@ -125,6 +131,7 @@ public final class HostedSetup implements SetupSession {
             case Message.Unsupported u when id == null -> refuse(peer, Refusal.WRONG_VERSION);
             default -> {
                 // Anything else breaks the protocol: drop the PC.
+                notes.add(peerName(peer) + " sent " + m.getClass().getSimpleName() + ", which doesn't belong here: dropped");
                 node.disconnect(peer);
                 removeJoined(peer);
             }
@@ -169,6 +176,12 @@ public final class HostedSetup implements SetupSession {
     private void closedByPeer(int id, String reason) {
         leave();
         closedReason = reason;
+    }
+
+    /** A peer for the log: its player's name, or its peer number before it joined. */
+    private String peerName(int peer) {
+        Integer id = joined.get(peer);
+        return id != null ? name(id) + " (peer " + peer + ")" : "peer " + peer;
     }
 
     private String name(int id) {
@@ -466,5 +479,15 @@ public final class HostedSetup implements SetupSession {
     @Override
     public String closedReason() {
         return closedReason;
+    }
+
+    @Override
+    public String network() {
+        return node.describe();
+    }
+
+    @Override
+    public String takeNote() {
+        return notes.take();
     }
 }

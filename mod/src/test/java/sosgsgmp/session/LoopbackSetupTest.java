@@ -293,6 +293,12 @@ class LoopbackSetupTest {
         cid.leave();
         until("Cid gone from Bob's table", () -> names(bob).equals(List.of("Ann", "Bob")));
         assertTrue(host.factions().canInitialize());
+        assertEquals("Cid left", host.takeNote(), "the host's playtest log learns why (SOS-63)");
+        for (String more; (more = host.takeNote()) != null;)
+            assertTrue(more.endsWith("disconnected: The other side closed the connection."), more); // if Cid closed first
+        assertNull(bob.takeNote(), "a joining PC's problems close it instead");
+        assertTrue(host.network().startsWith("direct IP, listening on port "), host.network());
+        assertTrue(bob.network().startsWith("direct IP to "), bob.network());
     }
 
     /** Through the picks, every player with a location, to the host's Initialize World; returns the host's save. */

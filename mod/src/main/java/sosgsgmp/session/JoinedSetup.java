@@ -337,4 +337,15 @@ public final class JoinedSetup implements SetupSession {
     public String closedReason() {
         return closedReason;
     }
+
+    @Override
+    public String network() {
+        return node.describe();
+    }
+
+    /** None: every network problem of a joining PC closes its session, and {@link #closedReason()} says why. */
+    @Override
+    public String takeNote() {
+        return null;
+    }
 }
