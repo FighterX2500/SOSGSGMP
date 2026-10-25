@@ -105,6 +105,12 @@ public final class TcpNode implements Node {
         return events.poll();
     }
 
+    @Override
+    public String describe() {
+        return server != null ? "direct IP, listening on port " + server.socket().getLocalPort()
+                : "direct IP to " + connectTo.getHostString() + ":" + connectTo.getPort();
+    }
+
     /** Sends what is queued (for up to a second), then closes every connection. No events after this. */
     @Override
     public void close() {

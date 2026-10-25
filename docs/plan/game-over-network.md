@@ -68,3 +68,22 @@ Spec §8, with the engine's half in SOSDET SOS-61 (plan 0006) and the ADR 0003 s
 - **Every frame** `MpPlay` asks the adapter (`EnginePlay.battleFrame`): while the engine waits for a battle's save, the save loads as soon as it is here. The battle PC loads its own too.
 - **After each load** (the battle's, then each PC's own city at the end) the game is new, so `MpPlay` and the session panel are put into it again (`Engine.afterEachLoad`).
 - **Test:** the engine's rig with two humans, two copies on one PC (SOSDET plan 0006). Two PCs through the mod come with the general playtest (owner, 2026-10-25).
+
+## 11. The playtest log (SOS-63)
+
+During playtests every PC writes a log of its game session, so a desync, a crash or a stuck battle leaves a trail.
+
+- **Where:** `%APPDATA%\songsofsyx\sosgsgmp-logs\<date>-<time>-<host|join>-<name>.log`, one file per PC per session, from the world's load on. Each line is flushed at once.
+- **What:**
+  - **Session header:** role, player, network (direct IP or Steam lobby), the mod's and engine's jars with their times, protocol, game version, Java and memory.
+  - **Load and start:** the world load (time, map seed, slot, world hash) and Go.
+  - **Network notes:** why a PC's connection dropped, or what it sent that broke the protocol. A joining PC's problems close its session, so they show as the close reason.
+  - **Players and close:** the player list whenever it changes, and the session's close reason.
+  - **Every 600 steps** (the same steps on every PC, so the hashes compare across logs): the state hash, speeds, fps, step times, how far the other PCs are, the host's hold time, and the engine's counters.
+  - **Battles:** Engage, the battle save's size, the load, the return.
+  - **Desyncs:** the hold, the engine's desync report on the PC that found it, the resync, and Save and exit.
+  - **Exceptions:** every exception at the mod's two boundaries (the world load and the per-frame update), with its stack, before the game handles it as before.
+- **Never in the way:**
+  - A failure inside the log is logged and the log stops; the game goes on.
+  - Each frame only compares a few values, and text is built only for a line it writes.
+- **Collecting:** `python tools\collect.py --remote user@address` zips both PCs' logs and the game's logs and crash files from the last 24 hours. Add `--remote-appdata C:\SOSTest\inst\2` for a `twopc.py` run.

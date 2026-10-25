@@ -22,15 +22,28 @@ final class MpPlay implements ACTION {
 	private final MpDesync desync;
 	/** Test tooling: the autopilot, or null in play. */
 	private final MpAutopilot autopilot = MpAutopilot.fromEnv();
+	private final MpLog log;
 
-	MpPlay(SetupSession setup, EnginePlay engine, WorldSetupAdapter game) {
+	MpPlay(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpLog log) {
 		this.setup = setup;
 		this.engine = engine;
 		this.desync = new MpDesync(setup, engine, game);
+		this.log = log;
 	}
 
 	@Override
 	public void exe() {
+		try {
+			frame();
+		} catch (RuntimeException | Error e) {
+			// the mod's per-frame boundary: the playtest log keeps what broke, and the game reports it as before
+			log.error("the game over the network failed at step " + (engine.active() ? engine.step() : -1), e);
+			throw e;
+		}
+		log.frame(desync);
+	}
+
+	private void frame() {
 		if (!setup.closed()) {
 			setup.update();
 			if (!setup.playing() && !setup.closed() && setup.factions().started()) {

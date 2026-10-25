@@ -31,6 +31,8 @@ public final class EnginePlay implements EnginePort {
 
     /** Battle saves from the BATTLE stream and this PC's own, until its engine loads them (plan 0006). */
     private final BattleSaves battles = new BattleSaves();
+    /** The size of the last battle save this PC sent or loaded, for the playtest log. */
+    private int battleBytes;
 
     /**
      * Every PC at {@code Go}: the game unpauses at the agreed speed (spec §5.5, the automatic unpause), the game speed
@@ -65,6 +67,7 @@ public final class EnginePlay implements EnginePort {
             return NONE;
         long step = Engine.battle().step;
         battles.own(step, save);
+        battleBytes = save.length;
         return BattleSaves.frame(step, save);
     }
 
@@ -77,8 +80,20 @@ public final class EnginePlay implements EnginePort {
         if (b == null || !b.awaiting())
             return;
         byte[] save = battles.take(b.step);
-        if (save != null)
-            Engine.battleIn(save);
+        if (save == null)
+            return;
+        battleBytes = save.length;
+        Engine.battleIn(save);
+    }
+
+    /** The battle on the battle map, or null (SOSDET plan 0006). */
+    public OwnBattle battle() {
+        return Engine.battle();
+    }
+
+    /** The size of the last battle save this PC sent or loaded; 0 before the first. */
+    public int battleBytes() {
+        return battleBytes;
     }
 
     /**
@@ -103,6 +118,11 @@ public final class EnginePlay implements EnginePort {
     @Override
     public long step() {
         return Engine.step();
+    }
+
+    /** Whether the engine's session runs: it ends at Save and exit. */
+    public boolean active() {
+        return Engine.active();
     }
 
     /** The speed every PC runs at now. Builds the engine's stats: for the panel's refresh, not every frame. */
@@ -178,6 +198,20 @@ public final class EnginePlay implements EnginePort {
             // A leftover temporary file costs nothing; the resync itself went through.
             LOG.ln("SOSGSGMP: couldn't delete " + file + ": " + e);
         }
+    }
+
+    /** The engine's report of its first desync: the parts that differ and the AI's last orders; null if it found none. */
+    public String desyncReport() {
+        return Engine.desync() == null ? null : Engine.desyncReport();
+    }
+
+    /** Host: the seconds the slowest PC held it in so far, and the longest hold (SOS-42). */
+    public double heldSeconds() {
+        return Engine.heldSeconds();
+    }
+
+    public double longestHoldSeconds() {
+        return Engine.longestHoldSeconds();
     }
 
     /** The first step whose hashes differed between two PCs, or -1 while they all match. */
