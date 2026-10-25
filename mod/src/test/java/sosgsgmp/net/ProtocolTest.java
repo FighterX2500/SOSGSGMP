@@ -49,6 +49,8 @@ class ProtocolTest {
                 new FactionStep.PlayerProgress(7, FactionStep.Progress.MISMATCH))),
             new Message.Go(Integer.MAX_VALUE),
             new Message.Cursor(7, true, -3, Integer.MAX_VALUE),
+            new Message.Stream(StreamKind.AI_LOG, 0, 0, 0, new byte[0]),
+            new Message.Stream(StreamKind.HASHES, 15, Long.MAX_VALUE, 7, new byte[Protocol.MAX_STREAM_PIECE]),
             new Message.Cursor(0, false, 0, 0),
             new Message.MapResult(3, -1L, MapStatus.OK),
             new Message.MapResult(4, 0L, MapStatus.WRONG_BUILD),
@@ -122,6 +124,16 @@ class ProtocolTest {
         byte[] players = Protocol.encode(new Message.MapPlayers(1, 1, one));
         players[players.length - 1] = (byte) PlayerState.values().length;
         assertThrows(IOException.class, () -> Protocol.decode(players));
+
+        byte[] stream = Protocol.encode(new Message.Stream(StreamKind.ORDERS, 1, 0, 0, new byte[] {1}));
+        byte[] badKind = stream.clone();
+        badKind[3] = (byte) StreamKind.values().length; // after the version (2 bytes) and the type
+        assertThrows(IOException.class, () -> Protocol.decode(badKind));
+        byte[] badPc = stream.clone();
+        badPc[4] = (byte) LobbySettings.MAX_PLAYERS;
+        assertThrows(IOException.class, () -> Protocol.decode(badPc));
+        assertThrows(IllegalArgumentException.class, () -> new Message.Stream(StreamKind.ORDERS, 1, -1, 0, new byte[0]));
+        assertThrows(IllegalArgumentException.class, () -> new Message.Stream(StreamKind.ORDERS, 1, 0, 0, new byte[Protocol.MAX_STREAM_PIECE + 1]));
 
         byte[] build = Protocol.encode(new Message.MapBuild(1, 256));
         assertThrows(IOException.class, () -> Protocol.decode(Arrays.copyOf(build, build.length - 1)));

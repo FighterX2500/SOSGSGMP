@@ -86,6 +86,19 @@ public interface SetupSession {
     void startSpot();
 
     /**
+     * The game started on every PC ({@link FactionStep#started()}) and this PC's engine runs: from now its streams go
+     * through {@code port} (game-over-network.md). Between the start and this call the session reads nothing more from
+     * the network, so no piece arrives before the engine can take it.
+     */
+    void play(EnginePort port);
+
+    /** Whether {@link #play} was called. */
+    boolean playing();
+
+    /** Sends what this PC's engine made since the last call. Once per frame, after {@link #play}. */
+    void exchange();
+
+    /**
      * This PC's cursor: on the world map at world pixel {@code x, y}, or off it. Call every frame; it goes out only when
      * it changed, at most 10 times a second ({@link Cursors}).
      */

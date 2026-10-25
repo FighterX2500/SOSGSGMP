@@ -11,6 +11,7 @@ import snake2d.util.color.COLOR;
 import snake2d.util.datatypes.COORDINATE;
 import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.renderable.RENDEROBJ;
+import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
@@ -37,6 +38,10 @@ final class MpSessionPanel extends Interrupter {
 
 	private final SetupSession setup;
 	private final WorldSetupAdapter game;
+	private final EnginePlay engine;
+	/** While playing, the status is rebuilt this often: the step and speed move every frame. */
+	private static final double PLAY_REFRESH_SECONDS = 0.5;
+	private double sinceRefresh;
 	private final GuiSection section = new GuiSection();
 	private final MpCursors cursors;
 	private final GText[] rows = new GText[LobbySettings.MAX_PLAYERS];
@@ -47,14 +52,15 @@ final class MpSessionPanel extends Interrupter {
 	/** This PC's landing party is placed and the session told. */
 	private boolean landed;
 
-	static void show(SetupSession setup, WorldSetupAdapter game) {
-		new MpSessionPanel(setup, game).show(VIEW.inters().manager);
+	static void show(SetupSession setup, WorldSetupAdapter game, EnginePlay engine) {
+		new MpSessionPanel(setup, game, engine).show(VIEW.inters().manager);
 	}
 
-	private MpSessionPanel(SetupSession setup, WorldSetupAdapter game) {
+	private MpSessionPanel(SetupSession setup, WorldSetupAdapter game, EnginePlay engine) {
 		super(true, true, false);
 		this.setup = setup;
 		this.game = game;
+		this.engine = engine;
 		this.cursors = new MpCursors(setup);
 		for (int i = 0; i < rows.length; i++)
 			rows[i] = new GText(UI.FONT().M, 96);
@@ -106,7 +112,7 @@ final class MpSessionPanel extends Interrupter {
 
 	@Override
 	protected boolean render(Renderer r, float ds) {
-		pump();
+		pump(ds);
 		if (!leaving && VIEW.world().isActive())
 			cursors.render(r, VIEW.world().window);
 		section.render(r, ds);
@@ -123,21 +129,22 @@ final class MpSessionPanel extends Interrupter {
 		return false;
 	}
 
-	private void pump() {
+	private void pump(float ds) {
 		if (leaving)
 			return;
-		setup.update();
 		cursors.send(VIEW.world().window, VIEW.world().isActive());
 		if (!landed && !setup.closed() && game.landed()) {
 			landed = true;
 			setup.startSpot();
 		}
-		if (setup.changes() != shownChanges)
+		sinceRefresh += ds;
+		if (setup.changes() != shownChanges || setup.playing() && sinceRefresh >= PLAY_REFRESH_SECONDS)
 			refresh();
 	}
 
 	private void refresh() {
 		shownChanges = setup.changes();
+		sinceRefresh = 0;
 		FactionStep f = setup.factions();
 		List<LobbyPlayer> players = setup.players();
 		shownRows = Math.min(players.size(), rows.length);
@@ -164,7 +171,12 @@ final class MpSessionPanel extends Interrupter {
 				}
 				case LANDING -> row.add(": placing the landing party");
 				case READY -> {
-					row.add(": ready");
+					if (setup.playing() && p.id() != setup.localPlayerId()) {
+						long at = engine.peerStep(f.slotOf(p.id()));
+						row.add(": at step ").add(at < 0 ? 0 : at);
+					} else {
+						row.add(": ready");
+					}
 					row.color(GCOLOR.T().IGOOD);
 				}
 				default -> throw new IllegalStateException("SOSGSGMP: progress " + progress);
@@ -176,8 +188,12 @@ final class MpSessionPanel extends Interrupter {
 			status.add(setup.closedReason());
 		else if (mismatch)
 			status.add("A player's world differs from the host's, so the game can't start. Leave, and start a new setup.");
+		else if (setup.playing() && engine.desyncStep() >= 0)
+			status.add("The worlds differ from step ").add(engine.desyncStep()).add(" on: a desync. (The desync window and resync are a later card.)");
+		else if (setup.playing())
+			status.add("Playing: step ").add(engine.step()).add(", speed ").add(engine.agreedSpeed(), 1).add("x. The slowest PC sets the pace.");
 		else if (f.started())
-			status.add("Every player has placed their landing party: the game starts. (Running it over the network is the next card, SOS-57.)");
+			status.add("Every player has placed their landing party: the game starts.");
 		else if (loading > 0)
 			status.add("Waiting for ").add(loading).add(loading == 1 ? " player" : " players").add(" to load the world.");
 		else if (!landed)

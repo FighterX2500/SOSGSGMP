@@ -3,8 +3,10 @@ package menu;
 import java.nio.file.Path;
 import java.util.List;
 
+import game.GAME;
 import game.save.GameLoader;
 import snake2d.CORE_STATE;
+import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.session.SetupSession;
@@ -16,7 +18,7 @@ import sosgsgmp.setup.FactionStep;
  * GameLoader runs inside an engine session started as SOSDET's rig starts an own-city run, so every PC loads the same
  * world; the session holds at step 0. Then every PC's human is set (PC number = slot), a joining PC makes its own city
  * at its capital (the save holds the host's), and this PC reports its world hash. The session reaches the loaded game
- * through this object and the panel it shows, never through a static.
+ * through this object, the panel it shows and the per-frame {@link MpPlay}, never through a static.
  */
 public final class MpWorldLoad implements CORE_STATE.Constructor {
 
@@ -48,7 +50,9 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 		}
 		game.openLanding();
 		setup.worldLoaded(game.worldHash());
-		MpSessionPanel.show(setup, game);
+		EnginePlay engine = new EnginePlay();
+		GAME.addAfterUpdate(new MpPlay(setup, engine));
+		MpSessionPanel.show(setup, game, engine);
 		return view;
 	}
 
