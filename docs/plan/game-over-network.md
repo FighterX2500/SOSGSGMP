@@ -1,6 +1,6 @@
 # The game over the network (SOS-57)
 
-Status: building (owner, 2026-10-25: "Build SOS-57 now"). Walking skeleton step 5 ([walking-skeleton.md](walking-skeleton.md)); card [SOS-57](https://fighterx2500.atlassian.net/browse/SOS-57).
+Status: merged (SOSGSGMP PR #34); §9 to §11 merged with PRs #35 (desync window), #37 (battles) and #38 (playtest log). Walking skeleton step 5 ([walking-skeleton.md](walking-skeleton.md)); card [SOS-57](https://fighterx2500.atlassian.net/browse/SOS-57).
 
 SOS-56 ends with every PC holding the same world at step 0, each with its own city and landing party, and the host's `Go`. This card runs that world in lockstep over the lobby's connection. The engine has every part (SOSDET SOS-46, SOS-52, SOS-53); its rig carries the bytes through files ([Rig.java](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine/blob/main/rig/java/sosdet/rig/Rig.java) `afterFrame`). The mod carries the same bytes over TCP.
 
@@ -17,7 +17,7 @@ The connection is a star: a peer's reports and hashes go to the host, which feed
 
 ## 2. One message: `Stream`
 
-`Stream(kind, pc, offset, step, bytes)`, protocol 6. `kind` names the stream, `pc` the PC that made it, `offset` the stream's length before these bytes, `step` the sender's step when it sent them (for logs). The steps that changes apply at live inside the engine's bytes: the AI log stamps every entry, a report or hash names its step. That covers AGENTS.md's "carries the world tick it applies at".
+`Stream(kind, pc, offset, step, bytes)`, protocol 6 (protocol 9 since SOS-64). `kind` names the stream, `pc` the PC that made it, `offset` the stream's length before these bytes, `step` the sender's step when it sent them (for logs). The steps that changes apply at live inside the engine's bytes: the AI log stamps every entry, a report or hash names its step. That covers AGENTS.md's "carries the world tick it applies at".
 
 - **Exactly once.** The engine reads each stream as one byte sequence "in any pieces", so a piece seen twice would corrupt it. A receiver keeps each stream's length so far and drops bytes it already has; a gap (an offset past what it has) is a protocol error and drops the connection. A repeated message changes nothing (the card's unit test).
 - **Size.** Pieces of at most 48 KB, under the 64 KB message cap.
@@ -35,7 +35,7 @@ The engine does it: the host's speed buttons set the agreed speed, which goes th
 
 ## 5. The panel
 
-After `Go` the setup panel shows the step, the agreed speed and each player's step (`Engine.peerStep`), and a desync line if `Engine.desync()` reports one (the desync window and resync are their own card).
+After `Go` the setup panel shows the step, the agreed speed and each player's step (`Engine.peerStep`), and a desync line if `Engine.desync()` reports one (the desync window and resync came with SOS-59, §9).
 
 ## 6. Test: an autopilot and two PCs
 
@@ -57,7 +57,7 @@ Spec §11 World desyncs; the engine half is SOSDET SOS-53 (every PC holds at the
 
 - **Window:** `menu/MpDesync`, once per frame from `MpPlay`, shows vanilla's full-screen prompt on every PC while `Engine.desyncHold()` is set, naming the player whose world differs (the hold's PC is a slot). The host gets Resync and Save and exit; the others read "waiting for the host". Clicked away, it comes back while the hold lasts.
 - **Resync:** at the hold step the host runs `Engine.worldResyncSave`; the engine's state and the world save travel as one transfer of `Resync` pieces (protocol 7, transfer ID, a repeated piece changes nothing; `WorldResync` frames the bytes). Every PC, the host too, loads it with `Engine.worldResyncLoad` once its engine stands at that step, then runs on (`Engine.runFreely`).
-- **Save and exit:** the host sends `DesyncExit`; every PC saves its game into vanilla's saves list ("Multiplayer step N"), leaves the session, ends the engine and offers the main menu. Resuming such a save as a campaign is Load Saved Lobby, a later card.
+- **Save and exit:** the host sends `DesyncExit`; every PC saves its game into vanilla's saves list ("Multiplayer step N"), leaves the session, ends the engine and offers the main menu. Such a save can't be resumed as a campaign: it has no campaign record, and its worlds differ. Load Saved Lobby (SOS-64) resumes from the last campaign save; the window says so.
 - **Test:** the autopilot's `corrupt=STEP` breaks the joiner's world as SOSDET's rig `wcorrupt` does; `ondesync=resync|exit` is the host's choice; `tools/twopc.py --corrupt 1800 --on-desync resync|exit`. Runs D2 (resync: held at 1,889 1.2 s after the corruption, resynced within 1 s, 7 identical hashes after) and D3b/D3c (both PCs saved at the hold step).
 
 ## 10. Battles (SOS-62)

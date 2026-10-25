@@ -1,8 +1,8 @@
 # Setup: factions, starting locations and the world
 
-Card: [SOS-56](https://fighterx2500.atlassian.net/browse/SOS-56) (walking skeleton step 4b) · Date: 2026-10-25 · Status: approved by the owner (2026-10-25); M1 to M4 built, changes from the draft in §10 · Spec: §5 Factions and starting locations, §5 World rules
+Card: [SOS-56](https://fighterx2500.atlassian.net/browse/SOS-56) (walking skeleton step 4b) · Date: 2026-10-25 · Status: merged (SOSGSGMP PR #33); changes from the draft in §10 · Spec: §5 Factions and starting locations, §5 World rules
 
-Game paths are relative to `<game>/info/SongsOfSyx-sources/`. All findings come from reading the V71 source and the engine's SOS-55 code; nothing here has been run yet. It builds on the map step ([setup-map-step.md](setup-map-step.md), SOS-54, draft PR #32) and on SOSDET's `Engine.buildWorld` (SOS-55, merged).
+Game paths are relative to `<game>/info/SongsOfSyx-sources/`. All findings come from reading the V71 source and the engine's SOS-55 code; written before the build, which has since run on two PCs. It builds on the map step ([setup-map-step.md](setup-map-step.md), SOS-54, PR #32) and on SOSDET's `Engine.buildWorld` (SOS-55, merged).
 
 ## 1. Goal
 
@@ -103,7 +103,7 @@ Every decode checks its ranges (count 1–16, index < count, location in the map
 
 1. **Difficulty on spare Players.** Vanilla sets the mode on the one player before the game (`menu/ScRandom`: `bonusesCustom.setMode`) and applies it when the landing party is placed (`SettViewStart.java:87`). The plan sets the lobby's mode on every human before the save, and each PC applies its own human's at its landing. Before coding, the engine has to confirm that applying it changes nothing the world reads (otherwise it must apply for every human at the same step); this is checked in milestone M1.
 2. **ESC and quickload during setup** stay a known gap, as in the map step.
-3. **The host leaves after the world is built:** every PC returns to the menu with "The host closed the game." Resuming needs campaign saves (spec §11), a later card.
+3. **The host leaves after the world is built:** every PC returns to the menu with "The host closed the game." Resuming needs campaign saves (spec §11): SOS-64, PR #39.
 4. **Load time on the laptop:** a 3 MB save loads in a few seconds; the host waits for every `Loaded` with no timeout in v1, and shows who it is waiting for.
 
 ## 9. Milestones

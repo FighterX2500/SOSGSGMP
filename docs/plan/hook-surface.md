@@ -180,7 +180,7 @@ Scripts are loaded from jars on the mod classpath (`init/paths/PATHS.SCRIPT().mo
 
 | ID | Game location | Multiplayer needs | Route | Why not API or reflection |
 | --- | --- | --- | --- | --- |
-| V1 | `Proccesser.exec(...)`, `GameLoader` | Open a received city snapshot in a second, read-only game process. | **API** to launch; **reflection or hook** in the viewer process to block input and simulation | Covered by spike 4.3 (two processes, RAM use). |
+| V1 | `Proccesser.exec(...)`, `GameLoader` | Open a received city snapshot in a second, read-only game process. | **API** to launch; **reflection or hook** in the viewer process to block input and simulation | Covered by spike 4.3 (two processes, RAM use). Superseded: viewing is lockstep (ADR 0006), no second process. |
 
 ## 5. Areas with nothing to hook
 
