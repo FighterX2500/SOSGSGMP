@@ -46,6 +46,7 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 			FactionPick own = ownPick(f);
 			game.ownCity(own.x(), own.y());
 		}
+		game.openLanding();
 		setup.worldLoaded(game.worldHash());
 		MpSessionPanel.show(setup, game);
 		return view;

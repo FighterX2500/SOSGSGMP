@@ -29,6 +29,7 @@ final class MpLocationStage {
 
 	private static final CharSequence TITLE = "Place Capital";
 	private static final int HALF = WCentre.TILE_DIM / 2;
+	private static final CharSequence LOCKED = "The world is being initialized: locations can't change.";
 
 	private MpLocationStage() {
 	}
@@ -37,6 +38,7 @@ final class MpLocationStage {
 		WorldViewGenerator g = f.g;
 		g.reset();
 		g.minimap.show();
+		f.onLocation = true;
 
 		GuiSection side = f.side(new GButt.ButtPanel("back") {
 			@Override
@@ -103,6 +105,8 @@ final class MpLocationStage {
 
 		@Override
 		public CharSequence placableWhole(int tx1, int ty1) {
+			if (f.locked())
+				return LOCKED;
 			int cx = tx1 + HALF;
 			int cy = ty1 + HALF;
 			if (cx != checkedX || cy != checkedY || f.setup.changes() != checkedChanges) {

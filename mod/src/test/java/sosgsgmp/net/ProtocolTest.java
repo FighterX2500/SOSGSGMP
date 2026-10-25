@@ -48,6 +48,8 @@ class ProtocolTest {
             new Message.WorldPlayers(1, List.of(new FactionStep.PlayerProgress(0, FactionStep.Progress.READY),
                 new FactionStep.PlayerProgress(7, FactionStep.Progress.MISMATCH))),
             new Message.Go(Integer.MAX_VALUE),
+            new Message.Cursor(7, true, -3, Integer.MAX_VALUE),
+            new Message.Cursor(0, false, 0, 0),
             new Message.MapResult(3, -1L, MapStatus.OK),
             new Message.MapResult(4, 0L, MapStatus.WRONG_BUILD),
             new Message.MapConfirm(3, Long.MIN_VALUE),

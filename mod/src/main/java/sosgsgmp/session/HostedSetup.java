@@ -44,6 +44,7 @@ public final class HostedSetup implements SetupSession {
     private List<FactionStep.PlayerProgress> sentProgress = List.of();
     /** The world this PC built, until it takes it to load; null otherwise. */
     private byte[] save;
+    private final Cursors cursors = new Cursors();
     private boolean closed;
     private String closedReason;
     private int changes;
@@ -101,6 +102,13 @@ public final class HostedSetup implements SetupSession {
                     goWhenReady();
                 }
             }
+            case Message.Cursor c when id != null -> {
+                cursors.set(id, c.onMap(), c.x(), c.y());
+                Message relayed = new Message.Cursor(id, c.onMap(), c.x(), c.y());
+                for (Map.Entry<Integer, Integer> p : joined.entrySet())
+                    if (p.getKey() != peer)
+                        node.send(p.getKey(), relayed);
+            }
             case Message.Leave l when id != null -> {
                 node.disconnect(peer);
                 removeJoined(peer);
@@ -127,6 +135,7 @@ public final class HostedSetup implements SetupSession {
             return;
         }
         players.removeIf(p -> p.id() == id);
+        cursors.removePlayer(id);
         step.remove(id);
         sendAll(new Message.Roster(players));
         changed();
@@ -186,6 +195,17 @@ public final class HostedSetup implements SetupSession {
     private void sendAll(Message m) {
         for (int peer : joined.keySet())
             node.send(peer, m);
+    }
+
+    @Override
+    public void cursor(boolean onMap, int x, int y) {
+        if (!closed && cursors.own(onMap, x, y, System.nanoTime()))
+            sendAll(new Message.Cursor(localPlayerId(), onMap, x, y));
+    }
+
+    @Override
+    public Cursors cursors() {
+        return cursors;
     }
 
     @Override

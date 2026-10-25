@@ -38,6 +38,7 @@ final class MpSessionPanel extends Interrupter {
 	private final SetupSession setup;
 	private final WorldSetupAdapter game;
 	private final GuiSection section = new GuiSection();
+	private final MpCursors cursors;
 	private final GText[] rows = new GText[LobbySettings.MAX_PLAYERS];
 	private int shownRows;
 	private final GText status = new GText(UI.FONT().M, 256);
@@ -54,6 +55,7 @@ final class MpSessionPanel extends Interrupter {
 		super(true, true, false);
 		this.setup = setup;
 		this.game = game;
+		this.cursors = new MpCursors(setup);
 		for (int i = 0; i < rows.length; i++)
 			rows[i] = new GText(UI.FONT().M, 96);
 		int rowH = UI.FONT().M.height() + 2;
@@ -105,6 +107,8 @@ final class MpSessionPanel extends Interrupter {
 	@Override
 	protected boolean render(Renderer r, float ds) {
 		pump();
+		if (!leaving && VIEW.world().isActive())
+			cursors.render(r, VIEW.world().window);
 		section.render(r, ds);
 		return true;
 	}
@@ -123,6 +127,7 @@ final class MpSessionPanel extends Interrupter {
 		if (leaving)
 			return;
 		setup.update();
+		cursors.send(VIEW.world().window, VIEW.world().isActive());
 		if (!landed && !setup.closed() && game.landed()) {
 			landed = true;
 			setup.startSpot();

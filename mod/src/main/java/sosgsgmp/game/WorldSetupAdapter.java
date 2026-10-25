@@ -152,6 +152,17 @@ public final class WorldSetupAdapter implements FactionWorld {
         Engine.ownCityAt(x, y);
     }
 
+    /**
+     * Opens vanilla's landing view while this PC's city has no people, as a new game starts in it. A city's generation
+     * opens it ({@code SETT.CreateFromWorldMap} clears the city view), so a joiner's own city has it; a loaded save
+     * opens it too ({@code SettView}'s loader), but the save's first view, the world, replaces it, so the host's city
+     * didn't (owner's playtest, 2026-10-25). Until the landing the game can't start.
+     */
+    public void openLanding() {
+        if (POP.tot() == 0)
+            VIEW.s().clear();
+    }
+
     /** This PC's landing party is placed: its city has people, as vanilla's landing view checks (SettViewStart). */
     public boolean landed() {
         return POP.tot() > 0;

@@ -85,6 +85,15 @@ public interface SetupSession {
      */
     void startSpot();
 
+    /**
+     * This PC's cursor: on the world map at world pixel {@code x, y}, or off it. Call every frame; it goes out only when
+     * it changed, at most 10 times a second ({@link Cursors}).
+     */
+    void cursor(boolean onMap, int x, int y);
+
+    /** The other players' cursors on the world map, for reading. */
+    Cursors cursors();
+
     /** Leaves the setup (the host closes it for everyone) and frees the connection. */
     void leave();
 

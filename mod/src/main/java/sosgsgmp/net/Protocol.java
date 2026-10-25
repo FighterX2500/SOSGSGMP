@@ -27,7 +27,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 4;
+    public static final int VERSION = 5;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -36,6 +36,7 @@ public final class Protocol {
     private static final int MAP_BUILD = 7, BUILD_READY = 8, MAP_GENERATE = 9, MAP_RESULT = 10, MAP_CONFIRM = 11, MAP_PLAYERS = 12;
     private static final int MAP_TERRAIN = 13;
     private static final int PICK = 14, PICKS = 15, SLOT_MAP = 16, WORLD_PART = 17, LOADED = 18, START_SPOT = 19, GO = 20, WORLD_PLAYERS = 21;
+    private static final int CURSOR = 22;
     /** Longest reason a location was cleared, in characters. */
     private static final int MAX_REASON = 256;
 
@@ -162,6 +163,13 @@ public final class Protocol {
                     out.writeByte(GO);
                     out.writeInt(g.transfer());
                 }
+                case Message.Cursor c -> {
+                    out.writeByte(CURSOR);
+                    out.writeInt(c.playerId());
+                    out.writeBoolean(c.onMap());
+                    out.writeInt(c.x());
+                    out.writeInt(c.y());
+                }
                 case Message.Unsupported u -> throw new IllegalArgumentException("SOSGSGMP: can't send a message of protocol version " + u.version());
             }
         } catch (IOException e) {
@@ -207,6 +215,7 @@ public final class Protocol {
             case START_SPOT -> new Message.StartSpot(number(in, "transfer"));
             case WORLD_PLAYERS -> worldPlayers(in);
             case GO -> new Message.Go(number(in, "transfer"));
+            case CURSOR -> new Message.Cursor(playerId(in), in.readBoolean(), in.readInt(), in.readInt());
             default -> throw new IOException("SOSGSGMP: unknown message type " + type);
         };
         if (in.available() > 0)

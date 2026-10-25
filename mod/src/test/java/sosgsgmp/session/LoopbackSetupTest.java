@@ -477,6 +477,31 @@ class LoopbackSetupTest {
     }
 
     @Test
+    void aCursorReachesEveryOtherPcAndGoesWhenItsPlayerLeaves() throws Exception {
+        confirmMap();
+        bob.cursor(true, 120, 340);
+        until("Bob's cursor on the host and on Cid's PC", () -> at(host, 1, 120, 340) && at(cid, 1, 120, 340));
+        assertEquals(0, bob.cursors().count(), "a PC doesn't see its own");
+        host.cursor(true, 5, 6);
+        until("Ann's cursor on Bob's PC", () -> at(bob, 0, 5, 6));
+        bob.cursor(false, 0, 0);
+        until("Bob's cursor off the map on Cid's PC", () -> cid.cursors().count() == 1);
+        cid.cursor(true, 1, 1);
+        until("Cid's cursor on the host", () -> at(host, 2, 1, 1));
+        cid.leave();
+        until("Cid's cursor gone with Cid", () -> host.cursors().count() == 0 && bob.players().size() == 2 && !at(bob, 2, 1, 1));
+    }
+
+    /** Whether {@code s} shows player {@code id}'s cursor at {@code x, y}. */
+    private static boolean at(SetupSession s, int id, int x, int y) {
+        Cursors c = s.cursors();
+        for (int i = 0; i < c.count(); i++)
+            if (c.playerId(i) == id)
+                return c.x(i) == x && c.y(i) == y;
+        return false;
+    }
+
+    @Test
     void aPlayerLeavingUnblocksConfirmAndLeavesEveryRoster() throws Exception {
         startSetup();
         cidWorld.offset = 1;

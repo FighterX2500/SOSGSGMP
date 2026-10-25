@@ -159,6 +159,12 @@ public sealed interface Message {
     /** Host to every joined PC: every PC loaded the same world and placed its landing party; the game starts. */
     record Go(int transfer) implements Message {}
 
+    /**
+     * A player's cursor on the world map, at world pixel {@code x, y}, or off it. Joining PC to host (its own id), and
+     * host to every other PC. Only shown, never an action, so it carries no tick (spec §5 "Other players' cursors").
+     */
+    record Cursor(int playerId, boolean onMap, int x, int y) implements Message {}
+
     /** A message from another protocol version; only its version is read. */
     record Unsupported(int version) implements Message {}
 }

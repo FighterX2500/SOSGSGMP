@@ -98,9 +98,12 @@ final class MpFactionStage {
 	/** Shows {@code content} with the players' side to its right, in the generator's centred panel. */
 	private static void show(MpFactions f, GuiSection content, CharSequence title, GButt.ButtPanel back, GButt.ButtPanel next) {
 		f.g.reset();
-		content.addRelBody(32, DIR.E, f.side(back, next));
-		content.pad(8, 8);
-		f.g.dummy.add(content, title);
+		f.onLocation = false;
+		GuiSection all = new GuiSection();
+		all.add(f.locking(content));
+		all.addRelBody(32, DIR.E, f.side(back, next));
+		all.pad(8, 8);
+		f.g.dummy.add(all, title);
 	}
 
 	private static CLICKABLE raceButton(Race r) {

@@ -5,11 +5,13 @@ import java.util.List;
 import init.race.RACES;
 import init.race.Race;
 import init.sprite.UI.UI;
+import menu.MpCursors;
 import menu.MpSetupLeave;
 import menu.MpWorldLoad;
 import snake2d.CORE;
 import snake2d.SPRITE_RENDERER;
 import snake2d.util.color.COLOR;
+import snake2d.util.color.OPACITY;
 import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.renderable.RENDEROBJ;
 import sosgsgmp.game.WorldSetupAdapter;
@@ -44,6 +46,9 @@ final class MpFactions {
 	final WorldViewGenerator g;
 	final SetupSession setup;
 	private final WorldSetupAdapter game = new WorldSetupAdapter();
+	private final MpCursors cursors;
+	/** The location screen shows: the map is the players' shared view, with their cursors. */
+	boolean onLocation;
 
 	private int shownChanges = -1;
 	private double sincePickCheck;
@@ -68,6 +73,7 @@ final class MpFactions {
 	private MpFactions(WorldViewGenerator g, SetupSession setup) {
 		this.g = g;
 		this.setup = setup;
+		this.cursors = new MpCursors(setup);
 		for (int i = 0; i < rows.length; i++) {
 			rows[i] = new GText(UI.FONT().M, 128);
 			otherNames[i] = new GText(UI.FONT().S, FactionPick.MAX_NAME);
@@ -94,6 +100,8 @@ final class MpFactions {
 			public void render(SPRITE_RENDERER r, float ds) {
 				pump(ds);
 				super.render(r, ds);
+				if (onLocation && !leaving)
+					cursors.render(r, g.window);
 			}
 		};
 		int rowH = UI.FONT().M.height() + 2;
@@ -119,7 +127,7 @@ final class MpFactions {
 		if (next != null)
 			buttons.addRightC(16, next);
 		if (setup.isHost()) {
-			buttons.addRightC(16, new GButt.ButtPanel("initialize world") {
+			buttons.addRightC(buttons.elements().isEmpty() ? 0 : 16, new GButt.ButtPanel("initialize world") {
 				@Override
 				protected void clickA() {
 					setup.initialize();
@@ -131,8 +139,42 @@ final class MpFactions {
 				}
 			});
 		}
-		buttons.addRightC(16, MpSetupLeave.button(setup, () -> leaving = true));
-		s.addDown(12, buttons);
+		GuiSection row = new GuiSection();
+		if (!buttons.elements().isEmpty())
+			row.addRightC(0, locking(buttons));
+		// Leave stays: a transfer that never ends must not trap a player
+		row.addRightC(row.elements().isEmpty() ? 0 : 16, MpSetupLeave.button(setup, () -> leaving = true));
+		s.addDown(12, row);
+		return s;
+	}
+
+	/** From Initialize World until this PC leaves for the load, the picks can't change: every button but Leave is locked. */
+	boolean locked() {
+		return !setup.closed() && setup.factions().initialized();
+	}
+
+	/** {@code content}, greyed and taking no clicks while {@link #locked()}. */
+	GuiSection locking(GuiSection content) {
+		GuiSection s = new GuiSection() {
+			@Override
+			public boolean click() {
+				return !locked() && super.click();
+			}
+
+			@Override
+			public void render(SPRITE_RENDERER r, float ds) {
+				boolean l = locked();
+				if (l)
+					activeSet(false); // vanilla's buttons grey themselves; the shade covers the rest (names, banner)
+				super.render(r, ds);
+				if (l) {
+					OPACITY.O50.bind();
+					COLOR.BLACK.render(r, body().x1(), body().x2(), body().y1(), body().y2());
+					OPACITY.unbind();
+				}
+			}
+		};
+		s.add(content);
 		return s;
 	}
 
@@ -167,6 +209,7 @@ final class MpFactions {
 			CORE.setCurrentState(new MpWorldLoad(setup, world));
 			return;
 		}
+		cursors.send(g.window, onLocation);
 		sincePickCheck += ds;
 		if (sincePickCheck >= PICK_CHECK_SECONDS) {
 			sincePickCheck = 0;

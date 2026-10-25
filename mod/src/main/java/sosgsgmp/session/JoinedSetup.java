@@ -32,6 +32,7 @@ public final class JoinedSetup implements SetupSession {
     private final Pieces.Receiver worldParts = new Pieces.Receiver();
     /** The host's world once all its pieces are here, until this PC takes it to load; null otherwise. */
     private byte[] save;
+    private final Cursors cursors = new Cursors();
     private boolean closed;
     private String closedReason;
     private int changes;
@@ -100,7 +101,14 @@ public final class JoinedSetup implements SetupSession {
             case Message.WorldPlayers p when factions != null -> factions.onProgress(p.transfer(), p.players());
             case Message.Go g when factions != null -> factions.onGo(g.transfer());
             case Message.MapPlayers p -> step.onPlayers(p.buildId(), p.genId(), p.players());
-            case Message.Roster r -> players = r.players();
+            case Message.Roster r -> {
+                players = r.players();
+                cursors.retain(players);
+            }
+            case Message.Cursor c -> {
+                if (c.playerId() != localPlayerId())
+                    cursors.set(c.playerId(), c.onMap(), c.x(), c.y());
+            }
             case Message.Leave l -> close("The host closed the game.");
             case Message.Unsupported u -> close("The host runs another version of the mod (protocol " + u.version() + ").");
             default -> close("The host sent a message that doesn't belong in the setup.");
@@ -128,6 +136,17 @@ public final class JoinedSetup implements SetupSession {
         closed = true;
         closedReason = reason;
         changes++;
+    }
+
+    @Override
+    public void cursor(boolean onMap, int x, int y) {
+        if (!closed && cursors.own(onMap, x, y, System.nanoTime()))
+            node.send(TcpNode.HOST, new Message.Cursor(localPlayerId(), onMap, x, y));
+    }
+
+    @Override
+    public Cursors cursors() {
+        return cursors;
     }
 
     @Override
