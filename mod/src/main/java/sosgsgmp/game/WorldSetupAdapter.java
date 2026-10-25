@@ -52,9 +52,10 @@ public final class WorldSetupAdapter implements FactionWorld {
     }
 
     /**
-     * The engine builds the world as vanilla's capital and finish stages do, with every human's capital (SOSDET SOS-55).
-     * The lobby's difficulty goes on the host's Player only: its boosters count for every Player (setup-factions-step.md
-     * §10). The game saves to a temporary folder; the bytes are the save as the game wrote it, already compressed.
+     * The engine builds the world as vanilla's capital and finish stages do, with every human's capital (SOSDET SOS-55),
+     * the humans in slots 0 to N-1. The lobby's difficulty goes on every human's Player: with the engine, a difficulty
+     * booster counts only for its own Player (SOSDET patch 15). The game saves to a temporary folder; the bytes are the
+     * save as the game wrote it, already compressed.
      */
     @Override
     public byte[] buildWorld(List<FactionPick> humans, String difficulty) {
@@ -66,7 +67,11 @@ public final class WorldSetupAdapter implements FactionWorld {
             starts[i] = new HumanStart(p.race(), p.name(), p.banner(), p.x(), p.y());
         }
         Engine.buildWorld(starts);
-        FACTIONS.player().bonusesCustom.setMode(difficulty);
+        for (int slot = 0; slot < starts.length; slot++) {
+            if (!(FACTIONS.getByIndex(slot) instanceof Player p))
+                throw new IllegalStateException("SOSGSGMP: slot " + slot + " isn't a human after the world build: " + FACTIONS.getByIndex(slot));
+            p.bonusesCustom.setMode(difficulty);
+        }
         // As vanilla's StageFinish before its save: the save records the current view, and the generator's isn't one,
         // so a save taken in it would load into a new world generator (VIEW.setFirstView).
         WORLD.FOW().toggled.set(true);
@@ -141,7 +146,7 @@ public final class WorldSetupAdapter implements FactionWorld {
     /**
      * A joining PC's own city at its capital: the save holds the host's city, and each PC runs only its own (own-city
      * mode, ADR 0005). The engine makes it as vanilla's StageFinish does, keeping the world state the city's generation
-     * would change on this PC only (SOSDET Engine.ownCityAt).
+     * would change on this PC only (SOSDET Engine.ownCityAt, hook 18; the landing view's Regenerate goes through it too).
      */
     public void ownCity(int x, int y) {
         Engine.ownCityAt(x, y);
