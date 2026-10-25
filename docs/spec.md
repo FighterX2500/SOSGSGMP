@@ -230,6 +230,7 @@ Players talk through an in-game chat.
 
 - **Event notifications** appear in the chat or event log, for example when war is declared or a siege starts.
 - **Prompts that need an answer**, such as a battle invite, appear as popups in the vanilla style.
+- **Other players' cursors.** Every player sees the other players' mouse cursors, each marked with that player's name and color: on the world map, every other player's cursor that is on the world map too; in a city, the cursor of every other player looking at the same city (its owner and its viewers, section 10). A cursor is only shown, never an action.
 
 ## 13. Performance targets
 
@@ -372,6 +373,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - Chat messages reach every player, spectators included, within 2 seconds. [PT]
 - War declarations and siege starts appear as notifications for every player. [PT]
 - Battle invites appear as vanilla-style popups. [PT]
+- On the world map every player sees the other players' cursors, with their names, where they point. In a viewed city, the owner and the viewer see each other's cursors. [PT]
 
 ### Performance
 
