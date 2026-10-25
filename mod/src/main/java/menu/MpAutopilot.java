@@ -270,8 +270,9 @@ public final class MpAutopilot {
 	 * host's choice in the desync window; at the end, quit.
 	 */
 	void game(SetupSession setup, EnginePlay engine, MpDesync desync, MpSaves saves) {
-		if (desync.saved() != null && first("desyncexit")) {
-			event("desyncexit", "\"file\":\"" + clean(desync.saved()) + "\",\"step\":" + setup.exitStep()); // the engine has ended
+		if (desync.exitOutcome() != null && first("desyncexit")) {
+			// the engine has ended
+			event("desyncexit", "\"outcome\":\"" + clean(desync.exitOutcome()) + "\",\"resynced\":" + desync.resyncedStep());
 			CORE.annihilate();
 			return;
 		}

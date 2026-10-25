@@ -29,7 +29,7 @@ final class MpPlay implements ACTION {
 	MpPlay(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpLog log, MpSaves saves) {
 		this.setup = setup;
 		this.engine = engine;
-		this.desync = new MpDesync(setup, engine, game);
+		this.desync = new MpDesync(setup, engine, game, saves);
 		this.log = log;
 		this.saves = saves;
 	}

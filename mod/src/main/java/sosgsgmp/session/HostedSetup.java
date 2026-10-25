@@ -64,7 +64,6 @@ public final class HostedSetup implements SetupSession {
     private int resyncTransfer;
     /** The world resync this PC sent, until it takes it to load; null otherwise. */
     private WorldResync resync;
-    private long exitStep = -1;
     private boolean closed;
     private String closedReason;
     private int changes;
@@ -307,20 +306,6 @@ public final class HostedSetup implements SetupSession {
         WorldResync r = resync;
         resync = null;
         return r;
-    }
-
-    @Override
-    public void desyncExit(long step) {
-        if (link == null || closed)
-            throw new IllegalStateException("SOSGSGMP: save and exit outside the game");
-        exitStep = step;
-        sendAll(new Message.DesyncExit(step));
-        changes++;
-    }
-
-    @Override
-    public long exitStep() {
-        return exitStep;
     }
 
     @Override

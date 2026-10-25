@@ -35,6 +35,8 @@ final class MpSaves {
 	/** The latest save's outcome for the panel; empty before the first. */
 	private String status = "";
 	private int changes;
+	/** After a save that ends the session (SaveOrder.exit): its outcome once done here, empty when every PC saved; null before. */
+	private String exited;
 	/** Host: real milliseconds played since the last save, as vanilla's autosave counts them. */
 	private long autoMillis;
 	private long autoLast = -1;
@@ -52,8 +54,14 @@ final class MpSaves {
 	}
 
 	void frame() {
-		if (!setup.playing() || setup.closed() || !engine.active())
+		if (!setup.playing() || !engine.active())
 			return;
+		if (setup.closed()) {
+			// the host ends the session once a save that ends it is done; a PC that saved but missed the done ends too
+			if (order != null && order.exit() && savedHere)
+				finish("the session closed before the host confirmed every player's save");
+			return;
+		}
 		SaveOrder o = setup.takeSaveOrder();
 		if (o != null)
 			begin(o);
@@ -80,11 +88,20 @@ final class MpSaves {
 
 	/** Host: orders save of {@code kind} on every PC. Check {@link #canSave()} first. */
 	void saveNow(CampaignRecord.Kind kind) {
+		order(kind, false);
+	}
+
+	/** Host: a desync's Save and exit, after the resync: every PC saves the campaign, then the session ends. Check {@link #canSave()} first. */
+	void saveAndExit() {
+		order(CampaignRecord.Kind.SAVE, true);
+	}
+
+	private void order(CampaignRecord.Kind kind, boolean exit) {
 		if (!canSave())
 			throw new IllegalStateException("SOSGSGMP: a campaign save can't start now");
 		Campaign c = setup.campaign();
 		int keep = kind == CampaignRecord.Kind.AUTO ? Math.max(1, S.get().autoSaveFiles.get()) : 0;
-		setup.orderSave(new SaveOrder(store.nextNumber(c.id()), engine.step() + LEAD, kind, keep, c));
+		setup.orderSave(new SaveOrder(store.nextNumber(c.id()), engine.step() + LEAD, kind, keep, c, exit));
 		autoMillis = 0;
 	}
 
@@ -147,6 +164,8 @@ final class MpSaves {
 		engine.runFreely();
 		status = outcome.isEmpty() ? "Campaign saved (save " + order.number() + ")." : "Save " + order.number() + ": " + outcome;
 		log.line("save " + order.number() + " done on every PC" + (outcome.isEmpty() ? "" : ": " + outcome));
+		if (order.exit())
+			exited = outcome;
 		order = null;
 		savedHere = false;
 		changes++;
@@ -156,6 +175,16 @@ final class MpSaves {
 	private static String label(SaveOrder o) {
 		String name = o.campaign().name().replaceAll("[^A-Za-z0-9 ]", "");
 		return "MP " + name + (o.kind() == CampaignRecord.Kind.AUTO ? " Auto" : "");
+	}
+
+	/** Whether a save that ends the session is under way: ordered, not yet done. */
+	boolean exiting() {
+		return order != null && order.exit();
+	}
+
+	/** After a save that ended the session: its outcome, empty when every PC saved the same world; null before. */
+	String exited() {
+		return exited;
 	}
 
 	/** What the panel shows: a save under way, or the latest outcome. */

@@ -14,7 +14,7 @@ import sosgsgmp.campaign.SaveOrder;
 
 class SaveRoundTest {
 
-    private static final SaveOrder ORDER = new SaveOrder(4, 1260, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS);
+    private static final SaveOrder ORDER = new SaveOrder(4, 1260, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, false);
 
     @Test
     void completeWhenEveryPcReportedOnce() {
