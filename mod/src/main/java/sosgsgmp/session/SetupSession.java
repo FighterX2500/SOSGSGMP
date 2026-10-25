@@ -2,6 +2,8 @@ package sosgsgmp.session;
 
 import java.util.List;
 
+import sosgsgmp.campaign.Campaign;
+import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep;
@@ -132,6 +134,24 @@ public interface SetupSession {
 
     /** Why the session closed; null while it isn't closed. */
     String closedReason();
+
+    /**
+     * The campaign this session plays (spec §11, SOS-64): a resume's, or a new game's once the host initialized the
+     * world; a joining PC of a new game learns it from the host's first save order. Null before.
+     */
+    Campaign campaign();
+
+    /** Host: every PC, this one too, saves the campaign at the order's step; this PC takes it back with {@link #takeSaveOrder}. */
+    void orderSave(SaveOrder order);
+
+    /** The host's latest save order, once; null otherwise. */
+    SaveOrder takeSaveOrder();
+
+    /** This PC saved for order {@code number} with world hash {@code hash}, or couldn't: {@code problem}, null when it saved. */
+    void saved(int number, long hash, String problem);
+
+    /** Once every PC reported on order {@code number}: empty, or what went wrong; given once, null before. */
+    String takeSaveDone(int number);
 
     /** What carries the session's connections, for the playtest log. */
     String network();

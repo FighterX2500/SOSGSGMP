@@ -85,6 +85,21 @@ public final class FactionStep {
         return step;
     }
 
+    /**
+     * The host's side of a resumed campaign (SOS-64): every player already has the slot the campaign gave them, and the
+     * world is "initialized" (transfer 1); each PC loads its own save, and the game starts as a new one does once every
+     * PC loaded the same world and reported its start spot. {@code slots}: player id to slot, the host's among them.
+     */
+    public static FactionStep resumed(int hostId, Map<Integer, Integer> slots) {
+        if (!slots.containsKey(hostId) || slots.size() < 2)
+            throw new IllegalArgumentException("SOSGSGMP: a resume of slots " + slots + " by host " + hostId);
+        FactionStep step = new FactionStep(true, hostId, null);
+        slots.entrySet().stream().sorted(Map.Entry.comparingByValue()).forEach(e -> step.order.add(e.getKey()));
+        step.slots.putAll(slots);
+        step.transfer = 1;
+        return step;
+    }
+
     /** A joining PC's side. */
     public static FactionStep joiner(int localId) {
         return new FactionStep(false, localId, null);

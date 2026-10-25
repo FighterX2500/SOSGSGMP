@@ -36,7 +36,7 @@ class LoopbackLobbyTest {
     }
 
     private HostedLobby host(int maxPlayers) throws IOException {
-        HostedLobby h = new HostedLobby(new LobbySettings("normal", maxPlayers), "Ann", 0);
+        HostedLobby h = new HostedLobby(new LobbySettings("normal", maxPlayers), "Ann", "Ann".hashCode(), 0);
         sessions.add(h);
         return h;
     }

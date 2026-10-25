@@ -10,6 +10,9 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import sosgsgmp.campaign.CampaignRecord;
+import sosgsgmp.campaign.CampaignStoreTest;
+import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.Refusal;
@@ -56,6 +59,13 @@ class ProtocolTest {
             new Message.Resync(Integer.MAX_VALUE, Long.MAX_VALUE, 2, 3, new byte[Pieces.PIECE_BYTES]),
             new Message.DesyncExit(0),
             new Message.DesyncExit(Long.MAX_VALUE),
+            new Message.Welcome(3, LobbySettings.resuming(new LobbySettings.Resume(CampaignStoreTest.CAMPAIGN_FOR_TESTS, 12))),
+            new Message.SaveAt(new SaveOrder(1, 0, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS)),
+            new Message.SaveAt(new SaveOrder(Integer.MAX_VALUE, Long.MAX_VALUE, CampaignRecord.Kind.AUTO, 10, CampaignStoreTest.CAMPAIGN_FOR_TESTS)),
+            new Message.Saved(2, Long.MIN_VALUE, ""),
+            new Message.Saved(2, 0, "past the save step"),
+            new Message.SaveDone(5, ""),
+            new Message.SaveDone(5, "Bob couldn't save: disk full\nCid's world differs from the host's"),
             new Message.MapResult(3, -1L, MapStatus.OK),
             new Message.MapResult(4, 0L, MapStatus.WRONG_BUILD),
             new Message.MapConfirm(3, Long.MIN_VALUE),

@@ -31,6 +31,11 @@ public final class LobbyPrefs {
     /** The host's last map size; one of the offered sizes. */
     public int mapSize = MapOptions.DEFAULT_SIZE;
     public long playerKey;
+    /**
+     * The key was made by this load, not read: it is who this player is in a campaign (SOS-64), so it must be saved
+     * before any lobby uses it. Not stored.
+     */
+    public boolean keyIsNew;
 
     private LobbyPrefs() {}
 
@@ -38,6 +43,7 @@ public final class LobbyPrefs {
     public static LobbyPrefs defaults() {
         LobbyPrefs p = new LobbyPrefs();
         p.playerKey = new SecureRandom().nextLong();
+        p.keyIsNew = true;
         return p;
     }
 
@@ -62,6 +68,7 @@ public final class LobbyPrefs {
         p.mapSize = MapOptions.isOfferedSize(size) ? size : MapOptions.DEFAULT_SIZE;
         String key = props.getProperty("playerKey");
         p.playerKey = key == null ? new SecureRandom().nextLong() : parseLong(key);
+        p.keyIsNew = key == null;
         return p;
     }
 

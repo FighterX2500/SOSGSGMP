@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
+import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.Refusal;
@@ -239,6 +240,15 @@ public sealed interface Message {
 
     /** Host to every joined PC, at a world desync: the host chose Save and exit at step {@code step}; every PC saves. */
     record DesyncExit(long step) implements Message {}
+
+    /** Host to every joined PC: save the campaign at the order's step (spec §11, SOS-64). */
+    record SaveAt(SaveOrder order) implements Message {}
+
+    /** A joined PC to the host: it saved order {@code number} with world hash {@code hash}, or couldn't ({@code problem}, empty when it did). */
+    record Saved(int number, long hash, String problem) implements Message {}
+
+    /** Host to every joined PC: every PC reported on order {@code number}; {@code outcome} is empty, or what went wrong. Play goes on. */
+    record SaveDone(int number, String outcome) implements Message {}
 
     /** A message from another protocol version; only its version is read. */
     record Unsupported(int version) implements Message {}

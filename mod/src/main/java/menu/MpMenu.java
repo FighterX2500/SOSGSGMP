@@ -36,6 +36,7 @@ final class MpMenu {
 	final MpScreenCreate create;
 	final MpScreenJoin join;
 	final MpScreenSteamJoin steamJoin;
+	final MpScreenResume resume;
 	final MpScreenLobby lobby;
 	/** Test tooling: the autopilot, or null in play. */
 	final MpAutopilot autopilot = MpAutopilot.fromEnv();
@@ -75,11 +76,14 @@ final class MpMenu {
 		this.menu = menu;
 		prefsFile = PATHS.local().PROFILE.get().resolve("SOSGSGMP-lobby.properties");
 		prefs = loadPrefs(prefsFile);
+		if (prefs.keyIsNew)
+			savePrefs(); // a joining PC may never press a button that saves: its key must outlive this game (SOS-64)
 		modes = new Modes(menu);
 		main = new MpScreenMain(this);
 		create = new MpScreenCreate(this);
 		join = new MpScreenJoin(this);
 		steamJoin = new MpScreenSteamJoin(this);
+		resume = new MpScreenResume(this);
 		lobby = new MpScreenLobby(this);
 	}
 
@@ -109,6 +113,7 @@ final class MpMenu {
 	private static void savePrefs(LobbyPrefs prefs, Path file) {
 		try {
 			prefs.save(file);
+			prefs.keyIsNew = false;
 		} catch (IOException e) {
 			LOG.err("SOSGSGMP: can't save " + file + ": " + e.getMessage());
 		}
@@ -118,6 +123,12 @@ final class MpMenu {
 	void openLobby(LobbySession session, SteamNode steam) {
 		lobby.open(session, steam);
 		menu.switchScreen(lobby);
+	}
+
+	/** Load Saved Lobby: this PC's campaign saves, listed afresh (SOS-64). */
+	void openResume() {
+		resume.open();
+		menu.switchScreen(resume);
 	}
 
 	void openSteamJoin() {

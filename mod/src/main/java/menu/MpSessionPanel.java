@@ -11,6 +11,7 @@ import snake2d.util.color.COLOR;
 import snake2d.util.datatypes.COORDINATE;
 import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.renderable.RENDEROBJ;
+import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbyPlayer;
@@ -19,6 +20,7 @@ import sosgsgmp.session.SetupSession;
 import sosgsgmp.setup.FactionStep;
 import util.colors.GCOLOR;
 import util.gui.misc.GBox;
+import util.gui.misc.GButt;
 import util.gui.misc.GHeader;
 import util.gui.misc.GText;
 import util.gui.panel.GPanel;
@@ -39,6 +41,8 @@ final class MpSessionPanel extends Interrupter {
 	private final SetupSession setup;
 	private final WorldSetupAdapter game;
 	private final EnginePlay engine;
+	private final MpSaves saves;
+	private int shownSaves = -1;
 	/** While playing, the status is rebuilt this often: the step and speed move every frame. */
 	private static final double PLAY_REFRESH_SECONDS = 0.5;
 	private double sinceRefresh;
@@ -57,15 +61,16 @@ final class MpSessionPanel extends Interrupter {
 	private boolean dragging;
 	private int grabX, grabY;
 
-	static void show(SetupSession setup, WorldSetupAdapter game, EnginePlay engine) {
-		new MpSessionPanel(setup, game, engine).show(VIEW.inters().manager);
+	static void show(SetupSession setup, WorldSetupAdapter game, EnginePlay engine, MpSaves saves) {
+		new MpSessionPanel(setup, game, engine, saves).show(VIEW.inters().manager);
 	}
 
-	private MpSessionPanel(SetupSession setup, WorldSetupAdapter game, EnginePlay engine) {
+	private MpSessionPanel(SetupSession setup, WorldSetupAdapter game, EnginePlay engine, MpSaves saves) {
 		super(true, true, false);
 		this.setup = setup;
 		this.game = game;
 		this.engine = engine;
+		this.saves = saves;
 		this.cursors = new MpCursors(setup);
 		for (int i = 0; i < rows.length; i++)
 			rows[i] = new GText(UI.FONT().M, 96);
@@ -86,6 +91,20 @@ final class MpSessionPanel extends Interrupter {
 				COLOR.unbind();
 			}
 		});
+		if (setup.isHost()) {
+			inner.addDown(8, new GButt.ButtPanel("save campaign") {
+				@Override
+				protected void clickA() {
+					if (saves.canSave())
+						saves.saveNow(CampaignRecord.Kind.SAVE);
+				}
+
+				@Override
+				protected void renAction() {
+					activeSet(saves.canSave());
+				}
+			});
+		}
 		inner.addDown(8, MpSetupLeave.button(setup, () -> {
 			leaving = true;
 			game.endSession();
@@ -165,12 +184,13 @@ final class MpSessionPanel extends Interrupter {
 			setup.startSpot();
 		}
 		sinceRefresh += ds;
-		if (setup.changes() != shownChanges || setup.playing() && sinceRefresh >= PLAY_REFRESH_SECONDS)
+		if (setup.changes() != shownChanges || saves.changes() != shownSaves || setup.playing() && sinceRefresh >= PLAY_REFRESH_SECONDS)
 			refresh();
 	}
 
 	private void refresh() {
 		shownChanges = setup.changes();
+		shownSaves = saves.changes();
 		sinceRefresh = 0;
 		FactionStep f = setup.factions();
 		List<LobbyPlayer> players = setup.players();
@@ -216,9 +236,12 @@ final class MpSessionPanel extends Interrupter {
 		else if (mismatch)
 			status.add("A player's world differs from the host's, so the game can't start. Leave, and start a new setup.");
 		else if (setup.playing() && engine.desyncStep() >= 0)
-			status.add("The worlds differ from step ").add(engine.desyncStep()).add(" on: a desync. (The desync window and resync are a later card.)");
-		else if (setup.playing())
+			status.add("The worlds differ from step ").add(engine.desyncStep()).add(" on: a desync. The host chooses Resync or Save and exit.");
+		else if (setup.playing()) {
 			status.add("Playing: step ").add(engine.step()).add(", speed ").add(engine.agreedSpeed(), 1).add("x. The slowest PC sets the pace.");
+			if (!saves.status().isEmpty())
+				status.add(" ").add(saves.status());
+		}
 		else if (f.started())
 			status.add("Every player has placed their landing party: the game starts.");
 		else if (loading > 0)

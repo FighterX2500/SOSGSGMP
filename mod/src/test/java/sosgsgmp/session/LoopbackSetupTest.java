@@ -21,6 +21,9 @@ import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import sosgsgmp.campaign.Campaign;
+import sosgsgmp.campaign.CampaignRecord;
+import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
@@ -151,7 +154,7 @@ class LoopbackSetupTest {
 
     /** Ann hosts, Bob and Cid join, Ann starts the lobby, and every PC hands its lobby over to the setup. */
     private void startSetup() throws Exception {
-        HostedLobby h = new HostedLobby(new LobbySettings("normal", 4), "Ann", 0);
+        HostedLobby h = new HostedLobby(new LobbySettings("normal", 4), "Ann", "Ann".hashCode(), 0);
         lobby = h;
         lobbies.add(h);
         JoinedLobby jb = join(h, "Bob");
@@ -461,6 +464,103 @@ class LoopbackSetupTest {
         assertEquals(900, host.exitStep());
         playUntil("save and exit at both joiners", () -> bob.exitStep() == 900 && cid.exitStep() == 900);
         assertThrows(IllegalStateException.class, () -> cid.desyncExit(900), "only the host chooses");
+    }
+
+    @Test
+    void aCampaignSaveReachesEveryPcAndEndsOnceEveryPcReported() throws Exception {
+        playing(new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        Campaign c = host.campaign();
+        assertEquals(List.of(new Campaign.Player("Ann".hashCode(), "Ann", 0), new Campaign.Player("Bob".hashCode(), "Bob", 1),
+                new Campaign.Player("Cid".hashCode(), "Cid", 2)), c.players(), "every player's key and slot");
+        assertNull(bob.campaign(), "a joining PC learns the campaign from the first save order");
+        SaveOrder order = new SaveOrder(1, 660, CampaignRecord.Kind.SAVE, 0, c);
+        host.orderSave(order);
+        assertEquals(order, host.takeSaveOrder());
+        assertNull(host.takeSaveOrder(), "taken once");
+        assertThrows(IllegalStateException.class, () -> host.orderSave(new SaveOrder(2, 700, CampaignRecord.Kind.AUTO, 3, c)),
+                "one save at a time");
+        SaveOrder[] got = new SaveOrder[2];
+        playUntil("the order at both joiners", () -> {
+            if (got[0] == null)
+                got[0] = bob.takeSaveOrder();
+            if (got[1] == null)
+                got[1] = cid.takeSaveOrder();
+            return got[0] != null && got[1] != null;
+        });
+        assertEquals(order, got[0]);
+        assertEquals(order, got[1]);
+        assertEquals(c, bob.campaign());
+
+        host.saved(1, 55, null);
+        bob.saved(1, 55, null);
+        playUntil("a few rounds", () -> true);
+        assertNull(host.takeSaveDone(1), "Cid hasn't reported");
+        assertNull(bob.takeSaveDone(1));
+        cid.saved(1, 56, null);
+        String[] done = new String[3];
+        playUntil("the outcome on every PC", () -> {
+            if (done[0] == null)
+                done[0] = host.takeSaveDone(1);
+            if (done[1] == null)
+                done[1] = bob.takeSaveDone(1);
+            if (done[2] == null)
+                done[2] = cid.takeSaveDone(1);
+            return done[0] != null && done[1] != null && done[2] != null;
+        });
+        for (String o : done)
+            assertEquals("Cid's world differs from the host's", o);
+        assertNull(host.takeSaveDone(1), "given once");
+        host.orderSave(new SaveOrder(2, 700, CampaignRecord.Kind.AUTO, 3, c)); // the next save can start
+        assertThrows(IllegalStateException.class, () -> bob.orderSave(order), "only the host orders saves");
+    }
+
+    /**
+     * Bob hosts a campaign Ann started: Ann is slot 0 and Bob slot 2, so the host isn't slot 0. Cid isn't in it, and
+     * Ann's key can't join twice.
+     */
+    @Test
+    void aResumedCampaignKeepsEverySlotAndPlaysWithAnyHostSlot() throws Exception {
+        Campaign c = new Campaign(0x1234L, "Ann's campaign", 99, "normal",
+                List.of(new Campaign.Player("Ann".hashCode(), "Ann", 0), new Campaign.Player("Bob".hashCode(), "Bob", 2)));
+        HostedLobby h = new HostedLobby(LobbySettings.resuming(new LobbySettings.Resume(c, 3)), "Bob", "Bob".hashCode(), 0);
+        lobby = h;
+        lobbies.add(h);
+        JoinedLobby jc = join(h, "Cid");
+        untilLobbies("Cid refused", () -> jc.state() == LobbyState.CLOSED);
+        assertEquals(Refusal.NOT_IN_CAMPAIGN.text, jc.closedReason());
+        assertFalse(h.canStart(), "Ann isn't in");
+        JoinedLobby ja = join(h, "Ann");
+        untilLobbies("Ann joined", () -> h.players().size() == 2 && ja.players().size() == 2);
+        assertEquals(new LobbySettings.Resume(c, 3), ja.settings().resume(), "the joiner knows what resumes");
+        JoinedLobby again = join(h, "Ann");
+        untilLobbies("Ann's key refused the second time", () -> again.state() == LobbyState.CLOSED);
+        assertEquals(Refusal.ALREADY_JOINED.text, again.closedReason());
+        h.start();
+        untilLobbies("Ann started", () -> ja.state() == LobbyState.STARTED);
+        host = h.handOver(hostWorld, hostWorld);
+        SetupSession ann = ja.handOver(bobWorld, bobWorld);
+        setups.addAll(List.of(host, ann));
+
+        assertTrue(host.factions().initialized(), "a resume needs no map, picks or build");
+        assertEquals(2, host.factions().slotOf(host.localPlayerId()));
+        until("the slots on Ann's PC", () -> ann.factions().initialized());
+        assertEquals(0, ann.factions().slotOf(ann.localPlayerId()));
+        assertEquals(c, ann.campaign());
+        host.worldLoaded(42);
+        ann.worldLoaded(42);
+        host.startSpot();
+        ann.startSpot();
+        until("started on both", () -> host.factions().started() && ann.factions().started());
+        assertTrue(hostWorld.built.isEmpty(), "nothing was built");
+
+        EngineLinkTest.FakePort hp = new EngineLinkTest.FakePort();
+        EngineLinkTest.FakePort ap = new EngineLinkTest.FakePort();
+        host.play(hp);
+        ann.play(ap);
+        hp.make(StreamKind.AI_LOG, (byte) 1, (byte) 2);
+        ap.make(StreamKind.ORDERS, (byte) 3);
+        playUntil("the host's log at Ann, Ann's orders at the host", () -> ap.took(StreamKind.AI_LOG, 2).length == 2
+                && hp.took(StreamKind.ORDERS, 0).length == 1);
     }
 
     /** {@link #until}, with every playing PC sending what its engine made each round. */

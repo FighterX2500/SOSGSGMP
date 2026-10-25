@@ -2,7 +2,10 @@ package sosgsgmp.session;
 
 import java.util.List;
 
+import sosgsgmp.campaign.Campaign;
+import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.lobby.LobbyPlayer;
+import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.Pieces;
 import sosgsgmp.net.Node;
@@ -39,17 +42,30 @@ public final class JoinedSetup implements SetupSession {
     /** The host's latest world resync once all of it is here, until this PC takes it to load; null otherwise. */
     private WorldResync resync;
     private long exitStep = -1;
+    private Campaign campaign;
+    /** The host's latest save order, until this PC takes it. */
+    private SaveOrder saveOrder;
+    private int doneNumber;
+    private String doneOutcome;
     private boolean closed;
     private String closedReason;
     private int changes;
 
-    /** Takes over a started lobby's connection to the host, this PC's player id and the players. */
-    JoinedSetup(Node node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld) {
+    /**
+     * Takes over a started lobby's connection to the host, this PC's player id and the players. A resume ({@code resume}
+     * not null) starts at the world-loaded step: the host's slot map follows, and every PC loads its own save (SOS-64).
+     */
+    JoinedSetup(Node node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld,
+            LobbySettings.Resume resume) {
         this.node = node;
         this.world = world;
         this.factionWorld = factionWorld;
         this.players = List.copyOf(players);
         this.step = MapStep.joiner(localId);
+        if (resume != null) {
+            campaign = resume.campaign();
+            factions = FactionStep.joiner(localId);
+        }
     }
 
     @Override
@@ -131,6 +147,14 @@ public final class JoinedSetup implements SetupSession {
                 }
             }
             case Message.DesyncExit d when link != null -> exitStep = d.step();
+            case Message.SaveAt s when link != null -> {
+                saveOrder = s.order();
+                campaign = s.order().campaign();
+            }
+            case Message.SaveDone d when link != null -> {
+                doneNumber = d.number();
+                doneOutcome = d.outcome();
+            }
             case Message.Cursor c -> {
                 if (c.playerId() != localPlayerId())
                     cursors.set(c.playerId(), c.onMap(), c.x(), c.y());
@@ -172,7 +196,7 @@ public final class JoinedSetup implements SetupSession {
     public void play(EnginePort port) {
         if (factions == null || !factions.started() || link != null)
             throw new IllegalStateException("SOSGSGMP: play before the start, or twice");
-        link = new EngineLink(false, factions.slotOf(localPlayerId()), port);
+        link = new EngineLink(false, factions.slotOf(localPlayerId()), factions.slotOf(hostId()), port);
     }
 
     @Override
@@ -341,6 +365,46 @@ public final class JoinedSetup implements SetupSession {
     @Override
     public String network() {
         return node.describe();
+    }
+
+    /** The host's player id: the roster's host. */
+    private int hostId() {
+        for (LobbyPlayer p : players)
+            if (p.host())
+                return p.id();
+        throw new IllegalStateException("SOSGSGMP: the players have no host: " + players);
+    }
+
+    @Override
+    public Campaign campaign() {
+        return campaign;
+    }
+
+    @Override
+    public void orderSave(SaveOrder order) {
+        throw new IllegalStateException("SOSGSGMP: only the host orders a campaign save");
+    }
+
+    @Override
+    public SaveOrder takeSaveOrder() {
+        SaveOrder o = saveOrder;
+        saveOrder = null;
+        return o;
+    }
+
+    @Override
+    public void saved(int number, long hash, String problem) {
+        if (!closed)
+            node.send(Node.HOST, new Message.Saved(number, hash, problem == null ? "" : problem));
+    }
+
+    @Override
+    public String takeSaveDone(int number) {
+        if (doneOutcome == null || doneNumber != number)
+            return null;
+        String o = doneOutcome;
+        doneOutcome = null;
+        return o;
     }
 
     /** None: every network problem of a joining PC closes its session, and {@link #closedReason()} says why. */

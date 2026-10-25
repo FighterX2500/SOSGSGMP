@@ -7,6 +7,7 @@ import java.util.Locale;
 import game.GAME;
 import game.save.GameLoader;
 import snake2d.CORE_STATE;
+import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbyPlayer;
@@ -24,12 +25,23 @@ import sosgsgmp.setup.FactionStep;
 public final class MpWorldLoad implements CORE_STATE.Constructor {
 
 	private final SetupSession setup;
+	/** A new game's world, from the host; null when a campaign resumes. */
 	private final byte[] save;
+	/** The campaign save this PC resumes from (SOS-64); null for a new game. */
+	private final CampaignRecord resumed;
 	private final WorldSetupAdapter game = new WorldSetupAdapter();
 
 	public MpWorldLoad(SetupSession setup, byte[] save) {
 		this.setup = setup;
 		this.save = save.clone();
+		this.resumed = null;
+	}
+
+	/** A resumed campaign: this PC loads its own save of {@code record}, its city in it; the host compares the worlds. */
+	MpWorldLoad(SetupSession setup, CampaignRecord record) {
+		this.setup = setup;
+		this.save = null;
+		this.resumed = record;
 	}
 
 	@Override
@@ -51,32 +63,38 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 		if (autopilot != null)
 			autopilot.loading();
 		FactionStep f = setup.factions();
-		int seed = setup.choices().seed();
-		Path file = game.saveFile(save);
-		game.beginSession(setup.isHost(), f.slotOf(setup.localPlayerId()), WorldSetupAdapter.startId(save), seed);
+		int seed = resumed == null ? setup.choices().seed() : resumed.campaign().seed();
+		// every PC names the same start: the host's world, or the campaign's save
+		long startId = resumed == null ? WorldSetupAdapter.startId(save) : resumed.campaign().id() ^ resumed.number();
+		Path file = resumed == null ? game.saveFile(save) : game.savePath(resumed.file());
+		game.beginSession(setup.isHost(), f.slotOf(setup.localPlayerId()), startId, seed);
 		CORE_STATE view;
 		try {
 			view = new GameLoader(file).getState();
 		} finally {
-			game.deleteSaveFile(file);
+			if (resumed == null)
+				game.deleteSaveFile(file);
 		}
 		game.humans(slots(), seed);
-		if (!setup.isHost()) {
+		if (resumed == null && !setup.isHost()) {
 			FactionPick own = ownPick(f);
 			game.ownCity(own.x(), own.y());
 		}
-		game.openLanding();
+		if (resumed == null)
+			game.openLanding();
 		setup.worldLoaded(game.worldHash());
-		log.line(String.format(Locale.ROOT, "world loaded in %.1f s: map seed %d, this PC's slot %d, world hash %016x",
-				(System.nanoTime() - t) / 1e9, seed, f.slotOf(setup.localPlayerId()), game.worldHash()));
+		log.line(String.format(Locale.ROOT, "world loaded in %.1f s%s: map seed %d, this PC's slot %d, world hash %016x",
+				(System.nanoTime() - t) / 1e9, resumed == null ? "" : " from campaign save " + resumed.number() + " (" + resumed.file() + ")",
+				seed, f.slotOf(setup.localPlayerId()), game.worldHash()));
 		if (autopilot != null)
 			autopilot.loaded(game.worldHash());
-		MpPlay play = new MpPlay(setup, engine, game, log);
+		MpSaves saves = new MpSaves(setup, engine, game, log);
+		MpPlay play = new MpPlay(setup, engine, game, log, saves);
 		GAME.addAfterUpdate(play);
-		MpSessionPanel.show(setup, game, engine);
+		MpSessionPanel.show(setup, game, engine, saves);
 		engine.afterEachLoad(() -> { // a battle's loads build a new game and view (SOSDET plan 0006)
 			GAME.addAfterUpdate(play);
-			MpSessionPanel.show(setup, game, engine);
+			MpSessionPanel.show(setup, game, engine, saves);
 			log.line("whole game loaded at step " + engine.step() + "; the mod is back in it");
 		});
 		return view;

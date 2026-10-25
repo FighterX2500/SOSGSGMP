@@ -65,6 +65,8 @@ def data_folder(appdata, size):
     (data / "settings").mkdir(parents=True)
     (data / "saves" / "saves").mkdir(parents=True)
     shutil.copytree(REAL / "saves" / "profile", data / "saves" / "profile")
+    # each instance makes its own player key: two PCs with the same key can't be in one lobby
+    (data / "saves" / "profile" / "SOSGSGMP-lobby.properties").unlink(missing_ok=True)
     if (REAL / "cache").is_dir():
         shutil.copytree(REAL / "cache", data / "cache")
     for m in MODS:
@@ -96,6 +98,21 @@ def send_remote(appdata):
     if pack.wait() != 0 or unpack.returncode != 0:
         fail("sending the data folder: %s" % unpack.stderr.strip())
     return rdir
+
+
+def refresh_mods(data, rdir):
+    """A resume keeps both data folders, but plays the mods as installed now, on both PCs."""
+    for m in MODS:
+        shutil.rmtree(data / "mods" / m, ignore_errors=True)
+        shutil.copytree(REAL / "mods" / m, data / "mods" / m)
+    remote_ps("Remove-Item -Recurse -Force -ErrorAction SilentlyContinue %s"
+              % ", ".join("'%s\\songsofsyx\\mods\\%s'" % (rdir, m) for m in MODS))
+    tar = [r"C:\Windows\System32\tar.exe", "-cf", "-", "-C", str(data.parent)] + ["songsofsyx/mods/" + m for m in MODS]
+    pack = subprocess.Popen(tar, stdout=subprocess.PIPE)
+    unpack = subprocess.run(SSH + [REMOTE, 'tar -xf - -C "%s"' % rdir], stdin=pack.stdout, capture_output=True, text=True)
+    pack.stdout.close()
+    if pack.wait() != 0 or unpack.returncode != 0:
+        fail("sending the mods: %s" % unpack.stderr.strip())
 
 
 def start_remote(rdir, autopilot):
@@ -162,6 +179,9 @@ def main():
     ap.add_argument("--on-desync", choices=("resync", "exit"), default="resync", help="the host's choice at a desync")
     ap.add_argument("--net", choices=("ip", "steam"), default="ip",
                     help="steam: a Steam lobby; both PCs need Steam running, logged on to two accounts that are friends")
+    ap.add_argument("--save", type=int, default=-1, help="the host saves the campaign at this step; both PCs must save it")
+    ap.add_argument("--resume", action="store_true",
+                    help="keep both data folders and host their newest campaign save instead of a new game")
     ap.add_argument("--tag", default="twopc")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
@@ -173,14 +193,26 @@ def main():
 
     if game_running_here() or "java" in remote_ps("Get-Process java -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '%s\\game\\*' } | Select-Object -ExpandProperty Name" % REMOTE_ROOT):
         fail("a game still runs on this PC or the second one; close it first")
-    local = data_folder(INST / "1", (1280, 720))
-    remote_data = data_folder(INST / str(REMOTE_K), (1600, 900))
-    log("data folders ready; sending the joiner's to the second PC")
-    rdir = send_remote(remote_data.parent)
+    if args.resume:
+        # the campaign saves, records and player keys of the last run stay; only its events go
+        local = INST / "1" / "songsofsyx"
+        rdir = "%s\\inst\\%d" % (REMOTE_ROOT, REMOTE_K)
+        if not (local / "sosgsgmp-campaigns").is_dir():
+            fail("no campaign records in %s: run with --save first" % local)
+        (local / EVENTS).unlink(missing_ok=True)
+        remote_ps("Remove-Item -Force -ErrorAction SilentlyContinue '%s\\songsofsyx\\%s'" % (rdir, str(EVENTS)))
+        refresh_mods(local, rdir)
+        log("resuming in the last run's data folders")
+    else:
+        local = data_folder(INST / "1", (1280, 720))
+        remote_data = data_folder(INST / str(REMOTE_K), (1600, 900))
+        log("data folders ready; sending the joiner's to the second PC")
+        rdir = send_remote(remote_data.parent)
     common = "port=%d,steps=%d,net=%s" % (args.port, args.steps, args.net)
     # Steam finds the App ID here when the game isn't started by Steam
     host_env = dict(os.environ, APPDATA=str(local.parent), SteamAppId=STEAM_APP_ID,
-                    SOSGSGMP_AUTOPILOT="role=host,name=Host,players=2,seed=%d,speed=%g,ondesync=%s,%s" % (args.seed, args.speed, args.on_desync, common))
+                    SOSGSGMP_AUTOPILOT="role=host,name=Host,players=2,seed=%d,speed=%g,ondesync=%s,save=%d,resume=%d,%s"
+                    % (args.seed, args.speed, args.on_desync, args.save, 1 if args.resume else 0, common))
     java = GAME / "jre" / "bin" / "java.exe"
     host = subprocess.Popen([str(java), "-cp", str(GAME / "SongsOfSyx.jar"), "init.Main"], cwd=str(GAME), env=host_env,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -239,6 +271,10 @@ def main():
                                                      for w in ("host", "join") if w in done) and len(done) == 2
     else:
         ok = desync_ok and all(done[w]["event"] == "done" and done[w].get("desync", -1) < 0 for w in done)             and not differ and common_steps
+    if args.save >= 0:
+        saved = {w: [e for e in evs[w] if e["event"] == "save" and e["status"].startswith("Campaign saved")] for w in evs}
+        log("campaign saved on: %s" % ", ".join(w for w in saved if saved[w]))
+        ok = ok and all(saved.values())
     log("RESULT: %s: %d common hash steps, %d differ%s" % ("PASS" if ok else "FAIL", len(common_steps), len(differ),
                                                           (", first at step %d" % differ[0]) if differ else ""))
     sys.exit(0 if ok else 1)

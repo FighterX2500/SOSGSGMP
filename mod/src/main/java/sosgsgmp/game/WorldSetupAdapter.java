@@ -2,21 +2,20 @@ package sosgsgmp.game;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
 import game.GAME;
 import game.faction.FACTIONS;
 import game.faction.player.Player;
 import game.save.SaveFile;
+import init.paths.PATHS;
 import settlement.stats.POP;
 import snake2d.LOG;
 import sosdet.Engine;
 import sosdet.HumanStart;
+import sosgsgmp.campaign.Campaign;
 import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionWorld;
 import view.main.VIEW;
@@ -147,6 +146,20 @@ public final class WorldSetupAdapter implements FactionWorld {
         return file.getFileName().toString();
     }
 
+    /** A save in vanilla's saves list by its file name, as {@link #saveGame} returns it (SOS-64). */
+    public Path savePath(String file) {
+        return PATHS.local().save().get(file);
+    }
+
+    /** Deletes a save from vanilla's saves list: an autosave the campaign's rotation dropped. */
+    public void deleteSave(String file) {
+        try {
+            Files.deleteIfExists(savePath(file));
+        } catch (IOException e) {
+            throw new UncheckedIOException("SOSGSGMP: can't delete the old campaign autosave " + file, e);
+        }
+    }
+
     /** Leaving the setup from the loaded game: the game is vanilla again for the menu and whatever is played next. */
     public void endSession() {
         if (Engine.active())
@@ -192,11 +205,7 @@ public final class WorldSetupAdapter implements FactionWorld {
 
     /** Names the start state for the AI log: the first 8 bytes of the save's SHA-256, the same on every PC. */
     public static long startId(byte[] save) {
-        try {
-            return ByteBuffer.wrap(MessageDigest.getInstance("SHA-256").digest(save)).getLong();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SOSGSGMP: no SHA-256 in this Java", e);
-        }
+        return Campaign.idOf(save);
     }
 
     /** Never 0: 0 means vanilla loading (Engine.armLoadSeed). */

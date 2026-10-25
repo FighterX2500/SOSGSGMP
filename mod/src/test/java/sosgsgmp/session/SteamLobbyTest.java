@@ -47,7 +47,7 @@ class SteamLobbyTest {
     @Test
     void playersJoinThroughTheSteamLobbyAndStart() throws Exception {
         SteamNode hostNode = SteamNode.host(() -> steam.port(1), 4);
-        HostedLobby h = new HostedLobby(new LobbySettings("normal", 4), "Ann", hostNode);
+        HostedLobby h = new HostedLobby(new LobbySettings("normal", 4), "Ann", 1, hostNode);
         sessions.add(h);
         until("the Steam lobby", () -> hostNode.lobby() != 0);
 
@@ -67,7 +67,7 @@ class SteamLobbyTest {
     @Test
     void aPlayerLeavingTheSteamLobbyLeavesTheRoster() throws Exception {
         SteamNode hostNode = SteamNode.host(() -> steam.port(1), 4);
-        HostedLobby h = new HostedLobby(new LobbySettings("normal", 4), "Ann", hostNode);
+        HostedLobby h = new HostedLobby(new LobbySettings("normal", 4), "Ann", 1, hostNode);
         sessions.add(h);
         until("the Steam lobby", () -> hostNode.lobby() != 0);
         JoinedLobby bob = new JoinedLobby(SteamNode.join(() -> steam.port(2), hostNode.lobby()), "Bob", 2);

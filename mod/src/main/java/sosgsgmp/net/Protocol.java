@@ -9,6 +9,9 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import sosgsgmp.campaign.Campaign;
+import sosgsgmp.campaign.CampaignRecord;
+import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.lobby.Lobby;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
@@ -27,7 +30,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 8;
+    public static final int VERSION = 9;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -37,10 +40,13 @@ public final class Protocol {
     private static final int MAP_TERRAIN = 13;
     private static final int PICK = 14, PICKS = 15, SLOT_MAP = 16, WORLD_PART = 17, LOADED = 18, START_SPOT = 19, GO = 20, WORLD_PLAYERS = 21;
     private static final int CURSOR = 22, STREAM = 23, RESYNC = 24, DESYNC_EXIT = 25;
+    private static final int SAVE_AT = 26, SAVED = 27, SAVE_DONE = 28;
     /** Largest piece of an engine stream in one message, in bytes: well under {@link #MAX_MESSAGE}. */
     public static final int MAX_STREAM_PIECE = 48 * 1024;
     /** Longest reason a location was cleared, in characters. */
     private static final int MAX_REASON = 256;
+    /** Longest outcome of a campaign save, in characters: a line per PC that didn't save. */
+    private static final int MAX_OUTCOME = 4096;
 
     private Protocol() {}
 
@@ -59,6 +65,12 @@ public final class Protocol {
                     out.writeInt(w.yourId());
                     out.writeUTF(w.settings().difficulty());
                     out.writeByte(w.settings().maxPlayers());
+                    LobbySettings.Resume resume = w.settings().resume();
+                    out.writeBoolean(resume != null);
+                    if (resume != null) {
+                        writeCampaign(out, resume.campaign());
+                        out.writeInt(resume.number());
+                    }
                 }
                 case Message.Roster r -> {
                     out.writeByte(ROSTER);
@@ -190,6 +202,26 @@ public final class Protocol {
                     out.writeByte(DESYNC_EXIT);
                     out.writeLong(d.step());
                 }
+                case Message.SaveAt s -> {
+                    out.writeByte(SAVE_AT);
+                    SaveOrder o = s.order();
+                    out.writeInt(o.number());
+                    out.writeLong(o.step());
+                    out.writeByte(o.kind().ordinal());
+                    out.writeByte(o.keep());
+                    writeCampaign(out, o.campaign());
+                }
+                case Message.Saved s -> {
+                    out.writeByte(SAVED);
+                    out.writeInt(s.number());
+                    out.writeLong(s.hash());
+                    out.writeUTF(s.problem());
+                }
+                case Message.SaveDone d -> {
+                    out.writeByte(SAVE_DONE);
+                    out.writeInt(d.number());
+                    out.writeUTF(d.outcome());
+                }
                 case Message.Unsupported u -> throw new IllegalArgumentException("SOSGSGMP: can't send a message of protocol version " + u.version());
             }
         } catch (IOException e) {
@@ -243,6 +275,9 @@ public final class Protocol {
                 yield new Message.Resync(p.number(), step, p.index(), p.count(), p.data());
             }
             case DESYNC_EXIT -> new Message.DesyncExit(step(in, "save and exit"));
+            case SAVE_AT -> saveAt(in);
+            case SAVED -> new Message.Saved(number(in, "save"), in.readLong(), text(in, MAX_REASON, "save problem"));
+            case SAVE_DONE -> new Message.SaveDone(number(in, "save"), text(in, MAX_OUTCOME, "save outcome"));
             default -> throw new IOException("SOSGSGMP: unknown message type " + type);
         };
         if (in.available() > 0)
@@ -260,11 +295,68 @@ public final class Protocol {
     private static LobbySettings settings(DataInputStream in) throws IOException {
         String difficulty = in.readUTF();
         int max = in.readUnsignedByte();
+        LobbySettings.Resume resume = null;
         try {
-            return new LobbySettings(difficulty, max);
+            if (in.readBoolean())
+                resume = new LobbySettings.Resume(campaign(in), in.readInt());
+            return new LobbySettings(difficulty, max, resume);
         } catch (IllegalArgumentException e) {
             throw new IOException(e.getMessage(), e);
         }
+    }
+
+    private static String text(DataInputStream in, int max, String what) throws IOException {
+        String s = in.readUTF();
+        if (s.length() > max)
+            throw new IOException("SOSGSGMP: " + what + " of " + s.length() + " characters");
+        return s;
+    }
+
+    /** A campaign as save orders and resume lobbies carry it (SOS-64). */
+    private static void writeCampaign(DataOutputStream out, Campaign c) throws IOException {
+        out.writeLong(c.id());
+        out.writeUTF(c.name());
+        out.writeInt(c.seed());
+        out.writeUTF(c.difficulty());
+        out.writeByte(c.players().size());
+        for (Campaign.Player p : c.players()) {
+            out.writeLong(p.key());
+            out.writeUTF(p.name());
+            out.writeByte(p.slot());
+        }
+    }
+
+    private static Campaign campaign(DataInputStream in) throws IOException {
+        long id = in.readLong();
+        String name = text(in, Campaign.MAX_NAME, "campaign name");
+        int seed = in.readInt();
+        String difficulty = in.readUTF();
+        int n = players(in, "campaign");
+        List<Campaign.Player> players = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            long key = in.readLong();
+            String name2 = name(in);
+            int slot = in.readUnsignedByte();
+            if (slot >= LobbySettings.MAX_PLAYERS)
+                throw new IOException("SOSGSGMP: campaign slot " + slot);
+            players.add(new Campaign.Player(key, name2, slot));
+        }
+        try {
+            return new Campaign(id, name, seed, difficulty, players);
+        } catch (IllegalArgumentException e) {
+            throw new IOException(e.getMessage(), e);
+        }
+    }
+
+    private static Message.SaveAt saveAt(DataInputStream in) throws IOException {
+        int number = number(in, "save");
+        long step = step(in, "save");
+        int kind = in.readUnsignedByte();
+        CampaignRecord.Kind[] kinds = CampaignRecord.Kind.values();
+        if (kind >= kinds.length)
+            throw new IOException("SOSGSGMP: unknown save kind " + kind);
+        int keep = in.readUnsignedByte();
+        return new Message.SaveAt(new SaveOrder(number, step, kinds[kind], keep, campaign(in)));
     }
 
     private static Message.Roster roster(DataInputStream in) throws IOException {

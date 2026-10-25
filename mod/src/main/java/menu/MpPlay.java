@@ -23,12 +23,15 @@ final class MpPlay implements ACTION {
 	/** Test tooling: the autopilot, or null in play. */
 	private final MpAutopilot autopilot = MpAutopilot.fromEnv();
 	private final MpLog log;
+	/** Campaign saves: the host's orders, and every PC's save at their step (SOS-64). */
+	private final MpSaves saves;
 
-	MpPlay(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpLog log) {
+	MpPlay(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpLog log, MpSaves saves) {
 		this.setup = setup;
 		this.engine = engine;
 		this.desync = new MpDesync(setup, engine, game);
 		this.log = log;
+		this.saves = saves;
 	}
 
 	@Override
@@ -47,7 +50,7 @@ final class MpPlay implements ACTION {
 		if (!setup.closed()) {
 			setup.update();
 			if (!setup.playing() && !setup.closed() && setup.factions().started()) {
-				engine.start(setup.isHost(), otherPcs());
+				engine.start(setup.isHost(), otherPcs(setup));
 				setup.play(engine);
 			}
 			if (setup.playing()) {
@@ -55,14 +58,17 @@ final class MpPlay implements ACTION {
 				engine.battleFrame();
 			}
 		}
-		if (setup.playing())
+		if (setup.playing()) {
 			desync.frame();
+			saves.frame();
+		}
 		if (autopilot != null)
-			autopilot.game(setup, engine, desync);
+			autopilot.game(setup, engine, desync, saves);
 	}
 
 	/** The other players' PC numbers: their slots. */
-	private int[] otherPcs() {
+	/** Every other player's PC: their slots (the host's is any slot when a campaign resumes). */
+	static int[] otherPcs(SetupSession setup) {
 		List<LobbyPlayer> players = setup.players();
 		int[] pcs = new int[players.size() - 1];
 		int n = 0;

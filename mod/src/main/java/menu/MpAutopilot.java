@@ -18,6 +18,7 @@ import settlement.main.SETT;
 import settlement.stats.POP;
 import snake2d.CORE;
 import snake2d.LOG;
+import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
@@ -47,7 +48,9 @@ import world.WORLD;
  * {@code address} (join), {@code players} (host: start with this many), {@code seed} (host: the map's),
  * {@code steps} (stop at this step, every PC), {@code difficulty} (host), {@code speed} (host: the game speed after
  * {@code Go}, as a player's speed buttons set it), {@code corrupt} (break this PC's world at this step, a test desync, as
- * SOSDET's rig {@code wcorrupt}), {@code ondesync} (host: {@code resync} or {@code exit} at a desync).
+ * SOSDET's rig {@code wcorrupt}), {@code ondesync} (host: {@code resync} or {@code exit} at a desync), {@code save}
+ * (host: save the campaign at this step), {@code resume} (host, {@code 1}: host the newest campaign save of this data
+ * folder instead of a new game; the joining PC learns it from the lobby).
  */
 public final class MpAutopilot {
 
@@ -66,7 +69,10 @@ public final class MpAutopilot {
 	private final double speed;
 	private final long corrupt;
 	private final String onDesync;
+	private final long save;
+	private final boolean resume;
 	private final Path events;
+	private int shownSaves;
 
 	private long lastTry;
 	private boolean lobbyOpened;
@@ -118,6 +124,8 @@ public final class MpAutopilot {
 		speed = Double.parseDouble(m.getOrDefault("speed", "0"));
 		corrupt = Long.parseLong(m.getOrDefault("corrupt", "-1"));
 		onDesync = m.getOrDefault("ondesync", "resync");
+		save = Long.parseLong(m.getOrDefault("save", "-1"));
+		resume = m.getOrDefault("resume", "0").equals("1");
 		if (!onDesync.equals("resync") && !onDesync.equals("exit"))
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " ondesync '" + onDesync + "', not resync or exit");
 		String net = m.getOrDefault("net", "ip");
@@ -139,7 +147,7 @@ public final class MpAutopilot {
 		}
 		try {
 			LobbySession s = host
-					? new HostedLobby(new LobbySettings(difficulty.isEmpty() ? mp.prefs.difficulty : difficulty, Math.max(players, 2)), name, port)
+					? new HostedLobby(hostSettings(mp), name, mp.prefs.playerKey, port)
 					: new JoinedLobby(address, port, name, mp.prefs.playerKey);
 			lobbyOpened = true;
 			mp.openLobby(s, null);
@@ -158,8 +166,7 @@ public final class MpAutopilot {
 			SteamNode node = SteamNode.host(SteamworksPort::new, Math.max(players, 2));
 			hostSteam = node;
 			lobbyOpened = true;
-			mp.openLobby(new HostedLobby(new LobbySettings(difficulty.isEmpty() ? mp.prefs.difficulty : difficulty,
-					Math.max(players, 2)), name, node), node);
+			mp.openLobby(new HostedLobby(hostSettings(mp), name, mp.prefs.playerKey, node), node);
 			event("lobby", "\"role\":\"host\",\"net\":\"steam\"");
 			return;
 		}
@@ -180,6 +187,21 @@ public final class MpAutopilot {
 		lobbyOpened = true;
 		mp.openLobby(new JoinedLobby(browsing, name, mp.prefs.playerKey), null);
 		event("lobby", "\"role\":\"join\",\"net\":\"steam\",\"friend\":\"" + clean(f.friend()) + "\"");
+	}
+
+	/** A new game's settings, or with {@code resume=1} the newest campaign save's, as Load Saved Lobby hosts it. */
+	private LobbySettings hostSettings(MpMenu mp) {
+		if (!resume)
+			// as Create Lobby: the remembered mode, or the game's first when none is (a fresh profile)
+			return new LobbySettings(difficulty.isEmpty() ? mp.modes.keys[mp.modes.index(mp.prefs.difficulty)] : difficulty,
+					Math.max(players, 2));
+		List<CampaignRecord> all = MpSaves.store().all();
+		if (all.isEmpty())
+			throw new IllegalStateException("SOSGSGMP: " + VARIABLE + " resume=1, but this data folder has no campaign save");
+		CampaignRecord r = all.get(0);
+		event("resume", "\"campaign\":\"" + Long.toHexString(r.campaign().id()) + "\",\"number\":" + r.number() + ",\"file\":\""
+				+ clean(r.file()) + "\"");
+		return LobbySettings.resuming(new LobbySettings.Resume(r.campaign(), r.number()));
 	}
 
 	/** The lobby screen, every frame: the host starts once every player is in. */
@@ -247,7 +269,7 @@ public final class MpAutopilot {
 	 * The loaded game, every frame after the update: the landing party; while playing, hashes, the test desync and the
 	 * host's choice in the desync window; at the end, quit.
 	 */
-	void game(SetupSession setup, EnginePlay engine, MpDesync desync) {
+	void game(SetupSession setup, EnginePlay engine, MpDesync desync, MpSaves saves) {
 		if (desync.saved() != null && first("desyncexit")) {
 			event("desyncexit", "\"file\":\"" + clean(desync.saved()) + "\",\"step\":" + setup.exitStep()); // the engine has ended
 			CORE.annihilate();
@@ -277,6 +299,14 @@ public final class MpAutopilot {
 		}
 		if (host && speed > 0 && first("speed"))
 			GAME.SPEED.speedSet(speed);
+		if (host && save >= 0 && engine.step() >= save && saves.canSave() && first("save")) {
+			saves.saveNow(CampaignRecord.Kind.SAVE);
+			event("saveorder", "\"step\":" + engine.step());
+		}
+		if (saves.changes() != shownSaves) {
+			shownSaves = saves.changes();
+			event("save", "\"step\":" + engine.step() + ",\"status\":\"" + clean(saves.status()) + "\"");
+		}
 		frames++;
 		long step = engine.step();
 		long now = System.nanoTime();
@@ -290,7 +320,7 @@ public final class MpAutopilot {
 			event("status", String.format(Locale.ROOT, "\"step\":%d,\"speed\":%.2f,\"target\":%.2f,\"paused\":%b,\"agreed\":%.2f,\"other\":%d,\"load\":%b,"
 					+ "\"fps\":%.1f,\"stepsPerS\":%.1f,\"stepMsPerS\":%.1f,\"stepMs\":%.2f",
 					step, GAME.SPEED.speed(), GAME.SPEED.speedTarget(), GAME.SPEED.isPaused(), s.agreedSpeed,
-					engine.peerStep(host ? 1 : 0), VIEW.inters().load.isActivated(), (frames - statusFrames) / seconds,
+					engine.peerStep(MpPlay.otherPcs(setup)[0]), VIEW.inters().load.isActivated(), (frames - statusFrames) / seconds,
 					(step - statusSteps) / seconds, timedMs / seconds, timed > 0 ? timedMs / timed : 0));
 			statusFrames = frames;
 			statusSteps = step;
@@ -316,7 +346,7 @@ public final class MpAutopilot {
 			event("hash", "\"step\":" + at + ",\"hash\":\"" + Long.toHexString(engine.hash(at)) + "\",\"desync\":" + engine.desyncStep()
 					+ String.format(Locale.ROOT, ",\"speed\":%.2f", engine.agreedSpeed()));
 		}
-		if (step >= steps && !done && (!host || peersReached(engine, setup.players().size(), steps))) {
+		if (step >= steps && !done && (!host || peersReached(engine, MpPlay.otherPcs(setup), steps))) {
 			done = true;
 			event("done", "\"step\":" + step + ",\"desync\":" + engine.desyncStep());
 			CORE.annihilate();
@@ -327,8 +357,8 @@ public final class MpAutopilot {
 	 * Host: every other PC's hashes reached {@code step}, so it reached its own end; the host steps on meanwhile, so its
 	 * AI log carries them there.
 	 */
-	private static boolean peersReached(EnginePlay engine, int pcs, long step) {
-		for (int pc = 1; pc < pcs; pc++)
+	private static boolean peersReached(EnginePlay engine, int[] pcs, long step) {
+		for (int pc : pcs)
 			if (engine.peerStep(pc) < step)
 				return false;
 		return true;

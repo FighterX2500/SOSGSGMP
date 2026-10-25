@@ -1,7 +1,9 @@
 package menu;
 
+import java.nio.file.Files;
 import java.util.List;
 
+import init.paths.PATHS;
 import init.sprite.UI.UI;
 import menu.GUI.COLORS;
 import snake2d.SPRITE_RENDERER;
@@ -10,6 +12,7 @@ import snake2d.util.datatypes.COORDINATE;
 import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
+import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.game.WorldGenAdapter;
 import sosgsgmp.game.WorldSetupAdapter;
@@ -36,6 +39,10 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 	private String shownSteamFailure;
 	private SetupSession setup;
 	private WorldGenAdapter world;
+	/** A resume's own save on this PC, once the lobby's settings name it (SOS-64); null for a new game. */
+	private CampaignRecord resumed;
+	/** Why this PC left a resume lobby by itself: it lacks the save. Null otherwise. */
+	private String resumeProblem;
 	private int shownChanges = -1;
 	private int shownPlayers;
 	private final GText[] rows = new GText[LobbySettings.MAX_PLAYERS];
@@ -126,6 +133,8 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		steam = steamLobby;
 		shownSteamFailure = null;
 		setup = null;
+		resumed = null;
+		resumeProblem = null;
 		shownChanges = -1;
 		start.visableSet(s.isHost());
 		refresh();
@@ -138,6 +147,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 			updateSetup();
 		} else if (session != null) {
 			session.update();
+			findResumed();
 			refresh();
 			steamFailure();
 			if (mp.autopilot != null)
@@ -146,6 +156,25 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 				startSetup();
 		}
 		return super.hover(mCoo);
+	}
+
+	/**
+	 * A resume lobby: this PC's own record and game save of the campaign save it resumes, looked up once the settings are
+	 * here. A PC without them can't play the campaign: it leaves, saying why.
+	 */
+	private void findResumed() {
+		LobbySettings ls = session.settings();
+		if (resumed != null || resumeProblem != null || ls == null || ls.resume() == null)
+			return;
+		LobbySettings.Resume r = ls.resume();
+		CampaignRecord own = MpSaves.store().find(r.campaign().id(), r.number());
+		if (own != null && Files.exists(PATHS.local().save().get(own.file()))) {
+			resumed = own;
+			return;
+		}
+		resumeProblem = "You don't have save " + r.number() + " of " + r.campaign().name()
+				+ (own == null ? "." : ": its game save is gone from the saves folder.");
+		session.leave();
 	}
 
 	/** Steam couldn't start or create the lobby: the reason replaces the status, once. */
@@ -161,7 +190,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 	private void startSetup() {
 		world = new WorldGenAdapter();
 		setup = session.handOver(world, new WorldSetupAdapter());
-		if (setup.isHost())
+		if (setup.isHost() && resumed == null)
 			setup.build(mp.prefs.mapSize);
 	}
 
@@ -172,15 +201,25 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 			status.clear().add(setup.closedReason());
 			return;
 		}
+		if (resumed != null) {
+			// a resume: every PC loads its own save once the host's slot map is here
+			if (setup.factions() != null && setup.factions().initialized())
+				leaveMenu(new MpWorldLoad(setup, resumed));
+			return;
+		}
 		if (setup.step().pendingBuild() == 0)
 			return;
-		MpGameBuild build = new MpGameBuild(setup, world, mp.mapSizeMemory());
+		leaveMenu(new MpGameBuild(setup, world, mp.mapSizeMemory()));
+	}
+
+	private void leaveMenu(snake2d.CORE_STATE.Constructor next) {
 		session = null;
 		steam = null;
 		setup = null;
 		world = null;
+		resumed = null;
 		shownPlayers = 0;
-		mp.menu.start(build);
+		mp.menu.start(next);
 	}
 
 	private void refresh() {
@@ -204,17 +243,35 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		LobbySettings ls = session.settings();
 		if (ls != null)
 			settings.add(mp.modes.name(ls.difficulty())).add(",  ").add(shownPlayers).add(" / ").add(ls.maxPlayers()).add(" players");
+		if (ls != null && ls.resume() != null)
+			settings.add(",  ").add(ls.resume().campaign().name()).add(", save ").add(ls.resume().number());
 		settings.color(COLORS.label);
 
 		status.clear();
 		switch (session.state()) {
 			case CONNECTING -> status.add("Connecting to the host...");
 			case OPEN -> status.add(session.isHost()
-					? (session.canStart() ? "Start the lobby when everyone is in." : "Waiting for players. Start needs 2 or more.")
+					? (session.canStart() ? "Start the lobby when everyone is in."
+							: ls != null && ls.resume() != null ? "Waiting for every player of the campaign: " + missing(ls.resume(), players)
+									: "Waiting for players. Start needs 2 or more.")
 					: "Waiting for the host to start.");
-			case STARTED -> status.add("The lobby has started. Building the game for the map...");
-			case CLOSED -> status.add(session.closedReason());
+			case STARTED -> status.add(resumed != null ? "The lobby has started. Loading your save of the campaign..."
+					: "The lobby has started. Building the game for the map...");
+			case CLOSED -> status.add(resumeProblem != null ? resumeProblem : session.closedReason());
 		}
+	}
+
+	/** The campaign's players not in the lobby yet, by name. */
+	private static String missing(LobbySettings.Resume r, List<LobbyPlayer> in) {
+		StringBuilder b = new StringBuilder();
+		for (var p : r.campaign().players()) {
+			boolean here = false;
+			for (LobbyPlayer l : in)
+				here |= l.name().equals(p.name());
+			if (!here)
+				b.append(b.length() == 0 ? "" : ", ").append(p.name());
+		}
+		return b.length() == 0 ? "everyone is here" : b.toString();
 	}
 
 	private void leave() {

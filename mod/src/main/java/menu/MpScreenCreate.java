@@ -163,11 +163,11 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 		if (steam) {
 			SteamNode node = SteamNode.host(SteamworksPort::new, players.get());
 			error.clear();
-			mp.openLobby(new HostedLobby(settings, n, node), node);
+			mp.openLobby(new HostedLobby(settings, n, mp.prefs.playerKey, node), node);
 			return;
 		}
 		try {
-			HostedLobby lobby = new HostedLobby(settings, n, p);
+			HostedLobby lobby = new HostedLobby(settings, n, mp.prefs.playerKey, p);
 			error.clear();
 			mp.openLobby(lobby, null);
 		} catch (IOException e) {

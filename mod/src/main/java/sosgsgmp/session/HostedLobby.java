@@ -28,14 +28,17 @@ public final class HostedLobby implements LobbySession {
     private String closedReason;
     private int changes;
 
-    /** Opens a lobby listening on {@code port} (0: any free port); throws if the port can't be used. */
-    public HostedLobby(LobbySettings settings, String hostName, int port) throws IOException {
-        this(settings, hostName, TcpNode.listen(port));
+    /**
+     * Opens a lobby listening on {@code port} (0: any free port); throws if the port can't be used. {@code hostKey}: this
+     * PC's player key, who it is in a campaign.
+     */
+    public HostedLobby(LobbySettings settings, String hostName, long hostKey, int port) throws IOException {
+        this(settings, hostName, hostKey, TcpNode.listen(port));
     }
 
     /** Opens a lobby on a node that already hosts (a Steam lobby this PC owns). */
-    public HostedLobby(LobbySettings settings, String hostName, Node node) {
-        this.lobby = new Lobby(settings, hostName);
+    public HostedLobby(LobbySettings settings, String hostName, long hostKey, Node node) {
+        this.lobby = new Lobby(settings, hostName, hostKey);
         this.node = node;
     }
 
@@ -62,12 +65,12 @@ public final class HostedLobby implements LobbySession {
         boolean isJoined = joined.containsKey(peer);
         switch (m) {
             case Message.Hello h when !isJoined -> {
-                Refusal refusal = lobby.refusal();
+                Refusal refusal = lobby.refusal(h.playerKey());
                 if (refusal != null) {
                     refuse(peer, refusal);
                     return;
                 }
-                int id = lobby.join(h.name());
+                int id = lobby.join(h.name(), h.playerKey());
                 joined.put(peer, id);
                 node.send(peer, new Message.Welcome(id, lobby.settings()));
                 sendRoster();
@@ -163,7 +166,7 @@ public final class HostedLobby implements LobbySession {
         if (state != LobbyState.STARTED || handedOver)
             throw new IllegalStateException("SOSGSGMP: only a started lobby hands over, once (state " + state + ", handed over " + handedOver + ")");
         handedOver = true;
-        return new HostedSetup(node, joined, lobby.players(), world, factions, lobby.settings().difficulty());
+        return new HostedSetup(node, joined, lobby.players(), lobby.keys(), world, factions, lobby.settings());
     }
 
     @Override
