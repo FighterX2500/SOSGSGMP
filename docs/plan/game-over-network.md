@@ -59,3 +59,12 @@ Spec §11 World desyncs; the engine half is SOSDET SOS-53 (every PC holds at the
 - **Resync:** at the hold step the host runs `Engine.worldResyncSave`; the engine's state and the world save travel as one transfer of `Resync` pieces (protocol 7, transfer ID, a repeated piece changes nothing; `WorldResync` frames the bytes). Every PC, the host too, loads it with `Engine.worldResyncLoad` once its engine stands at that step, then runs on (`Engine.runFreely`).
 - **Save and exit:** the host sends `DesyncExit`; every PC saves its game into vanilla's saves list ("Multiplayer step N"), leaves the session, ends the engine and offers the main menu. Resuming such a save as a campaign is Load Saved Lobby, a later card.
 - **Test:** the autopilot's `corrupt=STEP` breaks the joiner's world as SOSDET's rig `wcorrupt` does; `ondesync=resync|exit` is the host's choice; `tools/twopc.py --corrupt 1800 --on-desync resync|exit`. Runs D2 (resync: held at 1,889 1.2 s after the corruption, resynced within 1 s, 7 identical hashes after) and D3b/D3c (both PCs saved at the hold step).
+
+## 10. Battles (SOS-62)
+
+Spec §8, with the engine's half in SOSDET SOS-61 (plan 0006) and the ADR 0003 second amendment.
+
+- **The battle save travels as the fifth engine stream, BATTLE** (protocol 8). Every PC makes and takes it, and the host relays it, like reports and hashes, so it gets pieces, offsets and exactly-once delivery for free. A record is the Engage step, the save's length and the save (`session/BattleSaves`).
+- **Every frame** `MpPlay` asks the adapter (`EnginePlay.battleFrame`): while the engine waits for a battle's save, the save loads as soon as it is here. The battle PC loads its own too.
+- **After each load** (the battle's, then each PC's own city at the end) the game is new, so `MpPlay` and the session panel are put into it again (`Engine.afterEachLoad`).
+- **Test:** the engine's rig with two humans, two copies on one PC (SOSDET plan 0006). Two PCs through the mod come with the general playtest (owner, 2026-10-25).

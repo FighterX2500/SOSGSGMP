@@ -26,6 +26,7 @@ import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.net.Pieces;
+import sosgsgmp.net.Protocol;
 import sosgsgmp.net.StreamKind;
 import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep.PlayerPick;
@@ -382,6 +383,24 @@ class LoopbackSetupTest {
         hp.make(StreamKind.AI_LOG, (byte) 8);
         playUntil("more of the log", () -> cp.took(StreamKind.AI_LOG, 0).length == 4);
         assertArrayEquals(new byte[] {1, 2, 3, 8}, cp.took(StreamKind.AI_LOG, 0), "in order, each byte once");
+    }
+
+    @Test
+    void aJoinersBattleSaveReachesEveryOtherPcWhole() throws Exception {
+        EngineLinkTest.FakePort hp = new EngineLinkTest.FakePort();
+        EngineLinkTest.FakePort bp = new EngineLinkTest.FakePort();
+        EngineLinkTest.FakePort cp = new EngineLinkTest.FakePort();
+        playing(hp, bp, cp);
+        int b = host.factions().slotOf(bob.localPlayerId());
+        byte[] save = new byte[Protocol.MAX_STREAM_PIECE * 3 + 11];
+        for (int i = 0; i < save.length; i++)
+            save[i] = (byte) (i * 7);
+        bp.make(StreamKind.BATTLE, BattleSaves.frame(900, save));
+        playUntil("the battle save at the host and Cid", () -> hp.took(StreamKind.BATTLE, b).length == save.length + 12
+                && cp.took(StreamKind.BATTLE, b).length == save.length + 12);
+        BattleSaves at = new BattleSaves();
+        at.in(b, cp.took(StreamKind.BATTLE, b));
+        assertArrayEquals(save, at.take(900), "relayed by the host, whole and in order");
     }
 
     /** Every PC loaded the world, landed and plays with these engines. */

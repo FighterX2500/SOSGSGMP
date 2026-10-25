@@ -74,3 +74,11 @@ The engine built two things differently from this ADR, and the engine's way stan
 - **Step lengths (SOSDET SOS-42):** 1/60 s at 1× or slower, 1/30 s below 2×, 1/16 s from 2×. Orders and the AI log still apply 30 steps after they are given, so the delay in real time depends on the speed: 0.5 s at 1×, about 1 s just above 1×, about 0.94 s at 2× (spec §16, order delay above 1×).
 - **Lowest speed (spec 0.12 §4):** the governor never lowers the speed below 0.5×; a PC that can't hold 0.5× stops the game for everyone until it catches up. Not built in the engine yet.
 - **Retreat and restart (spec 0.12 §8):** only a side's commanders can order its retreat, and restart is off in battles between players. The engine's Retreat and Restart are commands any PC can give (SOS-41); the mod decides who may (SOS-15 spike, "What stays for the mod").
+
+## Second amendment (2026-10-25, owner, SOS-61 and SOS-62)
+
+With own cities, every PC runs its own city, and generating a battle reads city state that only the battle's own player's PC holds: the division slots, the formations, and that player's live boosts. So the first amendment's "every PC generates the battle" can't give one battlefield. The owner chose:
+
+- **The battle PC generates and sends the battle.** At Engage, the PC of the player the world-battle prompt asks generates the battle as vanilla does. It sends the battle save (about 2.6 MB in the Mogus-72 test) to every PC over the engine's BATTLE stream, and every PC, that one too, loads it at the Engage step. Every PC holds there until it has. Co-op battles, with one city on every PC, still generate on every PC.
+- **Rejected:** the battle PC sends its whole game, and every PC loads it and then generates the battle in the same step. That keeps the first amendment's rule, but it sends a bigger save and has to rebuild the battle's setup after the load: about twice the work.
+- **At the end** every PC loads its own city as it was at Engage, so each city stands still during the battle (spec §4). SOSDET plan 0006 holds the engine's half.
