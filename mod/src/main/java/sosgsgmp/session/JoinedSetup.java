@@ -5,7 +5,7 @@ import java.util.List;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.Pieces;
-import sosgsgmp.net.TcpNode;
+import sosgsgmp.net.Node;
 import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep;
 import sosgsgmp.setup.FactionWorld;
@@ -21,7 +21,7 @@ import sosgsgmp.setup.MapWorld;
  */
 public final class JoinedSetup implements SetupSession {
 
-    private final TcpNode node;
+    private final Node node;
     private final MapWorld world;
     private final FactionWorld factionWorld;
     private final MapStep step;
@@ -44,7 +44,7 @@ public final class JoinedSetup implements SetupSession {
     private int changes;
 
     /** Takes over a started lobby's connection to the host, this PC's player id and the players. */
-    JoinedSetup(TcpNode node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld) {
+    JoinedSetup(Node node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld) {
         this.node = node;
         this.world = world;
         this.factionWorld = factionWorld;
@@ -54,20 +54,20 @@ public final class JoinedSetup implements SetupSession {
 
     @Override
     public void update() {
-        TcpNode.Event e;
+        Node.Event e;
         while (!closed && step.pendingBuild() == 0 && !waitingToPlay() && (e = node.poll()) != null) {
             switch (e) {
-                case TcpNode.Event.Connected c -> {
+                case Node.Event.Connected c -> {
                     // Only the host's connection, made in the lobby.
                 }
-                case TcpNode.Event.Received r -> {
+                case Node.Event.Received r -> {
                     received(r.message());
                     // a piece of the engine's streams or a cursor changes nothing the panel shows
                     if (!(r.message() instanceof Message.Stream) && !(r.message() instanceof Message.Cursor))
                         changes++;
                 }
-                case TcpNode.Event.Disconnected d -> {
-                    if (d.peer() == TcpNode.HOST)
+                case Node.Event.Disconnected d -> {
+                    if (d.peer() == Node.HOST)
                         close("Lost the connection to the host. " + d.reason());
                 }
             }
@@ -154,7 +154,7 @@ public final class JoinedSetup implements SetupSession {
     }
 
     private void sendResult() {
-        node.send(TcpNode.HOST, new Message.MapResult(step.genId(), step.hash(), step.status()));
+        node.send(Node.HOST, new Message.MapResult(step.genId(), step.hash(), step.status()));
     }
 
     private void close(String reason) {
@@ -185,7 +185,7 @@ public final class JoinedSetup implements SetupSession {
         if (closed)
             return;
         for (Message.Stream s : link.out())
-            node.send(TcpNode.HOST, s);
+            node.send(Node.HOST, s);
     }
 
     @Override
@@ -213,7 +213,7 @@ public final class JoinedSetup implements SetupSession {
     @Override
     public void cursor(boolean onMap, int x, int y) {
         if (!closed && cursors.own(onMap, x, y, System.nanoTime()))
-            node.send(TcpNode.HOST, new Message.Cursor(localPlayerId(), onMap, x, y));
+            node.send(Node.HOST, new Message.Cursor(localPlayerId(), onMap, x, y));
     }
 
     @Override
@@ -250,7 +250,7 @@ public final class JoinedSetup implements SetupSession {
     public void built() {
         int buildId = step.pendingBuild();
         step.built(buildId);
-        node.send(TcpNode.HOST, new Message.BuildReady(buildId));
+        node.send(Node.HOST, new Message.BuildReady(buildId));
         changes++;
     }
 
@@ -279,7 +279,7 @@ public final class JoinedSetup implements SetupSession {
         if (factions == null)
             throw new IllegalStateException("SOSGSGMP: picks before the map is confirmed");
         factions.ownPick(pick);
-        node.send(TcpNode.HOST, new Message.Pick(pick));
+        node.send(Node.HOST, new Message.Pick(pick));
         changes++;
     }
 
@@ -305,13 +305,13 @@ public final class JoinedSetup implements SetupSession {
     @Override
     public void worldLoaded(long hash) {
         factions.loaded(hash);
-        node.send(TcpNode.HOST, new Message.Loaded(factions.transfer(), hash));
+        node.send(Node.HOST, new Message.Loaded(factions.transfer(), hash));
         changes++;
     }
 
     @Override
     public void startSpot() {
-        node.send(TcpNode.HOST, new Message.StartSpot(factions.transfer()));
+        node.send(Node.HOST, new Message.StartSpot(factions.transfer()));
         changes++;
     }
 
@@ -319,7 +319,7 @@ public final class JoinedSetup implements SetupSession {
     public void leave() {
         if (closed)
             return;
-        node.send(TcpNode.HOST, new Message.Leave());
+        node.send(Node.HOST, new Message.Leave());
         close("You left the game.");
     }
 

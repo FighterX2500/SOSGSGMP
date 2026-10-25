@@ -29,13 +29,11 @@ final class MpScreenMain extends GUI.Shadower implements SC {
 		b.clickActionSet(() -> mp.menu.switchScreen(mp.join));
 		col.addDown(8, b);
 
-		// Steam placeholder: wired to Steam lobbies and invites in a later card.
 		b = GUI.getNavButt("join through Steam");
-		b.activeSet(false);
+		b.clickActionSet(mp::openSteamJoin);
 		col.addDown(8, b);
 
 		col.addDown(32, MpMenu.note("Saved lobbies come with campaign saves."));
-		col.addDown(4, MpMenu.note("Steam lobbies and invites are not connected yet: join by IP, for example over Radmin VPN."));
 
 		col.body().centerIn(MenuScreen.inner);
 		add(col);

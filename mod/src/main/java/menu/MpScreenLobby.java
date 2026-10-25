@@ -15,6 +15,7 @@ import sosgsgmp.game.WorldGenAdapter;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
+import sosgsgmp.net.SteamNode;
 import sosgsgmp.session.LobbySession;
 import sosgsgmp.session.SetupSession;
 import util.gui.misc.GText;
@@ -30,6 +31,9 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 
 	private final MpMenu mp;
 	private LobbySession session;
+	/** The host's Steam lobby, for invites; null over direct IP and on joining PCs. */
+	private SteamNode steam;
+	private String shownSteamFailure;
 	private SetupSession setup;
 	private WorldGenAdapter world;
 	private int shownChanges = -1;
@@ -61,10 +65,18 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		};
 		screen.addButt(start);
 		screen.addButt(gap());
-		// Steam placeholder: Steam friend invites come with the Steam card.
-		CLICKABLE invite = new MenuScreen.ScreenButton("invite Steam friends");
-		invite.activeSet(false);
-		screen.addButt(invite);
+		screen.addButt(new MenuScreen.ScreenButton("invite Steam friends") {
+			@Override
+			protected void clickA() {
+				if (steam != null)
+					steam.invite();
+			}
+
+			@Override
+			protected void renAction() {
+				activeSet(steam != null && steam.lobby() != 0 && setup == null);
+			}
+		});
 		screen.addButt(gap());
 		screen.addButt(new MenuScreen.ScreenButton("leave") {
 			@Override
@@ -109,8 +121,10 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		};
 	}
 
-	void open(LobbySession s) {
+	void open(LobbySession s, SteamNode steamLobby) {
 		session = s;
+		steam = steamLobby;
+		shownSteamFailure = null;
 		setup = null;
 		shownChanges = -1;
 		start.visableSet(s.isHost());
@@ -125,12 +139,22 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		} else if (session != null) {
 			session.update();
 			refresh();
+			steamFailure();
 			if (mp.autopilot != null)
 				mp.autopilot.lobby(session);
 			if (session.state() == LobbyState.STARTED)
 				startSetup();
 		}
 		return super.hover(mCoo);
+	}
+
+	/** Steam couldn't start or create the lobby: the reason replaces the status, once. */
+	private void steamFailure() {
+		String failure = steam == null ? null : steam.failure();
+		if (failure == null || failure.equals(shownSteamFailure))
+			return;
+		shownSteamFailure = failure;
+		status.clear().add(failure);
 	}
 
 	/** The lobby has started: its connection and players go to the setup; the host starts the first build. */
@@ -152,6 +176,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 			return;
 		MpGameBuild build = new MpGameBuild(setup, world, mp.mapSizeMemory());
 		session = null;
+		steam = null;
 		setup = null;
 		world = null;
 		shownPlayers = 0;
@@ -199,6 +224,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 			session.leave();
 		setup = null;
 		session = null;
+		steam = null;
 		shownPlayers = 0;
 		mp.menu.switchScreen(mp.main);
 	}

@@ -21,6 +21,9 @@ import snake2d.LOG;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
+import sosgsgmp.game.SteamworksPort;
+import sosgsgmp.net.SteamNode;
+import sosgsgmp.net.SteamPort;
 import sosgsgmp.session.HostedLobby;
 import sosgsgmp.session.JoinedLobby;
 import sosgsgmp.session.LobbySession;
@@ -93,6 +96,13 @@ public final class MpAutopilot {
 		return new MpAutopilot(m);
 	}
 
+	/** Over Steam instead of direct IP (net=steam). */
+	private final boolean steam;
+	/** A joining PC's Steam, looking for the host's lobby. */
+	private SteamNode browsing;
+	/** The host's Steam lobby. */
+	private SteamNode hostSteam;
+
 	private MpAutopilot(Map<String, String> m) {
 		String role = m.getOrDefault("role", "");
 		if (!role.equals("host") && !role.equals("join"))
@@ -110,8 +120,12 @@ public final class MpAutopilot {
 		onDesync = m.getOrDefault("ondesync", "resync");
 		if (!onDesync.equals("resync") && !onDesync.equals("exit"))
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " ondesync '" + onDesync + "', not resync or exit");
+		String net = m.getOrDefault("net", "ip");
+		if (!net.equals("ip") && !net.equals("steam"))
+			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " net '" + net + "', not ip or steam");
+		steam = net.equals("steam");
 		events = Paths.get(System.getenv("APPDATA"), "songsofsyx", "sosgsgmp-autopilot", "events.jsonl");
-		if (!host && address.isEmpty())
+		if (!host && !steam && address.isEmpty())
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " role=join needs address=");
 	}
 
@@ -119,20 +133,61 @@ public final class MpAutopilot {
 	void menu(MpMenu mp) {
 		if (lobbyOpened || !due())
 			return;
+		if (steam) {
+			steamMenu(mp);
+			return;
+		}
 		try {
 			LobbySession s = host
 					? new HostedLobby(new LobbySettings(difficulty.isEmpty() ? mp.prefs.difficulty : difficulty, Math.max(players, 2)), name, port)
 					: new JoinedLobby(address, port, name, mp.prefs.playerKey);
 			lobbyOpened = true;
-			mp.openLobby(s);
+			mp.openLobby(s, null);
 			event("lobby", "\"role\":\"" + (host ? "host" : "join") + "\"");
 		} catch (IOException e) {
 			event("lobbyretry", "\"reason\":\"" + clean(e.getMessage()) + "\""); // the host may not be up yet
 		}
 	}
 
+	/**
+	 * Over Steam: the host creates a Steam lobby, as Create Steam Lobby does; a joining PC waits until a friend's lobby
+	 * shows, then joins the first, as Join through Steam does (both accounts must be Steam friends).
+	 */
+	private void steamMenu(MpMenu mp) {
+		if (host) {
+			SteamNode node = SteamNode.host(SteamworksPort::new, Math.max(players, 2));
+			hostSteam = node;
+			lobbyOpened = true;
+			mp.openLobby(new HostedLobby(new LobbySettings(difficulty.isEmpty() ? mp.prefs.difficulty : difficulty,
+					Math.max(players, 2)), name, node), node);
+			event("lobby", "\"role\":\"host\",\"net\":\"steam\"");
+			return;
+		}
+		if (browsing == null) {
+			browsing = SteamNode.browse(SteamworksPort::new);
+			event("steambrowse", "");
+			return;
+		}
+		if (browsing.failure() != null) {
+			if (first("steamfail"))
+				event("steamfail", "\"reason\":\"" + clean(browsing.failure()) + "\"");
+			return;
+		}
+		if (browsing.friendLobbies().isEmpty())
+			return;
+		SteamPort.FriendLobby f = browsing.friendLobbies().get(0);
+		browsing.join(f.lobby());
+		lobbyOpened = true;
+		mp.openLobby(new JoinedLobby(browsing, name, mp.prefs.playerKey), null);
+		event("lobby", "\"role\":\"join\",\"net\":\"steam\",\"friend\":\"" + clean(f.friend()) + "\"");
+	}
+
 	/** The lobby screen, every frame: the host starts once every player is in. */
 	void lobby(LobbySession s) {
+		if (hostSteam != null && hostSteam.lobby() != 0 && first("steamlobby"))
+			event("steamlobby", "\"lobby\":" + hostSteam.lobby());
+		if (hostSteam != null && hostSteam.failure() != null && first("steamfail"))
+			event("steamfail", "\"reason\":\"" + clean(hostSteam.failure()) + "\"");
 		if (host && s.canStart() && s.players().size() >= players && first("started")) {
 			s.start();
 			event("started", "\"players\":" + s.players().size());

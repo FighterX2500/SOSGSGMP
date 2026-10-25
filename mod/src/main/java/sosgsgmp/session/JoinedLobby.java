@@ -7,14 +7,15 @@ import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.net.Message;
+import sosgsgmp.net.Node;
 import sosgsgmp.net.TcpNode;
 import sosgsgmp.setup.FactionWorld;
 import sosgsgmp.setup.MapWorld;
 
-/** A lobby on another PC, joined over direct IP. */
+/** A lobby on another PC, joined over direct IP or Steam. */
 public final class JoinedLobby implements LobbySession {
 
-    private final TcpNode node;
+    private final Node node;
     private final String name;
     private final long playerKey;
     private LobbyState state = LobbyState.CONNECTING;
@@ -27,24 +28,29 @@ public final class JoinedLobby implements LobbySession {
 
     /** Starts connecting to {@code host}:{@code port}; the outcome arrives through {@link #update()}. */
     public JoinedLobby(String host, int port, String name, long playerKey) throws IOException {
+        this(TcpNode.connect(host, port), name, playerKey);
+    }
+
+    /** Joins through a node that is reaching its host (a Steam lobby being entered); hello follows its connect. */
+    public JoinedLobby(Node node, String name, long playerKey) {
         this.name = name;
         this.playerKey = playerKey;
-        this.node = TcpNode.connect(host, port);
+        this.node = node;
     }
 
     /** Stops at Start: what follows is the setup's, read by the session this one hands over to. */
     @Override
     public void update() {
-        TcpNode.Event e;
+        Node.Event e;
         while ((state == LobbyState.CONNECTING || state == LobbyState.OPEN) && (e = node.poll()) != null) {
             switch (e) {
-                case TcpNode.Event.Connected c -> node.send(TcpNode.HOST, new Message.Hello(name, playerKey));
-                case TcpNode.Event.Received r -> {
+                case Node.Event.Connected c -> node.send(Node.HOST, new Message.Hello(name, playerKey));
+                case Node.Event.Received r -> {
                     received(r.message());
                     changes++;
                 }
-                case TcpNode.Event.Disconnected d -> {
-                    if (d.peer() == TcpNode.HOST)
+                case Node.Event.Disconnected d -> {
+                    if (d.peer() == Node.HOST)
                         close(localId < 0 ? d.reason() : "Lost the connection to the host. " + d.reason());
                 }
             }
@@ -114,7 +120,7 @@ public final class JoinedLobby implements LobbySession {
     public void leave() {
         if (state == LobbyState.CLOSED || handedOver)
             return;
-        node.send(TcpNode.HOST, new Message.Leave());
+        node.send(Node.HOST, new Message.Leave());
         close("You left the lobby.");
     }
 

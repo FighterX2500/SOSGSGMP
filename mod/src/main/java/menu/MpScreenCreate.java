@@ -13,6 +13,8 @@ import snake2d.util.gui.renderable.RENDEROBJ;
 import sosgsgmp.lobby.Lobby;
 import sosgsgmp.lobby.LobbyPrefs;
 import sosgsgmp.lobby.LobbySettings;
+import sosgsgmp.game.SteamworksPort;
+import sosgsgmp.net.SteamNode;
 import sosgsgmp.session.HostedLobby;
 import util.data.INT.IntImp;
 import util.gui.misc.GText;
@@ -36,10 +38,16 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 				mp.menu.switchScreen(mp.main);
 			}
 		};
-		screen.addButt(new MenuScreen.ScreenButton("create") {
+		screen.addButt(new MenuScreen.ScreenButton("create (IP)") {
 			@Override
 			protected void clickA() {
-				create();
+				create(false);
+			}
+		});
+		screen.addButt(new MenuScreen.ScreenButton("create Steam lobby") {
+			@Override
+			protected void clickA() {
+				create(true);
 			}
 		});
 		add(screen);
@@ -137,22 +145,31 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 		};
 	}
 
-	private void create() {
+	/** Opens the lobby over direct IP on the port, or as a Steam lobby for friends (the port isn't used). */
+	private void create(boolean steam) {
 		int p = LobbyPrefs.parsePort(port.text());
-		if (p < 0) {
+		if (p < 0 && !steam) {
 			error.clear().add("The port must be a number from 1 to 65535.");
 			return;
 		}
 		String n = Lobby.cleanName(name.text());
 		mp.prefs.name = n;
-		mp.prefs.port = p;
+		if (p > 0)
+			mp.prefs.port = p;
 		mp.prefs.maxPlayers = players.get();
 		mp.prefs.difficulty = mp.modes.keys[mode];
 		mp.savePrefs();
-		try {
-			HostedLobby lobby = new HostedLobby(new LobbySettings(mp.modes.keys[mode], players.get()), n, p);
+		LobbySettings settings = new LobbySettings(mp.modes.keys[mode], players.get());
+		if (steam) {
+			SteamNode node = SteamNode.host(SteamworksPort::new, players.get());
 			error.clear();
-			mp.openLobby(lobby);
+			mp.openLobby(new HostedLobby(settings, n, node), node);
+			return;
+		}
+		try {
+			HostedLobby lobby = new HostedLobby(settings, n, p);
+			error.clear();
+			mp.openLobby(lobby, null);
 		} catch (IOException e) {
 			error.clear().add("Can't open port ").add(p).add(": ").add(String.valueOf(e.getMessage()));
 		}

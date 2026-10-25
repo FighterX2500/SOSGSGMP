@@ -34,6 +34,7 @@ SSH = ["ssh", "-i", KEY, "-o", "BatchMode=yes", "-o", "ConnectTimeout=20", "-o",
 REMOTE_ROOT = r"C:\SOSTest"
 REMOTE_K = 2  # the remote data folder C:\SOSTest\inst\2 (its cache stays between runs)
 EVENTS = pathlib.PurePath("sosgsgmp-autopilot") / "events.jsonl"
+STEAM_APP_ID = "1162750"  # Songs of Syx; Steam reads it from SteamAppId when the game is not started by Steam
 
 
 def log(msg):
@@ -99,8 +100,8 @@ def send_remote(appdata):
 
 def start_remote(rdir, autopilot):
     """The game on the second PC, in its logged-on session (a game started over ssh would have no screen)."""
-    script = ("@echo off\r\nset APPDATA=%s\r\nset SOSGSGMP_AUTOPILOT=%s\r\ncd /d %s\\game\r\n"
-              "jre\\bin\\java.exe -cp SongsOfSyx.jar init.Main\r\n" % (rdir, autopilot, REMOTE_ROOT))
+    script = ("@echo off\r\nset APPDATA=%s\r\nset SOSGSGMP_AUTOPILOT=%s\r\nset SteamAppId=%s\r\ncd /d %s\\game\r\n"
+              "jre\\bin\\java.exe -cp SongsOfSyx.jar init.Main\r\n" % (rdir, autopilot, STEAM_APP_ID, REMOTE_ROOT))
     path = rdir + "\\start.cmd"
     remote_ps("[IO.File]::WriteAllText('%s', '%s')" % (path, script.replace("'", "''")))
     remote_ps("Register-ScheduledTask -TaskName 'SOSGSGMP-twopc' -Action (New-ScheduledTaskAction -Execute '%s')"
@@ -159,6 +160,8 @@ def main():
     ap.add_argument("--port", type=int, default=47510)
     ap.add_argument("--corrupt", type=int, default=-1, help="the joiner breaks its world at this step (a test desync)")
     ap.add_argument("--on-desync", choices=("resync", "exit"), default="resync", help="the host's choice at a desync")
+    ap.add_argument("--net", choices=("ip", "steam"), default="ip",
+                    help="steam: a Steam lobby; both PCs need Steam running, logged on to two accounts that are friends")
     ap.add_argument("--tag", default="twopc")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
@@ -174,8 +177,9 @@ def main():
     remote_data = data_folder(INST / str(REMOTE_K), (1600, 900))
     log("data folders ready; sending the joiner's to the second PC")
     rdir = send_remote(remote_data.parent)
-    common = "port=%d,steps=%d" % (args.port, args.steps)
-    host_env = dict(os.environ, APPDATA=str(local.parent),
+    common = "port=%d,steps=%d,net=%s" % (args.port, args.steps, args.net)
+    # Steam finds the App ID here when the game isn't started by Steam
+    host_env = dict(os.environ, APPDATA=str(local.parent), SteamAppId=STEAM_APP_ID,
                     SOSGSGMP_AUTOPILOT="role=host,name=Host,players=2,seed=%d,speed=%g,ondesync=%s,%s" % (args.seed, args.speed, args.on_desync, common))
     java = GAME / "jre" / "bin" / "java.exe"
     host = subprocess.Popen([str(java), "-cp", str(GAME / "SongsOfSyx.jar"), "init.Main"], cwd=str(GAME), env=host_env,
@@ -202,7 +206,11 @@ def main():
         if len(done) == 2:
             break
         if "host" not in done and not running(game_pid):
-            fail("the host's game ended without finishing; see %s" % (local / "logs"))
+            # its last event may have landed after this round's read: once more before failing
+            last = events((local / EVENTS).read_text(encoding="utf-8")) if (local / EVENTS).exists() else []
+            if not any(e["event"] in ("done", "closed", "desyncexit") for e in last):
+                fail("the host's game ended without finishing; see %s" % (local / "logs"))
+            continue
         time.sleep(5)
     else:
         fail("timed out after %d s" % args.timeout)

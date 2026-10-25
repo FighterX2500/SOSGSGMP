@@ -11,15 +11,16 @@ import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.net.Message;
+import sosgsgmp.net.Node;
 import sosgsgmp.net.TcpNode;
 import sosgsgmp.setup.FactionWorld;
 import sosgsgmp.setup.MapWorld;
 
-/** A lobby hosted on this PC over direct IP. */
+/** A lobby hosted on this PC, over direct IP or Steam. */
 public final class HostedLobby implements LobbySession {
 
     private final Lobby lobby;
-    private final TcpNode node;
+    private final Node node;
     /** Connected peers that have joined, to their player ids. Peers still waiting to say hello aren't here. */
     private final Map<Integer, Integer> joined = new HashMap<>();
     private LobbyState state = LobbyState.OPEN;
@@ -29,25 +30,30 @@ public final class HostedLobby implements LobbySession {
 
     /** Opens a lobby listening on {@code port} (0: any free port); throws if the port can't be used. */
     public HostedLobby(LobbySettings settings, String hostName, int port) throws IOException {
-        this.lobby = new Lobby(settings, hostName);
-        this.node = TcpNode.listen(port);
+        this(settings, hostName, TcpNode.listen(port));
     }
 
-    /** The port players join on. */
+    /** Opens a lobby on a node that already hosts (a Steam lobby this PC owns). */
+    public HostedLobby(LobbySettings settings, String hostName, Node node) {
+        this.lobby = new Lobby(settings, hostName);
+        this.node = node;
+    }
+
+    /** The port players join on over direct IP; -1 over Steam. */
     public int port() {
-        return node.port();
+        return node instanceof TcpNode t ? t.port() : -1;
     }
 
     @Override
     public void update() {
-        TcpNode.Event e;
+        Node.Event e;
         while (state != LobbyState.CLOSED && !handedOver && (e = node.poll()) != null) {
             switch (e) {
-                case TcpNode.Event.Connected c -> {
+                case Node.Event.Connected c -> {
                     // The PC joins with its hello.
                 }
-                case TcpNode.Event.Received r -> received(r.peer(), r.message());
-                case TcpNode.Event.Disconnected d -> removeJoined(d.peer());
+                case Node.Event.Received r -> received(r.peer(), r.message());
+                case Node.Event.Disconnected d -> removeJoined(d.peer());
             }
         }
     }
