@@ -176,8 +176,11 @@ val compileGamePatches by tasks.registering {
 
 // ---------------------------------------------------------------- the mod
 
-/** Mod classes live in package sosgsgmp; the menu adapter's classes sit in the game's package menu, named Mp*. */
-fun isModClass(path: String) = path.startsWith("sosgsgmp/") || path.startsWith("menu/Mp")
+/**
+ * Mod classes live in package sosgsgmp; the adapter classes that need package-private game members sit in the game's
+ * packages, named Mp*: menu (the lobby screens) and view/world/generator (the map step's panel).
+ */
+fun isModClass(path: String) = path.startsWith("sosgsgmp/") || path.startsWith("menu/Mp") || path.startsWith("view/world/generator/Mp")
 
 tasks.jar {
     description = "The mod's script jar: mod classes plus the game classes compiled from the hooks."
@@ -190,7 +193,7 @@ tasks.jar {
     doFirst {
         sourceSets.main.get().output.classesDirs.forEach { dir ->
             classesUnder(dir).keys.filterNot(::isModClass).takeIf { it.isNotEmpty() }?.let {
-                throw GradleException("SOSGSGMP: mod classes outside sosgsgmp/ and menu/Mp*: $it")
+                throw GradleException("SOSGSGMP: mod classes outside sosgsgmp/, menu/Mp* and view/world/generator/Mp*: $it")
             }
         }
     }

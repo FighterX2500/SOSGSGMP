@@ -11,19 +11,26 @@ import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
 import sosgsgmp.lobby.LobbyPlayer;
+import sosgsgmp.game.WorldGenAdapter;
 import sosgsgmp.lobby.LobbySettings;
+import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.session.LobbySession;
+import sosgsgmp.session.SetupSession;
 import util.gui.misc.GText;
 import view.menu.MenuScreen;
 
 /**
  * SOSGSGMP: the lobby: who is in it, the settings, Start Lobby for the host, Leave (spec §5, lobby step 4).
- * Its texts are rebuilt only when the session reports a change, never while rendering.
+ * Its texts are rebuilt only when the session reports a change, never while rendering. Once the lobby has started,
+ * its session hands over to the setup, and every PC leaves the menu to build the game for the map step when the
+ * host's first build arrives (setup-map-step.md §3).
  */
 final class MpScreenLobby extends GUI.Shadower implements SC {
 
 	private final MpMenu mp;
 	private LobbySession session;
+	private SetupSession setup;
+	private WorldGenAdapter world;
 	private int shownChanges = -1;
 	private int shownPlayers;
 	private final GText[] rows = new GText[LobbySettings.MAX_PLAYERS];
@@ -103,6 +110,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 
 	void open(LobbySession s) {
 		session = s;
+		setup = null;
 		shownChanges = -1;
 		start.visableSet(s.isHost());
 		refresh();
@@ -111,11 +119,40 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 	/** Called every frame by the menu's update; applies network events and refreshes the texts on change. */
 	@Override
 	public boolean hover(COORDINATE mCoo) {
-		if (session != null) {
+		if (setup != null) {
+			updateSetup();
+		} else if (session != null) {
 			session.update();
 			refresh();
+			if (session.state() == LobbyState.STARTED)
+				startSetup();
 		}
 		return super.hover(mCoo);
+	}
+
+	/** The lobby has started: its connection and players go to the setup; the host starts the first build. */
+	private void startSetup() {
+		world = new WorldGenAdapter();
+		setup = session.handOver(world);
+		if (setup.isHost())
+			setup.build(mp.prefs.mapSize);
+	}
+
+	/** Until the first build arrives; then this PC leaves the menu the way vanilla starts a game. */
+	private void updateSetup() {
+		setup.update();
+		if (setup.closed()) {
+			status.clear().add(setup.closedReason());
+			return;
+		}
+		if (setup.step().pendingBuild() == 0)
+			return;
+		MpGameBuild build = new MpGameBuild(setup, world, mp.mapSizeMemory());
+		session = null;
+		setup = null;
+		world = null;
+		shownPlayers = 0;
+		mp.menu.start(build);
 	}
 
 	private void refresh() {
@@ -147,14 +184,17 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 			case OPEN -> status.add(session.isHost()
 					? (session.canStart() ? "Start the lobby when everyone is in." : "Waiting for players. Start needs 2 or more.")
 					: "Waiting for the host to start.");
-			case STARTED -> status.add("The lobby has started. Race, location and world setup come with the engine's player rework (SOSDET SOS-46); leave to go back.");
+			case STARTED -> status.add("The lobby has started. Building the game for the map...");
 			case CLOSED -> status.add(session.closedReason());
 		}
 	}
 
 	private void leave() {
-		if (session != null)
+		if (setup != null)
+			setup.leave();
+		else if (session != null)
 			session.leave();
+		setup = null;
 		session = null;
 		shownPlayers = 0;
 		mp.menu.switchScreen(mp.main);

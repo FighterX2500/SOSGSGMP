@@ -21,6 +21,7 @@ class LobbyPrefsTest {
         assertEquals("Player", p.name);
         assertEquals("", p.address);
         assertEquals(LobbyPrefs.DEFAULT_PORT, p.port);
+        assertEquals(256, p.mapSize);
     }
 
     @Test
@@ -30,13 +31,24 @@ class LobbyPrefsTest {
         p.name = "Änn = host";
         p.address = "26.10.0.7";
         p.port = 5000;
+        p.mapSize = 512;
         p.save(file);
 
         LobbyPrefs back = LobbyPrefs.load(file);
         assertEquals(p.name, back.name);
         assertEquals(p.address, back.address);
         assertEquals(p.port, back.port);
+        assertEquals(512, back.mapSize);
         assertEquals(p.playerKey, back.playerKey);
+    }
+
+    @Test
+    void aFileWithoutAMapSizeOrAnOddOneGetsTheDefault() throws IOException {
+        Path file = dir.resolve("lobby.properties");
+        Files.writeString(file, "format=1\nname=Ann\n");
+        assertEquals(256, LobbyPrefs.load(file).mapSize);
+        Files.writeString(file, "format=1\nmapSize=320\n");
+        assertEquals(256, LobbyPrefs.load(file).mapSize);
     }
 
     @Test

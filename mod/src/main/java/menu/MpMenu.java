@@ -2,6 +2,7 @@ package menu;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.function.IntConsumer;
 
 import init.paths.PATHS;
 import init.paths.PATHS.ResFolder;
@@ -73,10 +74,24 @@ final class MpMenu {
 	}
 
 	void savePrefs() {
+		savePrefs(prefs, prefsFile);
+	}
+
+	/** Remembers the host's map size. Holds only the prefs and their file, not the menu, so it can outlive the menu. */
+	IntConsumer mapSizeMemory() {
+		LobbyPrefs p = prefs;
+		Path file = prefsFile;
+		return size -> {
+			p.mapSize = size;
+			savePrefs(p, file);
+		};
+	}
+
+	private static void savePrefs(LobbyPrefs prefs, Path file) {
 		try {
-			prefs.save(prefsFile);
+			prefs.save(file);
 		} catch (IOException e) {
-			LOG.err("SOSGSGMP: can't save " + prefsFile + ": " + e.getMessage());
+			LOG.err("SOSGSGMP: can't save " + file + ": " + e.getMessage());
 		}
 	}
 
