@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.17 · 2026-10-26
+Version 0.18 · 2026-10-26
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -199,7 +199,7 @@ Any player can view any other player's city, enemies included. This is intended.
 
 **Joining.** New players cannot join a campaign that is already in progress.
 
-**Removing a player.** The host can remove a player who is missing at resume or disconnected. Their city and all their territory become an NPC realm owned by a neutral faction, as with Eliminate, and they can't rejoin the campaign as a player. Play goes on without them; nobody waits for them.
+**Removing a player.** The host can remove a player who is missing at resume or disconnected. Every region they held, their city's included, becomes a free region with no owner, as vanilla leaves a destroyed faction's land, and their armies are disbanded. They can't rejoin the campaign as a player. Play goes on without them; nobody waits for them.
 
 **Host disconnect.** When the host loses connection, every player gets a popup saying the host disconnected, and the whole simulation stops: the world, every city and any battle. Play can't continue in that session. The players resume the campaign from a save with any player as host (see Resuming); the save made before the last battle is the natural point.
 
@@ -213,7 +213,7 @@ The window appears on every world desync; there is no automatic resync.
 **Disconnects.** When a player other than the host disconnects, for any reason (the network, a crash, quitting the game), the whole game enters a priority pause, and every player sees which player is gone. The host chooses what follows; the others wait, and the pause lasts until the host chooses:
 
 - **Return to the last save:** the session ends, and the players resume the campaign from its last save, the disconnected player included (see Resuming). When they dropped out of a battle, that is the save made before it.
-- **Continue without them:** the player is removed (see Removing a player), and play goes on. A battle or siege they were in is forfeited by their side, attacker or defender. All armies on both sides stay intact, and the other side's armies return home.
+- **Continue without them:** the player is removed (see Removing a player), and play goes on. A battle or siege they were in ends for their side, attacker or defender, with no result: the other side's armies stay as they were before it.
 
 A disconnected player never rejoins a running session; they come back only through a resume. No city is frozen because its player is gone: the only frozen city is a viewer's own city (section 10).
 
@@ -360,8 +360,8 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - When the host loses connection, every player sees a "host disconnected" popup and the whole simulation stops within 2 seconds. [PT]
 - After a disconnect, nothing runs until the host chooses Return to the last save or Continue without them. [AT]
 - Return to the last save resumes every player, the disconnected one included, from the campaign's last save. [PT]
-- Continue without them turns the player's city and territory into a neutral NPC realm, with the same world hash on every PC. [AT]
-- In a battle or siege, Continue without them forfeits the disconnected player's side, and all armies stay intact. [AT]
+- Continue without them frees every region the player held and disbands their armies, with the same world hash on every PC. [AT]
+- In a battle or siege, Continue without them ends it with no result, and the other side's armies stay as they were before it. [AT]
 
 ### Chat and notifications
 
