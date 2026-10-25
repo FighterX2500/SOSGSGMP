@@ -3,6 +3,8 @@ package sosgsgmp.session;
 import java.util.List;
 
 import sosgsgmp.lobby.LobbyPlayer;
+import sosgsgmp.setup.FactionPick;
+import sosgsgmp.setup.FactionStep;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStep;
 
@@ -49,6 +51,21 @@ public interface SetupSession {
 
     /** Host: locks the map on every PC. Check {@link MapStep#canConfirm()} first. */
     void confirm();
+
+    /** The factions step once the map is confirmed, for reading; null before. It changes only through this session. */
+    FactionStep factions();
+
+    /**
+     * This PC's latest picks, sent whenever they change: the host records them at once (checking the location as it
+     * checks everyone's), a joining PC sends them to the host. Only once the map is confirmed.
+     */
+    void pick(FactionPick pick);
+
+    /**
+     * Why this PC's location can't be at world tile {@code x, y}: the engine's rule with the other players' locations
+     * as this PC knows them; null when it can. Only once the map is confirmed.
+     */
+    String locationProblem(int x, int y);
 
     /** Leaves the setup (the host closes it for everyone) and frees the connection. */
     void leave();

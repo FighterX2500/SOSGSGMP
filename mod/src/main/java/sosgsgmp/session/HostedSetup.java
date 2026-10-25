@@ -10,6 +10,8 @@ import sosgsgmp.lobby.Refusal;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.Pieces;
 import sosgsgmp.net.TcpNode;
+import sosgsgmp.setup.FactionPick;
+import sosgsgmp.setup.FactionStep;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStatus;
 import sosgsgmp.setup.MapStep;
@@ -30,6 +32,10 @@ public final class HostedSetup implements SetupSession {
     private MapOptions choices;
     /** A Generate at a new size: its options, generated once this PC's game is rebuilt at that size; else null. */
     private MapOptions waiting;
+    /** The factions step from the confirm on; null before. */
+    private FactionStep factions;
+    /** The picks as last sent to the joining PCs. */
+    private List<FactionStep.PlayerPick> sentPicks = List.of();
     private boolean closed;
     private String closedReason;
     private int changes;
@@ -68,6 +74,10 @@ public final class HostedSetup implements SetupSession {
                 if (step.onResult(id, r.genId(), r.hash(), r.status()))
                     changed();
             }
+            case Message.Pick p when id != null && factions != null -> {
+                if (factions.onPick(id, p.pick()))
+                    picksChanged();
+            }
             case Message.Leave l when id != null -> {
                 node.disconnect(peer);
                 removeJoined(peer);
@@ -90,6 +100,18 @@ public final class HostedSetup implements SetupSession {
         step.remove(id);
         sendAll(new Message.Roster(players));
         changed();
+        if (factions != null && factions.remove(id))
+            picksChanged();
+    }
+
+    /** The table of picks changed: count it, and send it to the joining PCs when it differs from what was sent. */
+    private void picksChanged() {
+        changes++;
+        List<FactionStep.PlayerPick> now = factions.table();
+        if (now.isEmpty() || now.equals(sentPicks))
+            return;
+        sentPicks = now;
+        sendAll(new Message.Picks(now));
     }
 
     /** A player's progress may have changed: count it, and tell the joining PCs if it did. */
@@ -193,7 +215,32 @@ public final class HostedSetup implements SetupSession {
         step.confirm();
         sendAll(new Message.MapConfirm(step.genId(), step.confirmedHash()));
         world.lock();
+        List<Integer> joiners = new ArrayList<>();
+        for (LobbyPlayer p : players.subList(1, players.size()))
+            joiners.add(p.id());
+        factions = FactionStep.host(step.localPlayerId(), joiners, world::locationProblem);
         changed();
+    }
+
+    @Override
+    public FactionStep factions() {
+        return factions;
+    }
+
+    @Override
+    public void pick(FactionPick pick) {
+        if (factions == null)
+            throw new IllegalStateException("SOSGSGMP: picks before the map is confirmed");
+        factions.ownPick(pick);
+        if (factions.onPick(step.localPlayerId(), pick))
+            picksChanged();
+    }
+
+    @Override
+    public String locationProblem(int x, int y) {
+        if (factions == null)
+            throw new IllegalStateException("SOSGSGMP: a location before the map is confirmed");
+        return factions.locationProblem(x, y, world::locationProblem);
     }
 
     @Override

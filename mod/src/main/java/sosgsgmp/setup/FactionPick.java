@@ -21,8 +21,8 @@ public record FactionPick(String race, String name, byte[] banner, int x, int y)
     public static final int MAX_RACE = 64;
     /** Longest faction name: the game keeps 24 characters. */
     public static final int MAX_NAME = 24;
-    /** Largest banner accepted, in bytes. */
-    public static final int MAX_BANNER = 4096;
+    /** Largest banner accepted, in bytes: the game's is a 12x12 bitmap and four colors; 16 of them fit one message. */
+    public static final int MAX_BANNER = 1024;
 
     public FactionPick {
         if (race == null || race.isEmpty() || race.length() > MAX_RACE)

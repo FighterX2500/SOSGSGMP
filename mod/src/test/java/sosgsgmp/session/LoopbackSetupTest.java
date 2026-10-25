@@ -24,14 +24,16 @@ import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.net.Pieces;
+import sosgsgmp.setup.FactionPick;
+import sosgsgmp.setup.FactionStep.PlayerPick;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStatus;
 import sosgsgmp.setup.MapStep.PlayerState;
 import sosgsgmp.setup.MapWorld;
 
 /**
- * A real host and two joining PCs over localhost, from Start Lobby through the map step, with a fake world in place
- * of the game. Each PC's frame updates its session and, when a build is pending, "rebuilds" at once.
+ * A real host and two joining PCs over localhost, from Start Lobby through the map step and the picks, with a fake
+ * world in place of the game. Each PC's frame updates its session and, when a build is pending, "rebuilds" at once.
  */
 class LoopbackSetupTest {
 
@@ -95,6 +97,15 @@ class LoopbackSetupTest {
         public void lock() {
             locks++;
         }
+
+        /** The engine's rule as far as these tests need it: no closer than 6 tiles. */
+        @Override
+        public String locationProblem(int x, int y, int[] otherX, int[] otherY) {
+            for (int i = 0; i < otherX.length; i++)
+                if (Math.hypot(x - otherX[i], y - otherY[i]) < 6)
+                    return "too close";
+            return null;
+        }
     }
 
     private final List<LobbySession> lobbies = new ArrayList<>();
@@ -121,6 +132,8 @@ class LoopbackSetupTest {
         lobby = h;
         lobbies.add(h);
         JoinedLobby jb = join(h, "Bob");
+        // Cid joins once the host has Bob, so the ids follow the names: Ann 0, Bob 1, Cid 2
+        untilLobbies("Bob joined", () -> h.players().size() == 2);
         JoinedLobby jc = join(h, "Cid");
         untilLobbies("everyone joined", () -> h.players().size() == 3 && jb.players().size() == 3 && jc.players().size() == 3);
         h.start();
@@ -195,6 +208,75 @@ class LoopbackSetupTest {
         assertEquals(1, bobWorld.locks);
         assertEquals(host.step().hash(), cid.step().confirmedHash());
         assertFalse(host.step().canGenerate());
+    }
+
+    /** Through the map step to the confirm on every PC. */
+    private void confirmMap() throws Exception {
+        startSetup();
+        build(256);
+        host.generate(A);
+        until("matching results", host.step()::canConfirm);
+        host.confirm();
+        until("factions everywhere", () -> bob.factions() != null && cid.factions() != null);
+    }
+
+    private static FactionPick pick(String name, int x, int y) {
+        return new FactionPick("HUMAN", name, new byte[] {1, 2, 3}, x, y);
+    }
+
+    private static List<String> names(SetupSession s) {
+        return s.factions().table().stream().map(p -> p.pick().name()).toList();
+    }
+
+    @Test
+    void picksReachEveryPcInTheHostsOrder() throws Exception {
+        confirmMap();
+        assertThrows(IllegalStateException.class, () -> host.factions().onPicks(List.of()), "the host decides; it follows no table");
+        cid.pick(pick("Cid", 40, 40));
+        bob.pick(pick("Bob", FactionPick.NONE, FactionPick.NONE));
+        host.pick(pick("Ann", 10, 10));
+        until("every pick on every PC", () -> names(bob).size() == 3 && names(cid).size() == 3);
+        assertEquals(List.of("Ann", "Bob", "Cid"), names(bob), "the host first, then the join order");
+        assertEquals(host.factions().table(), cid.factions().table());
+        assertFalse(host.factions().canInitialize(), "Bob has no location");
+
+        bob.pick(pick("Bob", 20, 10));
+        until("Bob's location on the host", host.factions()::canInitialize);
+    }
+
+    @Test
+    void aLocationTooCloseIsClearedOnEveryPc() throws Exception {
+        confirmMap();
+        host.pick(pick("Ann", 10, 10));
+        until("Ann's pick on Bob's PC", () -> names(bob).size() == 1);
+        assertEquals("too close", bob.locationProblem(12, 12), "Bob's PC checks before it sends");
+        assertEquals(null, bob.locationProblem(30, 30));
+        bob.pick(pick("Bob", 12, 12));
+        until("Bob's refusal on Cid's PC", () -> names(cid).size() == 2);
+        PlayerPick refused = cid.factions().table().get(1);
+        assertFalse(refused.pick().hasLocation());
+        assertEquals("too close", refused.refused());
+        assertEquals(refused, bob.factions().table().get(1), "Bob sees why too");
+        assertEquals(pick("Bob", 12, 12), bob.factions().ownPick(), "this PC's own pick stays as sent until it changes it");
+    }
+
+    @Test
+    void aPlayerLeavingDuringThePicksLeavesEveryTable() throws Exception {
+        confirmMap();
+        host.pick(pick("Ann", 10, 10));
+        bob.pick(pick("Bob", 20, 10));
+        cid.pick(pick("Cid", 30, 10));
+        until("three picks on Bob's PC", () -> names(bob).size() == 3);
+        cid.leave();
+        until("Cid gone from Bob's table", () -> names(bob).equals(List.of("Ann", "Bob")));
+        assertTrue(host.factions().canInitialize());
+    }
+
+    @Test
+    void picksBeforeTheConfirmAreRefused() throws Exception {
+        startSetup();
+        assertThrows(IllegalStateException.class, () -> host.pick(pick("Ann", 10, 10)));
+        assertThrows(IllegalStateException.class, () -> bob.pick(pick("Bob", 10, 10)));
     }
 
     @Test

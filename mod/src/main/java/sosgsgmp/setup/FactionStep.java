@@ -102,17 +102,7 @@ public final class FactionStep {
             return false;
         PlayerPick held = new PlayerPick(playerId, pick, null);
         if (pick.hasLocation()) {
-            List<int[]> others = new ArrayList<>();
-            for (PlayerPick p : picks.values())
-                if (p.playerId() != playerId && p.pick().hasLocation())
-                    others.add(new int[] {p.pick().x(), p.pick().y()});
-            int[] ox = new int[others.size()];
-            int[] oy = new int[others.size()];
-            for (int i = 0; i < ox.length; i++) {
-                ox[i] = others.get(i)[0];
-                oy[i] = others.get(i)[1];
-            }
-            String problem = rule.problem(pick.x(), pick.y(), ox, oy);
+            String problem = problem(playerId, pick.x(), pick.y(), rule);
             if (problem != null)
                 held = new PlayerPick(playerId, pick.at(FactionPick.NONE, FactionPick.NONE), problem);
         }
@@ -122,6 +112,33 @@ public final class FactionStep {
         if (playerId == localId)
             ownPick = held.pick();
         return true;
+    }
+
+    /** Why {@code playerId}'s location can't be at {@code x, y} by {@code rule}, with the others' locations held. */
+    private String problem(int playerId, int x, int y, LocationRule rule) {
+        int n = 0;
+        for (PlayerPick p : picks.values())
+            if (p.playerId() != playerId && p.pick().hasLocation())
+                n++;
+        int[] ox = new int[n];
+        int[] oy = new int[n];
+        int i = 0;
+        for (PlayerPick p : picks.values()) {
+            if (p.playerId() != playerId && p.pick().hasLocation()) {
+                ox[i] = p.pick().x();
+                oy[i] = p.pick().y();
+                i++;
+            }
+        }
+        return rule.problem(x, y, ox, oy);
+    }
+
+    /**
+     * Why this PC's location can't be at {@code x, y} by {@code rule} (the engine's), with the other players' locations
+     * as this PC knows them; null when it can. The host checks again when the pick arrives.
+     */
+    public String locationProblem(int x, int y, LocationRule rule) {
+        return problem(localId, x, y, rule);
     }
 
     /** Initialize World is active when every player has a location, until it is pressed. */

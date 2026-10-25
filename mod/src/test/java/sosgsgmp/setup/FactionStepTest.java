@@ -64,6 +64,20 @@ class FactionStepTest {
     }
 
     @Test
+    void thisPcsCheckCountsTheOthersButNotItsOwnLocation() {
+        FactionStep h = host();
+        h.onPick(0, pick("Ann", 10, 10));
+        h.onPick(5, pick("Bob", 20, 10));
+        assertNull(h.locationProblem(11, 11, RULE), "next to its own location: a move");
+        assertEquals("too close", h.locationProblem(19, 10, RULE));
+
+        FactionStep j = FactionStep.joiner(5);
+        j.onPicks(h.table());
+        assertNull(j.locationProblem(21, 10, RULE));
+        assertEquals("too close", j.locationProblem(11, 10, RULE));
+    }
+
+    @Test
     void aRepeatedPickChangesNothingAndUnknownPlayersAreIgnored() {
         FactionStep h = host();
         assertTrue(h.onPick(5, pick("Bob", 20, 10)));

@@ -6,6 +6,8 @@ import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.Pieces;
 import sosgsgmp.net.TcpNode;
+import sosgsgmp.setup.FactionPick;
+import sosgsgmp.setup.FactionStep;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStatus;
 import sosgsgmp.setup.MapStep;
@@ -23,6 +25,8 @@ public final class JoinedSetup implements SetupSession {
     private final MapStep step;
     private final Pieces.Receiver terrain = new Pieces.Receiver();
     private List<LobbyPlayer> players;
+    /** The factions step from the host's confirm on; null before. */
+    private FactionStep factions;
     private boolean closed;
     private String closedReason;
     private int changes;
@@ -72,9 +76,12 @@ public final class JoinedSetup implements SetupSession {
                 sendResult();
             }
             case Message.MapConfirm c -> {
-                if (step.onConfirm(c.genId(), c.hash()))
+                if (step.onConfirm(c.genId(), c.hash())) {
                     world.lock();
+                    factions = FactionStep.joiner(step.localPlayerId());
+                }
             }
+            case Message.Picks p when factions != null -> factions.onPicks(p.picks());
             case Message.MapPlayers p -> step.onPlayers(p.buildId(), p.genId(), p.players());
             case Message.Roster r -> players = r.players();
             case Message.Leave l -> close("The host closed the game.");
@@ -152,6 +159,27 @@ public final class JoinedSetup implements SetupSession {
     @Override
     public void confirm() {
         throw new IllegalStateException("SOSGSGMP: only the host confirms the map");
+    }
+
+    @Override
+    public FactionStep factions() {
+        return factions;
+    }
+
+    @Override
+    public void pick(FactionPick pick) {
+        if (factions == null)
+            throw new IllegalStateException("SOSGSGMP: picks before the map is confirmed");
+        factions.ownPick(pick);
+        node.send(TcpNode.HOST, new Message.Pick(pick));
+        changes++;
+    }
+
+    @Override
+    public String locationProblem(int x, int y) {
+        if (factions == null)
+            throw new IllegalStateException("SOSGSGMP: a location before the map is confirmed");
+        return factions.locationProblem(x, y, world::locationProblem);
     }
 
     @Override

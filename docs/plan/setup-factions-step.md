@@ -1,6 +1,6 @@
 # Setup: factions, starting locations and the world
 
-Card: [SOS-56](https://fighterx2500.atlassian.net/browse/SOS-56) (walking skeleton step 4b) · Date: 2026-10-25 · Status: draft for the owner's review · Spec: §5 Factions and starting locations, §5 World rules
+Card: [SOS-56](https://fighterx2500.atlassian.net/browse/SOS-56) (walking skeleton step 4b) · Date: 2026-10-25 · Status: approved by the owner (2026-10-25); M1 and M2 built, changes from the draft in §10 · Spec: §5 Factions and starting locations, §5 World rules
 
 Game paths are relative to `<game>/info/SongsOfSyx-sources/`. All findings come from reading the V71 source and the engine's SOS-55 code; nothing here has been run yet. It builds on the map step ([setup-map-step.md](setup-map-step.md), SOS-54, draft PR #32) and on SOSDET's `Engine.buildWorld` (SOS-55, merged).
 
@@ -16,7 +16,7 @@ The card ends when two PCs (PC and laptop over Radmin, direct IP) go from Start 
    - vanilla's race buttons, description, pros and cons, as `StagePickRace`;
    - vanilla's Customize Faction section (`UIProfile.section(false)`, with Save as Default and Load Default), as `StageVisuals`;
    - a Next button;
-   - every player's row: picking, location picked, ready.
+   - every player's row: picking, location picked, or location refused (§10).
 2. **Location:**
    - the world map with a placer, as vanilla's `StageCapitol` (`view/world/generator/StageCapitol.java:86-181`);
    - every other player's picked location drawn with their banner color;
@@ -36,8 +36,7 @@ No titles stage (spec §5.1): the map step already sets `hasSelectedTitles = tru
    - race key;
    - faction name;
    - banner bytes (`Engine.bannerBytes()`);
-   - location, or none;
-   - ready flag.
+   - location, or none.
 
    The host keeps every player's latest pick and sends the table to everyone (`Picks`), so all PCs draw the same locations and rows.
 3. **The 6-tile rule** is checked on the picking PC (`Engine.locationProblem` with the others' locations from the latest `Picks`). The host checks again on receipt. If two players pick close spots at the same time, the host keeps the first it received, clears the other's location and says so in that player's row.
@@ -57,13 +56,14 @@ No titles stage (spec §5.1): the map step already sets `hasSelectedTitles = tru
 
 | Type | Message | Direction | Layout after version and type |
 | --- | --- | --- | --- |
-| 14 | `Pick` | joiner → host | race key UTF, name UTF, banner bytes (short length + bytes), location x, y shorts (−1 = none), ready byte |
-| 15 | `Picks` | host → all | count byte, then per player: id int, a `Pick`'s fields, refused byte (location cleared by the 6-tile rule) |
+| 14 | `Pick` | joiner → host | race key UTF, name UTF, banner bytes (short length + bytes), location x, y shorts (−1 = none) |
+| 15 | `Picks` | host → all | count byte, then per player: id int, a `Pick`'s fields, the reason the location was cleared (UTF, empty = none) |
 | 16 | `SlotMap` | host → all | transfer id int, count byte, then per player: id int, slot byte |
 | 17 | `WorldPart` | host → all | transfer id int, index short, count short, bytes (int length + bytes) |
 | 18 | `Loaded` | joiner → host | transfer id int, world hash long |
 | 19 | `StartSpot` | joiner → host | transfer id int |
 | 20 | `Go` | host → all | transfer id int |
+| 21 | `WorldPlayers` | host → all | transfer id int, count byte, then per player: id int, progress byte (loading, landing, mismatch, ready) |
 
 Every decode checks its ranges (count 1–16, index < count, location in the map or −1, hash any), as the map messages do. The host's own pick, load and start spot go through the same state machine without the network.
 
@@ -73,7 +73,7 @@ Every decode checks its ranges (count 1–16, index < count, location in the map
 
 | Class | Responsibility |
 | --- | --- |
-| `sosgsgmp.setup.FactionPick` | Record: race key, name, banner bytes, location or none, ready. |
+| `sosgsgmp.setup.FactionPick` | Record: race key, name, banner bytes, location or none. |
 | `sosgsgmp.setup.FactionStep` | The state machine:<br>• **Host:** every player's latest pick; the 6-tile rule on receipt; `canInitialize()`; slot order; the transfer id; who has loaded with which hash; who has picked a start spot; `canGo()`.<br>• **Joiner:** the latest table, its own pick, the slot map and the save's pieces as they arrive.<br>A player who leaves is dropped before the world is built. After the build, a player leaving stops the setup, since their slot exists. |
 | `sosgsgmp.net.Message`, `Protocol` | The seven messages, version 4. The save's pieces go through `sosgsgmp.net.Pieces`, made for the map step's terrain (SOS-54). |
 | `HostedSetup`, `JoinedSetup` | Feed `FactionStep` after `MapConfirm`, as they feed `MapStep` before it. |
@@ -116,3 +116,16 @@ Every decode checks its ranges (count 1–16, index < count, location in the map
 | M4 | Landing party, held speed, `StartSpot`, `Go`; docs (`hooks.md` note, walking-skeleton plan) | Two PCs from Start Lobby to "ready to start" (the card's end) |
 
 Each milestone runs `gradlew.bat build`; the two-PC checks in M2–M4 are the owner's manual tests (PC host, laptop joiner), with what to look for listed in the PR.
+
+## 10. Changes from the draft (M1, M2)
+
+- **No ready flag.** A placed location is the player's "ready": Initialize World needs every player's location, and picks stay open until it is pressed (spec §5.1). A separate flag added a state with no rule of its own.
+- **`WorldPlayers` (type 21).** The joining PCs need every player's progress after the build (loading, landing, mismatch, ready), as the map step's `MapPlayers` gives it; the draft had no message for it.
+- **Difficulty (risk 1, settled in M1):** `PBonusSetting.setMode` adds boosters whose value is 1 for any `Player` and 0 for an NPC (`BValuePlayerOnly`), so one set on the host's Player counts for every human. The difficulty files hold only boosts, so `apply()` at the landing changes nothing the world reads. The host sets the lobby's mode once, on its own Player, before saving; every PC loads it with the save.
+- **The engine at compile time** ([ADR 0007](../decisions/0007-mod-compiles-against-engine-jar.md), owner 2026-10-25): the mod compiles against SOSDET's built jar, `compileOnly`, so `Engine.locationProblem`, `bannerBytes` and `buildWorld` are plain calls from the adapters.
+- **Banner cap 1 KB.** The game's banner is a 12×12 bitmap and four colors (`FBanner.save`), well under it; 16 picks then fit one 64 KB message.
+- **The location check goes through the session** (`SetupSession.locationProblem`): it asks the engine's rule with the other players' locations as this PC knows them. The placer keeps the answer until the tile under the mouse or the session changes.
+- **Screens switch from clicks.** After the confirm, the map panel shows Next; the factions step has three screens (race, Customize Faction, location), each with Back and Next, as vanilla's stages. Switching from inside a frame's render would clear the UI while it is drawn.
+- **Picks are read back twice a second.** Vanilla's Customize Faction section edits `FACTIONS.player()` directly and reports nothing, so the factions step compares the game's race, name and banner with the last pick sent every 0.5 s and sends a new one when they differ.
+- **Other players' capitals** are drawn on the map while the placer is on it (red; this PC's in green), with their faction names. The rows list every location in tiles.
+- **Not carried:** the ruler name. `HumanStart` has no field for it; each PC keeps its own.
