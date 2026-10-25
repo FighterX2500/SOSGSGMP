@@ -12,6 +12,7 @@ import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.TcpNode;
+import sosgsgmp.setup.MapWorld;
 
 /** A lobby hosted on this PC over direct IP. */
 public final class HostedLobby implements LobbySession {
@@ -21,6 +22,7 @@ public final class HostedLobby implements LobbySession {
     /** Connected peers that have joined, to their player ids. Peers still waiting to say hello aren't here. */
     private final Map<Integer, Integer> joined = new HashMap<>();
     private LobbyState state = LobbyState.OPEN;
+    private boolean handedOver;
     private String closedReason;
     private int changes;
 
@@ -38,7 +40,7 @@ public final class HostedLobby implements LobbySession {
     @Override
     public void update() {
         TcpNode.Event e;
-        while (state != LobbyState.CLOSED && (e = node.poll()) != null) {
+        while (state != LobbyState.CLOSED && !handedOver && (e = node.poll()) != null) {
             switch (e) {
                 case TcpNode.Event.Connected c -> {
                     // The PC joins with its hello.
@@ -139,7 +141,7 @@ public final class HostedLobby implements LobbySession {
 
     @Override
     public void leave() {
-        if (state == LobbyState.CLOSED)
+        if (state == LobbyState.CLOSED || handedOver)
             return;
         for (int peer : joined.keySet())
             node.send(peer, new Message.Leave());
@@ -147,6 +149,14 @@ public final class HostedLobby implements LobbySession {
         state = LobbyState.CLOSED;
         closedReason = "You closed the lobby.";
         changes++;
+    }
+
+    @Override
+    public SetupSession handOver(MapWorld world) {
+        if (state != LobbyState.STARTED || handedOver)
+            throw new IllegalStateException("SOSGSGMP: only a started lobby hands over, once (state " + state + ", handed over " + handedOver + ")");
+        handedOver = true;
+        return new HostedSetup(node, joined, lobby.players(), world);
     }
 
     @Override
