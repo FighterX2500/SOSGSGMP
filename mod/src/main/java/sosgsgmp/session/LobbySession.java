@@ -5,6 +5,7 @@ import java.util.List;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
+import sosgsgmp.setup.MapWorld;
 
 /**
  * A lobby as this PC sees it, hosted here ({@link HostedLobby}) or joined ({@link JoinedLobby}).
@@ -36,6 +37,12 @@ public interface LobbySession {
 
     /** Leaves the lobby (the host closes it for everyone) and frees the connection. */
     void leave();
+
+    /**
+     * Once the lobby has started: hands the connection and the players over to the setup, which owns them from then
+     * on. This session then neither updates nor closes anything.
+     */
+    SetupSession handOver(MapWorld world);
 
     /** Counts changes to the state, players or settings, so a screen redraws its text only when this moves. */
     int changes();
