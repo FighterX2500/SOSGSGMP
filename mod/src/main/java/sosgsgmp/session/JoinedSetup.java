@@ -4,20 +4,24 @@ import java.util.List;
 
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.net.Message;
+import sosgsgmp.net.Pieces;
 import sosgsgmp.net.TcpNode;
 import sosgsgmp.setup.MapOptions;
+import sosgsgmp.setup.MapStatus;
 import sosgsgmp.setup.MapStep;
 import sosgsgmp.setup.MapWorld;
 
 /**
  * The setup on another PC, joined: this PC follows the host's builds and generations in the order they arrive, and
- * generates every one of them, never only the latest (setup-map-step.md §7).
+ * loads each generation's terrain as the host sends it: vanilla's generator would make another map here
+ * (setup-map-step.md §7).
  */
 public final class JoinedSetup implements SetupSession {
 
     private final TcpNode node;
     private final MapWorld world;
     private final MapStep step;
+    private final Pieces.Receiver terrain = new Pieces.Receiver();
     private List<LobbyPlayer> players;
     private boolean closed;
     private String closedReason;
@@ -55,12 +59,17 @@ public final class JoinedSetup implements SetupSession {
         switch (m) {
             case Message.MapBuild b -> step.onBuild(b.buildId(), b.size());
             case Message.MapGenerate g -> {
-                if (!step.onGenerate(g.genId(), g.buildId(), g.mapType(), g.latitude(), g.seed()))
-                    return;
+                // A generation of a build this PC doesn't have is answered at once; otherwise its terrain follows.
+                if (step.onGenerate(g.genId(), g.buildId(), g.mapType(), g.latitude(), g.seed()) && step.pendingGeneration() == null)
+                    sendResult();
+            }
+            case Message.MapTerrain t -> {
+                byte[] bytes = terrain.accept(t.genId(), t.index(), t.count(), t.bytes());
                 MapOptions pending = step.pendingGeneration();
-                if (pending != null)
-                    LocalMap.generate(step, world, pending);
-                node.send(TcpNode.HOST, new Message.MapResult(step.genId(), step.hash(), step.status()));
+                if (bytes == null || pending == null || t.genId() != step.genId())
+                    return;
+                load(pending, bytes);
+                sendResult();
             }
             case Message.MapConfirm c -> {
                 if (step.onConfirm(c.genId(), c.hash()))
@@ -72,6 +81,22 @@ public final class JoinedSetup implements SetupSession {
             case Message.Unsupported u -> close("The host runs another version of the mod (protocol " + u.version() + ").");
             default -> close("The host sent a message that doesn't belong in the setup.");
         }
+    }
+
+    private void load(MapOptions options, byte[] bytes) {
+        long hash;
+        try {
+            hash = world.load(options, bytes);
+        } catch (IllegalArgumentException e) {
+            // The adapter logged why; the host sees this PC's error and can't confirm.
+            step.generated(step.genId(), 0, MapStatus.BAD_TERRAIN);
+            return;
+        }
+        step.generated(step.genId(), hash, MapStatus.OK);
+    }
+
+    private void sendResult() {
+        node.send(TcpNode.HOST, new Message.MapResult(step.genId(), step.hash(), step.status()));
     }
 
     private void close(String reason) {
@@ -117,6 +142,11 @@ public final class JoinedSetup implements SetupSession {
     @Override
     public void generate(MapOptions options) {
         throw new IllegalStateException("SOSGSGMP: only the host generates a map");
+    }
+
+    @Override
+    public MapOptions choices() {
+        return step.options();
     }
 
     @Override

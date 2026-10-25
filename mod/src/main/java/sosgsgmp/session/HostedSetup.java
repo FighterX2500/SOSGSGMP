@@ -8,8 +8,10 @@ import java.util.Map;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.net.Message;
+import sosgsgmp.net.Pieces;
 import sosgsgmp.net.TcpNode;
 import sosgsgmp.setup.MapOptions;
+import sosgsgmp.setup.MapStatus;
 import sosgsgmp.setup.MapStep;
 import sosgsgmp.setup.MapWorld;
 
@@ -24,6 +26,10 @@ public final class HostedSetup implements SetupSession {
     private final MapStep step;
     /** The players' progress as last sent to the joining PCs. */
     private List<MapStep.PlayerStatus> sentStatuses = List.of();
+    /** The options of the latest Generate; null before the first. */
+    private MapOptions choices;
+    /** A Generate at a new size: its options, generated once this PC's game is rebuilt at that size; else null. */
+    private MapOptions waiting;
     private boolean closed;
     private String closedReason;
     private int changes;
@@ -145,15 +151,41 @@ public final class HostedSetup implements SetupSession {
     public void built() {
         step.built(step.pendingBuild());
         changed();
+        if (waiting != null) {
+            MapOptions o = waiting;
+            waiting = null;
+            generate(o);
+        }
+    }
+
+    /**
+     * At the current size, generates here and sends the generation and its terrain to every joining PC. At another
+     * size, every PC rebuilds its game first, and the generation runs when this PC's rebuild is done ({@link #built}).
+     */
+    @Override
+    public void generate(MapOptions options) {
+        if (!options.isRandom() && !MapOptions.presetsAllowed(options.size()))
+            throw new IllegalArgumentException("SOSGSGMP: map type '" + options.mapType() + "' at size " + options.size() + "; presets only at " + MapOptions.DEFAULT_SIZE);
+        choices = options;
+        if (options.size() != step.size()) {
+            waiting = options;
+            build(options.size());
+            return;
+        }
+        int genId = step.generate(options);
+        sendAll(new Message.MapGenerate(genId, step.buildId(), options.mapType(), options.latitude(), options.seed()));
+        MapWorld.Terrain terrain = world.generate(options);
+        step.generated(genId, terrain.hash(), MapStatus.OK);
+        List<byte[]> pieces = Pieces.split(terrain.bytes());
+        for (int i = 0; i < pieces.size(); i++)
+            sendAll(new Message.MapTerrain(genId, i, pieces.size(), pieces.get(i)));
+        changes++;
+        sendStatuses(true);
     }
 
     @Override
-    public void generate(MapOptions options) {
-        int genId = step.generate(options);
-        sendAll(new Message.MapGenerate(genId, step.buildId(), options.mapType(), options.latitude(), options.seed()));
-        LocalMap.generate(step, world, options);
-        changes++;
-        sendStatuses(true);
+    public MapOptions choices() {
+        return choices;
     }
 
     @Override

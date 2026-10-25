@@ -25,13 +25,14 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 2;
+    public static final int VERSION = 3;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
 
     private static final int HELLO = 1, WELCOME = 2, ROSTER = 3, REFUSED = 4, START = 5, LEAVE = 6;
     private static final int MAP_BUILD = 7, BUILD_READY = 8, MAP_GENERATE = 9, MAP_RESULT = 10, MAP_CONFIRM = 11, MAP_PLAYERS = 12;
+    private static final int MAP_TERRAIN = 13;
 
     private Protocol() {}
 
@@ -83,6 +84,15 @@ public final class Protocol {
                     out.writeByte(g.latitude());
                     out.writeInt(g.seed());
                 }
+                case Message.MapTerrain t -> {
+                    out.writeByte(MAP_TERRAIN);
+                    out.writeInt(t.genId());
+                    out.writeShort(t.index());
+                    out.writeShort(t.count());
+                    byte[] data = t.bytes();
+                    out.writeInt(data.length);
+                    out.write(data);
+                }
                 case Message.MapResult r -> {
                     out.writeByte(MAP_RESULT);
                     out.writeInt(r.genId());
@@ -131,6 +141,7 @@ public final class Protocol {
             case MAP_BUILD -> new Message.MapBuild(number(in, "build"), size(in));
             case BUILD_READY -> new Message.BuildReady(number(in, "build"));
             case MAP_GENERATE -> new Message.MapGenerate(number(in, "generation"), number(in, "build"), mapType(in), latitude(in), seed(in));
+            case MAP_TERRAIN -> mapTerrain(in);
             case MAP_RESULT -> new Message.MapResult(number(in, "generation"), in.readLong(), status(in.readUnsignedByte()));
             case MAP_CONFIRM -> new Message.MapConfirm(number(in, "generation"), in.readLong());
             case MAP_PLAYERS -> mapPlayers(in);
@@ -215,6 +226,20 @@ public final class Protocol {
         if (seed < 0)
             throw new IOException("SOSGSGMP: seed " + seed);
         return seed;
+    }
+
+    private static Message.MapTerrain mapTerrain(DataInputStream in) throws IOException {
+        int genId = number(in, "generation");
+        int index = in.readUnsignedShort();
+        int count = in.readUnsignedShort();
+        if (count < 1 || count > Pieces.MAX_PIECES || index >= count)
+            throw new IOException("SOSGSGMP: terrain piece " + index + " of " + count);
+        int length = in.readInt();
+        if (length < 0 || length > Pieces.PIECE_BYTES)
+            throw new IOException("SOSGSGMP: terrain piece of " + length + " bytes");
+        byte[] data = new byte[length];
+        in.readFully(data);
+        return new Message.MapTerrain(genId, index, count, data);
     }
 
     private static Message.MapPlayers mapPlayers(DataInputStream in) throws IOException {

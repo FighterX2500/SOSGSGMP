@@ -6,11 +6,21 @@ package sosgsgmp.setup;
  */
 public interface MapWorld {
 
-    /** Whether this PC has the map type; {@link MapOptions#RANDOM} always. */
-    boolean hasMapType(String mapType);
+    /**
+     * A generated map: the terrain hash, and the terrain and landmarks as the game saves them, compressed, for the
+     * joining PCs to load.
+     */
+    record Terrain(long hash, byte[] bytes) {}
 
-    /** Generates the current game's terrain and landmarks with these options and returns the terrain hash. */
-    long generate(MapOptions options);
+    /** Host: generates the current game's terrain and landmarks with these options. */
+    Terrain generate(MapOptions options);
+
+    /**
+     * Joining PC: loads the host's terrain, {@link Terrain#bytes()} as the host's {@link #generate} made it with these
+     * options, into the current game and returns this PC's terrain hash after the load. Throws
+     * {@link IllegalArgumentException} when the bytes aren't a terrain of this game.
+     */
+    long load(MapOptions options, byte[] terrain);
 
     /** Locks the confirmed map in the current game. */
     void lock();

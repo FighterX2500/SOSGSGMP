@@ -1,6 +1,8 @@
 package sosgsgmp.net;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
@@ -42,8 +44,42 @@ public sealed interface Message {
     /** Joining PC to host: its game for {@code buildId} is built and shows the map step. */
     record BuildReady(int buildId) implements Message {}
 
-    /** Host to every joined PC: generate build {@code buildId}'s terrain with these options (map type "": Random). */
+    /**
+     * Host to every joined PC: generation {@code genId} of build {@code buildId}, made with these options (map type "":
+     * Random). Its terrain follows in {@link MapTerrain} pieces.
+     */
     record MapGenerate(int genId, int buildId, String mapType, int latitude, int seed) implements Message {}
+
+    /**
+     * Host to every joined PC: piece {@code index} of {@code count} of generation {@code genId}'s terrain and landmarks,
+     * as the game saves them, compressed. Joining PCs load the host's terrain rather than generating it: vanilla's
+     * generator isn't a function of the seed (setup-map-step.md §7).
+     */
+    record MapTerrain(int genId, int index, int count, byte[] bytes) implements Message {
+        public MapTerrain {
+            bytes = bytes.clone();
+        }
+
+        @Override
+        public byte[] bytes() {
+            return bytes.clone();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof MapTerrain t && genId == t.genId && index == t.index && count == t.count && Arrays.equals(bytes, t.bytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(genId, index, count, Arrays.hashCode(bytes));
+        }
+
+        @Override
+        public String toString() {
+            return "MapTerrain[genId=" + genId + ", index=" + index + ", count=" + count + ", " + bytes.length + " bytes]";
+        }
+    }
 
     /** Joining PC to host: how generation {@code genId} went, and this PC's terrain hash. */
     record MapResult(int genId, long hash, MapStatus status) implements Message {}

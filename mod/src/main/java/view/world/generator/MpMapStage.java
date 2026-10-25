@@ -54,7 +54,8 @@ public final class MpMapStage {
 		}
 	};
 
-	// The host's choices.
+	// The host's choices; a new size takes effect with the next Generate.
+	private int size;
 	private final IntImp latitude = new IntImp(MapOptions.DEFAULT_LATITUDE, 0, MapOptions.MAX_LATITUDE);
 	/** 0: Random; otherwise the preset mapTypes[mapType - 1]. */
 	private int mapType;
@@ -125,20 +126,28 @@ public final class MpMapStage {
 	}
 
 	private void addHostControls() {
-		GuiSection size = new GuiSection();
-		size.add(sizeButton(-1));
-		size.addRightC(8, text(sizeText, 60));
-		size.addRightC(8, sizeButton(1));
-		panel.addDown(0, row("map size", size));
-		panel.addDown(4, new GText(UI.FONT().S, "Changing the size reloads every player's game.").normalify2());
+		// The host's latest choices survive a rebuild: the session keeps them.
+		MapOptions last = setup.choices();
+		size = last == null ? setup.step().size() : last.size();
+		if (last != null) {
+			latitude.set(last.latitude());
+			mapType = last.isRandom() ? 0 : mapTypes.indexOf(last.mapType()) + 1;
+		}
 
-		boolean presets = MapOptions.presetsAllowed(setup.step().size()) && !mapTypes.isEmpty();
+		GuiSection sizeRow = new GuiSection();
+		sizeRow.add(sizeButton(-1));
+		sizeRow.addRightC(8, text(sizeText, 60));
+		sizeRow.addRightC(8, sizeButton(1));
+		panel.addDown(0, row("map size", sizeRow));
+		panel.addDown(4, new GText(UI.FONT().S, "A new size reloads every player's game when you generate.").normalify2());
+
+		boolean presets = !mapTypes.isEmpty();
 		GuiSection type = new GuiSection();
 		type.add(typeButton(-1, presets));
 		type.addRightC(8, text(typeText, TEXT_WIDTH - 80));
 		type.addRightC(8, typeButton(1, presets));
 		panel.addDown(12, row("map type", type));
-		if (!presets)
+		if (presets)
 			panel.addDown(4, new GText(UI.FONT().S, "Presets only at size " + MapOptions.DEFAULT_SIZE + ".").normalify2());
 		showMapType();
 
@@ -157,7 +166,7 @@ public final class MpMapStage {
 				super.change();
 			}
 		};
-		setSeed(seedInput, ThreadLocalRandom.current().nextInt(Integer.MAX_VALUE));
+		setSeed(seedInput, last != null ? last.seed() : ThreadLocalRandom.current().nextInt(Integer.MAX_VALUE));
 		GuiSection seedRow = new GuiSection();
 		seedRow.add(new GInput(seedInput));
 		seedRow.addRightC(8, new GButt.ButtPanel("random") {
@@ -178,8 +187,8 @@ public final class MpMapStage {
 		buttons.add(new GButt.ButtPanel("generate") {
 			@Override
 			protected void clickA() {
-				String type = mapType == 0 ? MapOptions.RANDOM : mapTypes.get(mapType - 1);
-				setup.generate(new MapOptions(setup.step().size(), type, latitude.get(), seed));
+				String type = presetChosen() ? mapTypes.get(mapType - 1) : MapOptions.RANDOM;
+				setup.generate(new MapOptions(size, type, latitude.get(), seed));
 			}
 
 			@Override
@@ -237,14 +246,13 @@ public final class MpMapStage {
 		return new GButt.ButtPanel(step < 0 ? UI.icons().m.arrow_left : UI.icons().m.arrow_right) {
 			@Override
 			protected void clickA() {
-				int next = MapOptions.stepSize(setup.step().size(), step);
-				VIEW.inters().yesNo.activate("Change the map size to " + next + "? Every player's game reloads.",
-						() -> setup.build(next), ACTION.NOP, true);
+				size = MapOptions.stepSize(size, step);
+				sizeText.clear().add(size);
+				showMapType();
 			}
 
 			@Override
 			protected void renAction() {
-				int size = setup.step().size();
 				activeSet(canGenerate && MapOptions.stepSize(size, step) != size);
 			}
 		};
@@ -260,7 +268,7 @@ public final class MpMapStage {
 
 			@Override
 			protected void renAction() {
-				activeSet(canGenerate);
+				activeSet(canGenerate && MapOptions.presetsAllowed(size));
 			}
 		};
 		b.visableSet(visible);
@@ -268,7 +276,12 @@ public final class MpMapStage {
 	}
 
 	private void showMapType() {
-		typeText.clear().add(mapType == 0 ? RANDOM_NAME : mapTypes.get(mapType - 1));
+		typeText.clear().add(presetChosen() ? mapTypes.get(mapType - 1) : RANDOM_NAME);
+	}
+
+	/** A preset is picked and the chosen size allows presets; otherwise the map is Random. */
+	private boolean presetChosen() {
+		return mapType > 0 && MapOptions.presetsAllowed(size);
 	}
 
 	private void setSeed(StringInputSprite input, int value) {
@@ -313,7 +326,7 @@ public final class MpMapStage {
 		canGenerate = !setup.closed() && step.canGenerate();
 		canConfirm = !setup.closed() && step.canConfirm();
 
-		sizeText.clear().add(step.size());
+		sizeText.clear().add(setup.isHost() ? size : step.size());
 		if (!setup.isHost()) {
 			MapOptions o = step.options();
 			typeText.clear().add(o == null ? "-" : o.isRandom() ? RANDOM_NAME : o.mapType());
@@ -338,7 +351,7 @@ public final class MpMapStage {
 			MapStep.PlayerState state = step.state(p.id());
 			row.color(GCOLOR.T().NORMAL);
 			if (state != null) {
-				row.add(": ").add(stateName(state));
+				row.add(": ").add(stateName(state, p.host()));
 				if (state == MapStep.PlayerState.MATCH)
 					row.color(GCOLOR.T().IGOOD);
 				if (state == MapStep.PlayerState.MISMATCH || state == MapStep.PlayerState.ERROR)
@@ -365,11 +378,12 @@ public final class MpMapStage {
 			status.add("Waiting until every player's map matches yours.");
 	}
 
-	private static CharSequence stateName(MapStep.PlayerState state) {
+	/** A joining PC doesn't generate; it gets the host's map. */
+	private static CharSequence stateName(MapStep.PlayerState state, boolean host) {
 		return switch (state) {
 			case BUILDING -> "building";
 			case READY -> "ready";
-			case GENERATING -> "generating";
+			case GENERATING -> host ? "generating" : "getting the map";
 			case GENERATED -> "generated";
 			case MATCH -> "match";
 			case MISMATCH -> "mismatch";

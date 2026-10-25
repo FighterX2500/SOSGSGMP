@@ -214,7 +214,7 @@ public final class MapStep {
         return true;
     }
 
-    /** Joining PC: the generation to run now, or null. */
+    /** Joining PC: the generation whose map this PC waits for (the host's terrain), or null. */
     public MapOptions pendingGeneration() {
         return generationPending ? options : null;
     }
@@ -261,7 +261,7 @@ public final class MapStep {
         own.builtId = buildId;
     }
 
-    /** This PC ran generation {@code genId}, the latest. */
+    /** This PC has generation {@code genId}'s map, the latest: generated here (the host) or loaded (a joining PC). */
     public void generated(int genId, long hash, MapStatus status) {
         boolean running = host ? options != null && own.resultGenId != genId : generationPending;
         if (genId != this.genId || !running)

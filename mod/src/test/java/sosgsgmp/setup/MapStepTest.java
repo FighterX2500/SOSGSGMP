@@ -67,7 +67,7 @@ class MapStepTest {
         int gen = h.generate(RANDOM_256);
         h.generated(gen, 100, MapStatus.OK);
         h.onResult(1, gen, 100, MapStatus.OK);
-        h.onResult(2, gen, 0, MapStatus.UNKNOWN_MAP_TYPE);
+        h.onResult(2, gen, 0, MapStatus.BAD_TERRAIN);
         assertFalse(h.canConfirm());
         assertEquals(PlayerState.ERROR, h.state(2));
     }

@@ -9,7 +9,7 @@ import sosgsgmp.setup.MapStep;
 /**
  * The setup after Start Lobby, as this PC sees it, hosted here ({@link HostedSetup}) or joined ({@link JoinedSetup}).
  * It takes over the started lobby's connection and players (spec §5 Map; setup-map-step.md §3). Game thread only:
- * {@link #update()} applies what arrived from the network, and a joining PC generates the host's maps inside it.
+ * {@link #update()} applies what arrived from the network, and a joining PC loads the host's maps inside it.
  */
 public interface SetupSession {
 
@@ -35,8 +35,17 @@ public interface SetupSession {
     /** This PC's game for the pending build is up and shows the map step. */
     void built();
 
-    /** Host: sends a generation with these options, then generates on this PC. Check {@link MapStep#canGenerate()} first. */
+    /**
+     * Host: generates with these options on this PC and sends the map to every PC. At a size other than the current
+     * build's, every PC rebuilds its game first and the generation follows. Check {@link MapStep#canGenerate()} first.
+     */
     void generate(MapOptions options);
+
+    /**
+     * The options of the latest Generate: the host's choices, kept across a rebuild, or on a joining PC the host's
+     * latest generation. Null before the first.
+     */
+    MapOptions choices();
 
     /** Host: locks the map on every PC. Check {@link MapStep#canConfirm()} first. */
     void confirm();

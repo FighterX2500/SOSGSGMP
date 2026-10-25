@@ -32,6 +32,9 @@ class ProtocolTest {
             new Message.BuildReady(Integer.MAX_VALUE),
             new Message.MapGenerate(3, 2, "", 100, Integer.MAX_VALUE),
             new Message.MapGenerate(4, 2, "Ödland map", 0, 0),
+            new Message.MapTerrain(3, 0, 1, new byte[0]),
+            new Message.MapTerrain(3, 2, 3, new byte[] {1, -2, 3}),
+            new Message.MapTerrain(Integer.MAX_VALUE, Pieces.MAX_PIECES - 1, Pieces.MAX_PIECES, new byte[Pieces.PIECE_BYTES]),
             new Message.MapResult(3, -1L, MapStatus.OK),
             new Message.MapResult(4, 0L, MapStatus.WRONG_BUILD),
             new Message.MapConfirm(3, Long.MIN_VALUE),
@@ -73,6 +76,11 @@ class ProtocolTest {
         assertRefused(new Message.MapGenerate(1, 1, "", 101, 1));
         assertRefused(new Message.MapGenerate(1, 1, "", 50, -1));
         assertRefused(new Message.MapConfirm(0, 5));
+        assertRefused(new Message.MapTerrain(0, 0, 1, new byte[1]));
+        assertRefused(new Message.MapTerrain(1, 1, 1, new byte[1]));
+        assertRefused(new Message.MapTerrain(1, 0, 0, new byte[1]));
+        assertRefused(new Message.MapTerrain(1, 0, Pieces.MAX_PIECES + 1, new byte[1]));
+        assertRefused(new Message.MapTerrain(1, 0, 1, new byte[Pieces.PIECE_BYTES + 1]));
         assertRefused(new Message.MapResult(0, 5, MapStatus.OK));
 
         byte[] result = Protocol.encode(new Message.MapResult(1, 5, MapStatus.OK));

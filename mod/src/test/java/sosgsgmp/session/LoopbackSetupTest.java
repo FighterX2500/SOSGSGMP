@@ -2,13 +2,18 @@ package sosgsgmp.session;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.function.BooleanSupplier;
 
 import org.junit.jupiter.api.AfterEach;
@@ -18,6 +23,7 @@ import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.lobby.Refusal;
+import sosgsgmp.net.Pieces;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStatus;
 import sosgsgmp.setup.MapStep.PlayerState;
@@ -32,22 +38,57 @@ class LoopbackSetupTest {
     private static final MapOptions A = new MapOptions(256, MapOptions.RANDOM, 50, 11);
     private static final MapOptions B = new MapOptions(256, "Continent", 20, 22);
 
-    /** Terrain as a function of the options, plus a per-PC offset to fake a PC whose map comes out different. */
+    /**
+     * Terrain as a function of the options, sent as bytes that take several pieces; a per-PC offset fakes a PC whose
+     * loaded map comes out different, and {@code refuse} one whose game can't load it.
+     */
     private static final class FakeWorld implements MapWorld {
         final List<MapOptions> generated = new ArrayList<>();
-        final Set<String> mapTypes = Set.of("", "Continent");
+        final List<MapOptions> loaded = new ArrayList<>();
         long offset;
+        boolean refuse;
         int locks;
 
         @Override
-        public boolean hasMapType(String mapType) {
-            return mapTypes.contains(mapType);
+        public Terrain generate(MapOptions options) {
+            generated.add(options);
+            return new Terrain(hash(options), bytes(options));
         }
 
         @Override
-        public long generate(MapOptions options) {
-            generated.add(options);
-            return options.hashCode() * 31L + offset;
+        public long load(MapOptions options, byte[] terrain) {
+            if (refuse)
+                throw new IllegalArgumentException("fake: this game can't load it");
+            MapOptions sent = options(terrain);
+            assertEquals(options, sent, "the terrain belongs to the generation it came with");
+            loaded.add(sent);
+            return hash(sent);
+        }
+
+        private long hash(MapOptions o) {
+            return o.hashCode() * 31L + offset;
+        }
+
+        private static byte[] bytes(MapOptions o) {
+            ByteArrayOutputStream b = new ByteArrayOutputStream();
+            try (DataOutputStream out = new DataOutputStream(b)) {
+                out.writeShort(o.size());
+                out.writeUTF(o.mapType());
+                out.writeByte(o.latitude());
+                out.writeInt(o.seed());
+                out.write(new byte[2 * Pieces.PIECE_BYTES]);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            return b.toByteArray();
+        }
+
+        private static MapOptions options(byte[] terrain) {
+            try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(terrain))) {
+                return new MapOptions(in.readUnsignedShort(), in.readUTF(), in.readUnsignedByte(), in.readInt());
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
         }
 
         @Override
@@ -141,8 +182,10 @@ class LoopbackSetupTest {
 
         host.generate(A);
         until("matching results", host.step()::canConfirm);
-        assertEquals(List.of(A), bobWorld.generated);
-        assertEquals(List.of(A), cidWorld.generated);
+        assertEquals(List.of(A), hostWorld.generated);
+        assertEquals(List.of(A), bobWorld.loaded);
+        assertEquals(List.of(A), cidWorld.loaded);
+        assertTrue(bobWorld.generated.isEmpty(), "a joining PC loads the host's map, never generates its own");
         assertEquals(PlayerState.MATCH, host.step().state(1));
         assertEquals(host.step().hash(), bob.step().hash());
 
@@ -161,8 +204,8 @@ class LoopbackSetupTest {
         host.generate(A);
         host.generate(B);
         until("results for the second", host.step()::canConfirm);
-        assertEquals(List.of(A, B), bobWorld.generated);
-        assertEquals(List.of(A, B), cidWorld.generated);
+        assertEquals(List.of(A, B), bobWorld.loaded);
+        assertEquals(List.of(A, B), cidWorld.loaded);
         assertEquals(B, cid.step().options());
     }
 
@@ -193,14 +236,35 @@ class LoopbackSetupTest {
     }
 
     @Test
-    void anUnknownMapTypeIsAnError() throws Exception {
+    void aPcThatCantLoadTheTerrainIsAnError() throws Exception {
+        startSetup();
+        bobWorld.refuse = true;
+        build(256);
+        host.generate(A);
+        until("Bob's result", () -> host.step().state(1) == PlayerState.ERROR);
+        assertEquals(MapStatus.BAD_TERRAIN, bob.step().status());
+        assertFalse(host.step().canConfirm());
+    }
+
+    @Test
+    void aGenerateAtANewSizeRebuildsEveryPcThenGenerates() throws Exception {
         startSetup();
         build(256);
-        host.generate(new MapOptions(256, "Their map", 50, 1));
-        until("Bob's result", () -> host.step().state(1) == PlayerState.ERROR);
-        assertEquals(MapStatus.UNKNOWN_MAP_TYPE, bob.step().status());
-        assertTrue(bobWorld.generated.isEmpty());
-        assertFalse(host.step().canConfirm());
+        host.generate(A);
+        until("matching results", host.step()::canConfirm);
+
+        MapOptions big = new MapOptions(512, MapOptions.RANDOM, 30, 99);
+        host.generate(big);
+        assertEquals(big, host.choices(), "the host's choices outlive its rebuild");
+        until("matching results at 512", () -> host.step().size() == 512 && host.step().canConfirm());
+        assertEquals(2, bob.step().buildId());
+        assertEquals(512, cid.step().size());
+        assertEquals(List.of(A, big), hostWorld.generated);
+        assertEquals(List.of(A, big), bobWorld.loaded);
+        assertEquals(List.of(A, big), cidWorld.loaded);
+        assertEquals(big, bob.choices());
+        assertThrows(IllegalArgumentException.class, () -> host.generate(new MapOptions(512, "Continent", 50, 1)),
+                "a preset at a size other than 256 is refused before any rebuild");
     }
 
     @Test
@@ -217,7 +281,7 @@ class LoopbackSetupTest {
         MapOptions big = new MapOptions(512, MapOptions.RANDOM, 50, 11);
         host.generate(big);
         until("matching results at 512", host.step()::canConfirm);
-        assertEquals(List.of(A, big), bobWorld.generated);
+        assertEquals(List.of(A, big), bobWorld.loaded);
     }
 
     @Test
