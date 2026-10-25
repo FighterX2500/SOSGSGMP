@@ -8,7 +8,7 @@ This document lists the places where the game assumes exactly one player faction
 - **Human:** any player in the campaign.
 - **Local player:** the human sitting at the PC the code is running on.
 
-On every PC, `FACTIONS.player()` is that PC's local player. Other humans appear as puppet `FactionNPC`s (architecture §Core rule). The puppet model is superseded by SP3's engine direction (§7); the call-site counts below still hold.
+On every PC, `FACTIONS.player()` is that PC's local player. Other humans appeared as puppet `FactionNPC`s in an earlier architecture. The puppet model is superseded by SP3's engine direction (§7) and SOSDET ADR 0004; the call-site counts below still hold.
 
 ## 1. Summary
 

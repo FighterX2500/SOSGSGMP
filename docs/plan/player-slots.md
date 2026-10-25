@@ -23,7 +23,7 @@ SOSDET [ADR 0004](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Eng
   - R13: the world save holds every human and their world state, and an old single-player save loads as one human in slot 0. There are no live, frozen, eliminated or removed states yet.
   - R12: a frozen slot's events don't wait, since there are no frozen slots (R5).
 - **Open:**
-  - R2: ADR 0004 plans `addHuman(region)` (an NPC's capital or a free region becomes a human during setup). It isn't built; today only the engine's test rig makes humans, from an active NPC with a capital.
+  - R2: ADR 0004 plans `addHuman(region)` (an NPC's capital or a free region becomes a human during setup). It wasn't built as such: SOSDET SOS-55 built `Engine.buildWorld` instead, which makes every human's realm while the world is generated (SOSDET PR #35).
   - R5 to R10: freeze, eliminate, remove, spectator, running another human's city, agreements between humans.
   - R14: each human's battles against NPCs work. Battles between humans, and allied humans in one battle, are outside SOS-46.
 

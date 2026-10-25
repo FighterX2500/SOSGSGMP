@@ -1,6 +1,6 @@
 # Walking skeleton
 
-Card: [SOS-20](https://fighterx2500.atlassian.net/browse/SOS-20) · Date: 2026-10-25 · Status: in implementation (owner, 2026-10-25; CLAUDE.md "Current phase") · Spec: §3, §5
+Card: [SOS-20](https://fighterx2500.atlassian.net/browse/SOS-20) · Date: 2026-10-25 · Status: done: steps 1 to 5 merged (2026-10-25); step 6, the owner's playtest, is next · Spec: §3, §5
 
 ## 1. Goal
 
@@ -16,15 +16,17 @@ Each step is one card; each ends in something the owner can try.
 | --- | --- | --- | --- | --- |
 | 1 | **Lobby screens** (spec §5 lobby steps 1–4): Multiplayer, Create Lobby, Join by IP, the lobby list, Start Lobby | The mod's own menu works inside the game; hook M1; the mod's build and install | [SOS-49](https://fighterx2500.atlassian.net/browse/SOS-49) | Nothing |
 | 2 | **Direct-IP join**: the host listens, joining PCs connect, the roster stays the same on every PC; protocol version on every message | Networking from inside the game process, PC to laptop over Radmin | SOS-49 (same card) | Nothing |
-| 3 | **Steam lobby and invites**: create a Steam lobby, invite friends, join through the overlay; Steam P2P messages under App ID 1162750 | Steam P2P from the game's own Steamworks (the game already runs `SteamAPI`) | to propose | Placeholders from SOS-49; an ADR only if a library beyond the game's steamworks4j is needed |
+| 3 | **Steam lobby and invites**: create a Steam lobby, invite friends, join through the overlay; Steam P2P messages under App ID 1162750 | Steam P2P from the game's own Steamworks (the game already runs `SteamAPI`) | [SOS-60](https://fighterx2500.atlassian.net/browse/SOS-60) (SOSGSGMP PR #36) | Placeholders from SOS-49; an ADR only if a library beyond the game's steamworks4j is needed |
 | 4a | **Setup, map** (spec §5 Map): after Start Lobby the host generates and confirms the map (size, map type, latitude, seed); every PC checks it by terrain hash | Every PC builds the same world map | [SOS-54](https://fighterx2500.atlassian.net/browse/SOS-54) (SOSGSGMP PR #32, [setup-map-step.md](setup-map-step.md)) | Nothing: no engine session yet. The host sends its terrain: vanilla's river generator isn't seeded |
 | 4b | **Setup, factions and locations** (spec §5 Factions and starting locations): each player picks race, faction and world location at their own pace (6-tile rule); the host initializes the world with NPC countries and routes; each player's city start spot; the automatic unpause | The lobby hands its players to the engine's human slots | [SOS-56](https://fighterx2500.atlassian.net/browse/SOS-56) (SOSGSGMP PR #33, [setup-factions-step.md](setup-factions-step.md)) | SOSDET SOS-55 (`Engine.buildWorld`, merged, SOSDET PR #35) and SOSDET PR #36 (`Engine.worldHash`, `ownCityAt`) |
-| 5 | **Game**: the world in lockstep through the mod's transport, each city local, city reports and transactions | The engine's API carried over the mod's network | [SOS-57](https://fighterx2500.atlassian.net/browse/SOS-57) | SOSDET SOS-46 (merged); steps 2 or 3 |
+| 5 | **Game**: the world in lockstep through the mod's transport, each city local, city reports and transactions | The engine's API carried over the mod's network | [SOS-57](https://fighterx2500.atlassian.net/browse/SOS-57) (SOSGSGMP PR #34, [game-over-network.md](game-over-network.md)) | SOSDET SOS-46 (merged); steps 2 or 3 |
 | 6 | **Playtest** with the owner: two PCs over Steam, then direct IP | The whole path | none | 1–5 |
 
-Lockstep battles come right after the skeleton: the engine has them (SOS-15), and the mod only carries their orders, AI log and hashes once step 5 works.
+Lockstep battles came right after the skeleton: SOSDET SOS-61 and the mod's SOS-62 (SOSGSGMP PR #37). Also since: the desync window (SOS-59, PR #35), the playtest log (SOS-63, PR #38) and campaign saves with resume (SOS-64, PR #39, [campaign-saves.md](campaign-saves.md)).
 
 ## 3. What SOS-49 built (steps 1 and 2)
+
+*A record of SOS-49. Since then Join through Steam works (SOS-60) and Load Saved Lobby works (SOS-64).*
 
 - **Build:** Gradle in this repository (`gradlew.bat build`, `installMod`), against `SongsOfSyx.jar` from `SOS_GAME_DIR`; hooks as patches compiled with ECJ, the way SOSDET ships its own.
 - **Hook M1** in `menu/ScMain` adds the Multiplayer button ([hooks.md](../hooks.md)).
@@ -34,6 +36,8 @@ Lockstep battles come right after the skeleton: the engine has them (SOS-15), an
 - **Map size** is not on Create Lobby: spec 0.13 moved it to the map step after Start Lobby (owner, 2026-10-25). The game reads it from `TILE_DIMENSION` in `init/world/config/General.txt` (vanilla 256, allowed 128–512) when a game is built.
 
 ## 4. Wrap-up now that SOSDET SOS-46 is merged
+
+*Written before step 4. All eight points are built: 1 to 5 and 8 in SOS-54 and SOS-56, 6 in SOS-57, 7 in SOS-64. Point 3's hook wasn't needed: the factions step replaces the generator's stages without one ([setup-factions-step.md](setup-factions-step.md) §5, §10), and the map step's PR #28 was replaced by #32.*
 
 The lobby was built before the engine's player slots. SOS-46 is merged (SOSDET PR #31, 2026-10-25). These join the two together (step 4's cards):
 

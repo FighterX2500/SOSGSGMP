@@ -17,8 +17,16 @@ AGENTS.md holds the coding rules: Java, the game, hooks, threads, saves, network
 
 ## Current phase
 
-- **Engine (SOSDET): implementation** (owner, 2026-10-22). Cards under the epic SOS-22 are merged up to SOS-46, several humans on one world (SOSDET PR #31), and SOS-31, the scenario suite (SOSDET PR #30), both on 2026-10-25. The engine has no API for the mod to add a human yet (`addHuman`, SOSDET ADR 0004). The work happens in the SOSDET repository and follows its CLAUDE.md.
-- **Mod (this repository): implementation of the walking skeleton** (owner, 2026-10-25), in the order of [docs/plan/walking-skeleton.md](docs/plan/walking-skeleton.md). The lobby (SOS-49, SOSGSGMP PR #26) is merged. The setup's map step is in draft SOSGSGMP PR #28, with no card yet. Factions, locations and world init need the engine's `addHuman`. The rest of this section applies to it.
+- **Engine (SOSDET): implementation** (owner, 2026-10-22). Merged through SOS-61, own-city battles (SOSDET PR #37, plan 0006 M1). That includes several humans (SOS-46), the world built around several humans (`Engine.buildWorld`, SOS-55), the desync hold (SOS-53) and the resync with several humans (SOS-52). Open: SOSDET PR #38 (SOS-64, a session load in a fresh process). The work happens in the SOSDET repository and follows its CLAUDE.md.
+- **Mod (this repository): implementation; the walking skeleton is done** (2026-10-25). Merged:
+  - the lobby (SOS-49);
+  - the setup's map step (SOS-54) and factions (SOS-56);
+  - the game over the network (SOS-57) and the desync window (SOS-59);
+  - Steam (SOS-60);
+  - battles (SOS-62);
+  - the playtest log (SOS-63).
+
+  Open: campaign saves and resume (SOS-64, PR #39). Where things stand and what's next: [docs/plan/HANDOFF.md](docs/plan/HANDOFF.md). The rest of this section applies to the mod.
 
 Feature code for the mod is allowed for approved cards only. Also allowed:
 
@@ -35,10 +43,10 @@ Planning tasks from Sprint 0, in rough order (7 is now the walking-skeleton plan
     - ~~Battle streaming (ADR 0002)~~: replaced by lockstep (ADR 0003); the engine showed two-PC battles in SOS-15. Order latency at 300 ms ping is still to measure.
     - ~~Late-game save size and save time~~: checked in playtests instead (owner, 2026-10-24).
     - ~~Two game processes on one PC~~: not needed, viewing is lockstep (ADR 0006).
-    - Networking from inside the game process: direct IP, and Steam P2P under Songs of Syx's App ID (1162750).
+    - ~~Networking from inside the game process~~: built, direct IP (SOS-49) and Steam P2P under Songs of Syx's App ID 1162750 (SOS-60).
 5. **Distribution:** how players get the changed game code (the engine's patches and the mod's) and the mod, without committing game files. SOS-25 covers the engine's half.
 6. **Test plan:** what runs before every pull request, before a release and in play sessions, and how each [AT] criterion in spec section 15 becomes an automated test.
-7. **Walking skeleton plan:** two players connect over Steam P2P and see the same world map, with one army's movement synced.
+7. ~~**Walking skeleton plan:** two players connect over Steam P2P and see the same world map, with one army's movement synced.~~ Done: steps 1 to 5 are merged ([walking-skeleton.md](docs/plan/walking-skeleton.md)).
 8. **Board:** propose Jira cards (spikes, decisions, stories) with acceptance criteria. Don't create them until I approve the list.
 
 ## Working style

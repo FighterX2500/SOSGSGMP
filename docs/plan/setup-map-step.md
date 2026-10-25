@@ -1,8 +1,8 @@
 # Setup: the map step
 
-Card: to propose (walking skeleton step 4, part 1) · Date: 2026-10-25 · Status: draft for the owner's review · Spec: §5 Map
+Card: [SOS-54](https://fighterx2500.atlassian.net/browse/SOS-54) (walking skeleton step 4, part 1) · Date: 2026-10-25 · Status: merged (SOSGSGMP PR #32) · Spec: §5 Map
 
-Game paths are relative to `<game>/info/SongsOfSyx-sources/`. All findings come from reading the V71 source; nothing here has been run yet.
+Game paths are relative to `<game>/info/SongsOfSyx-sources/`. All findings come from reading the V71 source. Written before the build; it has since run on two PCs.
 
 ## 1. Goal
 
@@ -168,5 +168,5 @@ Before the PR: `gradlew.bat compileJava compileTestJava`, `gradlew.bat test`, `g
 ## 10. Out of scope
 
 - Race, faction (with vanilla's profile save and load), location with the 6-tile rule: the next card. Vanilla's capital placement generates the whole NPC world around one player (`view/world/generator/StageCapitol.java:101-108, 226-245`), so the mod needs its own location stage.
-- World init (NPC countries, routes, the guaranteed routes between players): a later card, with SOSDET's `addHuman`. NPC generation as it stands is not reproducible across PCs: `world/region/Gen.java:93-96` calls `SPRITES.loader().init()`, which draws a random number only if 10 s passed since the last call (`init/sprite/RLoadPrinter.java:218-223, 270`), right before shuffling the regions. So either the host initializes the world and sends the world save, or a hook removes that draw. The next card decides.
+- World init (NPC countries, routes, the guaranteed routes between players): built in SOS-56 with SOSDET's `Engine.buildWorld` (the host initializes the world and sends the save). NPC generation as it stands is not reproducible across PCs: `world/region/Gen.java:93-96` calls `SPRITES.loader().init()`, which draws a random number only if 10 s passed since the last call (`init/sprite/RLoadPrinter.java:218-223, 270`), right before shuffling the regions. So either the host initializes the world and sends the world save, or a hook removes that draw. The next card decides.
 - Difficulty per human slot, the engine session, Steam: walking skeleton §4 and §5.
