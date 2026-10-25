@@ -25,6 +25,7 @@ import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.net.Pieces;
+import sosgsgmp.net.StreamKind;
 import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep.PlayerPick;
 import sosgsgmp.setup.FactionStep.Progress;
@@ -357,6 +358,52 @@ class LoopbackSetupTest {
     }
 
     @Test
+    void theEngineStreamsReachTheirTakersOnceEach() throws Exception {
+        initialize();
+        world(bob);
+        world(cid);
+        for (SetupSession s : List.of(host, bob, cid))
+            s.worldLoaded(77);
+        for (SetupSession s : List.of(host, bob, cid))
+            s.startSpot();
+        until("started everywhere", () -> host.factions().started() && bob.factions().started() && cid.factions().started());
+        EngineLinkTest.FakePort hp = new EngineLinkTest.FakePort();
+        EngineLinkTest.FakePort bp = new EngineLinkTest.FakePort();
+        EngineLinkTest.FakePort cp = new EngineLinkTest.FakePort();
+        host.play(hp);
+        bob.play(bp);
+        cid.play(cp);
+        int b = host.factions().slotOf(bob.localPlayerId());
+        int c = host.factions().slotOf(cid.localPlayerId());
+        hp.make(StreamKind.AI_LOG, (byte) 1, (byte) 2, (byte) 3);
+        hp.make(StreamKind.HASHES, (byte) 9);
+        bp.make(StreamKind.ORDERS, (byte) 4, (byte) 5);
+        bp.make(StreamKind.REPORTS, (byte) 6);
+        cp.make(StreamKind.HASHES, (byte) 7);
+        playUntil("every stream at its takers", () -> cp.took(StreamKind.AI_LOG, 0).length == 3 && bp.took(StreamKind.AI_LOG, 0).length == 3
+                && hp.took(StreamKind.ORDERS, b).length == 2 && cp.took(StreamKind.REPORTS, b).length == 1
+                && bp.took(StreamKind.HASHES, c).length == 1 && bp.took(StreamKind.HASHES, 0).length == 1 && cp.took(StreamKind.HASHES, 0).length == 1
+                && hp.took(StreamKind.REPORTS, b).length == 1 && hp.took(StreamKind.HASHES, c).length == 1);
+        assertArrayEquals(new byte[] {1, 2, 3}, cp.took(StreamKind.AI_LOG, 0));
+        assertArrayEquals(new byte[] {4, 5}, hp.took(StreamKind.ORDERS, b));
+        assertEquals(0, cp.took(StreamKind.ORDERS, b).length, "orders go to the host only");
+        assertEquals(0, bp.took(StreamKind.REPORTS, b).length, "a PC gets none of its own back");
+        hp.make(StreamKind.AI_LOG, (byte) 8);
+        playUntil("more of the log", () -> cp.took(StreamKind.AI_LOG, 0).length == 4);
+        assertArrayEquals(new byte[] {1, 2, 3, 8}, cp.took(StreamKind.AI_LOG, 0), "in order, each byte once");
+    }
+
+    /** {@link #until}, with every playing PC sending what its engine made each round. */
+    private void playUntil(String what, BooleanSupplier condition) throws InterruptedException {
+        until(what, () -> {
+            for (SetupSession s : setups)
+                if (s.playing())
+                    s.exchange();
+            return condition.getAsBoolean();
+        });
+    }
+
+    @Test
     void aWorldThatDiffersNeverStarts() throws Exception {
         initialize();
         world(bob);
@@ -418,9 +465,9 @@ class LoopbackSetupTest {
         build(256);
         until("Bob sees Cid ready", () -> bob.step().state(2) == PlayerState.READY);
         host.generate(A);
-        until("Bob sees Cid's mismatch", () -> bob.step().state(2) == PlayerState.MISMATCH);
-        assertEquals(PlayerState.MATCH, bob.step().state(1));
-        assertEquals(PlayerState.GENERATED, bob.step().state(0));
+        // Bob's own match and Cid's mismatch reach Bob in separate messages: wait for all three
+        until("Bob sees Cid's mismatch, his own match and the host's map", () -> bob.step().state(2) == PlayerState.MISMATCH
+                && bob.step().state(1) == PlayerState.MATCH && bob.step().state(0) == PlayerState.GENERATED);
         until("Cid sees its own mismatch", () -> cid.step().state(2) == PlayerState.MISMATCH && cid.step().state(1) == PlayerState.MATCH);
 
         cid.leave();

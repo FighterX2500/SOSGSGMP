@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import init.sprite.UI.UI;
+import game.GAME;
+import menu.MpAutopilot;
 import menu.MpSetupLeave;
 import snake2d.CORE;
 import snake2d.CORE_STATE;
@@ -75,6 +77,8 @@ public final class MpMapStage {
 	private int shownRows;
 	private final GText status = new GText(UI.FONT().M, 256);
 	private boolean leaving;
+	/** The factions step once Next opened it, pumped every frame through this; null before. */
+	private MpFactions factions;
 
 	/**
 	 * Right after GAME.create: replaces the world generator's stage with the map step's panel. The race stage the
@@ -93,6 +97,22 @@ public final class MpMapStage {
 		stage.panel.body().moveX1(16);
 		if (!setup.isHost())
 			g.minimap.show();
+		MpAutopilot autopilot = MpAutopilot.fromEnv();
+		GAME.addAfterUpdate(() -> stage.afterUpdate(autopilot));
+	}
+
+	/**
+	 * Once per frame after the game's update, whatever view shows: the factions step's session keeps going even when
+	 * its screen isn't drawn (the world build opens the host's city; two-PC test T3). With the test autopilot
+	 * ({@code autopilot} not null) it also plays the map step, then the factions.
+	 */
+	private void afterUpdate(MpAutopilot autopilot) {
+		if (leaving)
+			return;
+		if (factions != null)
+			factions.afterUpdate(autopilot);
+		else if (autopilot != null)
+			autopilot.map(setup, canGoOn, () -> factions = MpFactions.open(g, setup));
 	}
 
 	private MpMapStage(WorldViewGenerator g, SetupSession setup, List<String> mapTypes, CORE_STATE.Constructor rebuild) {
@@ -128,7 +148,7 @@ public final class MpMapStage {
 		buttons.add(new GButt.ButtPanel("next") {
 			@Override
 			protected void clickA() {
-				MpFactions.open(g, setup);
+				factions = MpFactions.open(g, setup);
 			}
 
 			@Override

@@ -35,6 +35,8 @@ final class MpMenu {
 	final MpScreenCreate create;
 	final MpScreenJoin join;
 	final MpScreenLobby lobby;
+	/** Test tooling: the autopilot, or null in play. */
+	final MpAutopilot autopilot = MpAutopilot.fromEnv();
 	private final Path prefsFile;
 
 	/** The Multiplayer button of the main menu (hook M1). */
@@ -50,7 +52,21 @@ final class MpMenu {
 				menu.switchScreen(mp.main);
 			}
 		});
-		return b;
+		MpAutopilot autopilot = MpAutopilot.fromEnv();
+		if (autopilot == null)
+			return b;
+		// Test tooling (MpAutopilot): the button, rendered every frame on the main menu, opens the lobby by itself.
+		return new GuiSection(b) {
+			private MpMenu mp;
+
+			@Override
+			public void render(SPRITE_RENDERER r, float ds) {
+				super.render(r, ds);
+				if (mp == null)
+					mp = new MpMenu(menu);
+				autopilot.menu(mp);
+			}
+		};
 	}
 
 	private MpMenu(Menu menu) {

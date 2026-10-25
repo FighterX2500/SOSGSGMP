@@ -125,6 +125,8 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		} else if (session != null) {
 			session.update();
 			refresh();
+			if (mp.autopilot != null)
+				mp.autopilot.lobby(session);
 			if (session.state() == LobbyState.STARTED)
 				startSetup();
 		}

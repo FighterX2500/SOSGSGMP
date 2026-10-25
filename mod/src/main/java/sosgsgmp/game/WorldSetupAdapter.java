@@ -66,6 +66,9 @@ public final class WorldSetupAdapter implements FactionWorld {
             FactionPick p = humans.get(i);
             starts[i] = new HumanStart(p.race(), p.name(), p.banner(), p.x(), p.y());
         }
+        // The generator, to come back to: the build opens the host's city (its finish stage generates it), and the
+        // save below needs the world view; the generator's factions screen pumps the session (two-PC tests T2, T3).
+        VIEW.ViewSubSimple generator = VIEW.current();
         Engine.buildWorld(starts);
         for (int slot = 0; slot < starts.length; slot++) {
             if (!(FACTIONS.getByIndex(slot) instanceof Player p))
@@ -89,6 +92,7 @@ public final class WorldSetupAdapter implements FactionWorld {
             throw new UncheckedIOException("SOSGSGMP: saving the new world failed", e);
         } finally {
             deleteTree(dir);
+            generator.activate();
         }
     }
 

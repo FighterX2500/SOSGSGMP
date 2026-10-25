@@ -165,6 +165,44 @@ public sealed interface Message {
      */
     record Cursor(int playerId, boolean onMap, int x, int y) implements Message {}
 
+    /**
+     * Bytes {@code offset} on of PC {@code pc}'s engine stream {@code kind}, sent at the sender's step {@code step}
+     * (game-over-network.md §2). The steps changes apply at are inside the engine's bytes. A receiver drops bytes it
+     * already has, so a repeated message changes nothing.
+     */
+    record Stream(StreamKind kind, int pc, long offset, long step, byte[] bytes) implements Message {
+        public Stream {
+            if (pc < 0 || pc >= LobbySettings.MAX_PLAYERS || offset < 0 || step < 0 || bytes.length > Protocol.MAX_STREAM_PIECE)
+                throw new IllegalArgumentException("SOSGSGMP: stream piece of PC " + pc + " at " + offset + ", step " + step + ", " + bytes.length + " bytes");
+            bytes = bytes.clone();
+        }
+
+        @Override
+        public byte[] bytes() {
+            return bytes.clone();
+        }
+
+        /** The byte count without a copy. */
+        public int length() {
+            return bytes.length;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof Stream s && kind == s.kind && pc == s.pc && offset == s.offset && step == s.step && Arrays.equals(bytes, s.bytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(kind, pc, offset, step, Arrays.hashCode(bytes));
+        }
+
+        @Override
+        public String toString() {
+            return "Stream[" + kind + ", pc=" + pc + ", offset=" + offset + ", step=" + step + ", " + bytes.length + " bytes]";
+        }
+    }
+
     /** A message from another protocol version; only its version is read. */
     record Unsupported(int version) implements Message {}
 }

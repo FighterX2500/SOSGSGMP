@@ -33,6 +33,8 @@ public final class JoinedSetup implements SetupSession {
     /** The host's world once all its pieces are here, until this PC takes it to load; null otherwise. */
     private byte[] save;
     private final Cursors cursors = new Cursors();
+    /** The engine's streams once this PC plays; null before. */
+    private EngineLink link;
     private boolean closed;
     private String closedReason;
     private int changes;
@@ -49,14 +51,16 @@ public final class JoinedSetup implements SetupSession {
     @Override
     public void update() {
         TcpNode.Event e;
-        while (!closed && step.pendingBuild() == 0 && (e = node.poll()) != null) {
+        while (!closed && step.pendingBuild() == 0 && !waitingToPlay() && (e = node.poll()) != null) {
             switch (e) {
                 case TcpNode.Event.Connected c -> {
                     // Only the host's connection, made in the lobby.
                 }
                 case TcpNode.Event.Received r -> {
                     received(r.message());
-                    changes++;
+                    // a piece of the engine's streams or a cursor changes nothing the panel shows
+                    if (!(r.message() instanceof Message.Stream) && !(r.message() instanceof Message.Cursor))
+                        changes++;
                 }
                 case TcpNode.Event.Disconnected d -> {
                     if (d.peer() == TcpNode.HOST)
@@ -105,6 +109,13 @@ public final class JoinedSetup implements SetupSession {
                 players = r.players();
                 cursors.retain(players);
             }
+            case Message.Stream s when link != null -> {
+                String problem = link.problem(s);
+                if (problem != null)
+                    close("The host sent a broken game stream: " + problem);
+                else
+                    link.in(s);
+            }
             case Message.Cursor c -> {
                 if (c.playerId() != localPlayerId())
                     cursors.set(c.playerId(), c.onMap(), c.x(), c.y());
@@ -136,6 +147,30 @@ public final class JoinedSetup implements SetupSession {
         closed = true;
         closedReason = reason;
         changes++;
+    }
+
+    private boolean waitingToPlay() {
+        return factions != null && factions.started() && link == null;
+    }
+
+    @Override
+    public void play(EnginePort port) {
+        if (factions == null || !factions.started() || link != null)
+            throw new IllegalStateException("SOSGSGMP: play before the start, or twice");
+        link = new EngineLink(false, factions.slotOf(localPlayerId()), port);
+    }
+
+    @Override
+    public boolean playing() {
+        return link != null;
+    }
+
+    @Override
+    public void exchange() {
+        if (closed)
+            return;
+        for (Message.Stream s : link.out())
+            node.send(TcpNode.HOST, s);
     }
 
     @Override

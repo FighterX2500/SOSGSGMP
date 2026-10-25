@@ -27,7 +27,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 5;
+    public static final int VERSION = 6;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -36,7 +36,9 @@ public final class Protocol {
     private static final int MAP_BUILD = 7, BUILD_READY = 8, MAP_GENERATE = 9, MAP_RESULT = 10, MAP_CONFIRM = 11, MAP_PLAYERS = 12;
     private static final int MAP_TERRAIN = 13;
     private static final int PICK = 14, PICKS = 15, SLOT_MAP = 16, WORLD_PART = 17, LOADED = 18, START_SPOT = 19, GO = 20, WORLD_PLAYERS = 21;
-    private static final int CURSOR = 22;
+    private static final int CURSOR = 22, STREAM = 23;
+    /** Largest piece of an engine stream in one message, in bytes: well under {@link #MAX_MESSAGE}. */
+    public static final int MAX_STREAM_PIECE = 48 * 1024;
     /** Longest reason a location was cleared, in characters. */
     private static final int MAX_REASON = 256;
 
@@ -163,6 +165,15 @@ public final class Protocol {
                     out.writeByte(GO);
                     out.writeInt(g.transfer());
                 }
+                case Message.Stream s -> {
+                    out.writeByte(STREAM);
+                    out.writeByte(s.kind().ordinal());
+                    out.writeByte(s.pc());
+                    out.writeLong(s.offset());
+                    out.writeLong(s.step());
+                    out.writeInt(s.length());
+                    out.write(s.bytes());
+                }
                 case Message.Cursor c -> {
                     out.writeByte(CURSOR);
                     out.writeInt(c.playerId());
@@ -215,6 +226,7 @@ public final class Protocol {
             case START_SPOT -> new Message.StartSpot(number(in, "transfer"));
             case WORLD_PLAYERS -> worldPlayers(in);
             case GO -> new Message.Go(number(in, "transfer"));
+            case STREAM -> stream(in);
             case CURSOR -> new Message.Cursor(playerId(in), in.readBoolean(), in.readInt(), in.readInt());
             default -> throw new IOException("SOSGSGMP: unknown message type " + type);
         };
@@ -358,6 +370,25 @@ public final class Protocol {
         if (n < 1 || n > LobbySettings.MAX_PLAYERS)
             throw new IOException("SOSGSGMP: " + what + " of " + n + " players");
         return n;
+    }
+
+    private static Message.Stream stream(DataInputStream in) throws IOException {
+        int kind = in.readUnsignedByte();
+        if (kind >= StreamKind.values().length)
+            throw new IOException("SOSGSGMP: stream kind " + kind);
+        int pc = in.readUnsignedByte();
+        if (pc >= LobbySettings.MAX_PLAYERS)
+            throw new IOException("SOSGSGMP: stream of PC " + pc);
+        long offset = in.readLong();
+        long step = in.readLong();
+        if (offset < 0 || step < 0)
+            throw new IOException("SOSGSGMP: stream offset " + offset + ", step " + step);
+        int n = in.readInt();
+        if (n < 0 || n > MAX_STREAM_PIECE)
+            throw new IOException("SOSGSGMP: stream piece of " + n + " bytes");
+        byte[] bytes = new byte[n];
+        in.readFully(bytes);
+        return new Message.Stream(StreamKind.values()[kind], pc, offset, step, bytes);
     }
 
     private static int playerId(DataInputStream in) throws IOException {

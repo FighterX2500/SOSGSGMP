@@ -45,6 +45,8 @@ public final class HostedSetup implements SetupSession {
     /** The world this PC built, until it takes it to load; null otherwise. */
     private byte[] save;
     private final Cursors cursors = new Cursors();
+    /** The engine's streams once this PC plays; null before. */
+    private EngineLink link;
     private boolean closed;
     private String closedReason;
     private int changes;
@@ -66,7 +68,7 @@ public final class HostedSetup implements SetupSession {
     @Override
     public void update() {
         TcpNode.Event e;
-        while (!closed && (e = node.poll()) != null) {
+        while (!closed && !waitingToPlay() && (e = node.poll()) != null) {
             switch (e) {
                 case TcpNode.Event.Connected c -> {
                     // A late PC: refused when it says hello.
@@ -102,6 +104,7 @@ public final class HostedSetup implements SetupSession {
                     goWhenReady();
                 }
             }
+            case Message.Stream s when id != null && link != null -> stream(peer, id, s);
             case Message.Cursor c when id != null -> {
                 cursors.set(id, c.onMap(), c.x(), c.y());
                 Message relayed = new Message.Cursor(id, c.onMap(), c.x(), c.y());
@@ -123,15 +126,29 @@ public final class HostedSetup implements SetupSession {
         }
     }
 
+    /** A peer's piece: checked, fed to the engine, and its reports and hashes relayed to the other peers. */
+    private void stream(int peer, int id, Message.Stream s) {
+        String problem = s.pc() != factions.slotOf(id) ? "a stream of PC " + s.pc() + " from PC " + factions.slotOf(id) : link.problem(s);
+        if (problem != null) {
+            closedByPeer(id, name(id) + " sent a broken game stream: " + problem);
+            return;
+        }
+        if (!link.in(s) || !EngineLink.relayed(s.kind()))
+            return;
+        for (int other : joined.keySet())
+            if (other != peer)
+                node.send(other, s);
+    }
+
     private void removeJoined(int peer) {
         Integer id = joined.remove(peer);
         if (id == null)
             return;
         if (factions != null && factions.initialized()) {
-            // Their slot is in the world every PC loads: the game can't start without them.
-            String name = name(id);
-            leave();
-            closedReason = name + " left after the world was built; the game can't start without them.";
+            // Their slot is in the world every PC loads: the game can't start, or go on, without them (rejoining is
+            // spec §11's, a later card).
+            closedByPeer(id, name(id) + (factions.started() ? " left; the game can't go on without them."
+                    : " left after the world was built; the game can't start without them."));
             return;
         }
         players.removeIf(p -> p.id() == id);
@@ -141,6 +158,12 @@ public final class HostedSetup implements SetupSession {
         changed();
         if (factions != null && factions.remove(id))
             picksChanged();
+    }
+
+    /** Closes the setup for everyone because of player {@code id}: they left, or broke the protocol. */
+    private void closedByPeer(int id, String reason) {
+        leave();
+        closedReason = reason;
     }
 
     private String name(int id) {
@@ -195,6 +218,30 @@ public final class HostedSetup implements SetupSession {
     private void sendAll(Message m) {
         for (int peer : joined.keySet())
             node.send(peer, m);
+    }
+
+    private boolean waitingToPlay() {
+        return factions != null && factions.started() && link == null;
+    }
+
+    @Override
+    public void play(EnginePort port) {
+        if (factions == null || !factions.started() || link != null)
+            throw new IllegalStateException("SOSGSGMP: play before the start, or twice");
+        link = new EngineLink(true, 0, port);
+    }
+
+    @Override
+    public boolean playing() {
+        return link != null;
+    }
+
+    @Override
+    public void exchange() {
+        if (closed)
+            return;
+        for (Message.Stream s : link.out())
+            sendAll(s);
     }
 
     @Override
