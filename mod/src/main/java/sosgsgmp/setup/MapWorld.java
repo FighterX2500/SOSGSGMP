@@ -1,8 +1,8 @@
 package sosgsgmp.setup;
 
 /**
- * The game's side of the setup (the map step, then the factions), as the setup sessions use it: the game adapter
- * implements it, tests fake it. Game thread only.
+ * The game's side of the map step, as the setup sessions use it: the game adapter implements it, tests fake it.
+ * Game thread only.
  */
 public interface MapWorld {
 
@@ -24,10 +24,4 @@ public interface MapWorld {
 
     /** Locks the confirmed map in the current game. */
     void lock();
-
-    /**
-     * Why a capital can't be at world tile {@code x, y} with the other players' at {@code otherX, otherY}: the engine's
-     * rule (the terrain, and 6 tiles from the others), or null when it can.
-     */
-    String locationProblem(int x, int y, int[] otherX, int[] otherY);
 }

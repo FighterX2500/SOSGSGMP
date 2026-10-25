@@ -1,6 +1,5 @@
-package view.world.generator;
+package menu;
 
-import menu.Menu;
 import snake2d.CORE;
 import snake2d.util.misc.ACTION;
 import sosgsgmp.session.SetupSession;
@@ -8,16 +7,16 @@ import util.gui.misc.GButt;
 import view.main.VIEW;
 
 /**
- * SOSGSGMP: the setup's Leave button, the same on every setup screen. Every PC can leave: the host ends the setup for
+ * SOSGSGMP: the setup's Leave button, the same on every setup screen and on the in-game setup panel. Every PC can leave: the host ends the setup for
  * everyone, a joining PC drops out of it. It closes the session and returns to the main menu the way vanilla's "quit
  * to menu" does (view/menu/IMenu.exit2Menu); {@code leaving} runs first, so the screen stops pumping the session.
  */
-final class MpSetupLeave {
+public final class MpSetupLeave {
 
 	private MpSetupLeave() {
 	}
 
-	static GButt.ButtPanel button(SetupSession setup, Runnable leaving) {
+	public static GButt.ButtPanel button(SetupSession setup, Runnable leaving) {
 		return new GButt.ButtPanel("leave") {
 			@Override
 			protected void clickA() {

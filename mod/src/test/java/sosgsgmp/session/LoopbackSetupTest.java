@@ -1,5 +1,6 @@
 package sosgsgmp.session;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -26,6 +27,8 @@ import sosgsgmp.lobby.Refusal;
 import sosgsgmp.net.Pieces;
 import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep.PlayerPick;
+import sosgsgmp.setup.FactionStep.Progress;
+import sosgsgmp.setup.FactionWorld;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStatus;
 import sosgsgmp.setup.MapStep.PlayerState;
@@ -44,12 +47,14 @@ class LoopbackSetupTest {
      * Terrain as a function of the options, sent as bytes that take several pieces; a per-PC offset fakes a PC whose
      * loaded map comes out different, and {@code refuse} one whose game can't load it.
      */
-    private static final class FakeWorld implements MapWorld {
+    private static final class FakeWorld implements MapWorld, FactionWorld {
         final List<MapOptions> generated = new ArrayList<>();
         final List<MapOptions> loaded = new ArrayList<>();
         long offset;
         boolean refuse;
         int locks;
+        final List<List<FactionPick>> built = new ArrayList<>();
+        String difficulty;
 
         @Override
         public Terrain generate(MapOptions options) {
@@ -106,6 +111,21 @@ class LoopbackSetupTest {
                     return "too close";
             return null;
         }
+
+        /** A save over three pieces whose bytes follow the humans' names, so every PC can check it got this one. */
+        @Override
+        public byte[] buildWorld(List<FactionPick> humans, String difficulty) {
+            built.add(humans);
+            this.difficulty = difficulty;
+            return save(humans);
+        }
+
+        static byte[] save(List<FactionPick> humans) {
+            byte[] s = new byte[2 * Pieces.PIECE_BYTES + 77];
+            for (int i = 0; i < s.length; i++)
+                s[i] = (byte) (i * 31 + humans.toString().hashCode());
+            return s;
+        }
     }
 
     private final List<LobbySession> lobbies = new ArrayList<>();
@@ -138,9 +158,9 @@ class LoopbackSetupTest {
         untilLobbies("everyone joined", () -> h.players().size() == 3 && jb.players().size() == 3 && jc.players().size() == 3);
         h.start();
         untilLobbies("everyone started", () -> jb.state() == LobbyState.STARTED && jc.state() == LobbyState.STARTED);
-        host = h.handOver(hostWorld);
-        bob = jb.handOver(bobWorld);
-        cid = jc.handOver(cidWorld);
+        host = h.handOver(hostWorld, hostWorld);
+        bob = jb.handOver(bobWorld, bobWorld);
+        cid = jc.handOver(cidWorld, cidWorld);
         setups.addAll(List.of(host, bob, cid));
     }
 
@@ -270,6 +290,62 @@ class LoopbackSetupTest {
         cid.leave();
         until("Cid gone from Bob's table", () -> names(bob).equals(List.of("Ann", "Bob")));
         assertTrue(host.factions().canInitialize());
+    }
+
+    /** Through the picks, every player with a location, to the host's Initialize World; returns the host's save. */
+    private byte[] initialize() throws Exception {
+        confirmMap();
+        host.pick(pick("Ann", 10, 10));
+        bob.pick(pick("Bob", 20, 10));
+        cid.pick(pick("Cid", 30, 10));
+        until("every location on the host", host.factions()::canInitialize);
+        host.initialize();
+        return host.takeWorld();
+    }
+
+    /** Runs the frames until this PC has the whole save, and takes it. */
+    private byte[] world(SetupSession s) throws InterruptedException {
+        byte[][] got = new byte[1][];
+        until("the world on a joining PC", () -> (got[0] = s.takeWorld()) != null);
+        return got[0];
+    }
+
+    @Test
+    void initializeBuildsOnceAndSendsTheSaveToEveryPc() throws Exception {
+        byte[] save = initialize();
+        assertEquals(1, hostWorld.built.size());
+        assertEquals(List.of("Ann", "Bob", "Cid"), hostWorld.built.get(0).stream().map(FactionPick::name).toList(), "slot order");
+        assertEquals("normal", hostWorld.difficulty, "the lobby's difficulty");
+        assertTrue(bobWorld.built.isEmpty() && cidWorld.built.isEmpty(), "only the host builds");
+        assertArrayEquals(FakeWorld.save(hostWorld.built.get(0)), save);
+        assertEquals(null, host.takeWorld(), "taken once");
+        assertArrayEquals(save, world(bob));
+        assertArrayEquals(save, world(cid));
+        assertEquals(1, bob.factions().slotOf(1));
+        assertEquals(2, cid.factions().slotOf(2));
+        assertFalse(host.factions().canInitialize(), "the picks are locked");
+    }
+
+    @Test
+    void everyPcsLoadReachesEveryPc() throws Exception {
+        initialize();
+        world(bob);
+        world(cid);
+        host.worldLoaded(77);
+        bob.worldLoaded(77);
+        cid.worldLoaded(78);
+        until("every load on the host", () -> host.factions().progress(1) == Progress.LANDING && host.factions().progress(2) == Progress.MISMATCH);
+        until("Cid's mismatch on Bob's PC", () -> bob.factions().progress(2) == Progress.MISMATCH && bob.factions().progress(0) == Progress.LANDING);
+        assertEquals(Progress.LANDING, cid.factions().progress(1));
+    }
+
+    @Test
+    void aPlayerLeavingAfterTheBuildEndsTheSetup() throws Exception {
+        initialize();
+        world(bob);
+        cid.leave();
+        until("the setup closed everywhere", () -> host.closed() && bob.closed());
+        assertEquals("Cid left after the world was built; the game can't start without them.", host.closedReason());
     }
 
     @Test

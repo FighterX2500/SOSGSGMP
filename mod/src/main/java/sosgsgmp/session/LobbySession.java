@@ -5,6 +5,7 @@ import java.util.List;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
+import sosgsgmp.setup.FactionWorld;
 import sosgsgmp.setup.MapWorld;
 
 /**
@@ -42,7 +43,7 @@ public interface LobbySession {
      * Once the lobby has started: hands the connection and the players over to the setup, which owns them from then
      * on. This session then neither updates nor closes anything.
      */
-    SetupSession handOver(MapWorld world);
+    SetupSession handOver(MapWorld world, FactionWorld factions);
 
     /** Counts changes to the state, players or settings, so a screen redraws its text only when this moves. */
     int changes();

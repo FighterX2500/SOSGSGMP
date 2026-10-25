@@ -30,8 +30,7 @@ import world.WorldGen;
 /**
  * SOSGSGMP: the map step's one place for game calls (setup-map-step.md §5): the world size of a new game, generating
  * terrain and landmarks from the host's options, loading the host's terrain on a joining PC, the terrain hash, the map
- * type names, the guard that no engine session runs during setup (§7), and the engine's rule for capital locations
- * (setup-factions-step.md §3). Reflection handles are resolved once, when
+ * type names, and the guard that no engine session runs during setup (§7). Reflection handles are resolved once, when
  * this is made. Game thread only.
  */
 public final class WorldGenAdapter implements MapWorld {
@@ -123,13 +122,6 @@ public final class WorldGenAdapter implements MapWorld {
     @Override
     public void lock() {
         WORLD.GEN().hasGeneratedTerrain = true;
-    }
-
-    @Override
-    public String locationProblem(int x, int y, int[] otherX, int[] otherY) {
-        if (x < 0 || y < 0 || x >= WORLD.TWIDTH() || y >= WORLD.THEIGHT())
-            return "outside the map";
-        return Engine.locationProblem(x, y, otherX, otherY);
     }
 
     private static void requireSize(MapOptions options) {

@@ -1,6 +1,6 @@
 # Setup: factions, starting locations and the world
 
-Card: [SOS-56](https://fighterx2500.atlassian.net/browse/SOS-56) (walking skeleton step 4b) · Date: 2026-10-25 · Status: approved by the owner (2026-10-25); M1 and M2 built, changes from the draft in §10 · Spec: §5 Factions and starting locations, §5 World rules
+Card: [SOS-56](https://fighterx2500.atlassian.net/browse/SOS-56) (walking skeleton step 4b) · Date: 2026-10-25 · Status: approved by the owner (2026-10-25); M1 to M3 built, changes from the draft in §10 · Spec: §5 Factions and starting locations, §5 World rules
 
 Game paths are relative to `<game>/info/SongsOfSyx-sources/`. All findings come from reading the V71 source and the engine's SOS-55 code; nothing here has been run yet. It builds on the map step ([setup-map-step.md](setup-map-step.md), SOS-54, draft PR #32) and on SOSDET's `Engine.buildWorld` (SOS-55, merged).
 
@@ -117,7 +117,7 @@ Every decode checks its ranges (count 1–16, index < count, location in the map
 
 Each milestone runs `gradlew.bat build`; the two-PC checks in M2–M4 are the owner's manual tests (PC host, laptop joiner), with what to look for listed in the PR.
 
-## 10. Changes from the draft (M1, M2)
+## 10. Changes from the draft (M1 to M3)
 
 - **No ready flag.** A placed location is the player's "ready": Initialize World needs every player's location, and picks stay open until it is pressed (spec §5.1). A separate flag added a state with no rule of its own.
 - **`WorldPlayers` (type 21).** The joining PCs need every player's progress after the build (loading, landing, mismatch, ready), as the map step's `MapPlayers` gives it; the draft had no message for it.
@@ -129,3 +129,10 @@ Each milestone runs `gradlew.bat build`; the two-PC checks in M2–M4 are the ow
 - **Picks are read back twice a second.** Vanilla's Customize Faction section edits `FACTIONS.player()` directly and reports nothing, so the factions step compares the game's race, name and banner with the last pick sent every 0.5 s and sends a new one when they differ.
 - **Other players' capitals** are drawn on the map while the placer is on it (red; this PC's in green), with their faction names. The rows list every location in tiles.
 - **Not carried:** the ruler name. `HumanStart` has no field for it; each PC keeps its own.
+- **Two game ports.** `MapWorld` stays the map step's; `FactionWorld` (the location rule and the world build) is the factions step's, implemented by `WorldSetupAdapter`.
+- **Each joiner's city through the engine** (`Engine.ownCityAt`, SOSDET PR #36). An audit of `SETT.CreateFromWorldMap` found one write the world reads: clearing the recipes re-rolls the NPCs' production boosts (`FBoost.mul`) on that PC only. The engine keeps them as loaded. Everything else the city's generation writes is the city's or the view's, and its random draws are outside the step, off the simulation's stream. The same PR adds `Engine.worldHash()`.
+- **The host saves from the world view.** The save records the current view, and the generator's isn't one; a save taken in it would load into a new world generator (`VIEW.setFirstView`). The host switches to the world view first, as vanilla's finish stage does.
+- **The save travels as the game wrote it:** the game's save is already compressed, so `WorldPart` carries its bytes as they are.
+- **The engine session at the load,** in the order SOSDET's rig starts an own-city run: begin, AI host or peer (start id: the save's SHA-256), this PC's number (its slot), own city, the load seed (the map's seed), the load, then every PC's human and the seed. It holds at step 0.
+- **The in-game panel** (`menu.MpSessionPanel`) is an interrupter on top of every view: every player's progress, the status line and Leave (which also ends the engine session). The game can't be saved while it shows.
+- **Found for M4:** placing the landing party runs `GAME.setGameStart()` (`SettViewStart`), which resets `GAME.updateI`, a cache key for world code, on that PC only. M4 checks it against the engine's tick keys before the landing party is wired.

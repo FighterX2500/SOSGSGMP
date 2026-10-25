@@ -67,6 +67,18 @@ public interface SetupSession {
      */
     String locationProblem(int x, int y);
 
+    /**
+     * Host: builds the world around every player's picks, locks them, and sends every PC its slot and the save; this
+     * PC loads it too ({@link #takeWorld}). Check {@link FactionStep#canInitialize()} first.
+     */
+    void initialize();
+
+    /** The host's world save, once it is all here, for this PC to load; returned once, null otherwise. */
+    byte[] takeWorld();
+
+    /** This PC loaded the host's world: its world hash at step 0, which every PC's must match. */
+    void worldLoaded(long hash);
+
     /** Leaves the setup (the host closes it for everyone) and frees the connection. */
     void leave();
 

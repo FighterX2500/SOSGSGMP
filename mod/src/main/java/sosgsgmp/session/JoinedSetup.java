@@ -8,6 +8,7 @@ import sosgsgmp.net.Pieces;
 import sosgsgmp.net.TcpNode;
 import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep;
+import sosgsgmp.setup.FactionWorld;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStatus;
 import sosgsgmp.setup.MapStep;
@@ -22,19 +23,24 @@ public final class JoinedSetup implements SetupSession {
 
     private final TcpNode node;
     private final MapWorld world;
+    private final FactionWorld factionWorld;
     private final MapStep step;
     private final Pieces.Receiver terrain = new Pieces.Receiver();
     private List<LobbyPlayer> players;
     /** The factions step from the host's confirm on; null before. */
     private FactionStep factions;
+    private final Pieces.Receiver worldParts = new Pieces.Receiver();
+    /** The host's world once all its pieces are here, until this PC takes it to load; null otherwise. */
+    private byte[] save;
     private boolean closed;
     private String closedReason;
     private int changes;
 
     /** Takes over a started lobby's connection to the host, this PC's player id and the players. */
-    JoinedSetup(TcpNode node, int localId, List<LobbyPlayer> players, MapWorld world) {
+    JoinedSetup(TcpNode node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld) {
         this.node = node;
         this.world = world;
+        this.factionWorld = factionWorld;
         this.players = List.copyOf(players);
         this.step = MapStep.joiner(localId);
     }
@@ -82,6 +88,16 @@ public final class JoinedSetup implements SetupSession {
                 }
             }
             case Message.Picks p when factions != null -> factions.onPicks(p.picks());
+            case Message.SlotMap s when factions != null -> {
+                if (!factions.onSlotMap(s.transfer(), s.slots()) && !factions.initialized())
+                    close("The host built a world without a place for you.");
+            }
+            case Message.WorldPart w when factions != null && factions.initialized() -> {
+                byte[] all = worldParts.accept(w.transfer(), w.index(), w.count(), w.bytes());
+                if (all != null && w.transfer() == factions.transfer())
+                    save = all;
+            }
+            case Message.WorldPlayers p when factions != null -> factions.onProgress(p.transfer(), p.players());
             case Message.MapPlayers p -> step.onPlayers(p.buildId(), p.genId(), p.players());
             case Message.Roster r -> players = r.players();
             case Message.Leave l -> close("The host closed the game.");
@@ -179,7 +195,26 @@ public final class JoinedSetup implements SetupSession {
     public String locationProblem(int x, int y) {
         if (factions == null)
             throw new IllegalStateException("SOSGSGMP: a location before the map is confirmed");
-        return factions.locationProblem(x, y, world::locationProblem);
+        return factions.locationProblem(x, y, factionWorld::locationProblem);
+    }
+
+    @Override
+    public void initialize() {
+        throw new IllegalStateException("SOSGSGMP: only the host initializes the world");
+    }
+
+    @Override
+    public byte[] takeWorld() {
+        byte[] s = save;
+        save = null;
+        return s;
+    }
+
+    @Override
+    public void worldLoaded(long hash) {
+        factions.loaded(hash);
+        node.send(TcpNode.HOST, new Message.Loaded(factions.transfer(), hash));
+        changes++;
     }
 
     @Override

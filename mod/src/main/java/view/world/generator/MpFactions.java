@@ -5,6 +5,9 @@ import java.util.List;
 import init.race.RACES;
 import init.race.Race;
 import init.sprite.UI.UI;
+import menu.MpSetupLeave;
+import menu.MpWorldLoad;
+import snake2d.CORE;
 import snake2d.SPRITE_RENDERER;
 import snake2d.util.color.COLOR;
 import snake2d.util.gui.GuiSection;
@@ -29,6 +32,9 @@ import util.gui.misc.GText;
  * <p>Each PC changes only its own {@code FACTIONS.player()}, with vanilla's own buttons and Customize Faction section;
  * the pump reads it back twice a second and sends it when it changed (the section edits the faction directly and
  * says nothing). Texts are rebuilt only when the session reports a change.
+ *
+ * <p>The host's Initialize World builds the world here; once a PC has the host's save, the pump leaves the generator
+ * for the load ({@link MpWorldLoad}), as the map step leaves it for a rebuild.
  */
 final class MpFactions {
 
@@ -47,6 +53,8 @@ final class MpFactions {
 	private final GText status = new GText(UI.FONT().M, 256);
 	/** Whether the faction had a name at the last check: the status line follows it. */
 	private boolean named;
+	/** Host: every player has a location and the world isn't built yet. */
+	private boolean canInitialize;
 	/** This PC's location as last placed, or NONE: kept here so a frame never rebuilds the table to read it. */
 	private int ownX = FactionPick.NONE;
 	private int ownY = FactionPick.NONE;
@@ -110,6 +118,19 @@ final class MpFactions {
 			buttons.addRightC(0, back);
 		if (next != null)
 			buttons.addRightC(16, next);
+		if (setup.isHost()) {
+			buttons.addRightC(16, new GButt.ButtPanel("initialize world") {
+				@Override
+				protected void clickA() {
+					setup.initialize();
+				}
+
+				@Override
+				protected void renAction() {
+					activeSet(canInitialize);
+				}
+			});
+		}
 		buttons.addRightC(16, MpSetupLeave.button(setup, () -> leaving = true));
 		s.addDown(12, buttons);
 		return s;
@@ -117,6 +138,8 @@ final class MpFactions {
 
 	/** Places this PC's location at world tile {@code x, y} (the capital's centre), with its current race and faction. */
 	void placeAt(int x, int y) {
+		if (setup.closed() || setup.factions().initialized())
+			return;
 		FactionPick now = game.pick(x, y);
 		if (now == null)
 			return; // the status line asks for a name
@@ -138,6 +161,12 @@ final class MpFactions {
 		if (leaving)
 			return;
 		setup.update();
+		byte[] world = setup.takeWorld();
+		if (world != null) {
+			leaving = true;
+			CORE.setCurrentState(new MpWorldLoad(setup, world));
+			return;
+		}
 		sincePickCheck += ds;
 		if (sincePickCheck >= PICK_CHECK_SECONDS) {
 			sincePickCheck = 0;
@@ -160,6 +189,7 @@ final class MpFactions {
 
 	private void refresh() {
 		shownChanges = setup.changes();
+		canInitialize = !setup.closed() && setup.isHost() && setup.factions().canInitialize();
 		named = game.pick(FactionPick.NONE, FactionPick.NONE) != null;
 		FactionStep f = setup.factions();
 		List<FactionStep.PlayerPick> table = f.table();
@@ -208,6 +238,8 @@ final class MpFactions {
 		status.clear();
 		if (setup.closed())
 			status.add(setup.closedReason());
+		else if (f.initialized())
+			status.add(setup.isHost() ? "Sending the world to every player." : "The host built the world; getting it.");
 		else if (!named)
 			status.add("Your faction needs a name.");
 		else if (mine != null && mine.refused() != null)
@@ -215,9 +247,20 @@ final class MpFactions {
 		else if (mine == null || !mine.pick().hasLocation())
 			status.add("Pick your race, customize your faction and place your capital. You can change them until the host initializes the world.");
 		else if (setup.isHost() && f.canInitialize())
-			status.add("Every player has a location.");
+			status.add("Every player has a location. Initialize World builds the world and starts every player's game; the picks can't change after it.");
+		else if (!setup.isHost() && allPlaced(table, players))
+			status.add("Every player has a location. Waiting for the host to initialize the world.");
 		else
 			status.add("Waiting for every player's location.");
+	}
+
+	private static boolean allPlaced(List<FactionStep.PlayerPick> table, List<LobbyPlayer> players) {
+		for (LobbyPlayer p : players) {
+			FactionStep.PlayerPick pick = find(table, p.id());
+			if (pick == null || !pick.pick().hasLocation())
+				return false;
+		}
+		return true;
 	}
 
 	private static FactionStep.PlayerPick find(List<FactionStep.PlayerPick> table, int playerId) {

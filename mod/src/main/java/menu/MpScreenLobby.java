@@ -12,6 +12,7 @@ import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.game.WorldGenAdapter;
+import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.session.LobbySession;
@@ -133,7 +134,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 	/** The lobby has started: its connection and players go to the setup; the host starts the first build. */
 	private void startSetup() {
 		world = new WorldGenAdapter();
-		setup = session.handOver(world);
+		setup = session.handOver(world, new WorldSetupAdapter());
 		if (setup.isHost())
 			setup.build(mp.prefs.mapSize);
 	}

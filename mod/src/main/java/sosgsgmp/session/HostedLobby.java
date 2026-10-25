@@ -12,6 +12,7 @@ import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.TcpNode;
+import sosgsgmp.setup.FactionWorld;
 import sosgsgmp.setup.MapWorld;
 
 /** A lobby hosted on this PC over direct IP. */
@@ -152,11 +153,11 @@ public final class HostedLobby implements LobbySession {
     }
 
     @Override
-    public SetupSession handOver(MapWorld world) {
+    public SetupSession handOver(MapWorld world, FactionWorld factions) {
         if (state != LobbyState.STARTED || handedOver)
             throw new IllegalStateException("SOSGSGMP: only a started lobby hands over, once (state " + state + ", handed over " + handedOver + ")");
         handedOver = true;
-        return new HostedSetup(node, joined, lobby.players(), world);
+        return new HostedSetup(node, joined, lobby.players(), world, factions, lobby.settings().difficulty());
     }
 
     @Override

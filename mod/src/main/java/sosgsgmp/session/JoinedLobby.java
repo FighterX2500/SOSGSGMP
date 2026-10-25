@@ -8,6 +8,7 @@ import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.TcpNode;
+import sosgsgmp.setup.FactionWorld;
 import sosgsgmp.setup.MapWorld;
 
 /** A lobby on another PC, joined over direct IP. */
@@ -118,11 +119,11 @@ public final class JoinedLobby implements LobbySession {
     }
 
     @Override
-    public SetupSession handOver(MapWorld world) {
+    public SetupSession handOver(MapWorld world, FactionWorld factions) {
         if (state != LobbyState.STARTED || handedOver)
             throw new IllegalStateException("SOSGSGMP: only a started lobby hands over, once (state " + state + ", handed over " + handedOver + ")");
         handedOver = true;
-        return new JoinedSetup(node, localId, players, world);
+        return new JoinedSetup(node, localId, players, world, factions);
     }
 
     @Override
