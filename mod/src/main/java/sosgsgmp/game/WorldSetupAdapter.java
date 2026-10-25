@@ -12,6 +12,7 @@ import java.util.List;
 import game.GAME;
 import game.faction.FACTIONS;
 import game.faction.player.Player;
+import settlement.stats.POP;
 import snake2d.LOG;
 import sosdet.Engine;
 import sosdet.HumanStart;
@@ -144,6 +145,11 @@ public final class WorldSetupAdapter implements FactionWorld {
      */
     public void ownCity(int x, int y) {
         Engine.ownCityAt(x, y);
+    }
+
+    /** This PC's landing party is placed: its city has people, as vanilla's landing view checks (SettViewStart). */
+    public boolean landed() {
+        return POP.tot() > 0;
     }
 
     /** The engine's world hash at step 0, compared on every PC (SOSDET Engine.worldHash). */

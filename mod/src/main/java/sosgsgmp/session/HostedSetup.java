@@ -95,6 +95,12 @@ public final class HostedSetup implements SetupSession {
                 if (factions.onLoaded(id, l.transfer(), l.hash()))
                     progressChanged();
             }
+            case Message.StartSpot s when id != null && factions != null -> {
+                if (factions.onStartSpot(id, s.transfer())) {
+                    progressChanged();
+                    goWhenReady();
+                }
+            }
             case Message.Leave l when id != null -> {
                 node.disconnect(peer);
                 removeJoined(peer);
@@ -313,6 +319,22 @@ public final class HostedSetup implements SetupSession {
     public void worldLoaded(long hash) {
         factions.loaded(hash);
         progressChanged();
+    }
+
+    @Override
+    public void startSpot() {
+        factions.startSpot();
+        progressChanged();
+        goWhenReady();
+    }
+
+    /** Every PC loaded the same world and placed its landing party: the game starts on every PC. */
+    private void goWhenReady() {
+        if (!factions.canGo())
+            return;
+        factions.go();
+        sendAll(new Message.Go(factions.transfer()));
+        changes++;
     }
 
     @Override

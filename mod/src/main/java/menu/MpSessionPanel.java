@@ -25,8 +25,9 @@ import view.interrupter.Interrupter;
 import view.main.VIEW;
 
 /**
- * SOSGSGMP: the setup's panel in the loaded game (setup-factions-step.md §5): every player's progress (loading, loaded,
- * a world that differs), the status line and Leave. It stays on top of every view (persistent, pinned, never hiding
+ * SOSGSGMP: the setup's panel in the loaded game (setup-factions-step.md §5): every player's progress (loading, placing
+ * the landing party, ready, a world that differs), the status line and Leave. It tells the host when this PC's landing
+ * party is placed (vanilla's landing view, while the engine holds at step 0). It stays on top of every view (persistent, pinned, never hiding
  * others) and pumps the session from its render, once per frame. The game can't be saved while it shows: the setup
  * isn't a game yet. Leaving ends the engine session.
  */
@@ -42,6 +43,8 @@ final class MpSessionPanel extends Interrupter {
 	private final GText status = new GText(UI.FONT().M, 256);
 	private int shownChanges = -1;
 	private boolean leaving;
+	/** This PC's landing party is placed and the session told. */
+	private boolean landed;
 
 	static void show(SetupSession setup, WorldSetupAdapter game) {
 		new MpSessionPanel(setup, game).show(VIEW.inters().manager);
@@ -120,6 +123,10 @@ final class MpSessionPanel extends Interrupter {
 		if (leaving)
 			return;
 		setup.update();
+		if (!landed && !setup.closed() && game.landed()) {
+			landed = true;
+			setup.startSpot();
+		}
 		if (setup.changes() != shownChanges)
 			refresh();
 	}
@@ -150,10 +157,7 @@ final class MpSessionPanel extends Interrupter {
 					row.color(GCOLOR.T().IBAD);
 					mismatch = true;
 				}
-				case LANDING -> {
-					row.add(": loaded");
-					row.color(GCOLOR.T().IGOOD);
-				}
+				case LANDING -> row.add(": placing the landing party");
 				case READY -> {
 					row.add(": ready");
 					row.color(GCOLOR.T().IGOOD);
@@ -167,9 +171,13 @@ final class MpSessionPanel extends Interrupter {
 			status.add(setup.closedReason());
 		else if (mismatch)
 			status.add("A player's world differs from the host's, so the game can't start. Leave, and start a new setup.");
+		else if (f.started())
+			status.add("Every player has placed their landing party: the game starts. (Running it over the network is the next card, SOS-57.)");
 		else if (loading > 0)
 			status.add("Waiting for ").add(loading).add(loading == 1 ? " player" : " players").add(" to load the world.");
+		else if (!landed)
+			status.add("Every player has the same world. Open your city and place your landing party; the game starts when every player has.");
 		else
-			status.add("Every player loaded the same world.");
+			status.add("Waiting for every player's landing party.");
 	}
 }

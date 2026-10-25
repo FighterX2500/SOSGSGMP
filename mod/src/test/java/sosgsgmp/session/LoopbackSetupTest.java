@@ -336,7 +336,41 @@ class LoopbackSetupTest {
         cid.worldLoaded(78);
         until("every load on the host", () -> host.factions().progress(1) == Progress.LANDING && host.factions().progress(2) == Progress.MISMATCH);
         until("Cid's mismatch on Bob's PC", () -> bob.factions().progress(2) == Progress.MISMATCH && bob.factions().progress(0) == Progress.LANDING);
-        assertEquals(Progress.LANDING, cid.factions().progress(1));
+        until("Bob loaded on Cid's PC", () -> cid.factions().progress(1) == Progress.LANDING);
+    }
+
+    @Test
+    void theGameStartsEverywhereOnceEveryLandingPartyIsPlaced() throws Exception {
+        initialize();
+        world(bob);
+        world(cid);
+        host.worldLoaded(77);
+        bob.worldLoaded(77);
+        cid.worldLoaded(77);
+        bob.startSpot();
+        host.startSpot();
+        until("Ann and Bob ready on Cid's PC", () -> cid.factions().progress(0) == Progress.READY && cid.factions().progress(1) == Progress.READY);
+        assertFalse(host.factions().started() || cid.factions().started(), "Cid hasn't placed");
+        until("Cid still landing on Bob's PC", () -> bob.factions().progress(2) == Progress.LANDING);
+        cid.startSpot();
+        until("started everywhere", () -> host.factions().started() && bob.factions().started() && cid.factions().started());
+    }
+
+    @Test
+    void aWorldThatDiffersNeverStarts() throws Exception {
+        initialize();
+        world(bob);
+        world(cid);
+        host.worldLoaded(77);
+        bob.worldLoaded(77);
+        cid.worldLoaded(78);
+        host.startSpot();
+        bob.startSpot();
+        cid.startSpot();
+        until("every start spot on the host", () -> host.factions().progress(1) == Progress.READY && host.factions().progress(2) == Progress.MISMATCH);
+        until("Bob sees Cid's mismatch", () -> bob.factions().progress(2) == Progress.MISMATCH);
+        assertFalse(host.factions().started());
+        assertFalse(bob.factions().started());
     }
 
     @Test

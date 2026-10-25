@@ -79,6 +79,12 @@ public interface SetupSession {
     /** This PC loaded the host's world: its world hash at step 0, which every PC's must match. */
     void worldLoaded(long hash);
 
+    /**
+     * This PC's landing party is placed, after its load. When every PC's is, the host starts the game on every PC
+     * ({@link FactionStep#started()}), at the same moment (spec §5.5).
+     */
+    void startSpot();
+
     /** Leaves the setup (the host closes it for everyone) and frees the connection. */
     void leave();
 

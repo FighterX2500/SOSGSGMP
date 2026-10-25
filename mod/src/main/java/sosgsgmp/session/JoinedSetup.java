@@ -98,6 +98,7 @@ public final class JoinedSetup implements SetupSession {
                     save = all;
             }
             case Message.WorldPlayers p when factions != null -> factions.onProgress(p.transfer(), p.players());
+            case Message.Go g when factions != null -> factions.onGo(g.transfer());
             case Message.MapPlayers p -> step.onPlayers(p.buildId(), p.genId(), p.players());
             case Message.Roster r -> players = r.players();
             case Message.Leave l -> close("The host closed the game.");
@@ -214,6 +215,12 @@ public final class JoinedSetup implements SetupSession {
     public void worldLoaded(long hash) {
         factions.loaded(hash);
         node.send(TcpNode.HOST, new Message.Loaded(factions.transfer(), hash));
+        changes++;
+    }
+
+    @Override
+    public void startSpot() {
+        node.send(TcpNode.HOST, new Message.StartSpot(factions.transfer()));
         changes++;
     }
 

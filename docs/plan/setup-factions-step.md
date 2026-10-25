@@ -1,6 +1,6 @@
 # Setup: factions, starting locations and the world
 
-Card: [SOS-56](https://fighterx2500.atlassian.net/browse/SOS-56) (walking skeleton step 4b) · Date: 2026-10-25 · Status: approved by the owner (2026-10-25); M1 to M3 built, changes from the draft in §10 · Spec: §5 Factions and starting locations, §5 World rules
+Card: [SOS-56](https://fighterx2500.atlassian.net/browse/SOS-56) (walking skeleton step 4b) · Date: 2026-10-25 · Status: approved by the owner (2026-10-25); M1 to M4 built (M4 without the Regenerate fix, §10), changes from the draft in §10 · Spec: §5 Factions and starting locations, §5 World rules
 
 Game paths are relative to `<game>/info/SongsOfSyx-sources/`. All findings come from reading the V71 source and the engine's SOS-55 code; nothing here has been run yet. It builds on the map step ([setup-map-step.md](setup-map-step.md), SOS-54, draft PR #32) and on SOSDET's `Engine.buildWorld` (SOS-55, merged).
 
@@ -117,7 +117,7 @@ Every decode checks its ranges (count 1–16, index < count, location in the map
 
 Each milestone runs `gradlew.bat build`; the two-PC checks in M2–M4 are the owner's manual tests (PC host, laptop joiner), with what to look for listed in the PR.
 
-## 10. Changes from the draft (M1 to M3)
+## 10. Changes from the draft (M1 to M4)
 
 - **No ready flag.** A placed location is the player's "ready": Initialize World needs every player's location, and picks stay open until it is pressed (spec §5.1). A separate flag added a state with no rule of its own.
 - **`WorldPlayers` (type 21).** The joining PCs need every player's progress after the build (loading, landing, mismatch, ready), as the map step's `MapPlayers` gives it; the draft had no message for it.
@@ -135,4 +135,7 @@ Each milestone runs `gradlew.bat build`; the two-PC checks in M2–M4 are the ow
 - **The save travels as the game wrote it:** the game's save is already compressed, so `WorldPart` carries its bytes as they are.
 - **The engine session at the load,** in the order SOSDET's rig starts an own-city run: begin, AI host or peer (start id: the save's SHA-256), this PC's number (its slot), own city, the load seed (the map's seed), the load, then every PC's human and the seed. It holds at step 0.
 - **The in-game panel** (`menu.MpSessionPanel`) is an interrupter on top of every view: every player's progress, the status line and Leave (which also ends the engine session). The game can't be saved while it shows.
-- **Found for M4:** placing the landing party runs `GAME.setGameStart()` (`SettViewStart`), which resets `GAME.updateI`, a cache key for world code, on that PC only. M4 checks it against the engine's tick keys before the landing party is wired.
+- **`GAME.setGameStart()` at the landing** (`SettViewStart`) resets `GAME.updateI`, a cache key for world code, on that PC. In a session `updateI` counts steps (SOSDET patch 10) and stays put while the session holds, and every PC places its landing party once before Go, so every PC enters step 1 with the same value.
+- **No held speed.** The engine session holds at step 0 until the game starts, so no PC's speed buttons run anything; the plan's "speed held at 0" isn't needed.
+- **Go is automatic:** when the last PC's landing party is placed (`POP.tot() > 0`, as vanilla's landing view checks), the host sends `Go`, as spec §5.5 says. Until SOS-57 the game stays held there, with a "the game starts" line.
+- **Open: the landing view's Regenerate button** (`SettViewStart`: `SETT.reGenerate()`) runs `CreateFromWorldMap` again on that PC, outside `Engine.ownCityAt`, and re-rolls the NPCs' production boosts there. Fixing it takes an engine hook (keep the boosts around every `CreateFromWorldMap` in a session), which is for the owner to approve. Until then: don't press Regenerate in a multiplayer setup.
