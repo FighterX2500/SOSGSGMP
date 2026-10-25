@@ -9,9 +9,11 @@ import game.GAME;
 import snake2d.LOG;
 import sosdet.DesyncHold;
 import sosdet.Engine;
+import sosdet.OwnBattle;
 import sosdet.Stats;
 import sosdet.hash.Desync;
 import sosgsgmp.net.StreamKind;
+import sosgsgmp.session.BattleSaves;
 import sosgsgmp.session.EnginePort;
 import sosgsgmp.session.WorldResync;
 
@@ -25,6 +27,10 @@ public final class EnginePlay implements EnginePort {
     private static final long PACE_LEAD = 60;
     /** The speed every PC starts at: the engine's agreed speed at step 0, 1x by default. */
     private static final double AGREED_START = 1;
+    private static final byte[] NONE = new byte[0];
+
+    /** Battle saves from the BATTLE stream and this PC's own, until its engine loads them (plan 0006). */
+    private final BattleSaves battles = new BattleSaves();
 
     /**
      * Every PC at {@code Go}: the game unpauses at the agreed speed (spec §5.5, the automatic unpause), the game speed
@@ -48,7 +54,39 @@ public final class EnginePlay implements EnginePort {
             case ORDERS -> Engine.ordersOut();
             case REPORTS -> Engine.reportsOut();
             case HASHES -> Engine.hashOut();
+            case BATTLE -> battleOut();
         };
+    }
+
+    /** On the battle PC, once per battle: the battle it generated, which this PC loads too. */
+    private byte[] battleOut() {
+        byte[] save = Engine.battleOut();
+        if (save == null)
+            return NONE;
+        long step = Engine.battle().step;
+        battles.own(step, save);
+        return BattleSaves.frame(step, save);
+    }
+
+    /**
+     * Every frame, outside the step: while a battle waits for its save, the save loads as soon as it is here (every PC
+     * holds at the Engage step until then).
+     */
+    public void battleFrame() {
+        OwnBattle b = Engine.battle();
+        if (b == null || !b.awaiting())
+            return;
+        byte[] save = battles.take(b.step);
+        if (save != null)
+            Engine.battleIn(save);
+    }
+
+    /**
+     * Every load of a whole game in the session (a battle's start and end) builds a new game without what the mod put
+     * in the old one: {@code again} puts it in again.
+     */
+    public void afterEachLoad(Runnable again) {
+        Engine.afterEachLoad(again);
     }
 
     @Override
@@ -58,6 +96,7 @@ public final class EnginePlay implements EnginePort {
             case ORDERS -> Engine.ordersIn(pc, bytes);
             case REPORTS -> Engine.reportsIn(pc, bytes);
             case HASHES -> Engine.hashIn(pc, bytes);
+            case BATTLE -> battles.in(pc, bytes);
         }
     }
 

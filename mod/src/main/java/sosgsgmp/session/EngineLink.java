@@ -42,7 +42,7 @@ public final class EngineLink {
         return switch (kind) {
             case AI_LOG -> host;
             case ORDERS -> !host;
-            case REPORTS, HASHES -> true;
+            case REPORTS, HASHES, BATTLE -> true;
         };
     }
 
@@ -53,7 +53,7 @@ public final class EngineLink {
         return switch (kind) {
             case AI_LOG -> !host && pc == 0;
             case ORDERS -> host;
-            case REPORTS, HASHES -> true;
+            case REPORTS, HASHES, BATTLE -> true;
         };
     }
 
@@ -103,8 +103,8 @@ public final class EngineLink {
         return true;
     }
 
-    /** The host relays a peer's reports and hashes to the other peers; the rest goes only to its one taker. */
+    /** The host relays a peer's reports, hashes and battle saves to the other peers; the rest goes only to its one taker. */
     static boolean relayed(StreamKind kind) {
-        return kind == StreamKind.REPORTS || kind == StreamKind.HASHES;
+        return kind == StreamKind.REPORTS || kind == StreamKind.HASHES || kind == StreamKind.BATTLE;
     }
 }

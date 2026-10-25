@@ -64,14 +64,14 @@ class EngineLinkTest {
             hp.make(k, (byte) 1);
         hp.step = 42;
         List<Message.Stream> out = host.out();
-        assertEquals(List.of(StreamKind.AI_LOG, StreamKind.REPORTS, StreamKind.HASHES), out.stream().map(Message.Stream::kind).toList());
+        assertEquals(List.of(StreamKind.AI_LOG, StreamKind.REPORTS, StreamKind.HASHES, StreamKind.BATTLE), out.stream().map(Message.Stream::kind).toList());
         assertTrue(out.stream().allMatch(s -> s.pc() == 0 && s.step() == 42 && s.offset() == 0));
 
         FakePort pp = new FakePort();
         EngineLink peer = new EngineLink(false, 3, pp);
         for (StreamKind k : StreamKind.values())
             pp.make(k, (byte) 1);
-        assertEquals(List.of(StreamKind.ORDERS, StreamKind.REPORTS, StreamKind.HASHES), peer.out().stream().map(Message.Stream::kind).toList());
+        assertEquals(List.of(StreamKind.ORDERS, StreamKind.REPORTS, StreamKind.HASHES, StreamKind.BATTLE), peer.out().stream().map(Message.Stream::kind).toList());
         assertTrue(peer.out().isEmpty(), "nothing new");
     }
 

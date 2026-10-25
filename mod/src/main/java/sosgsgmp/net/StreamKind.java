@@ -12,5 +12,7 @@ public enum StreamKind {
     /** A PC's city reports (own-city mode). Every PC to every other. */
     REPORTS,
     /** A PC's state hashes. Every PC to every other. */
-    HASHES
+    HASHES,
+    /** A battle PC's battle save at a battle's Engage (SOSDET plan 0006). Every PC to every other. */
+    BATTLE
 }

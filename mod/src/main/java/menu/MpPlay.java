@@ -37,8 +37,10 @@ final class MpPlay implements ACTION {
 				engine.start(setup.isHost(), otherPcs());
 				setup.play(engine);
 			}
-			if (setup.playing())
+			if (setup.playing()) {
 				setup.exchange();
+				engine.battleFrame();
+			}
 		}
 		if (setup.playing())
 			desync.frame();
