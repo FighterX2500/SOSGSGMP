@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import init.sprite.UI.UI;
+import menu.Menu;
 import snake2d.CORE;
 import snake2d.CORE_STATE;
 import snake2d.SPRITE_RENDERER;
@@ -33,7 +34,8 @@ import view.main.VIEW;
  * right after the game is built, while the generator view keeps drawing the world map. It sits in the generator's
  * package because reset(), dummy, minimap and the stage flags are package-private (docs/hooks.md, note next to M1).
  * The panel's render pumps the session once per frame (Intr always renders it); texts are rebuilt only when the
- * session reports a change.
+ * session reports a change. Leave closes the session and returns to the main menu the way vanilla's "quit to menu"
+ * does (view/menu/IMenu.exit2Menu).
  */
 public final class MpMapStage {
 
@@ -118,6 +120,7 @@ public final class MpMapStage {
 				COLOR.unbind();
 			}
 		});
+		panel.addDown(12, leaveButton());
 		refresh();
 	}
 
@@ -196,6 +199,31 @@ public final class MpMapStage {
 			}
 		});
 		panel.addDown(16, buttons);
+	}
+
+	/** Every PC can leave: the host ends the setup for everyone, a joining PC drops out of it. */
+	private GButt.ButtPanel leaveButton() {
+		return new GButt.ButtPanel("leave") {
+			@Override
+			protected void clickA() {
+				if (setup.closed()) {
+					toMainMenu();
+					return;
+				}
+				VIEW.inters().yesNo.activate(setup.isHost() ? "Leave and end the setup for every player?"
+						: "Leave the setup? The others go on without you.", MpMapStage.this::leave, ACTION.NOP, true);
+			}
+		};
+	}
+
+	private void leave() {
+		setup.leave();
+		toMainMenu();
+	}
+
+	private void toMainMenu() {
+		leaving = true;
+		CORE.setCurrentState(Menu::make);
 	}
 
 	private void addHostChoices() {

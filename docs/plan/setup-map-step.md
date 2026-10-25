@@ -25,8 +25,9 @@ The world map fills the screen on every PC: vanilla's world generator view, whic
 | Generate | | Sends the options, then generates locally. |
 | Confirm | | Active only when every PC's terrain hash for the latest generation equals the host's. |
 | Players | One row each: building, generating, match, mismatch, error | |
+| Leave | | After a yes/no prompt: ends the setup for every player (they see "The host closed the game."), then returns to the main menu as vanilla's "quit to menu" does (`CORE.setCurrentState` with `Menu.make()`, `view/menu/IMenu.java:220-225`). |
 
-**Joiners' panel:** the same values, read-only, with the same player rows and "waiting for the host". The minimap is shown.
+**Joiners' panel:** the same values, read-only, with the same player rows (from `MapPlayers`) and "waiting for the host". The minimap is shown. Leave drops this PC from the setup (it disappears from every player's rows) and returns to the main menu. Once the host has left, Leave returns to the menu without a prompt.
 
 ## 3. Flow
 
@@ -105,7 +106,7 @@ Optional hooks we skip:
 | Hook | Game file | Why it would exist | Why we skip it |
 | --- | --- | --- | --- |
 | Map type scale | `world/WorldGen.java:103` | Preset map types divide pixel values by the world size instead of 256. They come out too low above 256, too high below it, and the preview crashes below 256 (risk 1). | Offering presets only at 256 avoids the problem without touching game code. |
-| Setup lock | `view/main/VIEW.java:242-255` | ESC opens the in-game menu (save, load, exit), and the quicksave and quickload keys still work during setup. | The mod detects leaving and closes the session; blocking can come later if playtests need it. |
+| Setup lock | `view/main/VIEW.java:242-255` | ESC opens the in-game menu (save, load, exit), and the quicksave and quickload keys still work during setup. | The panel's Leave button is the supported way out; leaving through ESC or quickload stays a known gap (risk 2). Blocking can come later if playtests need it. |
 
 ## 7. Determinism
 
@@ -152,7 +153,7 @@ Before the PR: `gradlew.bat compileJava compileTestJava`, `gradlew.bat test`, `g
 ## 9. Risks
 
 1. **Presets at sizes other than 256.** The preview indexes a 3-colour table by `pixel / size * 3` (`world/WorldGen.java:168-171`). Map pixels reach 255, so below 256 it should throw (found by reading the source, not yet seen in game). Mitigation: presets only at 256; at other sizes the type is Random and the arrows are hidden.
-2. **Leaving during setup** through ESC, quickload or exit to menu. Mitigation: detect it and close the session; the other PCs see the player leave.
+2. **Leaving during setup** through ESC, quickload or exit to menu. The panel's Leave button closes the session cleanly, and the other PCs see the player leave. Leaving through ESC → quit to menu, quickload or load is **not detected** (known gap): the connection stays open until the game quits, the other PCs don't see the leave, and hosting again on the same port fails until a restart. Closing it needs a hook (`view/main/VIEW.java`) or a campaign script that outlives the generator view (later card).
 3. **Rebuild time.** Every size change rebuilds the game on every PC (`INIT`, textures). This probably takes tens of seconds; it is measured in the manual test. Mitigation: the size comes first and defaults to the host's last choice.
 4. **Floating point across CPUs.** `Math.pow` and trig use JIT intrinsics. The JRE is the same on every PC, so the results are expected to match; the hash is the guard.
 5. **Different mods** give unknown map types or a mismatch. A mods check in the lobby hello would catch this earlier (later card).
