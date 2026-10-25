@@ -1,7 +1,9 @@
 package sosgsgmp.lobby;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -22,6 +24,7 @@ class LobbyPrefsTest {
         assertEquals("", p.address);
         assertEquals(LobbyPrefs.DEFAULT_PORT, p.port);
         assertEquals(256, p.mapSize);
+        assertTrue(p.keyIsNew, "a made key has to be saved");
     }
 
     @Test
@@ -40,6 +43,7 @@ class LobbyPrefsTest {
         assertEquals(p.port, back.port);
         assertEquals(512, back.mapSize);
         assertEquals(p.playerKey, back.playerKey);
+        assertFalse(back.keyIsNew, "the key was read");
     }
 
     @Test

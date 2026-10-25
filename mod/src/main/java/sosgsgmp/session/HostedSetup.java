@@ -5,7 +5,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import sosgsgmp.campaign.Campaign;
+import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.lobby.LobbyPlayer;
+import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.Pieces;
@@ -46,6 +49,15 @@ public final class HostedSetup implements SetupSession {
     private byte[] save;
     private final Cursors cursors = new Cursors();
     private final Notes notes = new Notes();
+    /** Each player's key, by player id: who they are in the campaign (SOS-64). */
+    private final Map<Integer, Long> keys;
+    private Campaign campaign;
+    /** The open campaign save, until every PC reported on it; null otherwise. */
+    private SaveRound saveRound;
+    /** This PC's own copy of the latest order, until it takes it. */
+    private SaveOrder saveOrder;
+    private int doneNumber;
+    private String doneOutcome;
     /** The engine's streams once this PC plays; null before. */
     private EngineLink link;
     /** The latest world resync's transfer number; 0 before the first. */
@@ -58,17 +70,28 @@ public final class HostedSetup implements SetupSession {
     private int changes;
 
     /**
-     * Takes over a started lobby's connection, its joined peers (peer to player id), its players (the host first) and
-     * its difficulty.
+     * Takes over a started lobby's connection, its joined peers (peer to player id), its players (the host first), their
+     * keys and its settings. A resume starts at the world-loaded step: every player has the campaign's slot, and every
+     * PC loads its own save (SOS-64).
      */
-    HostedSetup(Node node, Map<Integer, Integer> joined, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld, String difficulty) {
+    HostedSetup(Node node, Map<Integer, Integer> joined, List<LobbyPlayer> players, Map<Integer, Long> keys, MapWorld world,
+            FactionWorld factionWorld, LobbySettings settings) {
         this.node = node;
         this.world = world;
         this.factionWorld = factionWorld;
-        this.difficulty = difficulty;
+        this.difficulty = settings.difficulty();
         this.joined = new HashMap<>(joined);
         this.players = new ArrayList<>(players);
+        this.keys = new HashMap<>(keys);
         this.step = MapStep.host(players.get(0).id(), joined.values());
+        if (settings.resume() != null) {
+            campaign = settings.resume().campaign();
+            Map<Integer, Integer> slots = new HashMap<>();
+            for (LobbyPlayer p : players)
+                slots.put(p.id(), campaign.player(keys.get(p.id())).slot());
+            factions = FactionStep.resumed(players.get(0).id(), slots);
+            sendAll(new Message.SlotMap(factions.transfer(), factions.slotMap()));
+        }
     }
 
     @Override
@@ -121,6 +144,10 @@ public final class HostedSetup implements SetupSession {
                 for (Map.Entry<Integer, Integer> p : joined.entrySet())
                     if (p.getKey() != peer)
                         node.send(p.getKey(), relayed);
+            }
+            case Message.Saved s when id != null && saveRound != null && s.number() == saveRound.order.number() -> {
+                if (saveRound.report(id, s.hash(), s.problem().isEmpty() ? null : s.problem()))
+                    saveDoneWhenComplete();
             }
             case Message.Leave l when id != null -> {
                 notes.add(name(id) + " left");
@@ -246,7 +273,8 @@ public final class HostedSetup implements SetupSession {
     public void play(EnginePort port) {
         if (factions == null || !factions.started() || link != null)
             throw new IllegalStateException("SOSGSGMP: play before the start, or twice");
-        link = new EngineLink(true, 0, port);
+        int pc = factions.slotOf(localPlayerId());
+        link = new EngineLink(true, pc, pc, port);
     }
 
     @Override
@@ -293,6 +321,62 @@ public final class HostedSetup implements SetupSession {
     @Override
     public long exitStep() {
         return exitStep;
+    }
+
+    @Override
+    public Campaign campaign() {
+        return campaign;
+    }
+
+    @Override
+    public void orderSave(SaveOrder order) {
+        if (link == null || closed)
+            throw new IllegalStateException("SOSGSGMP: a campaign save outside the game");
+        if (saveRound != null)
+            throw new IllegalStateException("SOSGSGMP: save " + order.number() + " while save " + saveRound.order.number() + " is open");
+        List<Integer> ids = new ArrayList<>();
+        for (LobbyPlayer p : players)
+            ids.add(p.id());
+        saveRound = new SaveRound(order, localPlayerId(), ids);
+        saveOrder = order;
+        sendAll(new Message.SaveAt(order));
+        changes++;
+    }
+
+    @Override
+    public SaveOrder takeSaveOrder() {
+        SaveOrder o = saveOrder;
+        saveOrder = null;
+        return o;
+    }
+
+    @Override
+    public void saved(int number, long hash, String problem) {
+        if (saveRound == null || saveRound.order.number() != number)
+            throw new IllegalStateException("SOSGSGMP: saved for order " + number + ", which isn't open");
+        saveRound.report(localPlayerId(), hash, problem);
+        saveDoneWhenComplete();
+    }
+
+    /** Every PC reported on the open save: every PC, this one too, gets the outcome and plays on. */
+    private void saveDoneWhenComplete() {
+        if (!saveRound.complete())
+            return;
+        String outcome = saveRound.outcome(this::name);
+        doneNumber = saveRound.order.number();
+        doneOutcome = outcome;
+        sendAll(new Message.SaveDone(doneNumber, outcome));
+        saveRound = null;
+        changes++;
+    }
+
+    @Override
+    public String takeSaveDone(int number) {
+        if (doneOutcome == null || doneNumber != number)
+            return null;
+        String o = doneOutcome;
+        doneOutcome = null;
+        return o;
     }
 
     @Override
@@ -418,6 +502,10 @@ public final class HostedSetup implements SetupSession {
             throw new IllegalStateException("SOSGSGMP: the world can't be initialized now");
         byte[] built = factionWorld.buildWorld(factions.humans(), difficulty);
         int transfer = factions.initialize();
+        List<Campaign.Player> inCampaign = new ArrayList<>();
+        for (LobbyPlayer p : players)
+            inCampaign.add(new Campaign.Player(keys.get(p.id()), p.name(), factions.slotOf(p.id())));
+        campaign = new Campaign(Campaign.idOf(built), Campaign.nameFor(players.get(0).name()), choices.seed(), difficulty, inCampaign);
         sendAll(new Message.SlotMap(transfer, factions.slotMap()));
         List<byte[]> pieces = Pieces.split(built);
         for (int i = 0; i < pieces.size(); i++)

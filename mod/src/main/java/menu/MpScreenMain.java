@@ -4,7 +4,7 @@ import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.clickable.CLICKABLE;
 import view.menu.MenuScreen;
 
-/** SOSGSGMP: Multiplayer: create, load (later) or join a lobby (spec §5, lobby step 1). */
+/** SOSGSGMP: Multiplayer: create, load (a campaign save, SOS-64) or join a lobby (spec §5, lobby step 1). */
 final class MpScreenMain extends GUI.Shadower implements SC {
 
 	MpScreenMain(MpMenu mp) {
@@ -22,7 +22,7 @@ final class MpScreenMain extends GUI.Shadower implements SC {
 		col.addDown(0, b);
 
 		b = GUI.getNavButt("load saved lobby");
-		b.activeSet(false);
+		b.clickActionSet(mp::openResume);
 		col.addDown(8, b);
 
 		b = GUI.getNavButt("join by IP");
@@ -33,7 +33,7 @@ final class MpScreenMain extends GUI.Shadower implements SC {
 		b.clickActionSet(mp::openSteamJoin);
 		col.addDown(8, b);
 
-		col.addDown(32, MpMenu.note("Saved lobbies come with campaign saves."));
+		col.addDown(32, MpMenu.note("Load Saved Lobby resumes a campaign the host saved from the multiplayer panel."));
 
 		col.body().centerIn(MenuScreen.inner);
 		add(col);

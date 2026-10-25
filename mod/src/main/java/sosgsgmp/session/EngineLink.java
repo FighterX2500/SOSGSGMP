@@ -15,13 +15,16 @@ import sosgsgmp.net.StreamKind;
  * receives the messages, the {@link EnginePort} calls the engine.
  *
  * <p>The host makes the AI log and takes every peer's orders; a peer makes orders and takes the host's AI log; every PC
- * makes its city reports and hashes and takes every other PC's. PC numbers are the slots, the host 0.
+ * makes its city reports and hashes and takes every other PC's. PC numbers are the slots; the host's is 0 in a new
+ * game, and whatever slot it has when a campaign resumes.
  */
 public final class EngineLink {
 
     private static final int KINDS = StreamKind.values().length;
 
     private final boolean host;
+    /** The host's PC: its slot, 0 for a new game, any slot when a campaign resumes (SOS-64). */
+    private final int hostPc;
     private final int localPc;
     private final EnginePort port;
     /** Bytes of each stream this PC sent so far. */
@@ -29,10 +32,12 @@ public final class EngineLink {
     /** Bytes of each stream, by the PC that made it, fed to the engine so far. */
     private final long[][] fed = new long[KINDS][LobbySettings.MAX_PLAYERS];
 
-    public EngineLink(boolean host, int localPc, EnginePort port) {
-        if (localPc < 0 || localPc >= LobbySettings.MAX_PLAYERS || host != (localPc == 0))
-            throw new IllegalArgumentException("SOSGSGMP: engine link for PC " + localPc + (host ? " as the host" : " as a peer"));
+    public EngineLink(boolean host, int localPc, int hostPc, EnginePort port) {
+        if (localPc < 0 || localPc >= LobbySettings.MAX_PLAYERS || hostPc < 0 || host != (localPc == hostPc))
+            throw new IllegalArgumentException("SOSGSGMP: engine link for PC " + localPc + (host ? " as the host" : " as a peer")
+                    + " of host PC " + hostPc);
         this.host = host;
+        this.hostPc = hostPc;
         this.localPc = localPc;
         this.port = port;
     }
@@ -51,7 +56,7 @@ public final class EngineLink {
         if (pc == localPc)
             return false;
         return switch (kind) {
-            case AI_LOG -> !host && pc == 0;
+            case AI_LOG -> !host && pc == hostPc;
             case ORDERS -> host;
             case REPORTS, HASHES, BATTLE -> true;
         };

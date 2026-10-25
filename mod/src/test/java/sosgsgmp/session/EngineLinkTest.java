@@ -59,7 +59,7 @@ class EngineLinkTest {
     @Test
     void theHostMakesTheLogAndAPeerItsOrders() {
         FakePort hp = new FakePort();
-        EngineLink host = new EngineLink(true, 0, hp);
+        EngineLink host = new EngineLink(true, 0, 0, hp);
         for (StreamKind k : StreamKind.values())
             hp.make(k, (byte) 1);
         hp.step = 42;
@@ -68,7 +68,7 @@ class EngineLinkTest {
         assertTrue(out.stream().allMatch(s -> s.pc() == 0 && s.step() == 42 && s.offset() == 0));
 
         FakePort pp = new FakePort();
-        EngineLink peer = new EngineLink(false, 3, pp);
+        EngineLink peer = new EngineLink(false, 3, 0, pp);
         for (StreamKind k : StreamKind.values())
             pp.make(k, (byte) 1);
         assertEquals(List.of(StreamKind.ORDERS, StreamKind.REPORTS, StreamKind.HASHES, StreamKind.BATTLE), peer.out().stream().map(Message.Stream::kind).toList());
@@ -78,7 +78,7 @@ class EngineLinkTest {
     @Test
     void piecesCarryTheirOffsetsAndALongStreamIsSplit() {
         FakePort hp = new FakePort();
-        EngineLink host = new EngineLink(true, 0, hp);
+        EngineLink host = new EngineLink(true, 0, 0, hp);
         hp.make(StreamKind.AI_LOG, new byte[10]);
         assertEquals(0, host.out().get(0).offset());
         hp.make(StreamKind.AI_LOG, new byte[Protocol.MAX_STREAM_PIECE + 5]);
@@ -93,7 +93,7 @@ class EngineLinkTest {
     @Test
     void aRepeatedPieceChangesNothingAndAnOverlapFeedsOnlyItsNewBytes() {
         FakePort pp = new FakePort();
-        EngineLink peer = new EngineLink(false, 1, pp);
+        EngineLink peer = new EngineLink(false, 1, 0, pp);
         Message.Stream a = new Message.Stream(StreamKind.AI_LOG, 0, 0, 5, new byte[] {1, 2, 3});
         assertTrue(peer.in(a));
         assertFalse(peer.in(a), "the same piece again");
@@ -104,7 +104,7 @@ class EngineLinkTest {
 
     @Test
     void aGapOrAStreamThisPcDoesntTakeBreaksTheProtocol() {
-        EngineLink peer = new EngineLink(false, 1, new FakePort());
+        EngineLink peer = new EngineLink(false, 1, 0, new FakePort());
         assertNotNull(peer.problem(new Message.Stream(StreamKind.AI_LOG, 0, 3, 0, new byte[] {1})), "a gap");
         assertNotNull(peer.problem(new Message.Stream(StreamKind.ORDERS, 2, 0, 0, new byte[] {1})), "a peer takes no orders");
         assertNotNull(peer.problem(new Message.Stream(StreamKind.AI_LOG, 2, 0, 0, new byte[] {1})), "the log is the host's");
@@ -112,14 +112,17 @@ class EngineLinkTest {
         assertNull(peer.problem(new Message.Stream(StreamKind.HASHES, 2, 0, 0, new byte[] {1})));
         assertThrows(IllegalArgumentException.class, () -> peer.in(new Message.Stream(StreamKind.AI_LOG, 0, 3, 0, new byte[] {1})));
 
-        EngineLink host = new EngineLink(true, 0, new FakePort());
+        EngineLink host = new EngineLink(true, 0, 0, new FakePort());
         assertNull(host.problem(new Message.Stream(StreamKind.ORDERS, 2, 0, 0, new byte[] {1})));
         assertNotNull(host.problem(new Message.Stream(StreamKind.AI_LOG, 2, 0, 0, new byte[] {1})));
     }
 
     @Test
-    void theHostIsPcZeroAndOnlyThere() {
-        assertThrows(IllegalArgumentException.class, () -> new EngineLink(true, 1, new FakePort()));
-        assertThrows(IllegalArgumentException.class, () -> new EngineLink(false, 0, new FakePort()));
+    void theHostIsTheHostPcAndOnlyThere() {
+        assertThrows(IllegalArgumentException.class, () -> new EngineLink(true, 1, 0, new FakePort()));
+        assertThrows(IllegalArgumentException.class, () -> new EngineLink(false, 0, 0, new FakePort()));
+        EngineLink peer = new EngineLink(false, 0, 2, new FakePort()); // a resumed campaign hosted by slot 2 (SOS-64)
+        assertNull(peer.problem(new Message.Stream(StreamKind.AI_LOG, 2, 0, 0, new byte[] {1})), "the log is slot 2's");
+        assertNotNull(peer.problem(new Message.Stream(StreamKind.AI_LOG, 1, 0, 0, new byte[] {1})));
     }
 }

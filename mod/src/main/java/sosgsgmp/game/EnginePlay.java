@@ -120,6 +120,16 @@ public final class EnginePlay implements EnginePort {
         return Engine.step();
     }
 
+    /** Holds every step past {@code step}: a campaign save's step (SOS-64). */
+    public void runUntil(long step) {
+        Engine.runUntil(step);
+    }
+
+    /** Lets the steps run on after a hold. */
+    public void runFreely() {
+        Engine.runFreely();
+    }
+
     /** Whether the engine's session runs: it ends at Save and exit. */
     public boolean active() {
         return Engine.active();

@@ -16,16 +16,16 @@ class LobbyTest {
 
     @Test
     void theHostIsTheFirstPlayer() {
-        Lobby lobby = new Lobby(THREE, "Ann");
+        Lobby lobby = new Lobby(THREE, "Ann", 1);
         assertEquals(List.of(new LobbyPlayer(0, "Ann", true)), lobby.players());
     }
 
     @Test
     void startNeedsTwoPlayers() {
-        Lobby lobby = new Lobby(THREE, "Ann");
+        Lobby lobby = new Lobby(THREE, "Ann", 1);
         assertFalse(lobby.canStart());
         assertThrows(IllegalStateException.class, lobby::start);
-        lobby.join("Bob");
+        lobby.join("Bob", 2);
         assertTrue(lobby.canStart());
         lobby.start();
         assertFalse(lobby.canStart());
@@ -34,35 +34,35 @@ class LobbyTest {
 
     @Test
     void joinsUpToTheLimitThenRefuses() {
-        Lobby lobby = new Lobby(THREE, "Ann");
-        assertEquals(1, lobby.join("Bob"));
-        assertEquals(2, lobby.join("Cid"));
-        assertEquals(Refusal.FULL, lobby.refusal());
-        assertThrows(IllegalStateException.class, () -> lobby.join("Dee"));
+        Lobby lobby = new Lobby(THREE, "Ann", 1);
+        assertEquals(1, lobby.join("Bob", 2));
+        assertEquals(2, lobby.join("Cid", 3));
+        assertEquals(Refusal.FULL, lobby.refusal(9));
+        assertThrows(IllegalStateException.class, () -> lobby.join("Dee", 4));
     }
 
     @Test
     void refusesAfterStart() {
-        Lobby lobby = new Lobby(THREE, "Ann");
-        lobby.join("Bob");
+        Lobby lobby = new Lobby(THREE, "Ann", 1);
+        lobby.join("Bob", 2);
         lobby.start();
-        assertEquals(Refusal.STARTED, lobby.refusal());
+        assertEquals(Refusal.STARTED, lobby.refusal(9));
     }
 
     @Test
     void leavingFreesASlotAndIdsAreNotReused() {
-        Lobby lobby = new Lobby(THREE, "Ann");
-        int bob = lobby.join("Bob");
-        lobby.join("Cid");
+        Lobby lobby = new Lobby(THREE, "Ann", 1);
+        int bob = lobby.join("Bob", 2);
+        lobby.join("Cid", 3);
         lobby.leave(bob);
-        assertNull(lobby.refusal());
-        assertEquals(3, lobby.join("Dee"));
+        assertNull(lobby.refusal(9));
+        assertEquals(3, lobby.join("Dee", 4));
         assertEquals(List.of("Ann", "Cid", "Dee"), lobby.players().stream().map(LobbyPlayer::name).toList());
     }
 
     @Test
     void theHostCantLeave() {
-        Lobby lobby = new Lobby(THREE, "Ann");
+        Lobby lobby = new Lobby(THREE, "Ann", 1);
         assertThrows(IllegalArgumentException.class, () -> lobby.leave(0));
     }
 
