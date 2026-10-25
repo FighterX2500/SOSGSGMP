@@ -8,6 +8,7 @@ import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.TcpNode;
+import sosgsgmp.setup.MapWorld;
 
 /** A lobby on another PC, joined over direct IP. */
 public final class JoinedLobby implements LobbySession {
@@ -16,6 +17,7 @@ public final class JoinedLobby implements LobbySession {
     private final String name;
     private final long playerKey;
     private LobbyState state = LobbyState.CONNECTING;
+    private boolean handedOver;
     private List<LobbyPlayer> players = List.of();
     private LobbySettings settings;
     private int localId = -1;
@@ -29,10 +31,11 @@ public final class JoinedLobby implements LobbySession {
         this.node = TcpNode.connect(host, port);
     }
 
+    /** Stops at Start: what follows is the setup's, read by the session this one hands over to. */
     @Override
     public void update() {
         TcpNode.Event e;
-        while (state != LobbyState.CLOSED && (e = node.poll()) != null) {
+        while ((state == LobbyState.CONNECTING || state == LobbyState.OPEN) && (e = node.poll()) != null) {
             switch (e) {
                 case TcpNode.Event.Connected c -> node.send(TcpNode.HOST, new Message.Hello(name, playerKey));
                 case TcpNode.Event.Received r -> {
@@ -60,6 +63,7 @@ public final class JoinedLobby implements LobbySession {
             case Message.Leave l -> close("The host closed the lobby.");
             case Message.Unsupported u -> close("The host runs another version of the mod (protocol " + u.version() + ").");
             case Message.Hello h -> close("The host sent a message only a joining PC sends.");
+            default -> close("The host sent a setup message before it started the lobby.");
         }
     }
 
@@ -107,10 +111,18 @@ public final class JoinedLobby implements LobbySession {
 
     @Override
     public void leave() {
-        if (state == LobbyState.CLOSED)
+        if (state == LobbyState.CLOSED || handedOver)
             return;
         node.send(TcpNode.HOST, new Message.Leave());
         close("You left the lobby.");
+    }
+
+    @Override
+    public SetupSession handOver(MapWorld world) {
+        if (state != LobbyState.STARTED || handedOver)
+            throw new IllegalStateException("SOSGSGMP: only a started lobby hands over, once (state " + state + ", handed over " + handedOver + ")");
+        handedOver = true;
+        return new JoinedSetup(node, localId, players, world);
     }
 
     @Override
