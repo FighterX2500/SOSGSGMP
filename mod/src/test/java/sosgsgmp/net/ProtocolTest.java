@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,8 @@ import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.setup.MapStatus;
+import sosgsgmp.setup.MapStep.PlayerState;
+import sosgsgmp.setup.MapStep.PlayerStatus;
 
 class ProtocolTest {
 
@@ -31,7 +34,10 @@ class ProtocolTest {
             new Message.MapGenerate(4, 2, "Ödland map", 0, 0),
             new Message.MapResult(3, -1L, MapStatus.OK),
             new Message.MapResult(4, 0L, MapStatus.WRONG_BUILD),
-            new Message.MapConfirm(3, Long.MIN_VALUE));
+            new Message.MapConfirm(3, Long.MIN_VALUE),
+            new Message.MapPlayers(2, 0, List.of(new PlayerStatus(0, PlayerState.BUILDING))),
+            new Message.MapPlayers(2, 3, List.of(new PlayerStatus(0, PlayerState.GENERATED), new PlayerStatus(7, PlayerState.MISMATCH),
+                new PlayerStatus(9, PlayerState.ERROR))));
         for (Message m : all)
             assertEquals(m, Protocol.decode(Protocol.encode(m)));
     }
@@ -72,6 +78,16 @@ class ProtocolTest {
         byte[] result = Protocol.encode(new Message.MapResult(1, 5, MapStatus.OK));
         result[result.length - 1] = (byte) MapStatus.values().length;
         assertThrows(IOException.class, () -> Protocol.decode(result));
+        List<PlayerStatus> one = List.of(new PlayerStatus(0, PlayerState.READY));
+        assertRefused(new Message.MapPlayers(0, 1, one));
+        assertRefused(new Message.MapPlayers(1, -1, one));
+        assertRefused(new Message.MapPlayers(1, 1, List.of()));
+        assertRefused(new Message.MapPlayers(1, 1, Collections.nCopies(17, one.get(0))));
+        assertRefused(new Message.MapPlayers(1, 1, List.of(new PlayerStatus(-1, PlayerState.READY))));
+        byte[] players = Protocol.encode(new Message.MapPlayers(1, 1, one));
+        players[players.length - 1] = (byte) PlayerState.values().length;
+        assertThrows(IOException.class, () -> Protocol.decode(players));
+
         byte[] build = Protocol.encode(new Message.MapBuild(1, 256));
         assertThrows(IOException.class, () -> Protocol.decode(Arrays.copyOf(build, build.length - 1)));
     }

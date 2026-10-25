@@ -15,6 +15,7 @@ import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStatus;
+import sosgsgmp.setup.MapStep;
 
 /**
  * Byte layout of {@link Message}s. Every message starts with the protocol version (a short) and its type (a byte),
@@ -30,7 +31,7 @@ public final class Protocol {
     public static final int MAX_MESSAGE = 64 * 1024;
 
     private static final int HELLO = 1, WELCOME = 2, ROSTER = 3, REFUSED = 4, START = 5, LEAVE = 6;
-    private static final int MAP_BUILD = 7, BUILD_READY = 8, MAP_GENERATE = 9, MAP_RESULT = 10, MAP_CONFIRM = 11;
+    private static final int MAP_BUILD = 7, BUILD_READY = 8, MAP_GENERATE = 9, MAP_RESULT = 10, MAP_CONFIRM = 11, MAP_PLAYERS = 12;
 
     private Protocol() {}
 
@@ -93,6 +94,16 @@ public final class Protocol {
                     out.writeInt(c.genId());
                     out.writeLong(c.hash());
                 }
+                case Message.MapPlayers p -> {
+                    out.writeByte(MAP_PLAYERS);
+                    out.writeInt(p.buildId());
+                    out.writeInt(p.genId());
+                    out.writeByte(p.players().size());
+                    for (MapStep.PlayerStatus s : p.players()) {
+                        out.writeInt(s.playerId());
+                        out.writeByte(s.state().ordinal());
+                    }
+                }
                 case Message.Unsupported u -> throw new IllegalArgumentException("SOSGSGMP: can't send a message of protocol version " + u.version());
             }
         } catch (IOException e) {
@@ -122,6 +133,7 @@ public final class Protocol {
             case MAP_GENERATE -> new Message.MapGenerate(number(in, "generation"), number(in, "build"), mapType(in), latitude(in), seed(in));
             case MAP_RESULT -> new Message.MapResult(number(in, "generation"), in.readLong(), status(in.readUnsignedByte()));
             case MAP_CONFIRM -> new Message.MapConfirm(number(in, "generation"), in.readLong());
+            case MAP_PLAYERS -> mapPlayers(in);
             default -> throw new IOException("SOSGSGMP: unknown message type " + type);
         };
         if (in.available() > 0)
@@ -203,6 +215,28 @@ public final class Protocol {
         if (seed < 0)
             throw new IOException("SOSGSGMP: seed " + seed);
         return seed;
+    }
+
+    private static Message.MapPlayers mapPlayers(DataInputStream in) throws IOException {
+        int buildId = number(in, "build");
+        int genId = in.readInt();
+        if (genId < 0)
+            throw new IOException("SOSGSGMP: generation number " + genId);
+        int n = in.readUnsignedByte();
+        if (n < 1 || n > LobbySettings.MAX_PLAYERS)
+            throw new IOException("SOSGSGMP: progress of " + n + " players");
+        MapStep.PlayerState[] states = MapStep.PlayerState.values();
+        List<MapStep.PlayerStatus> players = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            int id = in.readInt();
+            if (id < 0)
+                throw new IOException("SOSGSGMP: player id " + id);
+            int ordinal = in.readUnsignedByte();
+            if (ordinal >= states.length)
+                throw new IOException("SOSGSGMP: unknown player state " + ordinal);
+            players.add(new MapStep.PlayerStatus(id, states[ordinal]));
+        }
+        return new Message.MapPlayers(buildId, genId, players);
     }
 
     private static MapStatus status(int ordinal) throws IOException {

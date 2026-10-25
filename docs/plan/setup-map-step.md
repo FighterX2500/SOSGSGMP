@@ -67,8 +67,11 @@ The protocol version goes from 1 to 2. As in `sosgsgmp.net.Protocol`, each messa
 | 9 | `MapGenerate` | host → all | `genId` int, `buildId` int, `mapType` UTF ("" = Random), `latitude` byte (unsigned), `seed` int | genId, buildId ≥ 1; latitude 0–100; mapType ≤ 64 characters; seed ≥ 0 |
 | 10 | `MapResult` | joiner → host | `genId` int, `hash` long, `status` byte (ordinal of `MapStatus`: OK, UNKNOWN_MAP_TYPE, WRONG_BUILD) | known ordinal |
 | 11 | `MapConfirm` | host → all | `genId` int, `hash` long | genId ≥ 1 |
+| 12 | `MapPlayers` | host → all | `buildId` int, `genId` int (0 = none yet), count byte, then per player (host first): `id` int, `state` byte (ordinal of `MapStep.PlayerState`: BUILDING, READY, GENERATING, GENERATED, MATCH, MISMATCH, ERROR) | buildId ≥ 1; genId ≥ 0; count 1–16; id ≥ 0; known ordinal |
 
 The existing messages and their layouts stay as they are. `Start` stays type 5 and still closes the lobby.
+
+`MapPlayers` gives the joiners the same player rows as the host. The host sends it after each `MapBuild` and `MapGenerate`, and whenever a player's progress changes (a build ready, a result, a player leaving, the confirm). A joining PC keeps it only for its current build and generation, so an older one changes nothing. Its own row shows match or mismatch as the host reports it.
 
 ## 5. Classes
 
@@ -78,7 +81,7 @@ The existing messages and their layouts stay as they are. `Start` stays type 5 a
 | --- | --- |
 | `sosgsgmp.setup.MapOptions` | Record `(size, mapType, latitude, seed)`, its limits and the size steps. Fails fast on bad values. |
 | `sosgsgmp.setup.MapStep` | The map step's state machine. Host side: current `buildId` and `genId`; for each player, the build they reported, their latest result and status; `canGenerate()`, `canConfirm()`, locked after confirm; a player who leaves is dropped. Joiner side: the build and generation to run next, and confirmed. Stale replies (an older `buildId` or `genId`) change nothing; a repeated message changes nothing. |
-| `sosgsgmp.net.Message`, `Protocol` | The five records and their encoding, version 2. |
+| `sosgsgmp.net.Message`, `Protocol` | The six records and their encoding, version 2. |
 | `sosgsgmp.session.HostedSetup`, `JoinedSetup` (with a `SetupSession` interface) | Take over the started lobby's `TcpNode` and roster (`HostedLobby`/`JoinedLobby` hand them over after `Start`). They drain events once per frame, as the lobby sessions do, and feed `MapStep`. The lobby classes keep only the lobby. |
 
 **Adapters (game classes):**
@@ -129,11 +132,12 @@ Mods and data must match. A different preset list shows as `UNKNOWN_MAP_TYPE`, a
   - A player leaving removes their row and can unblock Confirm.
   - Nothing is accepted after the confirm.
   - A new `MapBuild` resets every result.
-- `ProtocolTest`: round trips for the five new messages; malformed values refused; a version-1 message reads as `Unsupported`.
+- `ProtocolTest`: round trips for the six new messages; malformed values refused; a version-1 message reads as `Unsupported`.
 
 **Loopback** (like `LoopbackLobbyTest`): a real host and two joiners over localhost, with a fake world in place of the adapter.
 - Start, `MapBuild`, `BuildReady`, generate, matching results, Confirm on every PC.
 - A joiner that reports another hash blocks Confirm.
+- A joiner sees another joiner's progress (`MapPlayers`).
 - A size change and its new build.
 
 **In game, manual (PC and laptop):**

@@ -1,7 +1,10 @@
 package sosgsgmp.setup;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -17,7 +20,7 @@ import java.util.Map;
  */
 public final class MapStep {
 
-    /** A player's progress, as the map panel shows it. */
+    /** A player's progress, as the map panel shows it. Sent as its ordinal (in MapPlayers), so only append. */
     public enum PlayerState {
         /** Building the game for the current build. */
         BUILDING,
@@ -33,6 +36,9 @@ public final class MapStep {
         /** A PC couldn't generate: an unknown map type or a wrong build. */
         ERROR
     }
+
+    /** One player's progress as the host sees it; the host sends every player's to the joining PCs. */
+    public record PlayerStatus(int playerId, PlayerState state) {}
 
     private static final class Progress {
         int builtId;
@@ -53,6 +59,8 @@ public final class MapStep {
     private MapOptions options;
     /** Joining PC: the latest generation is accepted but not run yet. */
     private boolean generationPending;
+    /** Joining PC: every player's progress for the current build and generation, as the host last sent it. */
+    private final Map<Integer, PlayerState> hostView = new HashMap<>();
     private boolean confirmed;
     private long confirmedHash;
 
@@ -141,6 +149,16 @@ public final class MapStep {
         return joiners.remove(playerId) != null;
     }
 
+    /** Host: every player's progress, the host first, as the joining PCs are told it. */
+    public List<PlayerStatus> statuses() {
+        requireHost("tell the players' progress");
+        List<PlayerStatus> all = new ArrayList<>(joiners.size() + 1);
+        all.add(new PlayerStatus(localId, state(localId)));
+        for (int id : joiners.keySet())
+            all.add(new PlayerStatus(id, state(id)));
+        return all;
+    }
+
     /** Confirm is active when every PC's result for the latest generation is OK and equals the host's hash. */
     public boolean canConfirm() {
         if (!host || confirmed || options == null || own.resultGenId != genId || own.status != MapStatus.OK)
@@ -184,6 +202,7 @@ public final class MapStep {
         if (confirmed || genId <= this.genId)
             return false;
         this.genId = genId;
+        hostView.clear();
         if (buildId != this.buildId || own.builtId != buildId) {
             options = null;
             generationPending = false;
@@ -198,6 +217,24 @@ public final class MapStep {
     /** Joining PC: the generation to run now, or null. */
     public MapOptions pendingGeneration() {
         return generationPending ? options : null;
+    }
+
+    /**
+     * Joining PC: every player's progress as the host sees it. Only for the current build and generation; an older
+     * one changes nothing. Returns whether anything changed.
+     */
+    public boolean onPlayers(int buildId, int genId, List<PlayerStatus> players) {
+        requireJoiner("follow the players' progress");
+        if (buildId != this.buildId || genId != this.genId)
+            return false;
+        Map<Integer, PlayerState> view = new HashMap<>();
+        for (PlayerStatus p : players)
+            view.put(p.playerId(), p.state());
+        if (view.equals(hostView))
+            return false;
+        hostView.clear();
+        hostView.putAll(view);
+        return true;
     }
 
     /** Joining PC: the host confirmed. False, changing nothing, when stale, repeated or not generated here. */
@@ -280,13 +317,22 @@ public final class MapStep {
         return confirmedHash;
     }
 
-    /** A player's progress: this PC's own, or (on the host) a joiner's. Null for a player this PC knows nothing of. */
+    /**
+     * A player's progress: this PC's own, or another player's (on the host from its own record, on a joining PC as
+     * the host last sent it). Null for a player this PC knows nothing of.
+     */
     public PlayerState state(int playerId) {
-        if (playerId == localId)
-            return ownState();
+        if (playerId == localId) {
+            PlayerState s = ownState();
+            PlayerState seen = hostView.get(localId);
+            // Only the host can tell whether this PC's map matches its own.
+            if (s == PlayerState.GENERATED && (seen == PlayerState.MATCH || seen == PlayerState.MISMATCH))
+                return seen;
+            return s;
+        }
         Progress p = joiners.get(playerId);
         if (p == null)
-            return null;
+            return host ? null : hostView.get(playerId);
         if (p.builtId != buildId)
             return PlayerState.BUILDING;
         if (options == null)
@@ -315,6 +361,7 @@ public final class MapStep {
     private void newBuild() {
         options = null;
         generationPending = false;
+        hostView.clear();
         own.resultGenId = 0;
         for (Progress p : joiners.values())
             p.resultGenId = 0;

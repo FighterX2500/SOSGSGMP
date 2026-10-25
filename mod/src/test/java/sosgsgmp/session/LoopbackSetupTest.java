@@ -177,6 +177,22 @@ class LoopbackSetupTest {
     }
 
     @Test
+    void aJoiningPcSeesTheOtherPlayersProgress() throws Exception {
+        startSetup();
+        cidWorld.offset = 1;
+        build(256);
+        until("Bob sees Cid ready", () -> bob.step().state(2) == PlayerState.READY);
+        host.generate(A);
+        until("Bob sees Cid's mismatch", () -> bob.step().state(2) == PlayerState.MISMATCH);
+        assertEquals(PlayerState.MATCH, bob.step().state(1));
+        assertEquals(PlayerState.GENERATED, bob.step().state(0));
+        until("Cid sees its own mismatch", () -> cid.step().state(2) == PlayerState.MISMATCH && cid.step().state(1) == PlayerState.MATCH);
+
+        cid.leave();
+        until("Cid gone from Bob's rows", () -> bob.players().size() == 2 && bob.step().state(2) == null);
+    }
+
+    @Test
     void anUnknownMapTypeIsAnError() throws Exception {
         startSetup();
         build(256);

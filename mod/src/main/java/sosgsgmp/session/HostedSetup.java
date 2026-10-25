@@ -22,6 +22,8 @@ public final class HostedSetup implements SetupSession {
     private final Map<Integer, Integer> joined;
     private final List<LobbyPlayer> players;
     private final MapStep step;
+    /** The players' progress as last sent to the joining PCs. */
+    private List<MapStep.PlayerStatus> sentStatuses = List.of();
     private boolean closed;
     private String closedReason;
     private int changes;
@@ -54,11 +56,11 @@ public final class HostedSetup implements SetupSession {
         switch (m) {
             case Message.BuildReady b when id != null -> {
                 if (step.onBuildReady(id, b.buildId()))
-                    changes++;
+                    changed();
             }
             case Message.MapResult r when id != null -> {
                 if (step.onResult(id, r.genId(), r.hash(), r.status()))
-                    changes++;
+                    changed();
             }
             case Message.Leave l when id != null -> {
                 node.disconnect(peer);
@@ -81,7 +83,24 @@ public final class HostedSetup implements SetupSession {
         players.removeIf(p -> p.id() == id);
         step.remove(id);
         sendAll(new Message.Roster(players));
+        changed();
+    }
+
+    /** A player's progress may have changed: count it, and tell the joining PCs if it did. */
+    private void changed() {
         changes++;
+        sendStatuses(false);
+    }
+
+    /** Sends every player's progress when it differs from what was sent last, or {@code always}. */
+    private void sendStatuses(boolean always) {
+        if (step.buildId() == 0)
+            return;
+        List<MapStep.PlayerStatus> now = step.statuses();
+        if (!always && now.equals(sentStatuses))
+            return;
+        sentStatuses = now;
+        sendAll(new Message.MapPlayers(step.buildId(), step.genId(), now));
     }
 
     private void refuse(int peer, Refusal refusal) {
@@ -119,12 +138,13 @@ public final class HostedSetup implements SetupSession {
         int buildId = step.build(size);
         sendAll(new Message.MapBuild(buildId, size));
         changes++;
+        sendStatuses(true);
     }
 
     @Override
     public void built() {
         step.built(step.pendingBuild());
-        changes++;
+        changed();
     }
 
     @Override
@@ -133,6 +153,7 @@ public final class HostedSetup implements SetupSession {
         sendAll(new Message.MapGenerate(genId, step.buildId(), options.mapType(), options.latitude(), options.seed()));
         LocalMap.generate(step, world, options);
         changes++;
+        sendStatuses(true);
     }
 
     @Override
@@ -140,7 +161,7 @@ public final class HostedSetup implements SetupSession {
         step.confirm();
         sendAll(new Message.MapConfirm(step.genId(), step.confirmedHash()));
         world.lock();
-        changes++;
+        changed();
     }
 
     @Override

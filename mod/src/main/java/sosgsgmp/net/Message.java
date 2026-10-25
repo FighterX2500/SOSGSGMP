@@ -6,6 +6,7 @@ import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.setup.MapStatus;
+import sosgsgmp.setup.MapStep;
 
 /** The lobby's and the setup's network messages ({@link Protocol} encodes them). */
 public sealed interface Message {
@@ -49,6 +50,16 @@ public sealed interface Message {
 
     /** Host to every joined PC: the map of generation {@code genId} is confirmed and can't change any more. */
     record MapConfirm(int genId, long hash) implements Message {}
+
+    /**
+     * Host to every joined PC: every player's progress (the host first) for build {@code buildId} and generation
+     * {@code genId} (0: none yet). Sent after each build and generation, and whenever a player's progress changes.
+     */
+    record MapPlayers(int buildId, int genId, List<MapStep.PlayerStatus> players) implements Message {
+        public MapPlayers {
+            players = List.copyOf(players);
+        }
+    }
 
     /** A message from another protocol version; only its version is read. */
     record Unsupported(int version) implements Message {}

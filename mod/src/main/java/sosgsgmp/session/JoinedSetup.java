@@ -66,6 +66,7 @@ public final class JoinedSetup implements SetupSession {
                 if (step.onConfirm(c.genId(), c.hash()))
                     world.lock();
             }
+            case Message.MapPlayers p -> step.onPlayers(p.buildId(), p.genId(), p.players());
             case Message.Roster r -> players = r.players();
             case Message.Leave l -> close("The host closed the game.");
             case Message.Unsupported u -> close("The host runs another version of the mod (protocol " + u.version() + ").");

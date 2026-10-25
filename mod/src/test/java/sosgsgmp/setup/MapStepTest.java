@@ -11,6 +11,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import sosgsgmp.setup.MapStep.PlayerState;
+import sosgsgmp.setup.MapStep.PlayerStatus;
 
 class MapStepTest {
 
@@ -227,12 +228,51 @@ class MapStepTest {
     }
 
     @Test
+    void theHostTellsEveryPlayersProgressTheHostFirst() {
+        MapStep h = generatedHost();
+        h.onResult(1, 1, 100, MapStatus.OK);
+        h.onResult(2, 1, 101, MapStatus.OK);
+        assertEquals(List.of(new PlayerStatus(0, PlayerState.GENERATED), new PlayerStatus(1, PlayerState.MATCH),
+                new PlayerStatus(2, PlayerState.MISMATCH)), h.statuses());
+    }
+
+    @Test
+    void aJoiningPcShowsTheOthersAsTheHostSentThem() {
+        MapStep j = MapStep.joiner(1);
+        j.onBuild(1, 256);
+        j.built(1);
+        j.onGenerate(1, 1, "", 50, 7);
+        j.generated(1, 100, MapStatus.OK);
+        assertNull(j.state(2));
+        assertEquals(PlayerState.GENERATED, j.state(1));
+
+        List<PlayerStatus> seen = List.of(new PlayerStatus(0, PlayerState.GENERATED), new PlayerStatus(1, PlayerState.MATCH),
+                new PlayerStatus(2, PlayerState.MISMATCH));
+        assertTrue(j.onPlayers(1, 1, seen));
+        assertFalse(j.onPlayers(1, 1, seen), "a repeat");
+        assertEquals(PlayerState.MISMATCH, j.state(2));
+        assertEquals(PlayerState.GENERATED, j.state(0));
+        assertEquals(PlayerState.MATCH, j.state(1), "only the host knows whether this PC's map matches");
+
+        assertFalse(j.onPlayers(1, 0, List.of(new PlayerStatus(2, PlayerState.READY))), "stale");
+        assertEquals(PlayerState.MISMATCH, j.state(2));
+
+        j.onGenerate(2, 1, "", 50, 8);
+        assertNull(j.state(2), "a new generation forgets the old progress");
+        j.onBuild(2, 512);
+        assertFalse(j.onPlayers(1, 2, seen), "for the old build");
+        assertNull(j.state(2));
+    }
+
+    @Test
     void eachSideCallsOnlyItsOwnMethods() {
         MapStep h = MapStep.host(0, List.of(1));
         MapStep j = MapStep.joiner(1);
         assertThrows(IllegalStateException.class, () -> h.onBuild(1, 256));
         assertThrows(IllegalStateException.class, () -> j.build(256));
         assertThrows(IllegalStateException.class, () -> j.onResult(0, 1, 1, MapStatus.OK));
+        assertThrows(IllegalStateException.class, j::statuses);
+        assertThrows(IllegalStateException.class, () -> h.onPlayers(1, 1, List.of()));
         assertThrows(IllegalArgumentException.class, () -> MapStep.host(0, List.of(0)));
     }
 }
