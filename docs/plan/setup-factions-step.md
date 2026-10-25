@@ -44,7 +44,7 @@ No titles stage (spec §5.1): the map step already sets `hasSelectedTitles = tru
 4. **Initialize World (host):**
    - The host turns the picks into `HumanStart`s: the host first, then the joiners in lobby join order, which is slot order (player-slots.md R1/R2).
    - It calls `Engine.buildWorld` (SOS-55), applies the lobby's difficulty to every human, and saves (`GAME.saver().save(path, name, false)`).
-   - It sends `SlotMap` (player id → slot), then the save in `WorldPart` pieces under one transfer id. A message is at most 64 KB (`Protocol.MAX_MESSAGE`), so a 3 MB save is about 50 pieces; a repeated piece changes nothing (AGENTS.md "applied exactly once").
+   - It sends `SlotMap` (player id → slot), then the save, compressed, in `WorldPart` pieces under one transfer id, as the map step sends its terrain (`sosgsgmp.net.Pieces`, 60 KB per piece; SOS-54). A 3 MB save is a few hundred KB compressed, so a few pieces; a repeated piece changes nothing (AGENTS.md "applied exactly once").
 5. **Load (every PC, the host too):**
    - A new constructor, `menu.MpWorldLoad`, wraps vanilla's `GameLoader` (a public `Constructor`, `game/save/GameLoader.java:18-70`). It passes the session through, as `MpGameBuild` does today.
    - After the load it starts the engine session held at step 0 (`Engine.begin`, `ownCity`, `localHuman(slot)`, `pcHuman` for every PC) and attaches the mod's in-game session panel (section 5), which pumps the session once per frame.
@@ -53,17 +53,17 @@ No titles stage (spec §5.1): the map step already sets `hasSelectedTitles = tru
 6. **Landing party:** each PC opens the settlement view, which shows vanilla's start view while no one lives in the city. The mod's panel keeps the speed at 0 every frame until the game starts. When this PC's landing party is placed (`POP.tot(null) > 0`, as `SettViewStart` checks at `:84`), it sends `StartSpot`.
 7. **Start:** when every PC has sent `StartSpot`, the host sends `Go`. Every PC lets the engine run (SOS-57 carries the session from there); until SOS-57 merges, the card stops here with a "ready to start" line.
 
-## 4. Messages (protocol version 3)
+## 4. Messages (protocol version 4)
 
 | Type | Message | Direction | Layout after version and type |
 | --- | --- | --- | --- |
-| 13 | `Pick` | joiner → host | race key UTF, name UTF, banner bytes (short length + bytes), location x, y shorts (−1 = none), ready byte |
-| 14 | `Picks` | host → all | count byte, then per player: id int, a `Pick`'s fields, refused byte (location cleared by the 6-tile rule) |
-| 15 | `SlotMap` | host → all | transfer id int, count byte, then per player: id int, slot byte |
-| 16 | `WorldPart` | host → all | transfer id int, index short, count short, bytes (int length + bytes) |
-| 17 | `Loaded` | joiner → host | transfer id int, world hash long |
-| 18 | `StartSpot` | joiner → host | transfer id int |
-| 19 | `Go` | host → all | transfer id int |
+| 14 | `Pick` | joiner → host | race key UTF, name UTF, banner bytes (short length + bytes), location x, y shorts (−1 = none), ready byte |
+| 15 | `Picks` | host → all | count byte, then per player: id int, a `Pick`'s fields, refused byte (location cleared by the 6-tile rule) |
+| 16 | `SlotMap` | host → all | transfer id int, count byte, then per player: id int, slot byte |
+| 17 | `WorldPart` | host → all | transfer id int, index short, count short, bytes (int length + bytes) |
+| 18 | `Loaded` | joiner → host | transfer id int, world hash long |
+| 19 | `StartSpot` | joiner → host | transfer id int |
+| 20 | `Go` | host → all | transfer id int |
 
 Every decode checks its ranges (count 1–16, index < count, location in the map or −1, hash any), as the map messages do. The host's own pick, load and start spot go through the same state machine without the network.
 
@@ -75,8 +75,7 @@ Every decode checks its ranges (count 1–16, index < count, location in the map
 | --- | --- |
 | `sosgsgmp.setup.FactionPick` | Record: race key, name, banner bytes, location or none, ready. |
 | `sosgsgmp.setup.FactionStep` | The state machine:<br>• **Host:** every player's latest pick; the 6-tile rule on receipt; `canInitialize()`; slot order; the transfer id; who has loaded with which hash; who has picked a start spot; `canGo()`.<br>• **Joiner:** the latest table, its own pick, the slot map and the save's pieces as they arrive.<br>A player who leaves is dropped before the world is built. After the build, a player leaving stops the setup, since their slot exists. |
-| `sosgsgmp.setup.WorldTransfer` | Splits the save into pieces and puts them back together: a piece that is missing, repeated or from another transfer is refused or ignored. |
-| `sosgsgmp.net.Message`, `Protocol` | The seven messages, version 3. |
+| `sosgsgmp.net.Message`, `Protocol` | The seven messages, version 4. The save's pieces go through `sosgsgmp.net.Pieces`, made for the map step's terrain (SOS-54). |
 | `HostedSetup`, `JoinedSetup` | Feed `FactionStep` after `MapConfirm`, as they feed `MapStep` before it. |
 
 **Adapters and UI (game classes):**
@@ -111,7 +110,7 @@ Every decode checks its ranges (count 1–16, index < count, location in the map
 
 | | What | Verified by |
 |---|---|---|
-| M1 | `FactionPick`, `FactionStep`, `WorldTransfer`, the seven messages; the difficulty check (risk 1) | Unit tests: rule on receipt, slot order, transfer pieces in any order, repeats, a leave before and after the build |
+| M1 | `FactionPick`, `FactionStep`, the seven messages; the difficulty check (risk 1) | Unit tests: rule on receipt, slot order, transfer pieces in any order, repeats, a leave before and after the build |
 | M2 | `MpFactionStage`, `MpLocationStage`, picks over the network | Two PCs: picks shown on both, the 6-tile rule on both |
 | M3 | Initialize World, transfer, `MpWorldLoad`, each joiner's city, `Engine.worldHash` (SOSDET) | Two PCs: both load, each with its own city, equal world hashes |
 | M4 | Landing party, held speed, `StartSpot`, `Go`; docs (`hooks.md` note, walking-skeleton plan) | Two PCs from Start Lobby to "ready to start" (the card's end) |
