@@ -27,7 +27,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 6;
+    public static final int VERSION = 7;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -36,7 +36,7 @@ public final class Protocol {
     private static final int MAP_BUILD = 7, BUILD_READY = 8, MAP_GENERATE = 9, MAP_RESULT = 10, MAP_CONFIRM = 11, MAP_PLAYERS = 12;
     private static final int MAP_TERRAIN = 13;
     private static final int PICK = 14, PICKS = 15, SLOT_MAP = 16, WORLD_PART = 17, LOADED = 18, START_SPOT = 19, GO = 20, WORLD_PLAYERS = 21;
-    private static final int CURSOR = 22, STREAM = 23;
+    private static final int CURSOR = 22, STREAM = 23, RESYNC = 24, DESYNC_EXIT = 25;
     /** Largest piece of an engine stream in one message, in bytes: well under {@link #MAX_MESSAGE}. */
     public static final int MAX_STREAM_PIECE = 48 * 1024;
     /** Longest reason a location was cleared, in characters. */
@@ -181,6 +181,15 @@ public final class Protocol {
                     out.writeInt(c.x());
                     out.writeInt(c.y());
                 }
+                case Message.Resync r -> {
+                    out.writeByte(RESYNC);
+                    out.writeLong(r.step());
+                    writePiece(out, r.transfer(), r.index(), r.count(), r.bytes());
+                }
+                case Message.DesyncExit d -> {
+                    out.writeByte(DESYNC_EXIT);
+                    out.writeLong(d.step());
+                }
                 case Message.Unsupported u -> throw new IllegalArgumentException("SOSGSGMP: can't send a message of protocol version " + u.version());
             }
         } catch (IOException e) {
@@ -228,6 +237,12 @@ public final class Protocol {
             case GO -> new Message.Go(number(in, "transfer"));
             case STREAM -> stream(in);
             case CURSOR -> new Message.Cursor(playerId(in), in.readBoolean(), in.readInt(), in.readInt());
+            case RESYNC -> {
+                long step = step(in, "resync");
+                Piece p = piece(in, "transfer", "resync");
+                yield new Message.Resync(p.number(), step, p.index(), p.count(), p.data());
+            }
+            case DESYNC_EXIT -> new Message.DesyncExit(step(in, "save and exit"));
             default -> throw new IOException("SOSGSGMP: unknown message type " + type);
         };
         if (in.available() > 0)
@@ -281,6 +296,13 @@ public final class Protocol {
         if (n < 1)
             throw new IOException("SOSGSGMP: " + what + " number " + n);
         return n;
+    }
+
+    private static long step(DataInputStream in, String what) throws IOException {
+        long step = in.readLong();
+        if (step < 0)
+            throw new IOException("SOSGSGMP: " + what + " at step " + step);
+        return step;
     }
 
     private static int size(DataInputStream in) throws IOException {

@@ -4,6 +4,7 @@ import java.util.List;
 
 import snake2d.util.misc.ACTION;
 import sosgsgmp.game.EnginePlay;
+import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.session.SetupSession;
 
@@ -17,12 +18,15 @@ final class MpPlay implements ACTION {
 
 	private final SetupSession setup;
 	private final EnginePlay engine;
+	/** The desync window: it runs the host's choice on every PC. */
+	private final MpDesync desync;
 	/** Test tooling: the autopilot, or null in play. */
 	private final MpAutopilot autopilot = MpAutopilot.fromEnv();
 
-	MpPlay(SetupSession setup, EnginePlay engine) {
+	MpPlay(SetupSession setup, EnginePlay engine, WorldSetupAdapter game) {
 		this.setup = setup;
 		this.engine = engine;
+		this.desync = new MpDesync(setup, engine, game);
 	}
 
 	@Override
@@ -36,8 +40,10 @@ final class MpPlay implements ACTION {
 			if (setup.playing())
 				setup.exchange();
 		}
+		if (setup.playing())
+			desync.frame();
 		if (autopilot != null)
-			autopilot.game(setup, engine);
+			autopilot.game(setup, engine, desync);
 	}
 
 	/** The other players' PC numbers: their slots. */

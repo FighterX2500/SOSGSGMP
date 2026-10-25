@@ -56,7 +56,7 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 		if (autopilot != null)
 			autopilot.loaded(game.worldHash());
 		EnginePlay engine = new EnginePlay();
-		GAME.addAfterUpdate(new MpPlay(setup, engine));
+		GAME.addAfterUpdate(new MpPlay(setup, engine, game));
 		MpSessionPanel.show(setup, game, engine);
 		return view;
 	}

@@ -1,11 +1,19 @@
 package sosgsgmp.game;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import game.GAME;
+import snake2d.LOG;
+import sosdet.DesyncHold;
 import sosdet.Engine;
 import sosdet.Stats;
 import sosdet.hash.Desync;
 import sosgsgmp.net.StreamKind;
 import sosgsgmp.session.EnginePort;
+import sosgsgmp.session.WorldResync;
 
 /**
  * SOSGSGMP: the running game's engine calls (game-over-network.md): the start at {@code Go}, the four streams the
@@ -76,6 +84,61 @@ public final class EnginePlay implements EnginePort {
     /** This PC's state hash at {@code step}: a multiple of the hash interval among the last 64 hashed. */
     public long hash(long step) {
         return Engine.hash(step);
+    }
+
+    /** The world desync every PC holds for (SOS-53), or null. */
+    public DesyncHold desyncHold() {
+        return Engine.desyncHold();
+    }
+
+    /**
+     * Host, held at a desync's hold step, Resync chosen: the world's sections saved and the engine's world state at
+     * this step, as every PC loads them ({@link #worldResyncLoad}). Between steps only.
+     */
+    public WorldResync worldResyncSave() {
+        Path file = tempFile();
+        try {
+            byte[] state = Engine.worldResyncSave(file);
+            return new WorldResync(Engine.step(), state, Files.readAllBytes(file));
+        } catch (IOException e) {
+            throw new UncheckedIOException("SOSGSGMP: reading the world resync save " + file, e);
+        } finally {
+            delete(file);
+        }
+    }
+
+    /**
+     * Every PC at the resync's step: loads the host's world, keeping this PC's city, and runs on (the load holds the
+     * engine at the step; spec §11 World desyncs: play continues). Between steps only.
+     */
+    public void worldResyncLoad(WorldResync r) {
+        Path file = tempFile();
+        try {
+            Files.write(file, r.save());
+            Engine.worldResyncLoad(file, r.state());
+        } catch (IOException e) {
+            throw new UncheckedIOException("SOSGSGMP: writing the world resync save " + file, e);
+        } finally {
+            delete(file);
+        }
+        Engine.runFreely();
+    }
+
+    private static Path tempFile() {
+        try {
+            return Files.createTempFile("sosgsgmp-resync", ".save");
+        } catch (IOException e) {
+            throw new UncheckedIOException("SOSGSGMP: no temporary file for a world resync", e);
+        }
+    }
+
+    private static void delete(Path file) {
+        try {
+            Files.deleteIfExists(file);
+        } catch (IOException e) {
+            // A leftover temporary file costs nothing; the resync itself went through.
+            LOG.ln("SOSGSGMP: couldn't delete " + file + ": " + e);
+        }
     }
 
     /** The first step whose hashes differed between two PCs, or -1 while they all match. */

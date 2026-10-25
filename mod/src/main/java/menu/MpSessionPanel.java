@@ -51,6 +51,11 @@ final class MpSessionPanel extends Interrupter {
 	private boolean leaving;
 	/** This PC's landing party is placed and the session told. */
 	private boolean landed;
+	/** The panel's content, below its title bar: a press above it, on the title bar, drags the panel (owner, 2026-10-25). */
+	private final GuiSection inner = new GuiSection();
+	/** While the title bar is held: where the mouse grabbed it, from the panel's corner. */
+	private boolean dragging;
+	private int grabX, grabY;
 
 	static void show(SetupSession setup, WorldSetupAdapter game, EnginePlay engine) {
 		new MpSessionPanel(setup, game, engine).show(VIEW.inters().manager);
@@ -65,7 +70,6 @@ final class MpSessionPanel extends Interrupter {
 		for (int i = 0; i < rows.length; i++)
 			rows[i] = new GText(UI.FONT().M, 96);
 		int rowH = UI.FONT().M.height() + 2;
-		GuiSection inner = new GuiSection();
 		inner.add(new GHeader("players"), 0, 0);
 		inner.addDown(4, new RENDEROBJ.RenderImp(WIDTH, rowH * setup.players().size()) {
 			@Override
@@ -96,13 +100,35 @@ final class MpSessionPanel extends Interrupter {
 
 	@Override
 	protected boolean hover(COORDINATE mCoo, boolean mouseHasMoved) {
-		return section.hover(mCoo);
+		// the whole panel, its title bar too, takes the mouse: a press there drags it
+		return section.hover(mCoo) || section.body().holdsPoint(mCoo.x(), mCoo.y());
 	}
 
 	@Override
 	protected void mouseClick(MButt button) {
-		if (button == MButt.LEFT)
-			section.click();
+		if (button != MButt.LEFT)
+			return;
+		int mx = VIEW.mouse().x(), my = VIEW.mouse().y();
+		if (my < inner.body().y1() && section.body().holdsPoint(mx, my)) {
+			dragging = true;
+			grabX = mx - section.body().x1();
+			grabY = my - section.body().y1();
+			return;
+		}
+		section.click();
+	}
+
+	/** Follows the mouse while the title bar is held, keeping the whole panel on the screen. */
+	private void drag() {
+		if (!dragging)
+			return;
+		if (!MButt.LEFT.isDown()) {
+			dragging = false;
+			return;
+		}
+		int x = Math.max(0, Math.min(C.WIDTH() - section.body().width(), VIEW.mouse().x() - grabX));
+		int y = Math.max(0, Math.min(C.HEIGHT() - section.body().height(), VIEW.mouse().y() - grabY));
+		section.body().moveX1Y1(x, y);
 	}
 
 	@Override
@@ -115,6 +141,7 @@ final class MpSessionPanel extends Interrupter {
 		pump(ds);
 		if (!leaving && VIEW.world().isActive())
 			cursors.render(r, VIEW.world().window);
+		drag();
 		section.render(r, ds);
 		return true;
 	}

@@ -27,6 +27,7 @@ import sosgsgmp.session.LobbySession;
 import sosgsgmp.session.SetupSession;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStep;
+import sosdet.DesyncHold;
 import sosdet.Stats;
 import view.main.VIEW;
 import view.tool.PlacableFixed;
@@ -42,7 +43,8 @@ import world.WORLD;
  * <p>The variable is {@code key=value} pairs separated by commas: {@code role=host|join}, {@code name}, {@code port},
  * {@code address} (join), {@code players} (host: start with this many), {@code seed} (host: the map's),
  * {@code steps} (stop at this step, every PC), {@code difficulty} (host), {@code speed} (host: the game speed after
- * {@code Go}, as a player's speed buttons set it).
+ * {@code Go}, as a player's speed buttons set it), {@code corrupt} (break this PC's world at this step, a test desync, as
+ * SOSDET's rig {@code wcorrupt}), {@code ondesync} (host: {@code resync} or {@code exit} at a desync).
  */
 public final class MpAutopilot {
 
@@ -59,6 +61,8 @@ public final class MpAutopilot {
 	private final long steps;
 	private final String difficulty;
 	private final double speed;
+	private final long corrupt;
+	private final String onDesync;
 	private final Path events;
 
 	private long lastTry;
@@ -66,6 +70,8 @@ public final class MpAutopilot {
 	private long hashedAt;
 	private boolean done;
 	private long statusAt;
+	private DesyncHold seenHold;
+	private long resyncedAt = -1;
 	/** Frames, steps and timed step-milliseconds at the last status: the next one tells what happened in between. */
 	private long frames, statusFrames, statusSteps, statusTimed;
 	private double statusTimedMs;
@@ -100,6 +106,10 @@ public final class MpAutopilot {
 		steps = Long.parseLong(m.getOrDefault("steps", "3600"));
 		difficulty = m.getOrDefault("difficulty", "");
 		speed = Double.parseDouble(m.getOrDefault("speed", "0"));
+		corrupt = Long.parseLong(m.getOrDefault("corrupt", "-1"));
+		onDesync = m.getOrDefault("ondesync", "resync");
+		if (!onDesync.equals("resync") && !onDesync.equals("exit"))
+			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " ondesync '" + onDesync + "', not resync or exit");
 		events = Paths.get(System.getenv("APPDATA"), "songsofsyx", "sosgsgmp-autopilot", "events.jsonl");
 		if (!host && address.isEmpty())
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " role=join needs address=");
@@ -178,11 +188,21 @@ public final class MpAutopilot {
 		}
 	}
 
-	/** The loaded game, every frame after the update: the landing party; while playing, hashes; at the end, quit. */
-	void game(SetupSession setup, EnginePlay engine) {
+	/**
+	 * The loaded game, every frame after the update: the landing party; while playing, hashes, the test desync and the
+	 * host's choice in the desync window; at the end, quit.
+	 */
+	void game(SetupSession setup, EnginePlay engine, MpDesync desync) {
+		if (desync.saved() != null && first("desyncexit")) {
+			event("desyncexit", "\"file\":\"" + clean(desync.saved()) + "\",\"step\":" + setup.exitStep()); // the engine has ended
+			CORE.annihilate();
+			return;
+		}
 		if (setup.closed()) {
-			if (first("closed"))
+			if (first("closed")) {
 				event("closed", "\"reason\":\"" + clean(setup.closedReason()) + "\"");
+				CORE.annihilate(); // a test game left on would hold its data folder's files for the next run
+			}
 			return;
 		}
 		if (VIEW.inters().load.isActivated())
@@ -222,17 +242,57 @@ public final class MpAutopilot {
 			statusTimed = s.timedSteps;
 			statusTimedMs = s.meanMs * s.timedSteps;
 		}
+		if (corrupt >= 0 && step >= corrupt && first("corrupt"))
+			corruptWorld(step);
+		DesyncHold hold = desync.shown();
+		if (hold != null && hold != seenHold) {
+			seenHold = hold;
+			event("desynchold", "\"desyncStep\":" + hold.desyncStep + ",\"pc\":" + hold.pc + ",\"holdStep\":" + hold.holdStep + ",\"step\":" + step);
+			if (host)
+				desync.choose(onDesync.equals("resync"));
+		}
+		if (desync.resyncedStep() > resyncedAt) {
+			resyncedAt = desync.resyncedStep();
+			event("resynced", "\"step\":" + resyncedAt + ",\"desync\":" + engine.desyncStep());
+		}
 		long at = step / HASH_EVERY * HASH_EVERY;
 		if (at > hashedAt) {
 			hashedAt = at;
 			event("hash", "\"step\":" + at + ",\"hash\":\"" + Long.toHexString(engine.hash(at)) + "\",\"desync\":" + engine.desyncStep()
 					+ String.format(Locale.ROOT, ",\"speed\":%.2f", engine.agreedSpeed()));
 		}
-		if (step >= steps && !done) {
+		if (step >= steps && !done && (!host || peersReached(engine, setup.players().size(), steps))) {
 			done = true;
 			event("done", "\"step\":" + step + ",\"desync\":" + engine.desyncStep());
 			CORE.annihilate();
 		}
+	}
+
+	/**
+	 * Host: every other PC's hashes reached {@code step}, so it reached its own end; the host steps on meanwhile, so its
+	 * AI log carries them there.
+	 */
+	private static boolean peersReached(EnginePlay engine, int pcs, long step) {
+		for (int pc = 1; pc < pcs; pc++)
+			if (engine.peerStep(pc) < step)
+				return false;
+		return true;
+	}
+
+	/**
+	 * A test desync on this PC only, as SOSDET's rig {@code wcorrupt} makes it: the second human's rebellion timer,
+	 * which the world hash covers, 1000 s on.
+	 */
+	private void corruptWorld(long step) {
+		try {
+			java.lang.reflect.Field timer = game.events.world.EventWorldRebellion.class.getDeclaredField("timer");
+			timer.setAccessible(true);
+			double[] t = (double[]) timer.get(GAME.events().rebellion);
+			t[1] += 1000;
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("SOSGSGMP autopilot: corrupt", e);
+		}
+		event("corrupt", "\"step\":" + step);
 	}
 
 	/** The load is done: this PC's world hash, and the view it shows. */

@@ -52,6 +52,10 @@ class ProtocolTest {
             new Message.Stream(StreamKind.AI_LOG, 0, 0, 0, new byte[0]),
             new Message.Stream(StreamKind.HASHES, 15, Long.MAX_VALUE, 7, new byte[Protocol.MAX_STREAM_PIECE]),
             new Message.Cursor(0, false, 0, 0),
+            new Message.Resync(1, 0, 0, 1, new byte[0]),
+            new Message.Resync(Integer.MAX_VALUE, Long.MAX_VALUE, 2, 3, new byte[Pieces.PIECE_BYTES]),
+            new Message.DesyncExit(0),
+            new Message.DesyncExit(Long.MAX_VALUE),
             new Message.MapResult(3, -1L, MapStatus.OK),
             new Message.MapResult(4, 0L, MapStatus.WRONG_BUILD),
             new Message.MapConfirm(3, Long.MIN_VALUE),
@@ -134,6 +138,16 @@ class ProtocolTest {
         assertThrows(IOException.class, () -> Protocol.decode(badPc));
         assertThrows(IllegalArgumentException.class, () -> new Message.Stream(StreamKind.ORDERS, 1, -1, 0, new byte[0]));
         assertThrows(IllegalArgumentException.class, () -> new Message.Stream(StreamKind.ORDERS, 1, 0, 0, new byte[Protocol.MAX_STREAM_PIECE + 1]));
+
+        assertThrows(IllegalArgumentException.class, () -> new Message.Resync(1, -1, 0, 1, new byte[0]));
+        byte[] resync = Protocol.encode(new Message.Resync(1, 5, 0, 1, new byte[] {1}));
+        byte[] badStep = resync.clone();
+        badStep[3] = (byte) 0x80; // the step's top byte, after the version and the type: negative
+        assertThrows(IOException.class, () -> Protocol.decode(badStep));
+        assertRefused(new Message.Resync(1, 5, 1, 1, new byte[] {1}));
+        byte[] exit = Protocol.encode(new Message.DesyncExit(5));
+        exit[3] = (byte) 0x80;
+        assertThrows(IOException.class, () -> Protocol.decode(exit));
 
         byte[] build = Protocol.encode(new Message.MapBuild(1, 256));
         assertThrows(IOException.class, () -> Protocol.decode(Arrays.copyOf(build, build.length - 1)));

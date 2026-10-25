@@ -203,6 +203,43 @@ public sealed interface Message {
         }
     }
 
+    /**
+     * Host to every joined PC, at a world desync the host chose to resync (spec §11 World desyncs): piece
+     * {@code index} of {@code count} of transfer {@code transfer}, the world resync for step {@code step} (the engine's
+     * state and the world save, {@code sosgsgmp.session.WorldResync}). A repeated piece changes nothing.
+     */
+    record Resync(int transfer, long step, int index, int count, byte[] bytes) implements Message {
+        public Resync {
+            if (step < 0)
+                throw new IllegalArgumentException("SOSGSGMP: a resync for step " + step);
+            bytes = bytes.clone();
+        }
+
+        @Override
+        public byte[] bytes() {
+            return bytes.clone();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof Resync r && transfer == r.transfer && step == r.step && index == r.index && count == r.count
+                    && Arrays.equals(bytes, r.bytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(transfer, step, index, count, Arrays.hashCode(bytes));
+        }
+
+        @Override
+        public String toString() {
+            return "Resync[transfer=" + transfer + ", step=" + step + ", index=" + index + ", count=" + count + ", " + bytes.length + " bytes]";
+        }
+    }
+
+    /** Host to every joined PC, at a world desync: the host chose Save and exit at step {@code step}; every PC saves. */
+    record DesyncExit(long step) implements Message {}
+
     /** A message from another protocol version; only its version is read. */
     record Unsupported(int version) implements Message {}
 }
