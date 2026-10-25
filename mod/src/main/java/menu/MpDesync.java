@@ -65,6 +65,7 @@ final class MpDesync {
 			shown = h;
 			resyncChosen = false;
 			resyncSent = false;
+			exitChosen = false;
 			message = setup.isHost()
 					? "The world desynced at step " + h.desyncStep + ": " + differs(h.pc) + "'s world differs from yours.\n"
 							+ "Resync: every player's game reloads your world, each keeping their own city.\n"
