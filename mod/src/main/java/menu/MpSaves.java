@@ -37,6 +37,8 @@ final class MpSaves {
 	private int changes;
 	/** After a save that ends the session (SaveOrder.exit): its outcome once done here, empty when every PC saved; null before. */
 	private String exited;
+	/** The Engage step of the last battle this PC saved before, held there (SOS-67); -1 before the first. */
+	private long savedBeforeBattle = -1;
 	/** Host: real milliseconds played since the last save, as vanilla's autosave counts them. */
 	private long autoMillis;
 	private long autoLast = -1;
@@ -65,13 +67,23 @@ final class MpSaves {
 		SaveOrder o = setup.takeSaveOrder();
 		if (o != null)
 			begin(o);
+		// every PC holds before a battle's Engage until it has saved the campaign there (spec §11, SOS-67)
+		long ahead = engine.battleAhead();
 		if (order == null) {
-			if (setup.isHost())
+			if (ahead >= 0 && savedBeforeBattle == ahead) {
+				log.line("the battle at step " + ahead + " begins");
+				engine.battleGo();
+			} else if (ahead >= 0 && canSave()) {
+				log.line("a battle at step " + ahead + ": the campaign is saved before it");
+				order(CampaignRecord.Kind.AUTO, false, engine.step());
+			} else if (ahead < 0 && setup.isHost()) {
 				autosave();
+			}
 			return;
 		}
-		// a battle's load restarts the steps, so a save that a battle overtook is reported at once, not at its step
-		if (!savedHere && (engine.step() >= order.step() || engine.battle() != null))
+		// a battle's load restarts the steps, so a save that a battle overtook is reported at once, not at its step;
+		// held before a battle, every PC at the same step, an open save is taken there, and counts as the battle's
+		if (!savedHere && (engine.step() >= order.step() || engine.battle() != null || ahead >= 0))
 			save();
 		if (savedHere) {
 			String outcome = setup.takeSaveDone(order.number());
@@ -88,20 +100,20 @@ final class MpSaves {
 
 	/** Host: orders save of {@code kind} on every PC. Check {@link #canSave()} first. */
 	void saveNow(CampaignRecord.Kind kind) {
-		order(kind, false);
+		order(kind, false, engine.step() + LEAD);
 	}
 
 	/** Host: a desync's Save and exit, after the resync: every PC saves the campaign, then the session ends. Check {@link #canSave()} first. */
 	void saveAndExit() {
-		order(CampaignRecord.Kind.SAVE, true);
+		order(CampaignRecord.Kind.SAVE, true, engine.step() + LEAD);
 	}
 
-	private void order(CampaignRecord.Kind kind, boolean exit) {
+	private void order(CampaignRecord.Kind kind, boolean exit, long step) {
 		if (!canSave())
 			throw new IllegalStateException("SOSGSGMP: a campaign save can't start now");
 		Campaign c = setup.campaign();
 		int keep = kind == CampaignRecord.Kind.AUTO ? Math.max(1, S.get().autoSaveFiles.get()) : 0;
-		setup.orderSave(new SaveOrder(store.nextNumber(c.id()), engine.step() + LEAD, kind, keep, c, exit));
+		setup.orderSave(new SaveOrder(store.nextNumber(c.id()), step, kind, keep, c, exit));
 		autoMillis = 0;
 	}
 
@@ -136,7 +148,7 @@ final class MpSaves {
 		String problem = null;
 		if (engine.battle() != null) {
 			problem = "a battle started before the save step";
-		} else if (engine.step() != order.step()) {
+		} else if (engine.step() != order.step() && engine.battleAhead() < 0) {
 			problem = "this PC was at step " + engine.step() + ", past the save step " + order.step();
 		} else {
 			try {
@@ -148,7 +160,7 @@ final class MpSaves {
 				if (order.keep() > 0)
 					for (CampaignRecord gone : store.rotate(order.campaign().id(), order.keep()))
 						game.deleteSave(gone.file());
-				log.line(String.format("save %d written at step %d: %s, world hash %016x", order.number(), order.step(), file, hash));
+				log.line(String.format("save %d written at step %d: %s, world hash %016x", order.number(), engine.step(), file, hash));
 			} catch (RuntimeException e) {
 				// the save's own boundary: every PC reports, so the host releases the hold and names this PC's problem
 				log.error("save " + order.number() + " failed", e);
@@ -162,6 +174,8 @@ final class MpSaves {
 
 	private void finish(String outcome) {
 		engine.runFreely();
+		if (engine.battleAhead() >= 0)
+			savedBeforeBattle = engine.battleAhead(); // a failed save too: the battle still begins, its outcome shown
 		status = outcome.isEmpty() ? "Campaign saved (save " + order.number() + ")." : "Save " + order.number() + ": " + outcome;
 		log.line("save " + order.number() + " done on every PC" + (outcome.isEmpty() ? "" : ": " + outcome));
 		if (order.exit())

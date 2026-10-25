@@ -46,6 +46,7 @@ public final class EnginePlay implements EnginePort {
         Engine.followAgreedSpeed();
         if (host && peerPcs.length > 0)
             Engine.pace(peerPcs, PACE_LEAD);
+        Engine.battleHold(true); // the campaign is saved before every battle (spec §11, SOS-67)
         Engine.runFreely();
     }
 
@@ -153,6 +154,19 @@ public final class EnginePlay implements EnginePort {
     /** This PC's state hash at {@code step}: a multiple of the hash interval among the last 64 hashed. */
     public long hash(long step) {
         return Engine.hash(step);
+    }
+
+    /**
+     * The step a battle's Engage applies at while every PC holds before it, or -1 (SOSDET SOS-70): this PC's last step
+     * run is the one before it.
+     */
+    public long battleAhead() {
+        return Engine.battleAhead();
+    }
+
+    /** Every PC, held before an Engage: the battle begins. */
+    public void battleGo() {
+        Engine.battleGo();
     }
 
     /** The world desync every PC holds for (SOS-53), or null. */
