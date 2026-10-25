@@ -17,8 +17,8 @@ AGENTS.md holds the coding rules: Java, the game, hooks, threads, saves, network
 
 ## Current phase
 
-- **Engine (SOSDET): implementation** (owner, 2026-10-22). Cards under the epic SOS-22 are merged up to SOS-15 (SOSDET PR #28, 2026-10-24); SOS-31 (the scenario suite) is in progress. The work happens in the SOSDET repository and follows its CLAUDE.md.
-- **Mod (this repository): implementation of the walking skeleton** (owner, 2026-10-25), in the order of [docs/plan/walking-skeleton.md](docs/plan/walking-skeleton.md). It starts with the lobby (SOS-49); the setup and the game wait for the engine's player slots (SOSDET SOS-46). The rest of this section applies to it.
+- **Engine (SOSDET): implementation** (owner, 2026-10-22). Cards under the epic SOS-22 are merged up to SOS-46, several humans on one world (SOSDET PR #31), and SOS-31, the scenario suite (SOSDET PR #30), both on 2026-10-25. The engine has no API for the mod to add a human yet (`addHuman`, SOSDET ADR 0004). The work happens in the SOSDET repository and follows its CLAUDE.md.
+- **Mod (this repository): implementation of the walking skeleton** (owner, 2026-10-25), in the order of [docs/plan/walking-skeleton.md](docs/plan/walking-skeleton.md). The lobby (SOS-49, SOSGSGMP PR #26) is merged. The setup's map step is in draft SOSGSGMP PR #28, with no card yet. Factions, locations and world init need the engine's `addHuman`. The rest of this section applies to it.
 
 Feature code for the mod is allowed for approved cards only. Also allowed:
 
