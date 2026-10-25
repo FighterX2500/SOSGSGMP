@@ -60,6 +60,7 @@ public final class JoinedLobby implements LobbySession {
             case Message.Leave l -> close("The host closed the lobby.");
             case Message.Unsupported u -> close("The host runs another version of the mod (protocol " + u.version() + ").");
             case Message.Hello h -> close("The host sent a message only a joining PC sends.");
+            default -> close("The host sent a setup message before it started the lobby.");
         }
     }
 

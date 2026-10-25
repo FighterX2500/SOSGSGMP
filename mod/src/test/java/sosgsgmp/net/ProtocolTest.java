@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.Refusal;
+import sosgsgmp.setup.MapStatus;
 
 class ProtocolTest {
 
@@ -23,7 +24,14 @@ class ProtocolTest {
             new Message.Roster(List.of(new LobbyPlayer(0, "Ann", true), new LobbyPlayer(5, "Bøb", false))),
             new Message.Refused(Refusal.FULL),
             new Message.Start(),
-            new Message.Leave());
+            new Message.Leave(),
+            new Message.MapBuild(1, 512),
+            new Message.BuildReady(Integer.MAX_VALUE),
+            new Message.MapGenerate(3, 2, "", 100, Integer.MAX_VALUE),
+            new Message.MapGenerate(4, 2, "Ödland map", 0, 0),
+            new Message.MapResult(3, -1L, MapStatus.OK),
+            new Message.MapResult(4, 0L, MapStatus.WRONG_BUILD),
+            new Message.MapConfirm(3, Long.MIN_VALUE));
         for (Message m : all)
             assertEquals(m, Protocol.decode(Protocol.encode(m)));
     }
@@ -38,6 +46,40 @@ class ProtocolTest {
     void anotherVersionIsRecognisedWithoutReadingTheRest() throws IOException {
         byte[] b = {0, 99, 1, 2, 3};
         assertEquals(new Message.Unsupported(99), Protocol.decode(b));
+    }
+
+    @Test
+    void aVersionOneMessageIsUnsupported() throws IOException {
+        byte[] start = Protocol.encode(new Message.Start());
+        start[1] = 1;
+        assertEquals(new Message.Unsupported(1), Protocol.decode(start));
+    }
+
+    @Test
+    void mapMessagesWithBadValuesThrow() {
+        assertRefused(new Message.MapBuild(0, 256));
+        assertRefused(new Message.MapBuild(1, 127));
+        assertRefused(new Message.MapBuild(1, 513));
+        assertRefused(new Message.BuildReady(-1));
+        assertRefused(new Message.MapGenerate(0, 1, "", 50, 1));
+        assertRefused(new Message.MapGenerate(1, 0, "", 50, 1));
+        assertRefused(new Message.MapGenerate(1, 1, "x".repeat(65), 50, 1));
+        assertRefused(new Message.MapGenerate(1, 1, "", 101, 1));
+        assertRefused(new Message.MapGenerate(1, 1, "", 50, -1));
+        assertRefused(new Message.MapConfirm(0, 5));
+        assertRefused(new Message.MapResult(0, 5, MapStatus.OK));
+
+        byte[] result = Protocol.encode(new Message.MapResult(1, 5, MapStatus.OK));
+        result[result.length - 1] = (byte) MapStatus.values().length;
+        assertThrows(IOException.class, () -> Protocol.decode(result));
+        byte[] build = Protocol.encode(new Message.MapBuild(1, 256));
+        assertThrows(IOException.class, () -> Protocol.decode(Arrays.copyOf(build, build.length - 1)));
+    }
+
+    /** Encoding doesn't check values (only decoding does), so a bad value reaches the decoder as it would from a bad peer. */
+    private static void assertRefused(Message m) {
+        byte[] b = Protocol.encode(m);
+        assertThrows(IOException.class, () -> Protocol.decode(b), m.toString());
     }
 
     @Test
