@@ -17,6 +17,8 @@ final class MpPlay implements ACTION {
 
 	private final SetupSession setup;
 	private final EnginePlay engine;
+	/** Test tooling: the autopilot, or null in play. */
+	private final MpAutopilot autopilot = MpAutopilot.fromEnv();
 
 	MpPlay(SetupSession setup, EnginePlay engine) {
 		this.setup = setup;
@@ -25,15 +27,17 @@ final class MpPlay implements ACTION {
 
 	@Override
 	public void exe() {
-		if (setup.closed())
-			return;
-		setup.update();
-		if (!setup.playing() && !setup.closed() && setup.factions().started()) {
-			engine.start(setup.isHost(), otherPcs());
-			setup.play(engine);
+		if (!setup.closed()) {
+			setup.update();
+			if (!setup.playing() && !setup.closed() && setup.factions().started()) {
+				engine.start(setup.isHost(), otherPcs());
+				setup.play(engine);
+			}
+			if (setup.playing())
+				setup.exchange();
 		}
-		if (setup.playing())
-			setup.exchange();
+		if (autopilot != null)
+			autopilot.game(setup, engine);
 	}
 
 	/** The other players' PC numbers: their slots. */

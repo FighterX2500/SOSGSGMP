@@ -1,0 +1,350 @@
+package menu;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.function.IntBinaryOperator;
+
+import game.GAME;
+import game.faction.FACTIONS;
+import settlement.main.SETT;
+import settlement.stats.POP;
+import snake2d.CORE;
+import snake2d.LOG;
+import sosgsgmp.game.EnginePlay;
+import sosgsgmp.lobby.LobbyPlayer;
+import sosgsgmp.lobby.LobbySettings;
+import sosgsgmp.session.HostedLobby;
+import sosgsgmp.session.JoinedLobby;
+import sosgsgmp.session.LobbySession;
+import sosgsgmp.session.SetupSession;
+import sosgsgmp.setup.MapOptions;
+import sosgsgmp.setup.MapStep;
+import sosdet.Stats;
+import view.main.VIEW;
+import view.tool.PlacableFixed;
+import world.WORLD;
+
+/**
+ * SOSGSGMP test tooling, never active in play: with {@code SOSGSGMP_AUTOPILOT} set, the mod plays its own setup and
+ * game for the two-PC test (game-over-network.md §6). It calls the session methods the buttons call, from the same
+ * per-frame points, and never from inside a render. Each call looks at the session's state and acts on it, so the
+ * driver keeps no state of its own beyond throttles. Every milestone goes to
+ * {@code %APPDATA%/songsofsyx/sosgsgmp-autopilot/events.jsonl} for the runner.
+ *
+ * <p>The variable is {@code key=value} pairs separated by commas: {@code role=host|join}, {@code name}, {@code port},
+ * {@code address} (join), {@code players} (host: start with this many), {@code seed} (host: the map's),
+ * {@code steps} (stop at this step, every PC), {@code difficulty} (host), {@code speed} (host: the game speed after
+ * {@code Go}, as a player's speed buttons set it).
+ */
+public final class MpAutopilot {
+
+	private static final String VARIABLE = "SOSGSGMP_AUTOPILOT";
+	private static final long RETRY_NANOS = 1_000_000_000L;
+	private static final long HASH_EVERY = 600;
+
+	private final boolean host;
+	private final String name;
+	private final int port;
+	private final String address;
+	private final int players;
+	private final int seed;
+	private final long steps;
+	private final String difficulty;
+	private final double speed;
+	private final Path events;
+
+	private long lastTry;
+	private boolean lobbyOpened;
+	private long hashedAt;
+	private boolean done;
+	private long statusAt;
+	/** Frames, steps and timed step-milliseconds at the last status: the next one tells what happened in between. */
+	private long frames, statusFrames, statusSteps, statusTimed;
+	private double statusTimedMs;
+	private static final long STATUS_NANOS = 10_000_000_000L;
+	private final Map<String, Boolean> once = new HashMap<>();
+
+	/** The autopilot the variable asks for, or null (play): read once by each per-frame point that may use it. */
+	public static MpAutopilot fromEnv() {
+		String v = System.getenv(VARIABLE);
+		if (v == null || v.isBlank())
+			return null;
+		Map<String, String> m = new HashMap<>();
+		for (String part : v.split(",")) {
+			String[] kv = part.split("=", 2);
+			if (kv.length != 2)
+				throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " part '" + part + "' isn't key=value");
+			m.put(kv[0].trim(), kv[1].trim());
+		}
+		return new MpAutopilot(m);
+	}
+
+	private MpAutopilot(Map<String, String> m) {
+		String role = m.getOrDefault("role", "");
+		if (!role.equals("host") && !role.equals("join"))
+			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " role '" + role + "', not host or join");
+		host = role.equals("host");
+		name = m.getOrDefault("name", host ? "Host" : "Joiner");
+		port = Integer.parseInt(m.getOrDefault("port", "47510"));
+		address = m.getOrDefault("address", "");
+		players = Integer.parseInt(m.getOrDefault("players", "2"));
+		seed = Integer.parseInt(m.getOrDefault("seed", "12345"));
+		steps = Long.parseLong(m.getOrDefault("steps", "3600"));
+		difficulty = m.getOrDefault("difficulty", "");
+		speed = Double.parseDouble(m.getOrDefault("speed", "0"));
+		events = Paths.get(System.getenv("APPDATA"), "songsofsyx", "sosgsgmp-autopilot", "events.jsonl");
+		if (!host && address.isEmpty())
+			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " role=join needs address=");
+	}
+
+	/** The main menu, every frame until the lobby opens: create or join it, as Create Lobby and Join do. */
+	void menu(MpMenu mp) {
+		if (lobbyOpened || !due())
+			return;
+		try {
+			LobbySession s = host
+					? new HostedLobby(new LobbySettings(difficulty.isEmpty() ? mp.prefs.difficulty : difficulty, Math.max(players, 2)), name, port)
+					: new JoinedLobby(address, port, name, mp.prefs.playerKey);
+			lobbyOpened = true;
+			mp.openLobby(s);
+			event("lobby", "\"role\":\"" + (host ? "host" : "join") + "\"");
+		} catch (IOException e) {
+			event("lobbyretry", "\"reason\":\"" + clean(e.getMessage()) + "\""); // the host may not be up yet
+		}
+	}
+
+	/** The lobby screen, every frame: the host starts once every player is in. */
+	void lobby(LobbySession s) {
+		if (host && s.canStart() && s.players().size() >= players && first("started")) {
+			s.start();
+			event("started", "\"players\":" + s.players().size());
+		}
+	}
+
+	/** The map step, every frame: the host generates once and confirms; every PC goes on to the factions. */
+	public void map(SetupSession setup, boolean canGoOn, Runnable next) {
+		MapStep step = setup.step();
+		if (setup.closed())
+			return;
+		if (host && step.genId() == 0 && step.canGenerate()) {
+			setup.generate(new MapOptions(step.size(), "", MapOptions.DEFAULT_LATITUDE, seed));
+			event("generated", "\"seed\":" + seed);
+		} else if (host && step.canConfirm()) {
+			setup.confirm();
+		}
+		if (canGoOn && first("map")) {
+			event("mapconfirmed", "\"hash\":\"" + Long.toHexString(step.confirmedHash()) + "\"");
+			next.run();
+		}
+	}
+
+	/**
+	 * The factions step, every frame: a name, then a capital, searched from a point of this player's own and placed
+	 * through {@code placeAt} (returns the location's x, or NONE when none was placed); the host initializes.
+	 */
+	public void factions(SetupSession setup, boolean hasLocation, IntBinaryOperator placeAt) {
+		if (setup.closed() || setup.factions().initialized())
+			return;
+		if (FACTIONS.player().name.toString().isBlank())
+			FACTIONS.player().name.clear().add(name);
+		if (!hasLocation && due()) {
+			List<LobbyPlayer> ps = setup.players();
+			int i = 0;
+			while (i < ps.size() && ps.get(i).id() != setup.localPlayerId())
+				i++;
+			int sx = WORLD.TWIDTH() * (i + 1) / (ps.size() + 1);
+			int sy = WORLD.THEIGHT() / 2;
+			for (int r = 0; r < WORLD.TWIDTH(); r += 2) {
+				int found = spiral(sx, sy, r, (x, y) -> setup.locationProblem(x, y) == null ? 1 : 0);
+				if (found >= 0) {
+					int x = found >> 16, y = found & 0xFFFF;
+					placeAt.applyAsInt(x, y);
+					event("placed", "\"x\":" + x + ",\"y\":" + y);
+					break;
+				}
+			}
+		}
+		if (host && setup.factions().canInitialize() && first("initialize")) {
+			event("initializing", "");
+			setup.initialize();
+		}
+	}
+
+	/** The loaded game, every frame after the update: the landing party; while playing, hashes; at the end, quit. */
+	void game(SetupSession setup, EnginePlay engine) {
+		if (setup.closed()) {
+			if (first("closed"))
+				event("closed", "\"reason\":\"" + clean(setup.closedReason()) + "\"");
+			return;
+		}
+		if (VIEW.inters().load.isActivated())
+			VIEW.inters().load.deactivate(); // vanilla's "click to continue" after a load holds the game until a click
+		if (first("ingame"))
+			event("ingame", "\"view\":\"" + VIEW.current().getClass().getSimpleName() + "\",\"pop\":" + POP.tot());
+		if (POP.tot() == 0 && due()) {
+			if (landParty())
+				event("landed", "\"view\":\"" + VIEW.current().getClass().getSimpleName() + "\"");
+			else if (first("landfail"))
+				event("landfail", "\"view\":\"" + VIEW.current().getClass().getSimpleName() + "\",\"why\":\"" + clean(landWhy) + "\"");
+		}
+		if (!setup.playing())
+			return;
+		if (first("go")) {
+			event("go", String.format(Locale.ROOT, "\"speed\":%.2f,\"paused\":%b", GAME.SPEED.speedTarget(), GAME.SPEED.isPaused()));
+		}
+		if (host && speed > 0 && first("speed"))
+			GAME.SPEED.speedSet(speed);
+		frames++;
+		long step = engine.step();
+		long now = System.nanoTime();
+		if (now - statusAt > STATUS_NANOS) {
+			double seconds = (now - statusAt) / 1e9;
+			statusAt = now;
+			Stats s = engine.stats();
+			long timed = s.timedSteps - statusTimed;
+			double timedMs = s.meanMs * s.timedSteps - statusTimedMs;
+			// per second since the last status: frames, steps, and the ms the steps took (near 1000: the PC is the limit)
+			event("status", String.format(Locale.ROOT, "\"step\":%d,\"speed\":%.2f,\"target\":%.2f,\"paused\":%b,\"agreed\":%.2f,\"other\":%d,\"load\":%b,"
+					+ "\"fps\":%.1f,\"stepsPerS\":%.1f,\"stepMsPerS\":%.1f,\"stepMs\":%.2f",
+					step, GAME.SPEED.speed(), GAME.SPEED.speedTarget(), GAME.SPEED.isPaused(), s.agreedSpeed,
+					engine.peerStep(host ? 1 : 0), VIEW.inters().load.isActivated(), (frames - statusFrames) / seconds,
+					(step - statusSteps) / seconds, timedMs / seconds, timed > 0 ? timedMs / timed : 0));
+			statusFrames = frames;
+			statusSteps = step;
+			statusTimed = s.timedSteps;
+			statusTimedMs = s.meanMs * s.timedSteps;
+		}
+		long at = step / HASH_EVERY * HASH_EVERY;
+		if (at > hashedAt) {
+			hashedAt = at;
+			event("hash", "\"step\":" + at + ",\"hash\":\"" + Long.toHexString(engine.hash(at)) + "\",\"desync\":" + engine.desyncStep()
+					+ String.format(Locale.ROOT, ",\"speed\":%.2f", engine.agreedSpeed()));
+		}
+		if (step >= steps && !done) {
+			done = true;
+			event("done", "\"step\":" + step + ",\"desync\":" + engine.desyncStep());
+			CORE.annihilate();
+		}
+	}
+
+	/** The load is done: this PC's world hash, and the view it shows. */
+	public void loaded(long worldHash) {
+		event("loaded", "\"hash\":\"" + Long.toHexString(worldHash) + "\",\"view\":\"" + VIEW.current().getClass().getSimpleName()
+				+ "\",\"pop\":" + POP.tot());
+	}
+
+	/** The host's world arrived; the load starts. */
+	public void loading() {
+		event("loading", "");
+	}
+
+	/** The landing party at the first spot from the city's centre where it fits, as a click there places it. */
+	private boolean landParty() {
+		PlacableFixed p = SETT.PLACERS().landingParty;
+		int c = SETT.TWIDTH / 2;
+		whole = 0;
+		tiles = 0;
+		for (int r = 0; r < 80; r += 2) {
+			int found = spiral(c, c, r, (cx, cy) -> fits(p, cx, cy) ? 1 : 0);
+			if (found < 0)
+				continue;
+			int cx = found >> 16, cy = found & 0xFFFF;
+			p.init(cx, cy);
+			int x1 = cx - p.width() / 2, y1 = cy - p.height() / 2;
+			for (int dy = 0; dy < p.height(); dy++)
+				for (int dx = 0; dx < p.width(); dx++)
+					p.place(x1 + dx, y1 + dy, dx, dy);
+			p.afterPlaced(x1, y1);
+			return true;
+		}
+		landWhy = "city " + SETT.TWIDTH + ", placer " + p.width() + "x" + p.height() + ": " + whole + " spots refused whole (last: "
+				+ wholeWhy + "), " + tiles + " by a tile (last at " + tileAt + ")";
+		return false;
+	}
+
+	private int whole;
+	private int tiles;
+	private String wholeWhy = "";
+	private String tileAt = "";
+	private String landWhy = "";
+
+	private boolean fits(PlacableFixed p, int cx, int cy) {
+		p.init(cx, cy);
+		int x1 = cx - p.width() / 2, y1 = cy - p.height() / 2;
+		if (x1 < 1 || y1 < 1 || x1 + p.width() >= SETT.TWIDTH - 1 || y1 + p.height() >= SETT.THEIGHT - 1)
+			return false;
+		CharSequence w = p.placableWhole(x1, y1);
+		if (w != null) {
+			whole++;
+			wholeWhy = String.valueOf(w);
+			return false;
+		}
+		for (int dy = 0; dy < p.height(); dy++)
+			for (int dx = 0; dx < p.width(); dx++)
+				if (p.placable(x1 + dx, y1 + dy, dx, dy) != null) {
+					tiles++;
+					tileAt = dx + "," + dy;
+					return false;
+				}
+		return true;
+	}
+
+	/** The first point on the square ring of radius {@code r} around {@code cx, cy} that {@code ok} accepts, packed x << 16 | y; -1 if none. */
+	private static int spiral(int cx, int cy, int r, IntBinaryOperator ok) {
+		for (int d = -r; d <= r; d++) {
+			int[][] ring = r == 0 ? new int[][] {{cx, cy}} : new int[][] {{cx + d, cy - r}, {cx + d, cy + r}, {cx - r, cy + d}, {cx + r, cy + d}};
+			for (int[] pt : ring)
+				if (pt[0] >= 0 && pt[1] >= 0 && pt[0] < 0xFFFF && pt[1] < 0xFFFF && ok.applyAsInt(pt[0], pt[1]) == 1)
+					return pt[0] << 16 | pt[1];
+			if (r == 0)
+				break;
+		}
+		return -1;
+	}
+
+	/** Whether to try a retried action now: at most once a second. */
+	private boolean due() {
+		long now = System.nanoTime();
+		if (now - lastTry < RETRY_NANOS)
+			return false;
+		lastTry = now;
+		return true;
+	}
+
+	private boolean first(String what) {
+		return once.putIfAbsent(what, Boolean.TRUE) == null;
+	}
+
+	/**
+	 * One line to the events file. A line that can't be written now (the test runner reading the file holds it; laptop
+	 * T7 crashed on that) waits for the next event: lines keep their order, and a test aid never stops the game.
+	 */
+	private void event(String event, String fields) {
+		String line = "{\"t\":" + System.currentTimeMillis() + ",\"event\":\"" + event + "\"" + (fields.isEmpty() ? "" : "," + fields) + "}\n";
+		LOG.ln("SOSGSGMP autopilot: " + line.trim());
+		unwritten.append(line);
+		try {
+			Files.createDirectories(events.getParent());
+			Files.write(events, unwritten.toString().getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+			unwritten.setLength(0);
+		} catch (IOException e) {
+			if (first("unwritten"))
+				LOG.ln("SOSGSGMP autopilot: can't write " + events + " now, kept for the next event: " + e);
+		}
+	}
+
+	/** Event lines not yet in the file. */
+	private final StringBuilder unwritten = new StringBuilder();
+
+	private static String clean(String s) {
+		return s == null ? "" : s.replace('"', '\'').replace('\\', '/').replace('\n', ' ');
+	}
+}

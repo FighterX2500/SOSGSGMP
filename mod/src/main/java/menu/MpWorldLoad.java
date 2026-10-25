@@ -33,6 +33,9 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 
 	@Override
 	public CORE_STATE getState() {
+		MpAutopilot autopilot = MpAutopilot.fromEnv();
+		if (autopilot != null)
+			autopilot.loading();
 		FactionStep f = setup.factions();
 		int seed = setup.choices().seed();
 		Path file = game.saveFile(save);
@@ -50,6 +53,8 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 		}
 		game.openLanding();
 		setup.worldLoaded(game.worldHash());
+		if (autopilot != null)
+			autopilot.loaded(game.worldHash());
 		EnginePlay engine = new EnginePlay();
 		GAME.addAfterUpdate(new MpPlay(setup, engine));
 		MpSessionPanel.show(setup, game, engine);

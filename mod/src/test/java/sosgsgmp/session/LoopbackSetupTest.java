@@ -465,9 +465,9 @@ class LoopbackSetupTest {
         build(256);
         until("Bob sees Cid ready", () -> bob.step().state(2) == PlayerState.READY);
         host.generate(A);
-        until("Bob sees Cid's mismatch", () -> bob.step().state(2) == PlayerState.MISMATCH);
-        assertEquals(PlayerState.MATCH, bob.step().state(1));
-        assertEquals(PlayerState.GENERATED, bob.step().state(0));
+        // Bob's own match and Cid's mismatch reach Bob in separate messages: wait for all three
+        until("Bob sees Cid's mismatch, his own match and the host's map", () -> bob.step().state(2) == PlayerState.MISMATCH
+                && bob.step().state(1) == PlayerState.MATCH && bob.step().state(0) == PlayerState.GENERATED);
         until("Cid sees its own mismatch", () -> cid.step().state(2) == PlayerState.MISMATCH && cid.step().state(1) == PlayerState.MATCH);
 
         cid.leave();

@@ -5,6 +5,7 @@ import java.util.List;
 import init.race.RACES;
 import init.race.Race;
 import init.sprite.UI.UI;
+import menu.MpAutopilot;
 import menu.MpCursors;
 import menu.MpSetupLeave;
 import menu.MpWorldLoad;
@@ -81,13 +82,28 @@ final class MpFactions {
 	}
 
 	/** From the map step's Next, once the map is confirmed: the race screen first, as vanilla. */
-	static void open(WorldViewGenerator g, SetupSession setup) {
+	static MpFactions open(WorldViewGenerator g, SetupSession setup) {
 		if (setup.factions() == null)
 			throw new IllegalStateException("SOSGSGMP: the factions step before the map is confirmed");
 		MpFactions f = new MpFactions(g, setup);
 		f.refresh();
 		f.syncPick();
 		MpFactionStage.race(f);
+		return f;
+	}
+
+	/**
+	 * Once per frame after the game's update: the session goes on, and the world goes to the load, even when no screen
+	 * of this step is drawn. With the test autopilot (not null): names the faction, places the capital, initializes.
+	 */
+	void afterUpdate(MpAutopilot autopilot) {
+		pump(0);
+		if (leaving || autopilot == null)
+			return;
+		autopilot.factions(setup, ownX != FactionPick.NONE, (x, y) -> {
+			placeAt(x, y);
+			return ownX;
+		});
 	}
 
 	/**
