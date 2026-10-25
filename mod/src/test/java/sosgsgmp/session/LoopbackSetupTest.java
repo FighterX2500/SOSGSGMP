@@ -121,6 +121,8 @@ class LoopbackSetupTest {
         lobby = h;
         lobbies.add(h);
         JoinedLobby jb = join(h, "Bob");
+        // Cid joins once the host has Bob, so the ids follow the names: Ann 0, Bob 1, Cid 2
+        untilLobbies("Bob joined", () -> h.players().size() == 2);
         JoinedLobby jc = join(h, "Cid");
         untilLobbies("everyone joined", () -> h.players().size() == 3 && jb.players().size() == 3 && jc.players().size() == 3);
         h.start();
