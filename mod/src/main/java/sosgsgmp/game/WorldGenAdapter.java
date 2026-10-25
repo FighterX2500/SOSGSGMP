@@ -61,6 +61,7 @@ public final class WorldGenAdapter implements MapWorld {
             engine = Class.forName("sosdet.Engine", false, WorldGenAdapter.class.getClassLoader());
         } catch (ClassNotFoundException e) {
             // SOSDET isn't loaded, so no engine session can run: there is nothing to guard against.
+            LOG.ln("SOSGSGMP: sosdet.Engine not found; the map step's engine-session guard is off");
             return null;
         }
         try {
