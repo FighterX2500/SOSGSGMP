@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.16 · 2026-10-25
+Version 0.17 · 2026-10-26
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -180,7 +180,7 @@ Each fate changes the attacker's mercy as in vanilla, and with it their nobles' 
 Any player can view any other player's city, enemies included. This is intended.
 
 - **Live view:** the viewer's PC loads the city and runs it in step with its owner's city, so it stays the same city, live ([ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md)). Nothing in a viewed city can be changed.
-- **The viewer's own city is frozen** while they view another city: it doesn't run, and they can't act in it. It resumes where it stopped when the view closes. The world runs on meanwhile: it sees the frozen city as its last city report showed it, and whatever the world sends that city (deliveries, immigrants, raids) waits and is applied when the view closes.
+- **The viewer's own city is frozen** while they view another city: it is unloaded from their PC, so it doesn't run and costs nothing, and they can't act in it. It resumes where it stopped when the view closes. The world runs on meanwhile: it sees the frozen city as its last city report showed it, and whatever the world sends that city (deliveries, immigrants, raids) waits and is applied when the view closes.
 - **Watch only.** While viewing, the viewer can only watch and chat. Their armies and regions keep running on their last orders. A battle, or a prompt that needs the viewer's answer, ends the view.
 - **Only the viewer and the owner.** A view is between those two players: the host and the other players take no part, and a view never changes the game speed for anyone.
 - **Opening a view.** The owner saves their city and sends it straight to the viewer; the viewer's PC loads it and runs it fast until it catches up with the owner's city. Target: a 5-second gap closes in about 2 seconds.
@@ -195,32 +195,27 @@ Any player can view any other player's city, enemies included. This is intended.
 
 **Save before battles.** Before every real-time battle or siege assault starts, the campaign is saved the same way. If the connection is lost during the battle, the players can resume from that save.
 
-**Resuming.** Any player can host when a saved campaign is resumed. If a player is missing, their city stays frozen until they join.
+**Resuming.** Any player can host when a saved campaign is resumed. If a player is missing, the host can wait for them or start without them; a player left out is removed (see Removing a player).
 
 **Joining.** New players cannot join a campaign that is already in progress.
 
-**Removing a player.** The host can remove a player who is missing at resume or disconnected. Their city becomes an NPC city owned by a neutral faction, as with Eliminate, and they can't rejoin the campaign as a player.
+**Removing a player.** The host can remove a player who is missing at resume or disconnected. Their city and all their territory become an NPC realm owned by a neutral faction, as with Eliminate, and they can't rejoin the campaign as a player. Play goes on without them; nobody waits for them.
 
 **Host disconnect.** When the host loses connection, every player gets a popup saying the host disconnected, and the whole simulation stops: the world, every city and any battle. Play can't continue in that session. The players resume the campaign from a save with any player as host (see Resuming); the save made before the last battle is the natural point.
 
 **World desyncs.** When a player's world map differs from the host's, the game stops at the same moment for every player, and every player sees a window saying the world desynced and which player differs. The host chooses what follows; the others wait:
 
 - **Resync:** every player's game reloads the host's world, each player keeping their own city, and play continues.
-- **Save and exit:** every player saves the campaign and the session ends; it can be resumed later (see Resuming).
+- **Save and exit:** every player's game first reloads the host's world, as with Resync. Then every player saves the campaign as at a host save, and the session ends; it can be resumed later (see Resuming).
 
 The window appears on every world desync; there is no automatic resync.
 
-**Disconnects.** When a player other than the host disconnects, the whole game enters a priority pause, which only the host can unpause. After that, the rules below apply until the player reconnects.
+**Disconnects.** When a player other than the host disconnects, for any reason (the network, a crash, quitting the game), the whole game enters a priority pause, and every player sees which player is gone. The host chooses what follows; the others wait, and the pause lasts until the host chooses:
 
-| Affected | What happens |
-| --- | --- |
-| Their city | Frozen |
-| Their armies | Frozen and invulnerable; they don't block roads |
-| Caravans to or from their city | Deleted, and their goods are lost |
-| Caravans passing through their territory | Continue as normal |
-| Their territory | Cannot be attacked; other armies can pass through freely |
-| Events and raids aimed at them | Wait until they're back; a raider already on its way to them waits too |
-| A battle or siege they are in | Forfeited by the side that disconnected, attacker or defender. That player's armies and empire freeze and become invulnerable. All armies on both sides stay intact, and the other side's armies return home. |
+- **Return to the last save:** the session ends, and the players resume the campaign from its last save, the disconnected player included (see Resuming). When they dropped out of a battle, that is the save made before it.
+- **Continue without them:** the player is removed (see Removing a player), and play goes on. A battle or siege they were in is forfeited by their side, attacker or defender. All armies on both sides stay intact, and the other side's armies return home.
+
+A disconnected player never rejoins a running session; they come back only through a resume. No city is frozen because its player is gone: the only frozen city is a viewer's own city (section 10).
 
 **Elimination.** An eliminated player becomes a spectator. Spectators can view every city and battle and can use chat, but cannot act in the game.
 
@@ -289,7 +284,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - An army move ordered by one player appears on every other player's map within 1 second. [PT]
 - After 2 hours of play, every client's world hash matches the host's at every check. [AT + PT]
 - A deliberately corrupted client world stops every player's game within 2 seconds, with the desync window naming that client; after the host chooses Resync, every world is identical to the host's again within 10 seconds. [AT]
-- After the host chooses Save and exit at a world desync, every player's campaign save is written and the session ends. [AT]
+- After the host chooses Save and exit at a world desync, every player's world is the host's again, every player's campaign save is written, and the session ends; the save resumes like any campaign save. [AT]
 
 ### Pause and speed
 
@@ -356,17 +351,17 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A host autosave makes every player save at the same world tick, and the game resumes only when all saves are confirmed. [AT]
 - Before a battle or siege assault starts, every player has a confirmed campaign save from that moment. [AT]
 - A campaign saved under one host can be resumed with a different host. [PT]
-- A player missing at resume has a frozen city until they join. [AT]
+- The host can start a resume without a missing player, who is then removed. [AT]
 - A removed player's city becomes a neutral NPC city, and they can't rejoin as a player. [AT]
 
 ### Disconnects
 
 - A disconnect triggers a priority pause within 2 seconds. [PT]
 - When the host loses connection, every player sees a "host disconnected" popup and the whole simulation stops within 2 seconds. [PT]
-- A disconnected player's city, empire and armies freeze and are invulnerable, without blocking roads. [AT]
-- Events and raids aimed at a disconnected or missing player wait until they're back, raiders already on their way included. [AT]
-- In a battle or siege, the side that disconnects forfeits, and all armies stay intact. [AT]
-- A player who reconnects returns to their city and the current world state. [PT]
+- After a disconnect, nothing runs until the host chooses Return to the last save or Continue without them. [AT]
+- Return to the last save resumes every player, the disconnected one included, from the campaign's last save. [PT]
+- Continue without them turns the player's city and territory into a neutral NPC realm, with the same world hash on every PC. [AT]
+- In a battle or siege, Continue without them forfeits the disconnected player's side, and all armies stay intact. [AT]
 
 ### Chat and notifications
 
