@@ -1,5 +1,6 @@
 package sosgsgmp.session;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -24,14 +25,18 @@ import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.net.Pieces;
+import sosgsgmp.setup.FactionPick;
+import sosgsgmp.setup.FactionStep.PlayerPick;
+import sosgsgmp.setup.FactionStep.Progress;
+import sosgsgmp.setup.FactionWorld;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStatus;
 import sosgsgmp.setup.MapStep.PlayerState;
 import sosgsgmp.setup.MapWorld;
 
 /**
- * A real host and two joining PCs over localhost, from Start Lobby through the map step, with a fake world in place
- * of the game. Each PC's frame updates its session and, when a build is pending, "rebuilds" at once.
+ * A real host and two joining PCs over localhost, from Start Lobby through the map step and the picks, with a fake
+ * world in place of the game. Each PC's frame updates its session and, when a build is pending, "rebuilds" at once.
  */
 class LoopbackSetupTest {
 
@@ -42,12 +47,14 @@ class LoopbackSetupTest {
      * Terrain as a function of the options, sent as bytes that take several pieces; a per-PC offset fakes a PC whose
      * loaded map comes out different, and {@code refuse} one whose game can't load it.
      */
-    private static final class FakeWorld implements MapWorld {
+    private static final class FakeWorld implements MapWorld, FactionWorld {
         final List<MapOptions> generated = new ArrayList<>();
         final List<MapOptions> loaded = new ArrayList<>();
         long offset;
         boolean refuse;
         int locks;
+        final List<List<FactionPick>> built = new ArrayList<>();
+        String difficulty;
 
         @Override
         public Terrain generate(MapOptions options) {
@@ -95,6 +102,30 @@ class LoopbackSetupTest {
         public void lock() {
             locks++;
         }
+
+        /** The engine's rule as far as these tests need it: no closer than 6 tiles. */
+        @Override
+        public String locationProblem(int x, int y, int[] otherX, int[] otherY) {
+            for (int i = 0; i < otherX.length; i++)
+                if (Math.hypot(x - otherX[i], y - otherY[i]) < 6)
+                    return "too close";
+            return null;
+        }
+
+        /** A save over three pieces whose bytes follow the humans' names, so every PC can check it got this one. */
+        @Override
+        public byte[] buildWorld(List<FactionPick> humans, String difficulty) {
+            built.add(humans);
+            this.difficulty = difficulty;
+            return save(humans);
+        }
+
+        static byte[] save(List<FactionPick> humans) {
+            byte[] s = new byte[2 * Pieces.PIECE_BYTES + 77];
+            for (int i = 0; i < s.length; i++)
+                s[i] = (byte) (i * 31 + humans.toString().hashCode());
+            return s;
+        }
     }
 
     private final List<LobbySession> lobbies = new ArrayList<>();
@@ -127,9 +158,9 @@ class LoopbackSetupTest {
         untilLobbies("everyone joined", () -> h.players().size() == 3 && jb.players().size() == 3 && jc.players().size() == 3);
         h.start();
         untilLobbies("everyone started", () -> jb.state() == LobbyState.STARTED && jc.state() == LobbyState.STARTED);
-        host = h.handOver(hostWorld);
-        bob = jb.handOver(bobWorld);
-        cid = jc.handOver(cidWorld);
+        host = h.handOver(hostWorld, hostWorld);
+        bob = jb.handOver(bobWorld, bobWorld);
+        cid = jc.handOver(cidWorld, cidWorld);
         setups.addAll(List.of(host, bob, cid));
     }
 
@@ -197,6 +228,165 @@ class LoopbackSetupTest {
         assertEquals(1, bobWorld.locks);
         assertEquals(host.step().hash(), cid.step().confirmedHash());
         assertFalse(host.step().canGenerate());
+    }
+
+    /** Through the map step to the confirm on every PC. */
+    private void confirmMap() throws Exception {
+        startSetup();
+        build(256);
+        host.generate(A);
+        until("matching results", host.step()::canConfirm);
+        host.confirm();
+        until("factions everywhere", () -> bob.factions() != null && cid.factions() != null);
+    }
+
+    private static FactionPick pick(String name, int x, int y) {
+        return new FactionPick("HUMAN", name, new byte[] {1, 2, 3}, x, y);
+    }
+
+    private static List<String> names(SetupSession s) {
+        return s.factions().table().stream().map(p -> p.pick().name()).toList();
+    }
+
+    @Test
+    void picksReachEveryPcInTheHostsOrder() throws Exception {
+        confirmMap();
+        assertThrows(IllegalStateException.class, () -> host.factions().onPicks(List.of()), "the host decides; it follows no table");
+        cid.pick(pick("Cid", 40, 40));
+        bob.pick(pick("Bob", FactionPick.NONE, FactionPick.NONE));
+        host.pick(pick("Ann", 10, 10));
+        until("every pick on every PC", () -> names(bob).size() == 3 && names(cid).size() == 3);
+        assertEquals(List.of("Ann", "Bob", "Cid"), names(bob), "the host first, then the join order");
+        assertEquals(host.factions().table(), cid.factions().table());
+        assertFalse(host.factions().canInitialize(), "Bob has no location");
+
+        bob.pick(pick("Bob", 20, 10));
+        until("Bob's location on the host", host.factions()::canInitialize);
+    }
+
+    @Test
+    void aLocationTooCloseIsClearedOnEveryPc() throws Exception {
+        confirmMap();
+        host.pick(pick("Ann", 10, 10));
+        until("Ann's pick on Bob's PC", () -> names(bob).size() == 1);
+        assertEquals("too close", bob.locationProblem(12, 12), "Bob's PC checks before it sends");
+        assertEquals(null, bob.locationProblem(30, 30));
+        bob.pick(pick("Bob", 12, 12));
+        until("Bob's refusal on Cid's PC", () -> names(cid).size() == 2);
+        PlayerPick refused = cid.factions().table().get(1);
+        assertFalse(refused.pick().hasLocation());
+        assertEquals("too close", refused.refused());
+        assertEquals(refused, bob.factions().table().get(1), "Bob sees why too");
+        assertEquals(pick("Bob", 12, 12), bob.factions().ownPick(), "this PC's own pick stays as sent until it changes it");
+    }
+
+    @Test
+    void aPlayerLeavingDuringThePicksLeavesEveryTable() throws Exception {
+        confirmMap();
+        host.pick(pick("Ann", 10, 10));
+        bob.pick(pick("Bob", 20, 10));
+        cid.pick(pick("Cid", 30, 10));
+        until("three picks on Bob's PC", () -> names(bob).size() == 3);
+        cid.leave();
+        until("Cid gone from Bob's table", () -> names(bob).equals(List.of("Ann", "Bob")));
+        assertTrue(host.factions().canInitialize());
+    }
+
+    /** Through the picks, every player with a location, to the host's Initialize World; returns the host's save. */
+    private byte[] initialize() throws Exception {
+        confirmMap();
+        host.pick(pick("Ann", 10, 10));
+        bob.pick(pick("Bob", 20, 10));
+        cid.pick(pick("Cid", 30, 10));
+        until("every location on the host", host.factions()::canInitialize);
+        host.initialize();
+        return host.takeWorld();
+    }
+
+    /** Runs the frames until this PC has the whole save, and takes it. */
+    private byte[] world(SetupSession s) throws InterruptedException {
+        byte[][] got = new byte[1][];
+        until("the world on a joining PC", () -> (got[0] = s.takeWorld()) != null);
+        return got[0];
+    }
+
+    @Test
+    void initializeBuildsOnceAndSendsTheSaveToEveryPc() throws Exception {
+        byte[] save = initialize();
+        assertEquals(1, hostWorld.built.size());
+        assertEquals(List.of("Ann", "Bob", "Cid"), hostWorld.built.get(0).stream().map(FactionPick::name).toList(), "slot order");
+        assertEquals("normal", hostWorld.difficulty, "the lobby's difficulty");
+        assertTrue(bobWorld.built.isEmpty() && cidWorld.built.isEmpty(), "only the host builds");
+        assertArrayEquals(FakeWorld.save(hostWorld.built.get(0)), save);
+        assertEquals(null, host.takeWorld(), "taken once");
+        assertArrayEquals(save, world(bob));
+        assertArrayEquals(save, world(cid));
+        assertEquals(1, bob.factions().slotOf(1));
+        assertEquals(2, cid.factions().slotOf(2));
+        assertFalse(host.factions().canInitialize(), "the picks are locked");
+    }
+
+    @Test
+    void everyPcsLoadReachesEveryPc() throws Exception {
+        initialize();
+        world(bob);
+        world(cid);
+        host.worldLoaded(77);
+        bob.worldLoaded(77);
+        cid.worldLoaded(78);
+        until("every load on the host", () -> host.factions().progress(1) == Progress.LANDING && host.factions().progress(2) == Progress.MISMATCH);
+        until("Cid's mismatch on Bob's PC", () -> bob.factions().progress(2) == Progress.MISMATCH && bob.factions().progress(0) == Progress.LANDING);
+        until("Bob loaded on Cid's PC", () -> cid.factions().progress(1) == Progress.LANDING);
+    }
+
+    @Test
+    void theGameStartsEverywhereOnceEveryLandingPartyIsPlaced() throws Exception {
+        initialize();
+        world(bob);
+        world(cid);
+        host.worldLoaded(77);
+        bob.worldLoaded(77);
+        cid.worldLoaded(77);
+        bob.startSpot();
+        host.startSpot();
+        until("Ann and Bob ready on Cid's PC", () -> cid.factions().progress(0) == Progress.READY && cid.factions().progress(1) == Progress.READY);
+        assertFalse(host.factions().started() || cid.factions().started(), "Cid hasn't placed");
+        until("Cid still landing on Bob's PC", () -> bob.factions().progress(2) == Progress.LANDING);
+        cid.startSpot();
+        until("started everywhere", () -> host.factions().started() && bob.factions().started() && cid.factions().started());
+    }
+
+    @Test
+    void aWorldThatDiffersNeverStarts() throws Exception {
+        initialize();
+        world(bob);
+        world(cid);
+        host.worldLoaded(77);
+        bob.worldLoaded(77);
+        cid.worldLoaded(78);
+        host.startSpot();
+        bob.startSpot();
+        cid.startSpot();
+        until("every start spot on the host", () -> host.factions().progress(1) == Progress.READY && host.factions().progress(2) == Progress.MISMATCH);
+        until("Bob sees Cid's mismatch", () -> bob.factions().progress(2) == Progress.MISMATCH);
+        assertFalse(host.factions().started());
+        assertFalse(bob.factions().started());
+    }
+
+    @Test
+    void aPlayerLeavingAfterTheBuildEndsTheSetup() throws Exception {
+        initialize();
+        world(bob);
+        cid.leave();
+        until("the setup closed everywhere", () -> host.closed() && bob.closed());
+        assertEquals("Cid left after the world was built; the game can't start without them.", host.closedReason());
+    }
+
+    @Test
+    void picksBeforeTheConfirmAreRefused() throws Exception {
+        startSetup();
+        assertThrows(IllegalStateException.class, () -> host.pick(pick("Ann", 10, 10)));
+        assertThrows(IllegalStateException.class, () -> bob.pick(pick("Bob", 10, 10)));
     }
 
     @Test
@@ -284,6 +474,31 @@ class LoopbackSetupTest {
         host.generate(big);
         until("matching results at 512", host.step()::canConfirm);
         assertEquals(List.of(A, big), bobWorld.loaded);
+    }
+
+    @Test
+    void aCursorReachesEveryOtherPcAndGoesWhenItsPlayerLeaves() throws Exception {
+        confirmMap();
+        bob.cursor(true, 120, 340);
+        until("Bob's cursor on the host and on Cid's PC", () -> at(host, 1, 120, 340) && at(cid, 1, 120, 340));
+        assertEquals(0, bob.cursors().count(), "a PC doesn't see its own");
+        host.cursor(true, 5, 6);
+        until("Ann's cursor on Bob's PC", () -> at(bob, 0, 5, 6));
+        bob.cursor(false, 0, 0);
+        until("Bob's cursor off the map on Cid's PC", () -> cid.cursors().count() == 1);
+        cid.cursor(true, 1, 1);
+        until("Cid's cursor on the host", () -> at(host, 2, 1, 1));
+        cid.leave();
+        until("Cid's cursor gone with Cid", () -> host.cursors().count() == 0 && bob.players().size() == 2 && !at(bob, 2, 1, 1));
+    }
+
+    /** Whether {@code s} shows player {@code id}'s cursor at {@code x, y}. */
+    private static boolean at(SetupSession s, int id, int x, int y) {
+        Cursors c = s.cursors();
+        for (int i = 0; i < c.count(); i++)
+            if (c.playerId(i) == id)
+                return c.x(i) == x && c.y(i) == y;
+        return false;
     }
 
     @Test

@@ -3,6 +3,8 @@ package sosgsgmp.session;
 import java.util.List;
 
 import sosgsgmp.lobby.LobbyPlayer;
+import sosgsgmp.setup.FactionPick;
+import sosgsgmp.setup.FactionStep;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStep;
 
@@ -49,6 +51,48 @@ public interface SetupSession {
 
     /** Host: locks the map on every PC. Check {@link MapStep#canConfirm()} first. */
     void confirm();
+
+    /** The factions step once the map is confirmed, for reading; null before. It changes only through this session. */
+    FactionStep factions();
+
+    /**
+     * This PC's latest picks, sent whenever they change: the host records them at once (checking the location as it
+     * checks everyone's), a joining PC sends them to the host. Only once the map is confirmed.
+     */
+    void pick(FactionPick pick);
+
+    /**
+     * Why this PC's location can't be at world tile {@code x, y}: the engine's rule with the other players' locations
+     * as this PC knows them; null when it can. Only once the map is confirmed.
+     */
+    String locationProblem(int x, int y);
+
+    /**
+     * Host: builds the world around every player's picks, locks them, and sends every PC its slot and the save; this
+     * PC loads it too ({@link #takeWorld}). Check {@link FactionStep#canInitialize()} first.
+     */
+    void initialize();
+
+    /** The host's world save, once it is all here, for this PC to load; returned once, null otherwise. */
+    byte[] takeWorld();
+
+    /** This PC loaded the host's world: its world hash at step 0, which every PC's must match. */
+    void worldLoaded(long hash);
+
+    /**
+     * This PC's landing party is placed, after its load. When every PC's is, the host starts the game on every PC
+     * ({@link FactionStep#started()}), at the same moment (spec §5.5).
+     */
+    void startSpot();
+
+    /**
+     * This PC's cursor: on the world map at world pixel {@code x, y}, or off it. Call every frame; it goes out only when
+     * it changed, at most 10 times a second ({@link Cursors}).
+     */
+    void cursor(boolean onMap, int x, int y);
+
+    /** The other players' cursors on the world map, for reading. */
+    Cursors cursors();
 
     /** Leaves the setup (the host closes it for everyone) and frees the connection. */
     void leave();

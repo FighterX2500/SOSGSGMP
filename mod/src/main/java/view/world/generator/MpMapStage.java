@@ -4,14 +4,13 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import init.sprite.UI.UI;
-import menu.Menu;
+import menu.MpSetupLeave;
 import snake2d.CORE;
 import snake2d.CORE_STATE;
 import snake2d.SPRITE_RENDERER;
 import snake2d.util.color.COLOR;
 import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.renderable.RENDEROBJ;
-import snake2d.util.misc.ACTION;
 import snake2d.util.sprite.text.StringInputSprite;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
@@ -34,8 +33,8 @@ import view.main.VIEW;
  * right after the game is built, while the generator view keeps drawing the world map. It sits in the generator's
  * package because reset(), dummy, minimap and the stage flags are package-private (docs/hooks.md, note next to M1).
  * The panel's render pumps the session once per frame (Intr always renders it); texts are rebuilt only when the
- * session reports a change. Leave closes the session and returns to the main menu the way vanilla's "quit to menu"
- * does (view/menu/IMenu.exit2Menu).
+ * session reports a change. Once the map is confirmed, Next opens the factions step ({@link MpFactions}): from a click,
+ * as vanilla's stages switch, never from inside the frame's render.
  */
 public final class MpMapStage {
 
@@ -43,6 +42,7 @@ public final class MpMapStage {
 	private static final int LABEL_WIDTH = 150;
 	private static final int TEXT_WIDTH = 300;
 
+	private final WorldViewGenerator g;
 	private final SetupSession setup;
 	private final List<String> mapTypes;
 	private final CORE_STATE.Constructor rebuild;
@@ -65,6 +65,8 @@ public final class MpMapStage {
 	private int shownChanges = -1;
 	private boolean canGenerate;
 	private boolean canConfirm;
+	/** The map is confirmed and this PC's matches it: the factions step can open. */
+	private boolean canGoOn;
 	private final GText sizeText = new GText(UI.FONT().H2, 16);
 	private final GText typeText = new GText(UI.FONT().H2, MapOptions.MAX_MAP_TYPE + 32);
 	private final GText latitudeText = new GText(UI.FONT().H2, 16);
@@ -85,7 +87,7 @@ public final class MpMapStage {
 		g.reset();
 		// Spec §5: no titles during setup.
 		g.hasSelectedTitles = true;
-		MpMapStage stage = new MpMapStage(setup, mapTypes, rebuild);
+		MpMapStage stage = new MpMapStage(g, setup, mapTypes, rebuild);
 		g.dummy.add(stage.panel, "map");
 		// Intr centres the panel; move it to the left so the map stays in view.
 		stage.panel.body().moveX1(16);
@@ -93,7 +95,8 @@ public final class MpMapStage {
 			g.minimap.show();
 	}
 
-	private MpMapStage(SetupSession setup, List<String> mapTypes, CORE_STATE.Constructor rebuild) {
+	private MpMapStage(WorldViewGenerator g, SetupSession setup, List<String> mapTypes, CORE_STATE.Constructor rebuild) {
+		this.g = g;
 		this.setup = setup;
 		this.mapTypes = mapTypes;
 		this.rebuild = rebuild;
@@ -121,7 +124,20 @@ public final class MpMapStage {
 				COLOR.unbind();
 			}
 		});
-		panel.addDown(12, leaveButton());
+		GuiSection buttons = new GuiSection();
+		buttons.add(new GButt.ButtPanel("next") {
+			@Override
+			protected void clickA() {
+				MpFactions.open(g, setup);
+			}
+
+			@Override
+			protected void renAction() {
+				activeSet(canGoOn);
+			}
+		});
+		buttons.addRightC(16, MpSetupLeave.button(setup, () -> leaving = true));
+		panel.addDown(12, buttons);
 		refresh();
 	}
 
@@ -208,31 +224,6 @@ public final class MpMapStage {
 			}
 		});
 		panel.addDown(16, buttons);
-	}
-
-	/** Every PC can leave: the host ends the setup for everyone, a joining PC drops out of it. */
-	private GButt.ButtPanel leaveButton() {
-		return new GButt.ButtPanel("leave") {
-			@Override
-			protected void clickA() {
-				if (setup.closed()) {
-					toMainMenu();
-					return;
-				}
-				VIEW.inters().yesNo.activate(setup.isHost() ? "Leave and end the setup for every player?"
-						: "Leave the setup? The others go on without you.", MpMapStage.this::leave, ACTION.NOP, true);
-			}
-		};
-	}
-
-	private void leave() {
-		setup.leave();
-		toMainMenu();
-	}
-
-	private void toMainMenu() {
-		leaving = true;
-		CORE.setCurrentState(Menu::make);
 	}
 
 	private void addHostChoices() {
@@ -325,6 +316,7 @@ public final class MpMapStage {
 		MapStep step = setup.step();
 		canGenerate = !setup.closed() && step.canGenerate();
 		canConfirm = !setup.closed() && step.canConfirm();
+		canGoOn = !setup.closed() && step.confirmed() && step.hash() == step.confirmedHash() && setup.factions() != null;
 
 		sizeText.clear().add(setup.isHost() ? size : step.size());
 		if (!setup.isHost()) {
@@ -367,7 +359,7 @@ public final class MpMapStage {
 		else if (step.confirmed() && step.hash() != step.confirmedHash())
 			status.add("The host confirmed a map that differs from yours.");
 		else if (step.confirmed())
-			status.add("Map confirmed. Race, faction and location come next.");
+			status.add("Map confirmed. Next: race, faction and location.");
 		else if (!setup.isHost())
 			status.add("The host picks the map and confirms it. Talk it over; there is no vote.");
 		else if (canConfirm)
