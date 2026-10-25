@@ -30,7 +30,13 @@ Written 2026-10-25, end of day, after SOS-64. It covers both repositories. SOSDE
 2. SOSGSGMP #39 (SOS-64): campaign saves and Load Saved Lobby. Plan and test results: [campaign-saves.md](campaign-saves.md).
 3. The docs PRs from this handoff, one per repository (`docs-status-2026-10-25`).
 
-**Jira.** The owner closes cards. Cards with merged PRs that look ready to close: SOS-31, SOS-46, SOS-51 (spec), SOS-52, SOS-53, SOS-54, SOS-55, SOS-56, SOS-57, SOS-59, SOS-60, SOS-61, SOS-62, SOS-63. SOS-58 (cursors) was built inside SOS-56 and SOS-57, for the setup map and the world map; cursors in cities are still to do. SOS-64 closes once its two PRs are merged.
+**Jira** (cleaned up 2026-10-25 at the owner's request). Every card with a merged PR is Done. Open:
+- SOS-64: In Review.
+- SOS-58: In Progress. Cursors are built on the setup map and the world map, not yet in cities.
+- The epics SOS-22 (engine) and SOS-47 (mod).
+- The planning cards SOS-18, SOS-19 and SOS-21.
+
+From now on, move a card to In Review when its PR opens. When the PR merges, comment with it and move the card to Done, so cards don't pile up again.
 
 **Installed for play.** This PC's `%APPDATA%\songsofsyx\mods` and the laptop's hold the SOS-64 builds of both mods. `C:\ClaudeFolder\SOSGSGMP-playtest-2026-10-25.zip` holds the same builds for a friend, with a README and `send-logs.cmd`.
 
