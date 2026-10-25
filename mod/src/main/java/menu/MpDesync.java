@@ -64,7 +64,8 @@ final class MpDesync {
 			message = setup.isHost()
 					? "The world desynced at step " + h.desyncStep + ": " + differs(h.pc) + "'s world differs from yours.\n"
 							+ "Resync: every player's game reloads your world, each keeping their own city.\n"
-							+ "Save and exit: every player saves the campaign and the session ends."
+							+ "Save and exit: every player saves their game here and the session ends. It can't be resumed as a "
+							+ "campaign: Load Saved Lobby resumes from the last campaign save."
 					: "The world desynced at step " + h.desyncStep + ": " + differs(h.pc) + "'s world differs from the host's.\n"
 							+ "Waiting for the host to resync, or to save and exit.";
 			show();

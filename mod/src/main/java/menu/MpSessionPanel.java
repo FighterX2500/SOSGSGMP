@@ -236,7 +236,7 @@ final class MpSessionPanel extends Interrupter {
 		else if (mismatch)
 			status.add("A player's world differs from the host's, so the game can't start. Leave, and start a new setup.");
 		else if (setup.playing() && engine.desyncStep() >= 0)
-			status.add("The worlds differ from step ").add(engine.desyncStep()).add(" on: a desync. (The desync window and resync are a later card.)");
+			status.add("The worlds differ from step ").add(engine.desyncStep()).add(" on: a desync. The host chooses Resync or Save and exit.");
 		else if (setup.playing()) {
 			status.add("Playing: step ").add(engine.step()).add(", speed ").add(engine.agreedSpeed(), 1).add("x. The slowest PC sets the pace.");
 			if (!saves.status().isEmpty())
