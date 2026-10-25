@@ -23,15 +23,11 @@ Written 2026-10-25, end of day, after SOS-64. It covers both repositories. SOSDE
 - Steam lobbies and P2P (SOS-60);
 - battles: the battle PC sends its battle save, and every PC runs the battle (SOS-61 engine, SOS-62 mod);
 - a playtest log on every PC (SOS-63);
-- campaign saves and resume (SOS-64, open PRs, below).
+- campaign saves and resume (SOS-64: SOSGSGMP #39 with the engine fix SOSDET #38). Plan and test results: [campaign-saves.md](campaign-saves.md).
 
-**Open PRs.** Merge in this order:
-1. SOSDET #38 (SOS-64): the statics reset at a session load waits until a game exists. Without it, a resume crashes on every PC.
-2. SOSGSGMP #39 (SOS-64): campaign saves and Load Saved Lobby. Plan and test results: [campaign-saves.md](campaign-saves.md).
-3. The docs PRs from this handoff, one per repository (`docs-status-2026-10-25`).
+**Open PRs.** None in either repository (2026-10-26). SOSDET #38, SOSGSGMP #39 and the docs PRs SOSGSGMP #40 and SOSDET #39 are merged.
 
-**Jira** (cleaned up 2026-10-25 at the owner's request). Every card with a merged PR is Done. Open:
-- SOS-64: In Review.
+**Jira** (cleaned up 2026-10-25 at the owner's request; SOS-64 Done 2026-10-26). Every card with a merged PR is Done. Open:
 - SOS-58: In Progress. Cursors are built on the setup map and the world map, not yet in cities.
 - The epics SOS-22 (engine) and SOS-47 (mod).
 - The planning cards SOS-18, SOS-19 and SOS-21.
