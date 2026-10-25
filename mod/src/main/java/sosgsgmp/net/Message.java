@@ -238,9 +238,6 @@ public sealed interface Message {
         }
     }
 
-    /** Host to every joined PC, at a world desync: the host chose Save and exit at step {@code step}; every PC saves. */
-    record DesyncExit(long step) implements Message {}
-
     /** Host to every joined PC: save the campaign at the order's step (spec §11, SOS-64). */
     record SaveAt(SaveOrder order) implements Message {}
 

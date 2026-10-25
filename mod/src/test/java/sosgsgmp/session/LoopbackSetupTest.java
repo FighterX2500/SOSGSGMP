@@ -457,13 +457,23 @@ class LoopbackSetupTest {
     }
 
     @Test
-    void saveAndExitReachesEveryPc() throws Exception {
+    void saveAndExitsCampaignSaveReachesEveryPcAsOneThatEndsTheSession() throws Exception {
         playing(new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
-        assertEquals(-1, bob.exitStep());
-        host.desyncExit(900);
-        assertEquals(900, host.exitStep());
-        playUntil("save and exit at both joiners", () -> bob.exitStep() == 900 && cid.exitStep() == 900);
-        assertThrows(IllegalStateException.class, () -> cid.desyncExit(900), "only the host chooses");
+        SaveOrder order = new SaveOrder(1, 960, CampaignRecord.Kind.SAVE, 0, host.campaign(), true);
+        host.orderSave(order);
+        assertEquals(order, host.takeSaveOrder());
+        SaveOrder[] got = new SaveOrder[2];
+        playUntil("the order at both joiners", () -> {
+            if (got[0] == null)
+                got[0] = bob.takeSaveOrder();
+            if (got[1] == null)
+                got[1] = cid.takeSaveOrder();
+            return got[0] != null && got[1] != null;
+        });
+        assertEquals(order, got[0]);
+        assertEquals(order, got[1]);
+        assertTrue(got[0].exit() && got[1].exit(), "the session ends after it on every PC");
+        assertThrows(IllegalStateException.class, () -> cid.orderSave(order), "only the host chooses Save and exit");
     }
 
     @Test
@@ -473,11 +483,11 @@ class LoopbackSetupTest {
         assertEquals(List.of(new Campaign.Player("Ann".hashCode(), "Ann", 0), new Campaign.Player("Bob".hashCode(), "Bob", 1),
                 new Campaign.Player("Cid".hashCode(), "Cid", 2)), c.players(), "every player's key and slot");
         assertNull(bob.campaign(), "a joining PC learns the campaign from the first save order");
-        SaveOrder order = new SaveOrder(1, 660, CampaignRecord.Kind.SAVE, 0, c);
+        SaveOrder order = new SaveOrder(1, 660, CampaignRecord.Kind.SAVE, 0, c, false);
         host.orderSave(order);
         assertEquals(order, host.takeSaveOrder());
         assertNull(host.takeSaveOrder(), "taken once");
-        assertThrows(IllegalStateException.class, () -> host.orderSave(new SaveOrder(2, 700, CampaignRecord.Kind.AUTO, 3, c)),
+        assertThrows(IllegalStateException.class, () -> host.orderSave(new SaveOrder(2, 700, CampaignRecord.Kind.AUTO, 3, c, false)),
                 "one save at a time");
         SaveOrder[] got = new SaveOrder[2];
         playUntil("the order at both joiners", () -> {
@@ -510,7 +520,7 @@ class LoopbackSetupTest {
         for (String o : done)
             assertEquals("Cid's world differs from the host's", o);
         assertNull(host.takeSaveDone(1), "given once");
-        host.orderSave(new SaveOrder(2, 700, CampaignRecord.Kind.AUTO, 3, c)); // the next save can start
+        host.orderSave(new SaveOrder(2, 700, CampaignRecord.Kind.AUTO, 3, c, false)); // the next save can start
         assertThrows(IllegalStateException.class, () -> bob.orderSave(order), "only the host orders saves");
     }
 

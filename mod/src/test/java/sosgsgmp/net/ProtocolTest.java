@@ -57,11 +57,9 @@ class ProtocolTest {
             new Message.Cursor(0, false, 0, 0),
             new Message.Resync(1, 0, 0, 1, new byte[0]),
             new Message.Resync(Integer.MAX_VALUE, Long.MAX_VALUE, 2, 3, new byte[Pieces.PIECE_BYTES]),
-            new Message.DesyncExit(0),
-            new Message.DesyncExit(Long.MAX_VALUE),
             new Message.Welcome(3, LobbySettings.resuming(new LobbySettings.Resume(CampaignStoreTest.CAMPAIGN_FOR_TESTS, 12))),
-            new Message.SaveAt(new SaveOrder(1, 0, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS)),
-            new Message.SaveAt(new SaveOrder(Integer.MAX_VALUE, Long.MAX_VALUE, CampaignRecord.Kind.AUTO, 10, CampaignStoreTest.CAMPAIGN_FOR_TESTS)),
+            new Message.SaveAt(new SaveOrder(1, 0, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, false)),
+            new Message.SaveAt(new SaveOrder(Integer.MAX_VALUE, Long.MAX_VALUE, CampaignRecord.Kind.AUTO, 10, CampaignStoreTest.CAMPAIGN_FOR_TESTS, true)),
             new Message.Saved(2, Long.MIN_VALUE, ""),
             new Message.Saved(2, 0, "past the save step"),
             new Message.SaveDone(5, ""),
@@ -155,9 +153,6 @@ class ProtocolTest {
         badStep[3] = (byte) 0x80; // the step's top byte, after the version and the type: negative
         assertThrows(IOException.class, () -> Protocol.decode(badStep));
         assertRefused(new Message.Resync(1, 5, 1, 1, new byte[] {1}));
-        byte[] exit = Protocol.encode(new Message.DesyncExit(5));
-        exit[3] = (byte) 0x80;
-        assertThrows(IOException.class, () -> Protocol.decode(exit));
 
         byte[] build = Protocol.encode(new Message.MapBuild(1, 256));
         assertThrows(IOException.class, () -> Protocol.decode(Arrays.copyOf(build, build.length - 1)));

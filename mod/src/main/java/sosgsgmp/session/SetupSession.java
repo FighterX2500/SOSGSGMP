@@ -118,12 +118,6 @@ public interface SetupSession {
     /** The host's latest world resync once all of it is here, for this PC to load at its step; returned once, else null. */
     WorldResync takeResync();
 
-    /** Host, at a world desync, Save and exit chosen at {@code step}: every PC saves its game and the session ends. */
-    void desyncExit(long step);
-
-    /** The step the host chose Save and exit at, or -1. */
-    long exitStep();
-
     /** Leaves the setup (the host closes it for everyone) and frees the connection. */
     void leave();
 

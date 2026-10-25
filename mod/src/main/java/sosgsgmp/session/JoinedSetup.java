@@ -41,7 +41,6 @@ public final class JoinedSetup implements SetupSession {
     private final Pieces.Receiver resyncParts = new Pieces.Receiver();
     /** The host's latest world resync once all of it is here, until this PC takes it to load; null otherwise. */
     private WorldResync resync;
-    private long exitStep = -1;
     private Campaign campaign;
     /** The host's latest save order, until this PC takes it. */
     private SaveOrder saveOrder;
@@ -146,7 +145,6 @@ public final class JoinedSetup implements SetupSession {
                     close("The host sent a broken world resync: " + e.getMessage());
                 }
             }
-            case Message.DesyncExit d when link != null -> exitStep = d.step();
             case Message.SaveAt s when link != null -> {
                 saveOrder = s.order();
                 campaign = s.order().campaign();
@@ -222,16 +220,6 @@ public final class JoinedSetup implements SetupSession {
         WorldResync r = resync;
         resync = null;
         return r;
-    }
-
-    @Override
-    public void desyncExit(long step) {
-        throw new IllegalStateException("SOSGSGMP: only the host chooses Save and exit");
-    }
-
-    @Override
-    public long exitStep() {
-        return exitStep;
     }
 
     @Override

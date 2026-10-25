@@ -30,7 +30,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 9;
+    public static final int VERSION = 10;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -39,7 +39,7 @@ public final class Protocol {
     private static final int MAP_BUILD = 7, BUILD_READY = 8, MAP_GENERATE = 9, MAP_RESULT = 10, MAP_CONFIRM = 11, MAP_PLAYERS = 12;
     private static final int MAP_TERRAIN = 13;
     private static final int PICK = 14, PICKS = 15, SLOT_MAP = 16, WORLD_PART = 17, LOADED = 18, START_SPOT = 19, GO = 20, WORLD_PLAYERS = 21;
-    private static final int CURSOR = 22, STREAM = 23, RESYNC = 24, DESYNC_EXIT = 25;
+    private static final int CURSOR = 22, STREAM = 23, RESYNC = 24; // 25 was Save and exit's own message, until SOS-68
     private static final int SAVE_AT = 26, SAVED = 27, SAVE_DONE = 28;
     /** Largest piece of an engine stream in one message, in bytes: well under {@link #MAX_MESSAGE}. */
     public static final int MAX_STREAM_PIECE = 48 * 1024;
@@ -198,10 +198,6 @@ public final class Protocol {
                     out.writeLong(r.step());
                     writePiece(out, r.transfer(), r.index(), r.count(), r.bytes());
                 }
-                case Message.DesyncExit d -> {
-                    out.writeByte(DESYNC_EXIT);
-                    out.writeLong(d.step());
-                }
                 case Message.SaveAt s -> {
                     out.writeByte(SAVE_AT);
                     SaveOrder o = s.order();
@@ -210,6 +206,7 @@ public final class Protocol {
                     out.writeByte(o.kind().ordinal());
                     out.writeByte(o.keep());
                     writeCampaign(out, o.campaign());
+                    out.writeBoolean(o.exit());
                 }
                 case Message.Saved s -> {
                     out.writeByte(SAVED);
@@ -274,7 +271,6 @@ public final class Protocol {
                 Piece p = piece(in, "transfer", "resync");
                 yield new Message.Resync(p.number(), step, p.index(), p.count(), p.data());
             }
-            case DESYNC_EXIT -> new Message.DesyncExit(step(in, "save and exit"));
             case SAVE_AT -> saveAt(in);
             case SAVED -> new Message.Saved(number(in, "save"), in.readLong(), text(in, MAX_REASON, "save problem"));
             case SAVE_DONE -> new Message.SaveDone(number(in, "save"), text(in, MAX_OUTCOME, "save outcome"));
@@ -356,7 +352,8 @@ public final class Protocol {
         if (kind >= kinds.length)
             throw new IOException("SOSGSGMP: unknown save kind " + kind);
         int keep = in.readUnsignedByte();
-        return new Message.SaveAt(new SaveOrder(number, step, kinds[kind], keep, campaign(in)));
+        Campaign campaign = campaign(in);
+        return new Message.SaveAt(new SaveOrder(number, step, kinds[kind], keep, campaign, in.readBoolean()));
     }
 
     private static Message.Roster roster(DataInputStream in) throws IOException {

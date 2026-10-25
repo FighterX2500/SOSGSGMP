@@ -16,39 +16,43 @@ import view.main.VIEW;
 /**
  * SOSGSGMP: the desync window (spec §11 World desyncs, SOS-59). When the engine holds every PC at a world desync, every
  * player sees which player's world differs; the host chooses Resync (its world goes to every PC, each keeping its own
- * city, and play continues) or Save and exit (every PC saves its game and the session ends); the others wait. Once per
- * frame from {@link MpPlay}, between steps. The window is vanilla's full-screen prompt, shown again if clicked away
- * while the hold lasts.
+ * city, and play continues) or Save and exit (the same resync, then a campaign save on every PC, and the session ends;
+ * SOS-68); the others wait. Once per frame from {@link MpPlay}, between steps. The window is vanilla's full-screen
+ * prompt, shown again if clicked away while the hold or the save lasts.
  */
 final class MpDesync {
 
 	private final SetupSession setup;
 	private final EnginePlay engine;
 	private final WorldSetupAdapter game;
+	private final MpSaves saves;
 	/** The hold the window shows; null when there is none. */
 	private DesyncHold shown;
 	/** Host: Resync chosen for {@link #shown}, and whether its resync went out. */
 	private boolean resyncChosen, resyncSent;
+	/** Host: Save and exit chosen; the save is ordered once the resync has loaded. */
+	private boolean exitChosen;
 	/** The host's resync, until this PC reaches its step and loads it. */
 	private WorldResync pending;
 	/** The step of the last resync this PC loaded; -1 before the first. */
 	private long resyncedStep = -1;
-	/** The save's file name after Save and exit; null before. */
-	private String saved;
+	/** After Save and exit ended the session: the campaign save's outcome, empty when every PC saved; null before. */
+	private String exitOutcome;
 	private CharSequence message = "";
 
-	MpDesync(SetupSession setup, EnginePlay engine, WorldSetupAdapter game) {
+	MpDesync(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpSaves saves) {
 		this.setup = setup;
 		this.engine = engine;
 		this.game = game;
+		this.saves = saves;
 	}
 
-	/** Once per frame while playing, even after the session closed: Save and exit closes it on every PC. */
+	/** Once per frame while playing, even after the session closed: Save and exit ends it on every PC. */
 	void frame() {
-		if (saved != null)
+		if (exitOutcome != null)
 			return;
-		if (setup.exitStep() >= 0) {
-			exit(setup.exitStep());
+		if (saves.exited() != null) {
+			exit(saves.exited());
 			return;
 		}
 		if (setup.closed())
@@ -61,11 +65,12 @@ final class MpDesync {
 			shown = h;
 			resyncChosen = false;
 			resyncSent = false;
+			exitChosen = false;
 			message = setup.isHost()
 					? "The world desynced at step " + h.desyncStep + ": " + differs(h.pc) + "'s world differs from yours.\n"
 							+ "Resync: every player's game reloads your world, each keeping their own city.\n"
-							+ "Save and exit: every player saves their game here and the session ends. It can't be resumed as a "
-							+ "campaign: Load Saved Lobby resumes from the last campaign save."
+							+ "Save and exit: the same resync, then every player saves the campaign and the session ends. Load "
+							+ "Saved Lobby resumes it."
 					: "The world desynced at step " + h.desyncStep + ": " + differs(h.pc) + "'s world differs from the host's.\n"
 							+ "Waiting for the host to resync, or to save and exit.";
 			show();
@@ -75,7 +80,11 @@ final class MpDesync {
 			resyncSent = true;
 		}
 		load();
-		if (shown != null && !VIEW.inters().fullScreen.isActivated())
+		if (exitChosen && shown == null && saves.canSave()) {
+			saves.saveAndExit();
+			exitChosen = false;
+		}
+		if ((shown != null || saves.exiting()) && !VIEW.inters().fullScreen.isActivated())
 			show();
 	}
 
@@ -101,16 +110,17 @@ final class MpDesync {
 		}
 	}
 
-	/** Every PC: saves its game, ends the session and the engine, and offers the main menu. */
-	private void exit(long step) {
-		saved = game.saveGame("Multiplayer step " + step);
+	/** Every PC, once the campaign save that ends the session is done: ends the session and the engine, and offers the main menu. */
+	private void exit(String outcome) {
+		exitOutcome = outcome;
 		if (!setup.closed())
 			setup.leave();
 		game.endSession();
 		GAME.SPEED.speedSet(0);
 		shown = null;
-		VIEW.inters().fullScreen.activate("The host chose Save and exit after a world desync.\nYour game is saved as " + saved
-				+ ".\nThe session has ended.", COLOR.WHITE100, null, new GButt.ButtPanel("Main menu") {
+		VIEW.inters().fullScreen.activate("The host chose Save and exit after a world desync.\n"
+				+ (outcome.isEmpty() ? "The campaign is saved; Load Saved Lobby resumes it." : "The campaign save: " + outcome)
+				+ "\nThe session has ended.", COLOR.WHITE100, null, new GButt.ButtPanel("Main menu") {
 					@Override
 					protected void clickA() {
 						CORE.setCurrentState(Menu::make);
@@ -119,6 +129,10 @@ final class MpDesync {
 	}
 
 	private void show() {
+		if (shown == null && saves.exiting()) {
+			VIEW.inters().fullScreen.activate("Saving the campaign. The session ends once every player has saved.", COLOR.WHITE100, null);
+			return;
+		}
 		if (!setup.isHost() || resyncChosen) {
 			VIEW.inters().fullScreen.activate(resyncChosen || pending != null ? "Resyncing the world from the host..." : message,
 					COLOR.WHITE100, null);
@@ -141,12 +155,9 @@ final class MpDesync {
 	void choose(boolean resync) {
 		if (!setup.isHost() || shown == null || resyncChosen)
 			return;
-		if (resync) {
-			resyncChosen = true;
-			show();
-		} else {
-			setup.desyncExit(engine.step());
-		}
+		resyncChosen = true;
+		exitChosen = !resync;
+		show();
 	}
 
 	private String differs(int pc) {
@@ -166,8 +177,8 @@ final class MpDesync {
 		return resyncedStep;
 	}
 
-	/** The save's file name after Save and exit, or null. */
-	String saved() {
-		return saved;
+	/** After Save and exit ended the session: the campaign save's outcome, empty when every PC saved; null before. */
+	String exitOutcome() {
+		return exitOutcome;
 	}
 }

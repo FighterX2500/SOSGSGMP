@@ -264,11 +264,10 @@ def main():
     common_steps = sorted(set(hashes["host"]) & set(hashes["join"]))
     differ = [s for s in common_steps if hashes["host"][s] != hashes["join"][s]]
     if args.corrupt >= 0 and args.on_desync == "exit":
-        # the joiner may take the host's exit in the frame its hold appears, before logging the hold: its exit at the
-        # host's hold step shows it held there
-        hold = [e for e in evs["host"] if e["event"] == "desynchold"]
-        ok = bool(hold) and hold[0]["pc"] == 1 and all(done[w]["event"] == "desyncexit" and done[w]["step"] == hold[0]["holdStep"]
-                                                     for w in ("host", "join") if w in done) and len(done) == 2
+        # Save and exit (SOS-68): both PCs load the host's resync at the hold step, save the campaign with the same
+        # world, and end
+        ok = desync_ok and len(done) == 2 and all(done[w]["event"] == "desyncexit" and done[w]["outcome"] == ""
+                                                  and done[w]["resynced"] == after for w in done)
     else:
         ok = desync_ok and all(done[w]["event"] == "done" and done[w].get("desync", -1) < 0 for w in done)             and not differ and common_steps
     if args.save >= 0:

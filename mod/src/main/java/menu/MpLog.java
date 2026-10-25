@@ -125,8 +125,9 @@ final class MpLog {
 			changes = setup.changes();
 			players();
 		}
-		if (desync.saved() != null) {
-			line("Save and exit at step " + setup.exitStep() + ": saved as " + desync.saved() + "; the session ended");
+		if (desync.exitOutcome() != null) {
+			line("Save and exit after the resync at step " + desync.resyncedStep() + ": "
+					+ (desync.exitOutcome().isEmpty() ? "the campaign is saved" : desync.exitOutcome()) + "; the session ended");
 			end();
 			return; // the engine has ended
 		}
