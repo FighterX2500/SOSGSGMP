@@ -9,6 +9,24 @@ Card: [SOS-48](https://fighterx2500.atlassian.net/browse/SOS-48) · Date: 2026-1
 - **Inside the world part,** the engine sets a "current human" the same way on every PC. Code that concerns one human runs once per human, in faction order. That's how each human gets their own events, raids and NPC opinion as if alone (SP1, SP2).
 - **"Is this the player?"** checks across all factions become "is this any human?": about 150 places in the world code.
 
+## 1a. What SOS-46 built (SOSDET [PR #31](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine/pull/31), merged 2026-10-25)
+
+SOSDET [ADR 0004](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine/blob/main/docs/decisions/0004-several-humans.md) records the design. Against the requirements in section 3:
+
+- **Met:**
+  - R1: up to 16 humans (slot 0 and 15 more).
+  - R3: `Engine.localHuman(slot)` and `Engine.pcHuman(pc, slot)`, set at step 0 on every PC.
+  - R4: city reports and transactions per human. World commands act for the human of the PC that sent them. The world reads each human's values from that human's report.
+  - R11: each NPC keeps opinion, support, requests, tribute and war plans per human.
+  - R12: diplomacy events, the war and rebellion timers, and the current raid per human.
+- **Partly met:**
+  - R13: the world save holds every human and their world state, and an old single-player save loads as one human in slot 0. There are no live, frozen, eliminated or removed states yet.
+  - R12: a frozen slot's events don't wait, since there are no frozen slots (R5).
+- **Open:**
+  - R2: ADR 0004 plans `addHuman(region)` (an NPC's capital or a free region becomes a human during setup). It isn't built; today only the engine's test rig makes humans, from an active NPC with a capital.
+  - R5 to R10: freeze, eliminate, remove, spectator, running another human's city, agreements between humans.
+  - R14: each human's battles against NPCs work. Battles between humans, and allied humans in one battle, are outside SOS-46.
+
 ## 2. What the mod owns
 
 - **Who sits in which slot.** The lobby hands out slots once, when the host initializes the world (spec §5). The mod keeps the map from a player's identity (Steam ID, or a player key for direct IP) to a slot index, and saves it in the campaign save.

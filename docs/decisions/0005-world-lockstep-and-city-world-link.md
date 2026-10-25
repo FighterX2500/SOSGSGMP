@@ -78,7 +78,7 @@ Status: Accepted (owner decision, 2026-10-23); city viewing amended by [ADR 0006
 
 ## Amendment (2026-10-25, owner, SOS-44)
 
-- **Several human factions move to the engine** ([SOS-46](https://fighterx2500.atlassian.net/browse/SOS-46)). The world part is lockstep, and every place where the world treats the player specially (about 343 references, plan 0002) runs inside the step, so it follows SOSDET's determinism rules and belongs with the engine's world patches. If the mod did it, its patches would sit on top of the engine's in the same classes.
+- **Several human factions move to the engine** ([SOS-46](https://fighterx2500.atlassian.net/browse/SOS-46)). The world part is lockstep, and every place where the world treats the player specially (about 343 references, plan 0002) runs inside the step, so it follows SOSDET's determinism rules and belongs with the engine's world patches. If the mod did it, its patches would sit on top of the engine's in the same classes. Built: SOSDET [ADR 0004](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine/blob/main/docs/decisions/0004-several-humans.md) (several humans, accepted 2026-10-25), merged in SOSDET [PR #31](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine/pull/31) (2026-10-25).
 - **The engine** holds every human faction in the world, the same on every PC, reads each one's values from its own city report, and keeps NPC relations, events and raids per human (SP1, SP2). An engine ADR chooses how the humans are represented (single-player-assumptions SP3).
 - **The mod** maps players to those factions, carries the reports and commands between PCs, and applies the campaign rules (spec §6 to §9, §11).
 - **Rejected:** keeping it in the mod, as plan 0002 decision 4 had it.
