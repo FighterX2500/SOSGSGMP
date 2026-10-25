@@ -13,6 +13,8 @@ import sosgsgmp.lobby.Lobby;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.Refusal;
+import sosgsgmp.setup.FactionPick;
+import sosgsgmp.setup.FactionStep;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStatus;
 import sosgsgmp.setup.MapStep;
@@ -25,7 +27,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 3;
+    public static final int VERSION = 4;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -33,6 +35,9 @@ public final class Protocol {
     private static final int HELLO = 1, WELCOME = 2, ROSTER = 3, REFUSED = 4, START = 5, LEAVE = 6;
     private static final int MAP_BUILD = 7, BUILD_READY = 8, MAP_GENERATE = 9, MAP_RESULT = 10, MAP_CONFIRM = 11, MAP_PLAYERS = 12;
     private static final int MAP_TERRAIN = 13;
+    private static final int PICK = 14, PICKS = 15, SLOT_MAP = 16, WORLD_PART = 17, LOADED = 18, START_SPOT = 19, GO = 20, WORLD_PLAYERS = 21;
+    /** Longest reason a location was cleared, in characters. */
+    private static final int MAX_REASON = 256;
 
     private Protocol() {}
 
@@ -86,12 +91,7 @@ public final class Protocol {
                 }
                 case Message.MapTerrain t -> {
                     out.writeByte(MAP_TERRAIN);
-                    out.writeInt(t.genId());
-                    out.writeShort(t.index());
-                    out.writeShort(t.count());
-                    byte[] data = t.bytes();
-                    out.writeInt(data.length);
-                    out.write(data);
+                    writePiece(out, t.genId(), t.index(), t.count(), t.bytes());
                 }
                 case Message.MapResult r -> {
                     out.writeByte(MAP_RESULT);
@@ -113,6 +113,54 @@ public final class Protocol {
                         out.writeInt(s.playerId());
                         out.writeByte(s.state().ordinal());
                     }
+                }
+                case Message.Pick p -> {
+                    out.writeByte(PICK);
+                    writePick(out, p.pick());
+                }
+                case Message.Picks p -> {
+                    out.writeByte(PICKS);
+                    out.writeByte(p.picks().size());
+                    for (FactionStep.PlayerPick pp : p.picks()) {
+                        out.writeInt(pp.playerId());
+                        writePick(out, pp.pick());
+                        out.writeUTF(pp.refused() == null ? "" : pp.refused());
+                    }
+                }
+                case Message.SlotMap s -> {
+                    out.writeByte(SLOT_MAP);
+                    out.writeInt(s.transfer());
+                    out.writeByte(s.slots().size());
+                    for (FactionStep.PlayerSlot ps : s.slots()) {
+                        out.writeInt(ps.playerId());
+                        out.writeByte(ps.slot());
+                    }
+                }
+                case Message.WorldPart w -> {
+                    out.writeByte(WORLD_PART);
+                    writePiece(out, w.transfer(), w.index(), w.count(), w.bytes());
+                }
+                case Message.Loaded l -> {
+                    out.writeByte(LOADED);
+                    out.writeInt(l.transfer());
+                    out.writeLong(l.hash());
+                }
+                case Message.StartSpot s -> {
+                    out.writeByte(START_SPOT);
+                    out.writeInt(s.transfer());
+                }
+                case Message.WorldPlayers w -> {
+                    out.writeByte(WORLD_PLAYERS);
+                    out.writeInt(w.transfer());
+                    out.writeByte(w.players().size());
+                    for (FactionStep.PlayerProgress pp : w.players()) {
+                        out.writeInt(pp.playerId());
+                        out.writeByte(pp.progress().ordinal());
+                    }
+                }
+                case Message.Go g -> {
+                    out.writeByte(GO);
+                    out.writeInt(g.transfer());
                 }
                 case Message.Unsupported u -> throw new IllegalArgumentException("SOSGSGMP: can't send a message of protocol version " + u.version());
             }
@@ -141,10 +189,24 @@ public final class Protocol {
             case MAP_BUILD -> new Message.MapBuild(number(in, "build"), size(in));
             case BUILD_READY -> new Message.BuildReady(number(in, "build"));
             case MAP_GENERATE -> new Message.MapGenerate(number(in, "generation"), number(in, "build"), mapType(in), latitude(in), seed(in));
-            case MAP_TERRAIN -> mapTerrain(in);
+            case MAP_TERRAIN -> {
+                Piece p = piece(in, "generation", "terrain");
+                yield new Message.MapTerrain(p.number(), p.index(), p.count(), p.data());
+            }
             case MAP_RESULT -> new Message.MapResult(number(in, "generation"), in.readLong(), status(in.readUnsignedByte()));
             case MAP_CONFIRM -> new Message.MapConfirm(number(in, "generation"), in.readLong());
             case MAP_PLAYERS -> mapPlayers(in);
+            case PICK -> new Message.Pick(pick(in));
+            case PICKS -> picks(in);
+            case SLOT_MAP -> slotMap(in);
+            case WORLD_PART -> {
+                Piece p = piece(in, "transfer", "world");
+                yield new Message.WorldPart(p.number(), p.index(), p.count(), p.data());
+            }
+            case LOADED -> new Message.Loaded(number(in, "transfer"), in.readLong());
+            case START_SPOT -> new Message.StartSpot(number(in, "transfer"));
+            case WORLD_PLAYERS -> worldPlayers(in);
+            case GO -> new Message.Go(number(in, "transfer"));
             default -> throw new IOException("SOSGSGMP: unknown message type " + type);
         };
         if (in.available() > 0)
@@ -228,18 +290,115 @@ public final class Protocol {
         return seed;
     }
 
-    private static Message.MapTerrain mapTerrain(DataInputStream in) throws IOException {
-        int genId = number(in, "generation");
+    /** One piece of a transfer ({@link Pieces}), as {@link Message.MapTerrain} and {@link Message.WorldPart} carry it. */
+    private record Piece(int number, int index, int count, byte[] data) {}
+
+    private static void writePiece(DataOutputStream out, int number, int index, int count, byte[] data) throws IOException {
+        out.writeInt(number);
+        out.writeShort(index);
+        out.writeShort(count);
+        out.writeInt(data.length);
+        out.write(data);
+    }
+
+    private static Piece piece(DataInputStream in, String numbered, String what) throws IOException {
+        int number = number(in, numbered);
         int index = in.readUnsignedShort();
         int count = in.readUnsignedShort();
         if (count < 1 || count > Pieces.MAX_PIECES || index >= count)
-            throw new IOException("SOSGSGMP: terrain piece " + index + " of " + count);
+            throw new IOException("SOSGSGMP: " + what + " piece " + index + " of " + count);
         int length = in.readInt();
         if (length < 0 || length > Pieces.PIECE_BYTES)
-            throw new IOException("SOSGSGMP: terrain piece of " + length + " bytes");
+            throw new IOException("SOSGSGMP: " + what + " piece of " + length + " bytes");
         byte[] data = new byte[length];
         in.readFully(data);
-        return new Message.MapTerrain(genId, index, count, data);
+        return new Piece(number, index, count, data);
+    }
+
+    private static void writePick(DataOutputStream out, FactionPick p) throws IOException {
+        out.writeUTF(p.race());
+        out.writeUTF(p.name());
+        byte[] banner = p.banner();
+        out.writeShort(banner.length);
+        out.write(banner);
+        out.writeShort(p.x());
+        out.writeShort(p.y());
+    }
+
+    private static FactionPick pick(DataInputStream in) throws IOException {
+        String race = in.readUTF();
+        String name = in.readUTF();
+        int length = in.readUnsignedShort();
+        if (length > FactionPick.MAX_BANNER)
+            throw new IOException("SOSGSGMP: banner of " + length + " bytes");
+        byte[] banner = new byte[length];
+        in.readFully(banner);
+        int x = in.readShort();
+        int y = in.readShort();
+        if (x >= MapOptions.MAX_SIZE || y >= MapOptions.MAX_SIZE)
+            throw new IOException("SOSGSGMP: location " + x + "," + y);
+        try {
+            return new FactionPick(race, name, banner, x, y);
+        } catch (IllegalArgumentException e) {
+            throw new IOException(e.getMessage(), e);
+        }
+    }
+
+    private static int players(DataInputStream in, String what) throws IOException {
+        int n = in.readUnsignedByte();
+        if (n < 1 || n > LobbySettings.MAX_PLAYERS)
+            throw new IOException("SOSGSGMP: " + what + " of " + n + " players");
+        return n;
+    }
+
+    private static int playerId(DataInputStream in) throws IOException {
+        int id = in.readInt();
+        if (id < 0)
+            throw new IOException("SOSGSGMP: player id " + id);
+        return id;
+    }
+
+    private static Message.Picks picks(DataInputStream in) throws IOException {
+        int n = players(in, "picks");
+        List<FactionStep.PlayerPick> all = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            int id = playerId(in);
+            FactionPick p = pick(in);
+            String refused = in.readUTF();
+            if (refused.length() > MAX_REASON)
+                throw new IOException("SOSGSGMP: reason of " + refused.length() + " characters");
+            all.add(new FactionStep.PlayerPick(id, p, refused.isEmpty() ? null : refused));
+        }
+        return new Message.Picks(all);
+    }
+
+    private static Message.SlotMap slotMap(DataInputStream in) throws IOException {
+        int transfer = number(in, "transfer");
+        int n = players(in, "slot map");
+        List<FactionStep.PlayerSlot> all = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            int id = playerId(in);
+            int slot = in.readUnsignedByte();
+            if (slot >= LobbySettings.MAX_PLAYERS)
+                throw new IOException("SOSGSGMP: slot " + slot);
+            all.add(new FactionStep.PlayerSlot(id, slot));
+        }
+        return new Message.SlotMap(transfer, all);
+    }
+
+    private static Message.WorldPlayers worldPlayers(DataInputStream in) throws IOException {
+        int transfer = number(in, "transfer");
+        int n = players(in, "progress");
+        FactionStep.Progress[] states = FactionStep.Progress.values();
+        List<FactionStep.PlayerProgress> all = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            int id = playerId(in);
+            int ordinal = in.readUnsignedByte();
+            if (ordinal >= states.length)
+                throw new IOException("SOSGSGMP: unknown progress " + ordinal);
+            all.add(new FactionStep.PlayerProgress(id, states[ordinal]));
+        }
+        return new Message.WorldPlayers(transfer, all);
     }
 
     private static Message.MapPlayers mapPlayers(DataInputStream in) throws IOException {

@@ -54,11 +54,34 @@ val verifyGameJar by tasks.registering {
     }
 }
 
+// ---------------------------------------------------------------- the engine
+
+/**
+ * SOSDET's built mod jar, compile-only like the game jar and never shipped: players install SOSDET as its own mod
+ * (ADR 0007). SOSDET_DIR names the SOSDET repository; by default it sits next to this one.
+ */
+fun engineJar(): File {
+    val dir = providers.environmentVariable("SOSDET_DIR").orNull?.let { file(it) } ?: rootDir.resolve("../SOSDET")
+    return dir.resolve("build/mod/SOSDET/V71/script/SOSDET.jar")
+}
+
+val verifyEngineJar by tasks.registering {
+    group = "verification"
+    description = "Checks that the SOSDET jar the mod compiles against exists."
+    doLast {
+        val jar = engineJar()
+        if (!jar.isFile) {
+            throw GradleException("SOSGSGMP: no SOSDET jar at $jar; build SOSDET first (gradlew.bat assemble there), or set SOSDET_DIR")
+        }
+    }
+}
+
 val ecjTool: Configuration by configurations.creating
 
 dependencies {
     ecjTool("org.eclipse.jdt:ecj:3.40.0")
     compileOnly(files({ gameJar() }))
+    compileOnly(files({ engineJar() }))
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -71,7 +94,7 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 tasks.compileJava {
-    dependsOn(verifyGameJar)
+    dependsOn(verifyGameJar, verifyEngineJar)
 }
 
 // ---------------------------------------------------------------- hooks (docs/hooks.md)

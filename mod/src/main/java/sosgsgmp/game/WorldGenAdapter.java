@@ -5,8 +5,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InaccessibleObjectException;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,6 +21,7 @@ import snake2d.LOG;
 import snake2d.util.file.FileGetter;
 import snake2d.util.file.FilePutter;
 import snake2d.util.misc.ACTION;
+import sosdet.Engine;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapWorld;
 import world.WORLD;
@@ -41,14 +40,11 @@ public final class WorldGenAdapter implements MapWorld {
 
     private final Field specWidth;
     private final Field specHeight;
-    /** sosdet.Engine.active(), or null when SOSDET isn't loaded. */
-    private final Method engineActive;
     private List<String> mapTypes;
 
     public WorldGenAdapter() {
         specWidth = specField("wx");
         specHeight = specField("wy");
-        engineActive = engineActive();
     }
 
     private static Field specField(String name) {
@@ -58,22 +54,6 @@ public final class WorldGenAdapter implements MapWorld {
             return f;
         } catch (NoSuchFieldException | SecurityException | InaccessibleObjectException e) {
             throw new IllegalStateException("SOSGSGMP: can't reach game.GameSpec." + name + " (Songs of Syx V71): " + e, e);
-        }
-    }
-
-    private static Method engineActive() {
-        Class<?> engine;
-        try {
-            engine = Class.forName("sosdet.Engine", false, WorldGenAdapter.class.getClassLoader());
-        } catch (ClassNotFoundException e) {
-            // SOSDET isn't loaded, so no engine session can run: there is nothing to guard against.
-            LOG.ln("SOSGSGMP: sosdet.Engine not found; the map step's engine-session guard is off");
-            return null;
-        }
-        try {
-            return engine.getMethod("active");
-        } catch (NoSuchMethodException e) {
-            throw new IllegalStateException("SOSGSGMP: sosdet.Engine has no active(); this mod needs a SOSDET with it", e);
         }
     }
 
@@ -246,16 +226,8 @@ public final class WorldGenAdapter implements MapWorld {
     }
 
     /** With an engine session, SOSDET sends every random draw outside a step elsewhere, so the seed would do nothing. */
-    private void requireNoEngineSession() {
-        if (engineActive == null)
-            return;
-        boolean active;
-        try {
-            active = (Boolean) engineActive.invoke(null);
-        } catch (IllegalAccessException | InvocationTargetException e) {
-            throw new IllegalStateException("SOSGSGMP: calling sosdet.Engine.active() failed: " + e, e);
-        }
-        if (active)
+    private static void requireNoEngineSession() {
+        if (Engine.active())
             throw new IllegalStateException("SOSGSGMP: an engine session is running; the map would differ between PCs (setup-map-step.md §7)");
     }
 }

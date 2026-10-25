@@ -7,6 +7,8 @@ import java.util.Objects;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.Refusal;
+import sosgsgmp.setup.FactionPick;
+import sosgsgmp.setup.FactionStep;
 import sosgsgmp.setup.MapStatus;
 import sosgsgmp.setup.MapStep;
 
@@ -96,6 +98,66 @@ public sealed interface Message {
             players = List.copyOf(players);
         }
     }
+
+    /** Joining PC to host: this PC's latest picks: race, faction, banner and location (setup-factions-step.md §4). */
+    record Pick(FactionPick pick) implements Message {}
+
+    /** Host to every joined PC: every player's latest picks, the host's first, with the reason a location was cleared. */
+    record Picks(List<FactionStep.PlayerPick> picks) implements Message {
+        public Picks {
+            picks = List.copyOf(picks);
+        }
+    }
+
+    /** Host to every joined PC: the world is initialized; every player's slot in it, and the save's transfer number. */
+    record SlotMap(int transfer, List<FactionStep.PlayerSlot> slots) implements Message {
+        public SlotMap {
+            slots = List.copyOf(slots);
+        }
+    }
+
+    /** Host to every joined PC: piece {@code index} of {@code count} of the world save, compressed. */
+    record WorldPart(int transfer, int index, int count, byte[] bytes) implements Message {
+        public WorldPart {
+            bytes = bytes.clone();
+        }
+
+        @Override
+        public byte[] bytes() {
+            return bytes.clone();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof WorldPart w && transfer == w.transfer && index == w.index && count == w.count && Arrays.equals(bytes, w.bytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(transfer, index, count, Arrays.hashCode(bytes));
+        }
+
+        @Override
+        public String toString() {
+            return "WorldPart[transfer=" + transfer + ", index=" + index + ", count=" + count + ", " + bytes.length + " bytes]";
+        }
+    }
+
+    /** Joining PC to host: this PC loaded the world of transfer {@code transfer}, with this world hash at step 0. */
+    record Loaded(int transfer, long hash) implements Message {}
+
+    /** Joining PC to host: this PC's landing party is placed. */
+    record StartSpot(int transfer) implements Message {}
+
+    /** Host to every joined PC: every player's progress after the world is initialized, the host first. */
+    record WorldPlayers(int transfer, List<FactionStep.PlayerProgress> players) implements Message {
+        public WorldPlayers {
+            players = List.copyOf(players);
+        }
+    }
+
+    /** Host to every joined PC: every PC loaded the same world and placed its landing party; the game starts. */
+    record Go(int transfer) implements Message {}
 
     /** A message from another protocol version; only its version is read. */
     record Unsupported(int version) implements Message {}
