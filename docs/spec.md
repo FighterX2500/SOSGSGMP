@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.14 · 2026-10-25
+Version 0.15 · 2026-10-25
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -204,6 +204,13 @@ Any player can view any other player's city, enemies included. This is intended.
 
 **Host disconnect.** When the host loses connection, every player gets a popup saying the host disconnected, and the whole simulation stops: the world, every city and any battle. Play can't continue in that session. The players resume the campaign from a save with any player as host (see Resuming); the save made before the last battle is the natural point.
 
+**World desyncs.** When a player's world map differs from the host's, the game stops at the same moment for every player, and every player sees a window saying the world desynced and which player differs. The host chooses what follows; the others wait:
+
+- **Resync:** every player's game reloads the host's world, each player keeping their own city, and play continues.
+- **Save and exit:** every player saves the campaign and the session ends; it can be resumed later (see Resuming).
+
+The window appears on every world desync; there is no automatic resync.
+
 **Disconnects.** When a player other than the host disconnects, the whole game enters a priority pause, which only the host can unpause. After that, the rules below apply until the player reconnects.
 
 | Affected | What happens |
@@ -250,10 +257,10 @@ These targets are tested with 2 players at 300 ms ping. The battle targets depen
 | Battle desync recovery | Any battle desync is recovered within 10 seconds, from the host's battle state |
 | Battle desync reports | Every battle desync writes a report for debugging |
 | Desync detection | Any world map desync is detected within 2 seconds |
-| Desync recovery | Any world map desync is recovered within 10 seconds |
+| Desync recovery | After the host chooses Resync (section 11), every world map is identical to the host's again within 10 seconds |
 | Desync reports | Every world map desync writes a report for debugging |
 | Battle order latency | At or under 1 second between an order and its effect |
-| World map | The world map recovers automatically from any mismatch with the host |
+| World map | The world map recovers from any mismatch with the host when the host chooses Resync |
 
 ## 14. Development workflow
 
@@ -281,7 +288,8 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 
 - An army move ordered by one player appears on every other player's map within 1 second. [PT]
 - After 2 hours of play, every client's world hash matches the host's at every check. [AT + PT]
-- A deliberately corrupted client world is detected and resynced automatically, without player action. [AT]
+- A deliberately corrupted client world stops every player's game within 2 seconds, with the desync window naming that client; after the host chooses Resync, every world is identical to the host's again within 10 seconds. [AT]
+- After the host chooses Save and exit at a world desync, every player's campaign save is written and the session ends. [AT]
 
 ### Pause and speed
 
