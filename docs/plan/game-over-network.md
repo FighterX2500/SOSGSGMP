@@ -50,3 +50,12 @@ Disconnects and priority pause (spec §11), the desync window and resync, saves 
 1. `Stream`, `EngineLink`, the adapter, the start at `Go`, the per-frame exchange, the panel; unit and loopback tests.
 2. The autopilot and the runner; the two-PC test through the landing party (also the SOS-56 fixes), then 10 minutes of play.
 3. The owner's 30-minute playtest (the card's first criterion).
+
+## 9. The desync window (SOS-59)
+
+Spec §11 World desyncs; the engine half is SOSDET SOS-53 (every PC holds at the same step, `Engine.desyncHold`) and SOS-52 (world resync with several humans).
+
+- **Window:** `menu/MpDesync`, once per frame from `MpPlay`, shows vanilla's full-screen prompt on every PC while `Engine.desyncHold()` is set, naming the player whose world differs (the hold's PC is a slot). The host gets Resync and Save and exit; the others read "waiting for the host". Clicked away, it comes back while the hold lasts.
+- **Resync:** at the hold step the host runs `Engine.worldResyncSave`; the engine's state and the world save travel as one transfer of `Resync` pieces (protocol 7, transfer ID, a repeated piece changes nothing; `WorldResync` frames the bytes). Every PC, the host too, loads it with `Engine.worldResyncLoad` once its engine stands at that step, then runs on (`Engine.runFreely`).
+- **Save and exit:** the host sends `DesyncExit`; every PC saves its game into vanilla's saves list ("Multiplayer step N"), leaves the session, ends the engine and offers the main menu. Resuming such a save as a campaign is Load Saved Lobby, a later card.
+- **Test:** the autopilot's `corrupt=STEP` breaks the joiner's world as SOSDET's rig `wcorrupt` does; `ondesync=resync|exit` is the host's choice; `tools/twopc.py --corrupt 1800 --on-desync resync|exit`. Runs D2 (resync: held at 1,889 1.2 s after the corruption, resynced within 1 s, 7 identical hashes after) and D3b/D3c (both PCs saved at the hold step).

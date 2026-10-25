@@ -47,6 +47,11 @@ public final class HostedSetup implements SetupSession {
     private final Cursors cursors = new Cursors();
     /** The engine's streams once this PC plays; null before. */
     private EngineLink link;
+    /** The latest world resync's transfer number; 0 before the first. */
+    private int resyncTransfer;
+    /** The world resync this PC sent, until it takes it to load; null otherwise. */
+    private WorldResync resync;
+    private long exitStep = -1;
     private boolean closed;
     private String closedReason;
     private int changes;
@@ -242,6 +247,39 @@ public final class HostedSetup implements SetupSession {
             return;
         for (Message.Stream s : link.out())
             sendAll(s);
+    }
+
+    @Override
+    public void resync(WorldResync r) {
+        if (link == null || closed)
+            throw new IllegalStateException("SOSGSGMP: a resync outside the game");
+        resyncTransfer++;
+        List<byte[]> pieces = Pieces.split(r.pack());
+        for (int i = 0; i < pieces.size(); i++)
+            sendAll(new Message.Resync(resyncTransfer, r.step(), i, pieces.size(), pieces.get(i)));
+        resync = r;
+        changes++;
+    }
+
+    @Override
+    public WorldResync takeResync() {
+        WorldResync r = resync;
+        resync = null;
+        return r;
+    }
+
+    @Override
+    public void desyncExit(long step) {
+        if (link == null || closed)
+            throw new IllegalStateException("SOSGSGMP: save and exit outside the game");
+        exitStep = step;
+        sendAll(new Message.DesyncExit(step));
+        changes++;
+    }
+
+    @Override
+    public long exitStep() {
+        return exitStep;
     }
 
     @Override

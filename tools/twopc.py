@@ -130,6 +130,13 @@ def relaunched(launcher):
     fail("the host's game didn't start")
 
 
+def game_running_here():
+    out = subprocess.run(["powershell", "-NoProfile", "-Command",
+                          "(Get-CimInstance Win32_Process -Filter \"Name='java.exe'\" | Where-Object { $_.ExecutablePath -like '%s\\*' }).ProcessId"
+                          % str(GAME).replace("/", "\\")], capture_output=True, text=True).stdout.split()
+    return bool(out)
+
+
 def running(pid):
     out = subprocess.run(["tasklist", "/FI", "PID eq %d" % pid, "/NH"], capture_output=True, text=True).stdout
     return str(pid) in out
@@ -150,6 +157,8 @@ def main():
     ap.add_argument("--seed", type=int, default=12345)
     ap.add_argument("--speed", type=float, default=0, help="the host sets this game speed after Go (0: the start's 1x)")
     ap.add_argument("--port", type=int, default=47510)
+    ap.add_argument("--corrupt", type=int, default=-1, help="the joiner breaks its world at this step (a test desync)")
+    ap.add_argument("--on-desync", choices=("resync", "exit"), default="resync", help="the host's choice at a desync")
     ap.add_argument("--tag", default="twopc")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
@@ -159,19 +168,21 @@ def main():
     shutil.rmtree(run, ignore_errors=True)
     run.mkdir(parents=True)
 
+    if game_running_here() or "java" in remote_ps("Get-Process java -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '%s\\game\\*' } | Select-Object -ExpandProperty Name" % REMOTE_ROOT):
+        fail("a game still runs on this PC or the second one; close it first")
     local = data_folder(INST / "1", (1280, 720))
     remote_data = data_folder(INST / str(REMOTE_K), (1600, 900))
     log("data folders ready; sending the joiner's to the second PC")
     rdir = send_remote(remote_data.parent)
     common = "port=%d,steps=%d" % (args.port, args.steps)
     host_env = dict(os.environ, APPDATA=str(local.parent),
-                    SOSGSGMP_AUTOPILOT="role=host,name=Host,players=2,seed=%d,speed=%g,%s" % (args.seed, args.speed, common))
+                    SOSGSGMP_AUTOPILOT="role=host,name=Host,players=2,seed=%d,speed=%g,ondesync=%s,%s" % (args.seed, args.speed, args.on_desync, common))
     java = GAME / "jre" / "bin" / "java.exe"
     host = subprocess.Popen([str(java), "-cp", str(GAME / "SongsOfSyx.jar"), "init.Main"], cwd=str(GAME), env=host_env,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     game_pid = relaunched(host)
     log("host started here (pid %d)" % game_pid)
-    start_remote(rdir, "role=join,name=Joiner,address=%s,%s" % (HOST_ADDRESS, common))
+    start_remote(rdir, "role=join,name=Joiner,address=%s,corrupt=%d,%s" % (HOST_ADDRESS, args.corrupt, common))
     log("joiner started on the second PC")
 
     seen = {"host": 0, "join": 0}
@@ -184,7 +195,7 @@ def main():
             evs = events(text)
             for e in evs[seen[who]:]:
                 log("%s %s" % (who, json.dumps(e)))
-                if e["event"] in ("done", "closed"):
+                if e["event"] in ("done", "closed", "desyncexit"):
                     done[who] = e
             seen[who] = len(evs)
             (run / ("%s-events.jsonl" % who)).write_text(text, encoding="utf-8")
@@ -196,13 +207,30 @@ def main():
     else:
         fail("timed out after %d s" % args.timeout)
 
-    hashes = {}
-    for who in ("host", "join"):
-        hashes[who] = {e["step"]: e["hash"] for e in events((run / ("%s-events.jsonl" % who)).read_text(encoding="utf-8"))
-                       if e["event"] == "hash"}
+    evs = {w: events((run / ("%s-events.jsonl" % w)).read_text(encoding="utf-8")) for w in ("host", "join")}
+    after = -1
+    desync_ok = True
+    if args.corrupt >= 0:
+        # a forced desync: both PCs hold at the same step naming the joiner (PC 1), then the host's choice on both
+        holds = {w: [e for e in evs[w] if e["event"] == "desynchold"] for w in evs}
+        desync_ok = all(holds.values()) and holds["host"][0]["holdStep"] == holds["join"][0]["holdStep"]             and holds["host"][0]["pc"] == 1
+        if desync_ok:
+            after = holds["host"][0]["holdStep"]  # the corrupted world is only repaired from the resync on
+            log("desync held on both PCs at step %d (desync at %d, PC %d)" % (after, holds["host"][0]["desyncStep"],
+                                                                            holds["host"][0]["pc"]))
+        want = "resynced" if args.on_desync == "resync" else "desyncexit"
+        desync_ok = desync_ok and all(any(e["event"] == want for e in evs[w]) for w in evs)
+    hashes = {w: {e["step"]: e["hash"] for e in evs[w] if e["event"] == "hash" and e["step"] > after} for w in evs}
     common_steps = sorted(set(hashes["host"]) & set(hashes["join"]))
     differ = [s for s in common_steps if hashes["host"][s] != hashes["join"][s]]
-    ok = all(done[w]["event"] == "done" and done[w].get("desync", -1) < 0 for w in done) and not differ and common_steps
+    if args.corrupt >= 0 and args.on_desync == "exit":
+        # the joiner may take the host's exit in the frame its hold appears, before logging the hold: its exit at the
+        # host's hold step shows it held there
+        hold = [e for e in evs["host"] if e["event"] == "desynchold"]
+        ok = bool(hold) and hold[0]["pc"] == 1 and all(done[w]["event"] == "desyncexit" and done[w]["step"] == hold[0]["holdStep"]
+                                                     for w in ("host", "join") if w in done) and len(done) == 2
+    else:
+        ok = desync_ok and all(done[w]["event"] == "done" and done[w].get("desync", -1) < 0 for w in done)             and not differ and common_steps
     log("RESULT: %s: %d common hash steps, %d differ%s" % ("PASS" if ok else "FAIL", len(common_steps), len(differ),
                                                           (", first at step %d" % differ[0]) if differ else ""))
     sys.exit(0 if ok else 1)

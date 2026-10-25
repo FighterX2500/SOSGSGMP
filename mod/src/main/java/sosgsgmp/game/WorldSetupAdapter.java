@@ -12,6 +12,7 @@ import java.util.List;
 import game.GAME;
 import game.faction.FACTIONS;
 import game.faction.player.Player;
+import game.save.SaveFile;
 import settlement.stats.POP;
 import snake2d.LOG;
 import sosdet.Engine;
@@ -132,6 +133,18 @@ public final class WorldSetupAdapter implements FactionWorld {
         Engine.localPc(pc);
         Engine.ownCity();
         Engine.armLoadSeed(loadSeed(seed));
+    }
+
+    /**
+     * Saves this PC's game into vanilla's saves list as {@code name} with vanilla's time stamp (spec §11, Save and exit
+     * at a world desync): the world and this PC's city. Returns the save's file name.
+     */
+    public String saveGame(String name) {
+        Path file = GAME.saver().save(SaveFile.stamp(name));
+        if (file == null)
+            throw new IllegalStateException("SOSGSGMP: the game couldn't save '" + name + "'");
+        LOG.ln("SOSGSGMP: saved " + file);
+        return file.getFileName().toString();
     }
 
     /** Leaving the setup from the loaded game: the game is vanilla again for the menu and whatever is played next. */

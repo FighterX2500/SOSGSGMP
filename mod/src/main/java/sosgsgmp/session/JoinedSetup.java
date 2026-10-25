@@ -35,6 +35,10 @@ public final class JoinedSetup implements SetupSession {
     private final Cursors cursors = new Cursors();
     /** The engine's streams once this PC plays; null before. */
     private EngineLink link;
+    private final Pieces.Receiver resyncParts = new Pieces.Receiver();
+    /** The host's latest world resync once all of it is here, until this PC takes it to load; null otherwise. */
+    private WorldResync resync;
+    private long exitStep = -1;
     private boolean closed;
     private String closedReason;
     private int changes;
@@ -116,6 +120,17 @@ public final class JoinedSetup implements SetupSession {
                 else
                     link.in(s);
             }
+            case Message.Resync r when link != null -> {
+                byte[] all = resyncParts.accept(r.transfer(), r.index(), r.count(), r.bytes());
+                if (all == null)
+                    return;
+                try {
+                    resync = WorldResync.unpack(r.step(), all);
+                } catch (IllegalArgumentException e) {
+                    close("The host sent a broken world resync: " + e.getMessage());
+                }
+            }
+            case Message.DesyncExit d when link != null -> exitStep = d.step();
             case Message.Cursor c -> {
                 if (c.playerId() != localPlayerId())
                     cursors.set(c.playerId(), c.onMap(), c.x(), c.y());
@@ -171,6 +186,28 @@ public final class JoinedSetup implements SetupSession {
             return;
         for (Message.Stream s : link.out())
             node.send(TcpNode.HOST, s);
+    }
+
+    @Override
+    public void resync(WorldResync r) {
+        throw new IllegalStateException("SOSGSGMP: only the host resyncs the world");
+    }
+
+    @Override
+    public WorldResync takeResync() {
+        WorldResync r = resync;
+        resync = null;
+        return r;
+    }
+
+    @Override
+    public void desyncExit(long step) {
+        throw new IllegalStateException("SOSGSGMP: only the host chooses Save and exit");
+    }
+
+    @Override
+    public long exitStep() {
+        return exitStep;
     }
 
     @Override

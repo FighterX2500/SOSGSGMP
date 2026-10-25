@@ -3,6 +3,7 @@ package sosgsgmp.session;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -359,20 +360,10 @@ class LoopbackSetupTest {
 
     @Test
     void theEngineStreamsReachTheirTakersOnceEach() throws Exception {
-        initialize();
-        world(bob);
-        world(cid);
-        for (SetupSession s : List.of(host, bob, cid))
-            s.worldLoaded(77);
-        for (SetupSession s : List.of(host, bob, cid))
-            s.startSpot();
-        until("started everywhere", () -> host.factions().started() && bob.factions().started() && cid.factions().started());
         EngineLinkTest.FakePort hp = new EngineLinkTest.FakePort();
         EngineLinkTest.FakePort bp = new EngineLinkTest.FakePort();
         EngineLinkTest.FakePort cp = new EngineLinkTest.FakePort();
-        host.play(hp);
-        bob.play(bp);
-        cid.play(cp);
+        playing(hp, bp, cp);
         int b = host.factions().slotOf(bob.localPlayerId());
         int c = host.factions().slotOf(cid.localPlayerId());
         hp.make(StreamKind.AI_LOG, (byte) 1, (byte) 2, (byte) 3);
@@ -391,6 +382,60 @@ class LoopbackSetupTest {
         hp.make(StreamKind.AI_LOG, (byte) 8);
         playUntil("more of the log", () -> cp.took(StreamKind.AI_LOG, 0).length == 4);
         assertArrayEquals(new byte[] {1, 2, 3, 8}, cp.took(StreamKind.AI_LOG, 0), "in order, each byte once");
+    }
+
+    /** Every PC loaded the world, landed and plays with these engines. */
+    private void playing(EnginePort hp, EnginePort bp, EnginePort cp) throws Exception {
+        initialize();
+        world(bob);
+        world(cid);
+        for (SetupSession s : List.of(host, bob, cid))
+            s.worldLoaded(77);
+        for (SetupSession s : List.of(host, bob, cid))
+            s.startSpot();
+        until("started everywhere", () -> host.factions().started() && bob.factions().started() && cid.factions().started());
+        host.play(hp);
+        bob.play(bp);
+        cid.play(cp);
+    }
+
+    @Test
+    void theHostsWorldResyncReachesEveryPcWholeAndOnce() throws Exception {
+        playing(new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        byte[] save = new byte[Pieces.PIECE_BYTES * 2 + 17];
+        for (int i = 0; i < save.length; i++)
+            save[i] = (byte) i;
+        WorldResync sent = new WorldResync(1234, new byte[] {5, 6, 7}, save);
+        host.resync(sent);
+        WorldResync own = host.takeResync();
+        assertEquals(1234, own.step());
+        assertNull(host.takeResync(), "taken once");
+        WorldResync[] got = new WorldResync[2];
+        playUntil("the resync at both joiners", () -> {
+            if (got[0] == null)
+                got[0] = bob.takeResync();
+            if (got[1] == null)
+                got[1] = cid.takeResync();
+            return got[0] != null && got[1] != null;
+        });
+        for (WorldResync r : got) {
+            assertEquals(1234, r.step());
+            assertArrayEquals(new byte[] {5, 6, 7}, r.state());
+            assertArrayEquals(save, r.save());
+        }
+        playUntil("a few more rounds", () -> true);
+        assertNull(bob.takeResync(), "taken once, and nothing more came");
+        assertThrows(IllegalStateException.class, () -> bob.resync(sent), "only the host resyncs");
+    }
+
+    @Test
+    void saveAndExitReachesEveryPc() throws Exception {
+        playing(new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        assertEquals(-1, bob.exitStep());
+        host.desyncExit(900);
+        assertEquals(900, host.exitStep());
+        playUntil("save and exit at both joiners", () -> bob.exitStep() == 900 && cid.exitStep() == 900);
+        assertThrows(IllegalStateException.class, () -> cid.desyncExit(900), "only the host chooses");
     }
 
     /** {@link #until}, with every playing PC sending what its engine made each round. */
