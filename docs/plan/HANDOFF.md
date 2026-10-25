@@ -94,7 +94,7 @@ Every PC writes its own log of each multiplayer session, with no setup:
 - **Git:**
   - branches are named after the card;
   - PRs are based on main;
-  - never merge PRs, close Jira cards or rename a branch with an open PR.
+  - never merge PRs or rename a branch with an open PR. Jira cards follow their PRs (section 2).
   - Commits end with the `Co-Authored-By` line, PR bodies with the Claude Code line.
 - **Secrets:** the keys in `C:\ClaudeFolder\SOS\.env` are never printed. Read the GitHub token into `GH_TOKEN` (see memory `jira-github-setup`). Push with `git -c credential.helper= -c credential.helper='!gh auth git-credential' push`.
 - **Jira:** `python C:\Users\FighterX2500\.claude\projects\C--ClaudeFolder-SOS\jira.py list|get|comment|create|move`.
