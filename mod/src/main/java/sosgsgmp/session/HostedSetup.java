@@ -9,7 +9,7 @@ import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.Pieces;
-import sosgsgmp.net.TcpNode;
+import sosgsgmp.net.Node;
 import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep;
 import sosgsgmp.setup.FactionWorld;
@@ -21,7 +21,7 @@ import sosgsgmp.setup.MapWorld;
 /** The setup hosted on this PC: the host decides the builds and generations and collects every PC's result. */
 public final class HostedSetup implements SetupSession {
 
-    private final TcpNode node;
+    private final Node node;
     private final MapWorld world;
     private final FactionWorld factionWorld;
     /** The lobby's difficulty, set on the world the host builds. */
@@ -60,7 +60,7 @@ public final class HostedSetup implements SetupSession {
      * Takes over a started lobby's connection, its joined peers (peer to player id), its players (the host first) and
      * its difficulty.
      */
-    HostedSetup(TcpNode node, Map<Integer, Integer> joined, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld, String difficulty) {
+    HostedSetup(Node node, Map<Integer, Integer> joined, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld, String difficulty) {
         this.node = node;
         this.world = world;
         this.factionWorld = factionWorld;
@@ -72,14 +72,14 @@ public final class HostedSetup implements SetupSession {
 
     @Override
     public void update() {
-        TcpNode.Event e;
+        Node.Event e;
         while (!closed && !waitingToPlay() && (e = node.poll()) != null) {
             switch (e) {
-                case TcpNode.Event.Connected c -> {
+                case Node.Event.Connected c -> {
                     // A late PC: refused when it says hello.
                 }
-                case TcpNode.Event.Received r -> received(r.peer(), r.message());
-                case TcpNode.Event.Disconnected d -> removeJoined(d.peer());
+                case Node.Event.Received r -> received(r.peer(), r.message());
+                case Node.Event.Disconnected d -> removeJoined(d.peer());
             }
         }
     }

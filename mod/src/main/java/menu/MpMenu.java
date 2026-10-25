@@ -18,6 +18,7 @@ import snake2d.util.gui.renderable.RENDEROBJ;
 import snake2d.util.misc.ACTION;
 import snake2d.util.sprite.SPRITE;
 import sosgsgmp.lobby.LobbyPrefs;
+import sosgsgmp.net.SteamNode;
 import sosgsgmp.session.LobbySession;
 import util.info.INFO;
 
@@ -34,6 +35,7 @@ final class MpMenu {
 	final MpScreenMain main;
 	final MpScreenCreate create;
 	final MpScreenJoin join;
+	final MpScreenSteamJoin steamJoin;
 	final MpScreenLobby lobby;
 	/** Test tooling: the autopilot, or null in play. */
 	final MpAutopilot autopilot = MpAutopilot.fromEnv();
@@ -64,7 +66,7 @@ final class MpMenu {
 				super.render(r, ds);
 				if (mp == null)
 					mp = new MpMenu(menu);
-				autopilot.menu(mp);
+				mp.autopilot.menu(mp); // the menu's own autopilot, which the lobby screen also drives
 			}
 		};
 	}
@@ -77,6 +79,7 @@ final class MpMenu {
 		main = new MpScreenMain(this);
 		create = new MpScreenCreate(this);
 		join = new MpScreenJoin(this);
+		steamJoin = new MpScreenSteamJoin(this);
 		lobby = new MpScreenLobby(this);
 	}
 
@@ -111,9 +114,15 @@ final class MpMenu {
 		}
 	}
 
-	void openLobby(LobbySession session) {
-		lobby.open(session);
+	/** Opens the lobby screen; {@code steam} is the host's Steam lobby (for invites), or null. */
+	void openLobby(LobbySession session, SteamNode steam) {
+		lobby.open(session, steam);
 		menu.switchScreen(lobby);
+	}
+
+	void openSteamJoin() {
+		steamJoin.open();
+		menu.switchScreen(steamJoin);
 	}
 
 	/** A label of fixed width followed by a field, for the forms. */

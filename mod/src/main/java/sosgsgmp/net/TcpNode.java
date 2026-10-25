@@ -24,22 +24,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  *
  * <p>On the wire each message is a 4-byte length followed by the bytes of {@link Protocol#encode}.
  */
-public final class TcpNode implements AutoCloseable {
-
-    /** What happened on the network, in order, for the game thread. */
-    public sealed interface Event {
-        /** A PC connected to this host, or this joining PC reached its host. */
-        record Connected(int peer) implements Event {}
-        record Received(int peer, Message message) implements Event {}
-        /**
-         * The other side closed, the connection broke or never came up, or it sent something malformed.
-         * Peer -1: a problem not tied to one connection (a failed accept), reported for the log only.
-         */
-        record Disconnected(int peer, String reason) implements Event {}
-    }
-
-    /** The peer id a joining PC's host has. */
-    public static final int HOST = 0;
+public final class TcpNode implements Node {
 
     private static final long CONNECT_TIMEOUT_MS = 10_000;
     private static final long CLOSE_FLUSH_MS = 1_000;
@@ -100,7 +85,7 @@ public final class TcpNode implements AutoCloseable {
         return server.socket().getLocalPort();
     }
 
-    /** Queues a message for a peer. Unknown or gone peers are skipped. */
+    @Override
     public void send(int peer, Message m) {
         byte[] payload = Protocol.encode(m);
         ByteBuffer frame = ByteBuffer.allocate(4 + payload.length);
@@ -109,13 +94,13 @@ public final class TcpNode implements AutoCloseable {
         selector.wakeup();
     }
 
-    /** Closes a peer's connection once the messages queued for it are sent. No event follows. */
+    @Override
     public void disconnect(int peer) {
         commands.add(new Command.Drop(peer));
         selector.wakeup();
     }
 
-    /** The next event, or null if there is none. Game thread. */
+    @Override
     public Event poll() {
         return events.poll();
     }

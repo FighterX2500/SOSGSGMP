@@ -28,7 +28,7 @@ Lockstep battles come right after the skeleton: the engine has them (SOS-15), an
 
 - **Build:** Gradle in this repository (`gradlew.bat build`, `installMod`), against `SongsOfSyx.jar` from `SOS_GAME_DIR`; hooks as patches compiled with ECJ, the way SOSDET ships its own.
 - **Hook M1** in `menu/ScMain` adds the Multiplayer button ([hooks.md](../hooks.md)).
-- **Screens** (package `menu`, classes `Mp*`): Multiplayer (Create Lobby, Load Saved Lobby greyed out, Join by IP, Join through Steam greyed out); Create Lobby (name, port, players 2–16, difficulty from the vanilla modes); Join by IP (name, host address, port); the lobby (players with host and "you" marked, difficulty and player count, Start Lobby for the host at 2 or more players, Invite Steam friends greyed out, Leave).
+- **Screens** (package `menu`, classes `Mp*`): Multiplayer (Create Lobby, Load Saved Lobby greyed out, Join by IP, Join through Steam greyed out until SOS-60); Create Lobby (name, port, players 2–16, difficulty from the vanilla modes); Join by IP (name, host address, port); the lobby (players with host and "you" marked, difficulty and player count, Start Lobby for the host at 2 or more players, Invite Steam friends greyed out, Leave).
 - **Plain Java** (no game classes, unit-tested): `sosgsgmp.lobby` (lobby rules, settings, saved join settings), `sosgsgmp.net` (messages, their byte layout, the TCP transport with one I/O thread that only decodes and queues), `sosgsgmp.session` (a hosted or joined lobby, drained by the game thread once per frame).
 - **Start Lobby** tells every PC the lobby has started and closes it to new players. The map step (4a) takes over from there; until it merges, nothing more happens.
 - **Map size** is not on Create Lobby: spec 0.13 moved it to the map step after Start Lobby (owner, 2026-10-25). The game reads it from `TILE_DIMENSION` in `init/world/config/General.txt` (vanilla 256, allowed 128–512) when a game is built.
@@ -48,7 +48,9 @@ The lobby was built before the engine's player slots. SOS-46 is merged (SOSDET P
 
 ## 5. Steam (step 3)
 
-- The game initialises Steam itself (`integrations/SteamClient`) and runs its callbacks every 5 s on its own thread; the mod uses the same steamworks4j 1.9.0 classes from the game jar, so no new library.
-- Placeholders to wire: "Join through Steam" on the Multiplayer screen, "Invite Steam friends" in the lobby.
-- The transport stays behind the same message layout: a Steam P2P node next to `TcpNode`, giving the sessions the same events.
-- Two Steam accounts are needed to test it; the owner tests it at the playtest.
+Built in SOS-60.
+
+- **Correction:** the game process never starts Steam. `integrations/SteamClient.init` has no caller, and achievements run in a separate JVM (`SteamAchieve`). So the mod starts the Steam API itself, with the steamworks4j 1.9.0 classes and native libraries the game jar ships, so no new library. Steam reads the App ID (1162750) from `SteamAppId`. Steam sets it for a game it launched; the test runner sets it for games it starts.
+- **Transport:** `Node` is the sessions' view of the network; `TcpNode` and `SteamNode` implement it with the same events. `SteamNode` does every Steam call on its own I/O thread (the approved exception) through `SteamPort`. `game/SteamworksPort` is the steamworks4j adapter; tests use an in-memory Steam (`FakeSteam`). Each message is one reliable P2P packet. The host owns a friends-only lobby and numbers members from 1 as they enter. Sessions are accepted only from members, and a member leaving the lobby is a disconnect.
+- **Screens:** Create Lobby has "create (IP)" and "create Steam lobby". The lobby's "invite Steam friends" opens Steam's overlay invite dialog. "Join through Steam" lists friends playing Songs of Syx in a lobby, and an invite accepted in the overlay joins too.
+- **Test:** the autopilot's `net=steam`, and `tools/twopc.py --net steam`. On one PC, the game creates a real Steam lobby. Two PCs need two Steam accounts that are friends; that test is part of the general playtest after battles (owner, 2026-10-25).
