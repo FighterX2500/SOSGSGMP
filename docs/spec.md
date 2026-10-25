@@ -109,7 +109,6 @@ Players use the same agreements that exist between a player and an NPC faction i
 - **Passage.** Players at peace can move armies through each other's territory freely, with no penalty.
 - **Breaking treaties.** A player can break a treaty with another player at any time, with no penalty: unlike vanilla, NPC factions' opinion of that player doesn't drop either. Treaties with NPC factions keep their vanilla penalties.
 - **Vassalage between players** follows vanilla: the vassal pays tribute, the two share wars, and the vassal has the right to rebel. The sovereign does not join a war its vassal starts.
-- **Wars between players start only by declaration.** Two players go to war only when one of them declares war on the other. An NPC's alliance or vassalage never puts two players at war: vanilla's rule that allies, vassals and overlords share each other's enemies still applies, except between two players. So one player's war on an NPC that is another player's ally or vassal leaves the two players at peace.
 
 ## 7. Trade
 
@@ -306,7 +305,6 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - Every vanilla NPC agreement can be offered between players, with no opinion requirement. [AT]
 - A player can break a treaty with another player at any time, with no penalty, and NPC factions' opinion of them doesn't drop. [AT]
 - A vassal pays tribute and shares wars, and the sovereign is not pulled into the vassal's offensive wars. [AT]
-- One player's war on an NPC that is another player's ally or vassal doesn't put the two players at war; the NPC's other allies join as in vanilla. [AT]
 - A proposal unanswered for 30 in-game days expires as declined. [AT]
 - "Unite" can't be offered between players; regions other than capitals can be given. [AT]
 - Against another player, only the Gather support emissary mission is offered. [AT]
