@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.20 · 2026-10-27
+Version 0.21 · 2026-10-27
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -195,6 +195,8 @@ Any player can view any other player's city, enemies included. This is intended.
 
 **Saving.** When the host autosaves, every player autosaves their own city at the same moment. The game stays paused until every player has saved and the saves are in sync.
 
+**Saving by hand.** In a multiplayer game the escape menu has Save Campaign, which saves the campaign the same way. Only the host can use it; the other players see it greyed out, with the reason. The game's own Quick-save, Save and Load, and the Quick Load key, are gone in a multiplayer game, since their saves can't be resumed. Quit to menu and Exit save the campaign first, on every PC, and then end the session for every player; a joining player's quit asks the host's PC for the save. During a battle no save can start, so a player who quits then leaves without one.
+
 **Save before battles.** Before every real-time battle or siege assault starts, the campaign is saved the same way. If the connection is lost during the battle, the players can resume from that save.
 
 **Resuming.** Any player can host when a saved campaign is resumed. If a player is missing, the host can wait for them or start without them; a player left out is removed (see Removing a player).
@@ -356,6 +358,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - Before a battle or siege assault starts, every player has a confirmed campaign save from that moment. [AT]
 - A campaign saved under one host can be resumed with a different host. [PT]
 - The host can start a resume without a missing player, who is then removed. [AT]
+- A campaign saved from the escape menu's Save Campaign resumes. A joining player's Exit makes every PC save the campaign before the session ends, and that save resumes too. [AT]
 - A removed player's city becomes a neutral NPC city, and they can't rejoin as a player. [AT]
 
 ### Disconnects

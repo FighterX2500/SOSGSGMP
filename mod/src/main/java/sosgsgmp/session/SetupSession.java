@@ -150,6 +150,12 @@ public interface SetupSession {
     /** The host's latest save order, once; null otherwise. */
     SaveOrder takeSaveOrder();
 
+    /** A joining PC: its player chose Quit to menu or Exit; the host saves the campaign on every PC, then the session ends (SOS-79). */
+    void askQuit();
+
+    /** Host: the first player who asked to quit and wasn't taken yet, once; -1 when none. */
+    int takeQuitAsk();
+
     /** This PC saved for order {@code number} with world hash {@code hash}, or couldn't: {@code problem}, null when it saved. */
     void saved(int number, long hash, String problem);
 

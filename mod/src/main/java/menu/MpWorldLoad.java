@@ -99,12 +99,13 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 			autopilot.roads(game.activeEntries());
 		}
 		MpSaves saves = new MpSaves(setup, engine, game, log);
-		MpPlay play = new MpPlay(setup, engine, game, log, saves);
+		MpExit exit = new MpExit(setup, engine, game, saves, log);
+		MpPlay play = new MpPlay(setup, engine, game, log, saves, exit);
 		GAME.addAfterUpdate(play);
-		MpSessionPanel.show(setup, game, engine, saves);
+		MpSessionPanel.show(setup, game, engine, saves, exit);
 		engine.afterEachLoad(() -> { // a battle's loads build a new game and view (SOSDET plan 0006)
 			GAME.addAfterUpdate(play);
-			MpSessionPanel.show(setup, game, engine, saves);
+			MpSessionPanel.show(setup, game, engine, saves, exit);
 			log.line("whole game loaded at step " + engine.step() + "; the mod is back in it");
 		});
 		return view;

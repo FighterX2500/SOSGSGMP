@@ -105,11 +105,11 @@ final class MpLog {
 	}
 
 	/** Once per frame from {@link MpPlay}, after the session's update. */
-	void frame(MpDesync desync) {
+	void frame(MpDesync desync, MpExit exit) {
 		if (ended)
 			return;
 		try {
-			watch(desync);
+			watch(desync, exit);
 		} catch (RuntimeException e) {
 			// the log's own boundary: a bug in it must not end the game
 			error("in the playtest log itself; it stops here", e);
@@ -117,7 +117,7 @@ final class MpLog {
 		}
 	}
 
-	private void watch(MpDesync desync) {
+	private void watch(MpDesync desync, MpExit exit) {
 		String note;
 		while ((note = setup.takeNote()) != null)
 			line("network: " + note);
@@ -125,9 +125,9 @@ final class MpLog {
 			changes = setup.changes();
 			players();
 		}
-		if (desync.exitOutcome() != null) {
-			line("Save and exit after the resync at step " + desync.resyncedStep() + ": "
-					+ (desync.exitOutcome().isEmpty() ? "the campaign is saved" : desync.exitOutcome()) + "; the session ended");
+		if (exit.outcome() != null) {
+			line("a save that ends the session (last resync at step " + desync.resyncedStep() + "): "
+					+ (exit.outcome().isEmpty() ? "the campaign is saved" : exit.outcome()) + "; the session ended");
 			end();
 			return; // the engine has ended
 		}
