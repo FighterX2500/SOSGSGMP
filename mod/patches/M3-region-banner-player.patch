@@ -1,0 +1,14 @@
+diff --git a/view/world/ui/region/Other.java b/view/world/ui/region/Other.java
+index 90b0468..72ec3f4 100644
+--- a/view/world/ui/region/Other.java
++++ b/view/world/ui/region/Other.java
+@@ -113,7 +113,8 @@ class Other extends ISidePanel implements RV {
+ 			protected void clickA() {
+ 				if (g.get().faction() instanceof FactionNPC) {
+ 					VIEW.world().UI.factions.open((FactionNPC) g.get().faction());
+-				}
++				} else
++					menu.MpPlayers.open(g.get().faction()); // SOSGSGMP hook M3 (docs/hooks.md)
+ 			}
+ 		});
+ 		

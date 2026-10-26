@@ -1,0 +1,13 @@
+diff --git a/view/world/ui/faction/Hoverer.java b/view/world/ui/faction/Hoverer.java
+index fac71d1..0e9b48e 100644
+--- a/view/world/ui/faction/Hoverer.java
++++ b/view/world/ui/faction/Hoverer.java
+@@ -354,7 +354,7 @@ class Hoverer {
+ 			b.title(Dic.¤¤NoRuler);
+ 		} else if (f instanceof FactionNPC) {
+ 			hoverFF(b, (FactionNPC) f);
+-		} else {
++		} else if (!menu.MpPlayers.hover(b, f)) { // SOSGSGMP hook M5 (docs/hooks.md): another player's box
+ 			box.title(f.name);
+ 		}
+ 	}

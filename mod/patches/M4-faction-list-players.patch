@@ -1,0 +1,163 @@
+diff --git a/view/world/ui/faction/UIFactionList.java b/view/world/ui/faction/UIFactionList.java
+index 4b2a1ab..d6d8aa2 100644
+--- a/view/world/ui/faction/UIFactionList.java
++++ b/view/world/ui/faction/UIFactionList.java
+@@ -43,7 +43,7 @@ import world.region.RD;
+ 
+ final class UIFactionList extends ISidePanel{
+ 
+-	private final ArrayList<FactionNPC> sorted = new ArrayList<>(FACTIONS.MAX());
++	private final ArrayList<Faction> sorted = new ArrayList<>(FACTIONS.MAX()); // SOSGSGMP hook M4 (docs/hooks.md): players too
+ 	
+ 	public static int ROW_HEIGHT = 30;
+ 	private final int width = C.SG*264;
+@@ -52,10 +52,10 @@ final class UIFactionList extends ISidePanel{
+ 	private final GTableBuilder builder;
+ 	private Faction hovered;
+ 
+-	private final Tree<FactionNPC> sorter = new Tree<FactionNPC>(FACTIONS.MAX()) {
++	private final Tree<Faction> sorter = new Tree<Faction>(FACTIONS.MAX()) { // SOSGSGMP hook M4 (docs/hooks.md)
+ 
+ 		@Override
+-		protected boolean isGreaterThan(FactionNPC current, FactionNPC cmp) {
++		protected boolean isGreaterThan(Faction current, Faction cmp) { // SOSGSGMP hook M4 (docs/hooks.md)
+ 			return value(current) > value(cmp);
+ 		}
+ 		
+@@ -83,8 +83,9 @@ final class UIFactionList extends ISidePanel{
+ 				sorted.clear();
+ 				for (FactionNPC f : FACTIONS.NPCs())
+ 					sorter.add(f);
++				menu.MpPlayers.addOthers(sorter); // SOSGSGMP hook M4 (docs/hooks.md): the other players
+ 				while(sorter.hasMore()) {
+-					FactionNPC f = sorter.pollSmallest();
++					Faction f = sorter.pollSmallest(); // SOSGSGMP hook M4 (docs/hooks.md)
+ 					if (filter.text().length() > 0) {
+ 						if (f.name.containsText(filter.text()))
+ 							sorted.add(f);
+@@ -142,11 +143,13 @@ final class UIFactionList extends ISidePanel{
+ 				
+ 				@Override
+ 				public void render(SPRITE_RENDERER r, float ds) {
+-					FactionNPC f = g();
++					Faction f = g(); // SOSGSGMP hook M4 (docs/hooks.md)
+ 					if (f == null)
+ 						return;
+ 					f.banner().HUGE.render(r,  body().x1(), body().y1());
+-					Royalty ro = f.court().king().roy();
++					if (!(f instanceof FactionNPC)) // SOSGSGMP hook M4 (docs/hooks.md): a player has no king
++						return;
++					Royalty ro = ((FactionNPC) f).court().king().roy();
+ 					int x1 = body().x1()+Icon.L+Icon.L/2;
+ 					int y1 = body().y1()+8;
+ 					STATS.APPEARANCE().portraitRender(r, ro.induvidual, x1, y1, 1);
+@@ -160,7 +163,7 @@ final class UIFactionList extends ISidePanel{
+ 				
+ 				@Override
+ 				public void update(GText text) {
+-					FactionNPC f = g();
++					Faction f = g(); // SOSGSGMP hook M4 (docs/hooks.md)
+ 					if (f != null)
+ 						text.lablifySub().add(f.name);
+ 				}
+@@ -172,7 +175,7 @@ final class UIFactionList extends ISidePanel{
+ 
+ 				@Override
+ 				public double getD() {
+-					FactionNPC f = g();
++					Faction f = g(); // SOSGSGMP hook M4 (docs/hooks.md)
+ 					if (f == null)
+ 						return 0;
+ 					return RD.RACES().population.faction().get(f)/(10*RD.RACES().maxPopReg());
+@@ -185,7 +188,7 @@ final class UIFactionList extends ISidePanel{
+ 				@Override
+ 				public void update(GText text) {
+ 					text.darkBG();
+-					FactionNPC f = g();
++					Faction f = g(); // SOSGSGMP hook M4 (docs/hooks.md)
+ 					if (f == null)
+ 						return;
+ 					
+@@ -198,16 +201,16 @@ final class UIFactionList extends ISidePanel{
+ 				
+ 				@Override
+ 				public void render(SPRITE_RENDERER r, int X1, int X2, int Y1, int Y2) {
+-					FactionNPC f = g();
+-					if (f == null)
++					Faction f = g(); // SOSGSGMP hook M4 (docs/hooks.md)
++					if (!(f instanceof FactionNPC)) // SOSGSGMP hook M4 (docs/hooks.md): no opinion between players
+ 						return;
+-					double c = ROPINION.get(f.court().king().roy());
+-					GMeterCol col = c < DIP.get(f).opinionNeeded ? GMeter.C_RED : GMeter.C_BLUE;
++					double c = ROPINION.get(((FactionNPC) f).court().king().roy());
++					GMeterCol col = c < DIP.get(FACTIONS.player(), f).opinionNeeded ? GMeter.C_RED : GMeter.C_BLUE;
+ 					
+ 					c /= DIP.ALLY().opinionNeeded + 1;
+ 					GMeter.render(r, col, c, X1, X2, Y1, Y2);
+ 					
+-					int x1 = (int) (X1 + (X2-X1)*DIP.get(f).opinionNeeded/(DIP.ALLY().opinionNeeded + 1));
++					int x1 = (int) (X1 + (X2-X1)*DIP.get(FACTIONS.player(), f).opinionNeeded/(DIP.ALLY().opinionNeeded + 1)); // SOSGSGMP hook M4 (docs/hooks.md)
+ 					GCOLOR.UI().border().render(r, x1-2, x1+2, Y1, Y2);
+ 					
+ 					
+@@ -218,9 +221,9 @@ final class UIFactionList extends ISidePanel{
+ 				
+ 				@Override
+ 				public void render(SPRITE_RENDERER r, int X1, int X2, int Y1, int Y2) {
+-					FactionNPC f = g();
+-					if (DIP.get(f) != DIP.NEUTRAL())
+-						DIP.get(f).icon.render(r, X1, X2, Y1, Y2);
++					Faction f = g(); // SOSGSGMP hook M4 (docs/hooks.md)
++					if (DIP.get(FACTIONS.player(), f) != DIP.NEUTRAL())
++						DIP.get(FACTIONS.player(), f).icon.render(r, X1, X2, Y1, Y2);
+ 				}
+ 			});
+ 			
+@@ -241,7 +244,7 @@ final class UIFactionList extends ISidePanel{
+ 		public void render(SPRITE_RENDERER r, float ds) {
+ 			
+ 			boolean hovered = hoveredIs();
+-			FactionNPC f = g();
++			Faction f = g(); // SOSGSGMP hook M4 (docs/hooks.md)
+ 			boolean selected = VIEW.world().UI.factions.openIs(f);
+ 			boolean active = f.capitolRegion() != null;
+ 			
+@@ -282,9 +285,9 @@ final class UIFactionList extends ISidePanel{
+ 		private COLOR cGood = COLOR.NYAN100.makeSaturated(0.75).shade(0.75);
+ 		
+ 		private void bg(SPRITE_RENDERER r) {
+-			FactionNPC f = g();
++			Faction f = g(); // SOSGSGMP hook M4 (docs/hooks.md)
+ 			
+-			double v = ROPINION.trust().get(f);
++			double v = f instanceof FactionNPC ? ROPINION.trust().get((FactionNPC) f) : 1; // SOSGSGMP hook M4 (docs/hooks.md): no trust between players
+ 			
+ 			COLOR c = cbad;
+ 			if (v < 1)
+@@ -309,7 +312,7 @@ final class UIFactionList extends ISidePanel{
+ 			return super.click();
+ 		}
+ 		
+-		private FactionNPC g() {
++		private Faction g() { // SOSGSGMP hook M4 (docs/hooks.md)
+ 			return sorted.get(ier.get());
+ 		}
+ 		
+@@ -323,12 +326,15 @@ final class UIFactionList extends ISidePanel{
+ 		
+ 	}
+ 	
+-	void open(FactionNPC f, boolean shove) {
++	void open(Faction f, boolean shove) { // SOSGSGMP hook M4 (docs/hooks.md)
+ 
+ 		if (f != null) {
+ 			if (shove)
+ 				builder.set(sorted.indexOf(f));
+-			VIEW.world().UI.factions.open(f);
++			if (f instanceof FactionNPC) // SOSGSGMP hook M4 (docs/hooks.md)
++				VIEW.world().UI.factions.open((FactionNPC) f);
++			else
++				menu.MpPlayers.open(f);
+ //			VIEW.world().UI.faction.open(f);
+ //			VIEW.world().window.centererTile.set(f.capitolRegion().cx(), f.capitolRegion().cy());
+ 		}
