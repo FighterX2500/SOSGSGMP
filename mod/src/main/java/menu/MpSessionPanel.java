@@ -48,7 +48,7 @@ final class MpSessionPanel extends Interrupter {
 	private double sinceRefresh;
 	private final GuiSection section = new GuiSection();
 	private final MpCursors cursors;
-	/** Deals with the other players (spec §6, SOS-72): their popups and the latest answer. */
+	/** Deals with the other players (spec §6; SOS-72, SOS-76): their notices and the latest answer. */
 	private final MpDeals deals;
 	private final GText[] rows = new GText[LobbySettings.MAX_PLAYERS];
 	private int shownRows;
@@ -74,7 +74,7 @@ final class MpSessionPanel extends Interrupter {
 		this.engine = engine;
 		this.saves = saves;
 		this.cursors = new MpCursors(setup);
-		this.deals = new MpDeals(setup, engine);
+		this.deals = new MpDeals(setup);
 		for (int i = 0; i < rows.length; i++)
 			rows[i] = new GText(UI.FONT().M, 96);
 		int rowH = UI.FONT().M.height() + 2;
@@ -94,27 +94,6 @@ final class MpSessionPanel extends Interrupter {
 				COLOR.unbind();
 			}
 		});
-		GuiSection dealButtons = new GuiSection();
-		int others = 0;
-		for (LobbyPlayer p : setup.players()) {
-			if (p.id() == setup.localPlayerId())
-				continue;
-			int slot = setup.factions().slotOf(p.id());
-			dealButtons.addRightC(others++ == 0 ? 0 : 4, new GButt.ButtPanel("deal: " + p.name()) {
-				@Override
-				protected void clickA() {
-					if (canDeal(slot))
-						deals.offer(slot);
-				}
-
-				@Override
-				protected void renAction() {
-					activeSet(canDeal(slot));
-				}
-			});
-		}
-		if (others > 0)
-			inner.addDown(8, dealButtons);
 		if (setup.isHost()) {
 			inner.addDown(8, new GButt.ButtPanel("save campaign") {
 				@Override
@@ -139,11 +118,6 @@ final class MpSessionPanel extends Interrupter {
 		section.add(panel);
 		section.add(inner);
 		section.body().moveX2(C.WIDTH() - 16).moveY1(96);
-	}
-
-	/** A deal is offered to a player in the running game who wasn't removed. */
-	private boolean canDeal(int slot) {
-		return slot >= 0 && setup.playing() && !setup.closed() && engine.active() && !engine.retired(slot);
 	}
 
 	@Override

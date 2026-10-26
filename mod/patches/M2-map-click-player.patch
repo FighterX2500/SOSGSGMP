@@ -1,0 +1,13 @@
+diff --git a/view/world/ToolDefault.java b/view/world/ToolDefault.java
+index eec654d..1740436 100644
+--- a/view/world/ToolDefault.java
++++ b/view/world/ToolDefault.java
+@@ -111,6 +111,8 @@ final class ToolDefault extends Tool{
+ 			if (reg != null) {
+ 				if (reg.faction() instanceof FactionNPC)
+ 					VIEW.world().UI.factions.open((FactionNPC) reg.faction());
++				else
++					menu.MpPlayers.open(reg.faction()); // SOSGSGMP hook M2 (docs/hooks.md)
+ 			}
+ 			return;
+ 		}

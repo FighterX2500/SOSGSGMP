@@ -22,6 +22,7 @@ import snake2d.LOG;
 import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.game.EnginePlay;
+import sosgsgmp.game.PlayerDeals;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
@@ -59,6 +60,7 @@ import world.WORLD;
  * this step, as a crash or a pulled cable leaves the others: SOS-65), {@code ongone} (host: {@code continue} or
  * {@code return} when a player left), {@code startafter} (host: keep the lobby open this many seconds first),
  * {@code deal} (join: at this step propose trade and up to 100 denari to the host, who accepts every proposal: SOS-72),
+ * {@code dealcancel} (join: from this step, cancel every treaty with the host at once, once there is one: SOS-76),
  * {@code capital} ({@code X:Y}: place this PC's capital at that world tile instead of searching for one, or search when
  * the location rules refuse it: SOS-75).
  */
@@ -83,6 +85,8 @@ public final class MpAutopilot {
 	private final long crash;
 	/** Join: the step to propose a deal to the host at (SOS-72); -1 for none. */
 	private final long deal;
+	/** Join: the step from which to cancel every treaty with the host at once (SOS-76); -1 for none. */
+	private final long dealCancel;
 	/** This PC's capital's world tile from {@code capital=X:Y} (SOS-75); -1 to search for one. */
 	private final int capitalX, capitalY;
 	/** The location rules refused {@link #capitalX}, {@link #capitalY}: search for one instead. */
@@ -153,6 +157,7 @@ public final class MpAutopilot {
 		resume = m.getOrDefault("resume", "0").equals("1");
 		crash = Long.parseLong(m.getOrDefault("crash", "-1"));
 		deal = Long.parseLong(m.getOrDefault("deal", "-1"));
+		dealCancel = Long.parseLong(m.getOrDefault("dealcancel", "-1"));
 		String[] capital = m.getOrDefault("capital", "-1:-1").split(":");
 		if (capital.length != 2)
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " capital '" + m.get("capital") + "', not X:Y");
@@ -173,24 +178,34 @@ public final class MpAutopilot {
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " role=join needs address=");
 	}
 
-	/** Deals between players (SOS-72): the joiner proposes one, the host accepts, every PC reports what it sees. */
-	private void deals(SetupSession setup, EnginePlay engine, long step) {
+	/**
+	 * Deals between players (SOS-72, SOS-76): the joiner proposes one, the host accepts, the joiner may then cancel it at
+	 * once, and every PC reports what it sees.
+	 */
+	private void deals(SetupSession setup, long step) {
 		int me = setup.factions().slotOf(setup.localPlayerId());
 		if (!host && deal >= 0 && step >= deal && first("deal")) {
 			int give = (int) Math.min(100, Math.max(0, FACTIONS.player().credits().credits())); // a new city may have less
 			DealBook.Terms t = new DealBook.Terms(DealBook.TRADE, give, 0, new int[0], new int[0]);
-			String why = engine.dealRefusal(0, t);
+			String why = PlayerDeals.refusal(0, t);
 			if (why == null)
-				engine.dealPropose(0, t);
+				PlayerDeals.propose(0, t);
 			event("dealproposed", "\"step\":" + step + ",\"refused\":\"" + clean(why == null ? "" : why) + "\"");
 		}
-		for (DealBook.Proposal p : engine.deals()) {
+		if (!host && dealCancel >= 0 && step >= dealCancel && PlayerDeals.cancelRefusal(0) == null && first("dealcancel")) {
+			PlayerDeals.cancel(0);
+			event("dealcancel", "\"step\":" + step);
+		}
+		if (!host && once.containsKey("dealcancel") && DIP.get(FACTIONS.player(), FACTIONS.getByIndex(0)) == DIP.NEUTRAL()
+				&& first("dealcancelled")) // the cancel applied, at its step
+			event("dealcancelled", "\"stance\":\"" + DIP.get(FACTIONS.player(), FACTIONS.getByIndex(0)).key() + "\",\"step\":" + step);
+		for (DealBook.Proposal p : PlayerDeals.open()) {
 			if (first("dealopen" + p.id()))
 				event("dealopen", "\"id\":" + p.id() + ",\"from\":" + p.from() + ",\"to\":" + p.to() + ",\"step\":" + step);
 			if (host && p.to() == me && first("dealaccept" + p.id()))
-				engine.dealAnswer(p.id(), true);
+				PlayerDeals.answer(p.id(), true);
 		}
-		for (DealBook.Answer a : engine.dealAnswers()) {
+		for (DealBook.Answer a : PlayerDeals.answers()) {
 			if (first("dealanswered" + a.id())) {
 				String stance = DIP.get(FACTIONS.getByIndex(a.from()), FACTIONS.getByIndex(a.to())).key();
 				event("dealanswered", "\"id\":" + a.id() + ",\"outcome\":\"" + a.outcome() + "\",\"stance\":\"" + stance
@@ -417,7 +432,7 @@ public final class MpAutopilot {
 			event("crash", "\"step\":" + step);
 			Runtime.getRuntime().halt(1); // no goodbye to the host: the connection just drops
 		}
-		deals(setup, engine, step);
+		deals(setup, step);
 		Departures d = setup.departures();
 		if (d.waiting() && d.holdStep() != seenGone) {
 			seenGone = d.holdStep();

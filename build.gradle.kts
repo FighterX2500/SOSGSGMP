@@ -82,6 +82,8 @@ dependencies {
     ecjTool("org.eclipse.jdt:ecj:3.40.0")
     compileOnly(files({ gameJar() }))
     compileOnly(files({ engineJar() }))
+    // the engine's plain-Java types (DealBook) in the mod's view-model tests; the game jar stays out of them
+    testImplementation(files({ engineJar() }))
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
