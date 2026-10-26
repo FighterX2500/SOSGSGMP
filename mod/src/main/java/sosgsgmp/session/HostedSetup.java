@@ -58,6 +58,10 @@ public final class HostedSetup implements SetupSession {
     private SaveRound saveRound;
     /** This PC's own copy of the latest order, until it takes it. */
     private SaveOrder saveOrder;
+    /** The first joined player who asked to quit, until this PC takes it; -1 when none (SOS-79). */
+    private int quitAsk = -1;
+    /** A player asked to quit: the session ends with that ask's save, so every later ask changes nothing. */
+    private boolean quitAsked;
     private int doneNumber;
     private String doneOutcome;
     /** The engine's streams once this PC plays; null before. */
@@ -151,6 +155,12 @@ public final class HostedSetup implements SetupSession {
             case Message.Saved s when id != null && saveRound != null && s.number() == saveRound.order.number() -> {
                 if (saveRound.report(id, s.hash(), s.problem().isEmpty() ? null : s.problem()))
                     saveDoneWhenComplete();
+            }
+            case Message.QuitAsk q when id != null && link != null -> {
+                if (!quitAsked) {
+                    quitAsked = true;
+                    quitAsk = id;
+                }
             }
             case Message.Leave l when id != null -> {
                 notes.add(name(id) + " left");
@@ -384,6 +394,18 @@ public final class HostedSetup implements SetupSession {
         SaveOrder o = saveOrder;
         saveOrder = null;
         return o;
+    }
+
+    @Override
+    public void askQuit() {
+        throw new IllegalStateException("SOSGSGMP: the host quits through its own campaign save");
+    }
+
+    @Override
+    public int takeQuitAsk() {
+        int id = quitAsk;
+        quitAsk = -1;
+        return id;
     }
 
     @Override

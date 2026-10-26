@@ -21,6 +21,7 @@ import snake2d.CORE;
 import snake2d.LOG;
 import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.CampaignRecord;
+import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
@@ -60,7 +61,9 @@ import world.WORLD;
  * {@code return} when a player left), {@code startafter} (host: keep the lobby open this many seconds first),
  * {@code deal} (join: at this step propose trade and up to 100 denari to the host, who accepts every proposal: SOS-72),
  * {@code capital} ({@code X:Y}: place this PC's capital at that world tile instead of searching for one, or search when
- * the location rules refuse it: SOS-75).
+ * the location rules refuse it: SOS-75), {@code quit} (at this step this PC's player chooses Exit in the escape menu
+ * and confirms: the campaign is saved on every PC, then the session ends: SOS-79). {@code save} goes through the escape
+ * menu's Save Campaign.
  */
 public final class MpAutopilot {
 
@@ -83,6 +86,8 @@ public final class MpAutopilot {
 	private final long crash;
 	/** Join: the step to propose a deal to the host at (SOS-72); -1 for none. */
 	private final long deal;
+	/** The step this PC's player quits at, through the escape menu's Exit (SOS-79); -1 for never. */
+	private final long quit;
 	/** This PC's capital's world tile from {@code capital=X:Y} (SOS-75); -1 to search for one. */
 	private final int capitalX, capitalY;
 	/** The location rules refused {@link #capitalX}, {@link #capitalY}: search for one instead. */
@@ -153,6 +158,7 @@ public final class MpAutopilot {
 		resume = m.getOrDefault("resume", "0").equals("1");
 		crash = Long.parseLong(m.getOrDefault("crash", "-1"));
 		deal = Long.parseLong(m.getOrDefault("deal", "-1"));
+		quit = Long.parseLong(m.getOrDefault("quit", "-1"));
 		String[] capital = m.getOrDefault("capital", "-1:-1").split(":");
 		if (capital.length != 2)
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " capital '" + m.get("capital") + "', not X:Y");
@@ -351,10 +357,14 @@ public final class MpAutopilot {
 	 * The loaded game, every frame after the update: the landing party; while playing, hashes, the test desync and the
 	 * host's choice in the desync window; at the end, quit.
 	 */
-	void game(SetupSession setup, EnginePlay engine, MpDesync desync, MpSaves saves, MpGone gone) {
-		if (desync.exitOutcome() != null && first("desyncexit")) {
-			// the engine has ended
-			event("desyncexit", "\"outcome\":\"" + clean(desync.exitOutcome()) + "\",\"resynced\":" + desync.resyncedStep());
+	void game(SetupSession setup, EnginePlay engine, MpDesync desync, MpSaves saves, MpGone gone, MpExit exit) {
+		if (exit.outcome() != null && first("exit")) {
+			// the engine has ended: a desync's Save and exit, or a player's quit (SOS-79)
+			if (saves.exitedQuitter() == SaveOrder.NO_QUITTER)
+				event("desyncexit", "\"outcome\":\"" + clean(exit.outcome()) + "\",\"resynced\":" + desync.resyncedStep());
+			else
+				event("quitexit", "\"outcome\":\"" + clean(exit.outcome()) + "\",\"quitter\":" + saves.exitedQuitter() + ",\"me\":"
+						+ setup.localPlayerId());
 			CORE.annihilate();
 			return;
 		}
@@ -382,9 +392,13 @@ public final class MpAutopilot {
 		}
 		if (host && speed > 0 && first("speed"))
 			GAME.SPEED.speedSet(speed);
-		if (host && save >= 0 && engine.step() >= save && saves.canSave() && first("save")) {
-			saves.saveNow(CampaignRecord.Kind.SAVE);
+		if (host && save >= 0 && engine.step() >= save && exit.saveRefusal() == null && first("save")) {
+			exit.save(); // the escape menu's Save Campaign
 			event("saveorder", "\"step\":" + engine.step());
+		}
+		if (quit >= 0 && engine.step() >= quit && first("quit")) {
+			exit.quitConfirmed(true); // the escape menu's Exit, confirmed
+			event("quit", "\"step\":" + engine.step());
 		}
 		if (saves.changes() != shownSaves) {
 			shownSaves = saves.changes();

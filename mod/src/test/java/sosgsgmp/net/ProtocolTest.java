@@ -69,6 +69,9 @@ class ProtocolTest {
             new Message.PlayerGone(0, Long.MAX_VALUE),
             new Message.GoneChoice(1234, true),
             new Message.GoneChoice(0, false),
+            new Message.SaveAt(new SaveOrder(7, 120, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, true, 5)),
+            new Message.SaveAt(new SaveOrder(8, 120, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, true, 0)),
+            new Message.QuitAsk(),
             new Message.SaveDone(5, "Bob couldn't save: disk full\nCid's world differs from the host's"),
             new Message.MapResult(3, -1L, MapStatus.OK),
             new Message.MapResult(4, 0L, MapStatus.WRONG_BUILD),
@@ -165,6 +168,18 @@ class ProtocolTest {
     }
 
     /** Encoding doesn't check values (only decoding does), so a bad value reaches the decoder as it would from a bad peer. */
+    /** A save order names a quitter only when it ends the session; a decoded one that breaks this is refused (SOS-79). */
+    @Test
+    void aQuitterComesOnlyWithAnExit() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new SaveOrder(1, 0, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, false, 3));
+        assertThrows(IllegalArgumentException.class,
+                () -> new SaveOrder(1, 0, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, true, -2));
+        byte[] b = Protocol.encode(new Message.SaveAt(new SaveOrder(1, 0, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, true, 3)));
+        b[b.length - 5] = 0; // the exit flag, just before the quitter
+        assertThrows(IOException.class, () -> Protocol.decode(b));
+    }
+
     private static void assertRefused(Message m) {
         byte[] b = Protocol.encode(m);
         assertThrows(IOException.class, () -> Protocol.decode(b), m.toString());

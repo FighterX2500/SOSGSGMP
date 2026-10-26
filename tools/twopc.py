@@ -202,6 +202,8 @@ def main():
                     help="the host's choice when a player left: continue without them, or return to the last save")
     ap.add_argument("--deal", type=int, default=-1,
                     help="the joiner proposes trade and 100 denari to the host at this step, and the host accepts (SOS-72)")
+    ap.add_argument("--quit", type=int, default=-1,
+                    help="the joiner chooses Exit in the escape menu at this step: both PCs save the campaign, then end (SOS-79)")
     ap.add_argument("--host-capital", default="", help="X:Y: the host places its capital at that world tile (SOS-75)")
     ap.add_argument("--join-capital", default="", help="X:Y: the joiner places its capital at that world tile (SOS-75)")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
@@ -264,9 +266,9 @@ def main():
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     game_pid = relaunched(host)
     log("host started here (pid %d)" % game_pid)
-    joiner = "role=join,name=Joiner,address=%s,corrupt=%d,crash=%s,deal=%d,%s" % (
+    joiner = "role=join,name=Joiner,address=%s,corrupt=%d,crash=%s,deal=%d,quit=%d,%s" % (
         "127.0.0.1" if args.here else HOST_ADDRESS, args.corrupt, crash_at if crash_who == "remote" else "-1", args.deal,
-        common + join_capital)
+        args.quit, common + join_capital)
     if not args.no_joiner and args.here:
         time.sleep(15)  # the host's lobby is open before the joiner here starts looking for it
         start_here(local2, joiner)
@@ -294,7 +296,7 @@ def main():
             evs = events(text)
             for e in evs[seen[who]:]:
                 log("%s %s" % (who, json.dumps(e)))
-                if e["event"] in ("done", "closed", "desyncexit", "crash"):
+                if e["event"] in ("done", "closed", "desyncexit", "quitexit", "crash"):
                     done[who] = e
             seen[who] = len(evs)
             (run / ("%s-events.jsonl" % who)).write_text(text, encoding="utf-8")
@@ -303,7 +305,7 @@ def main():
         if "host" not in done and not running(game_pid):
             # its last event may have landed after this round's read: once more before failing
             last = events((local / EVENTS).read_text(encoding="utf-8")) if (local / EVENTS).exists() else []
-            if not any(e["event"] in ("done", "closed", "desyncexit") for e in last):
+            if not any(e["event"] in ("done", "closed", "desyncexit", "quitexit") for e in last):
                 fail("the host's game ended without finishing; see %s" % (local / "logs"))
             continue
         time.sleep(5)
@@ -335,6 +337,13 @@ def main():
         # world, and end
         ok = desync_ok and len(done) == 2 and all(done[w]["event"] == "desyncexit" and done[w]["outcome"] == ""
                                                   and done[w]["resynced"] == after for w in done)
+    elif args.quit >= 0:
+        # SOS-79: the joiner's Exit made both PCs save the campaign, naming the joiner, and end
+        ok = len(done) == 2 and all(done[w]["event"] == "quitexit" and done[w]["outcome"] == ""
+                                    and done[w]["quitter"] == done["join"].get("me") for w in done) and not differ and common_steps
+        saved = {w: [e for e in evs[w] if e["event"] == "save" and e["status"].startswith("Campaign saved")] for w in evs}
+        log("campaign saved at the quit on: %s" % ", ".join(w for w in saved if saved[w]))
+        ok = ok and all(saved.values())
     else:
         ok = desync_ok and all(done[w]["event"] == "done" and done[w].get("desync", -1) < 0 for w in done)             and not differ and common_steps
     if args.deal >= 0:

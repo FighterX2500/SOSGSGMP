@@ -27,14 +27,17 @@ final class MpPlay implements ACTION {
 	private final MpLog log;
 	/** Campaign saves: the host's orders, and every PC's save at their step (SOS-64). */
 	private final MpSaves saves;
+	/** The escape menu's save and quit, and every save that ends the session (SOS-79). */
+	private final MpExit exit;
 
-	MpPlay(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpLog log, MpSaves saves) {
+	MpPlay(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpLog log, MpSaves saves, MpExit exit) {
 		this.setup = setup;
 		this.engine = engine;
-		this.desync = new MpDesync(setup, engine, game, saves);
+		this.desync = new MpDesync(setup, engine, saves);
 		this.gone = new MpGone(setup, engine, game, saves);
 		this.log = log;
 		this.saves = saves;
+		this.exit = exit;
 	}
 
 	@Override
@@ -46,7 +49,7 @@ final class MpPlay implements ACTION {
 			log.error("the game over the network failed at step " + (engine.active() ? engine.step() : -1), e);
 			throw e;
 		}
-		log.frame(desync);
+		log.frame(desync, exit);
 	}
 
 	private void frame() {
@@ -66,10 +69,11 @@ final class MpPlay implements ACTION {
 			if (!gone.ended()) { // Return to the last save ended the engine
 				desync.frame();
 				saves.frame();
+				exit.frame(); // after the saves: a save that ends the session ends it in the frame it is done
 			}
 		}
 		if (autopilot != null)
-			autopilot.game(setup, engine, desync, saves, gone);
+			autopilot.game(setup, engine, desync, saves, gone, exit);
 	}
 
 	/** The other players' PC numbers: their slots. */

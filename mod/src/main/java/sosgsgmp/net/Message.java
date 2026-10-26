@@ -259,6 +259,12 @@ public sealed interface Message {
      */
     record GoneChoice(long holdStep, boolean continued) implements Message {}
 
+    /**
+     * A joined PC to the host: its player chose Quit to menu or Exit (SOS-79). The host saves the campaign on every PC as
+     * soon as a save can start, and then the session ends; a repeated ask changes nothing.
+     */
+    record QuitAsk() implements Message {}
+
     /** A message from another protocol version; only its version is read. */
     record Unsupported(int version) implements Message {}
 }

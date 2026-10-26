@@ -640,6 +640,27 @@ class LoopbackSetupTest {
         assertEquals("You chose to return to the last save. Resume the campaign from Load Saved Lobby.", host.closedReason());
     }
 
+    /** A joining player's Quit reaches the host once; asking again, or another player asking, changes nothing (SOS-79). */
+    @Test
+    void aQuitAskReachesTheHostOnce() throws Exception {
+        playing(new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        int bobId = idOf(host, "Bob");
+        int cidId = idOf(host, "Cid");
+        assertThrows(IllegalStateException.class, () -> host.askQuit(), "the host quits through its own save");
+        bob.askQuit();
+        bob.askQuit();
+        int[] asked = {-1};
+        playUntil("Bob's ask at the host", () -> (asked[0] = host.takeQuitAsk()) >= 0);
+        assertEquals(bobId, asked[0]);
+        cid.askQuit();
+        bob.cursor(true, 1, 2); // each PC's messages arrive in order: once their cursors are here, so are their asks
+        cid.cursor(true, 3, 4);
+        playUntil("both cursors at the host", () -> at(host, bobId, 1, 2) && at(host, cidId, 3, 4));
+        assertEquals(-1, host.takeQuitAsk(), "the session ends with Bob's ask: later asks change nothing");
+        assertEquals(-1, bob.takeQuitAsk(), "only the host takes asks");
+        assertFalse(host.closed());
+    }
+
     private static int idOf(SetupSession s, String name) {
         for (LobbyPlayer p : s.players())
             if (p.name().equals(name))

@@ -418,6 +418,18 @@ public final class JoinedSetup implements SetupSession {
     }
 
     @Override
+    public void askQuit() {
+        if (!closed)
+            node.send(Node.HOST, new Message.QuitAsk());
+    }
+
+    /** None: only the host takes a player's ask to quit. */
+    @Override
+    public int takeQuitAsk() {
+        return -1;
+    }
+
+    @Override
     public void saved(int number, long hash, String problem) {
         if (!closed)
             node.send(Node.HOST, new Message.Saved(number, hash, problem == null ? "" : problem));

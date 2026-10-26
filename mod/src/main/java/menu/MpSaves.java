@@ -37,6 +37,8 @@ final class MpSaves {
 	private int changes;
 	/** After a save that ends the session (SaveOrder.exit): its outcome once done here, empty when every PC saved; null before. */
 	private String exited;
+	/** After a save that ended the session: the player who quit with it, or SaveOrder.NO_QUITTER (SOS-79). */
+	private int exitedQuitter = SaveOrder.NO_QUITTER;
 	/** The Engage step of the last battle this PC saved before, held there (SOS-67); -1 before the first. */
 	private long savedBeforeBattle = -1;
 	/** Host: real milliseconds played since the last save, as vanilla's autosave counts them. */
@@ -59,9 +61,12 @@ final class MpSaves {
 		if (!setup.playing() || !engine.active())
 			return;
 		if (setup.closed()) {
-			// the host ends the session once a save that ends it is done; a PC that saved but missed the done ends too
-			if (order != null && order.exit() && savedHere)
-				finish("the session closed before the host confirmed every player's save");
+			// the host ends the session once a save that ends it is done, so its done and its close can come in one
+			// update: the done is still taken (SOS-79); a PC that saved but missed the done ends too
+			if (order != null && order.exit() && savedHere) {
+				String outcome = setup.takeSaveDone(order.number());
+				finish(outcome != null ? outcome : "the session closed before the host confirmed every player's save");
+			}
 			return;
 		}
 		SaveOrder o = setup.takeSaveOrder();
@@ -94,8 +99,24 @@ final class MpSaves {
 
 	/** Host: whether a save can start now: none open, no battle, no desync hold. */
 	boolean canSave() {
-		return setup.isHost() && setup.playing() && !setup.closed() && engine.active() && order == null && setup.campaign() != null
-				&& engine.battle() == null && engine.desyncHold() == null;
+		return saveRefusal() == null;
+	}
+
+	/** Why this PC can't start a save now, for the escape menu (SOS-79); null when it can: the host, playing, nothing in the way. */
+	String saveRefusal() {
+		if (!setup.isHost())
+			return "Only the host can save the campaign.";
+		if (setup.closed())
+			return "The session has ended.";
+		if (!setup.playing() || !engine.active() || setup.campaign() == null)
+			return "The game hasn't started yet.";
+		if (order != null)
+			return "A campaign save is under way.";
+		if (engine.battle() != null)
+			return "No saves during a battle.";
+		if (engine.desyncHold() != null)
+			return "No saves while the worlds differ.";
+		return null;
 	}
 
 	/** Host: orders save of {@code kind} on every PC. Check {@link #canSave()} first. */
@@ -105,15 +126,24 @@ final class MpSaves {
 
 	/** Host: a desync's Save and exit, after the resync: every PC saves the campaign, then the session ends. Check {@link #canSave()} first. */
 	void saveAndExit() {
-		order(CampaignRecord.Kind.SAVE, true, engine.step() + LEAD);
+		saveAndExit(SaveOrder.NO_QUITTER);
+	}
+
+	/** Host: as {@link #saveAndExit()}, for player {@code quitter}'s Quit to menu or Exit (SOS-79). Check {@link #canSave()} first. */
+	void saveAndExit(int quitter) {
+		order(CampaignRecord.Kind.SAVE, true, quitter, engine.step() + LEAD);
 	}
 
 	private void order(CampaignRecord.Kind kind, boolean exit, long step) {
+		order(kind, exit, SaveOrder.NO_QUITTER, step);
+	}
+
+	private void order(CampaignRecord.Kind kind, boolean exit, int quitter, long step) {
 		if (!canSave())
 			throw new IllegalStateException("SOSGSGMP: a campaign save can't start now");
 		Campaign c = setup.campaign();
 		int keep = kind == CampaignRecord.Kind.AUTO ? Math.max(1, S.get().autoSaveFiles.get()) : 0;
-		setup.orderSave(new SaveOrder(store.nextNumber(c.id()), step, kind, keep, c, exit));
+		setup.orderSave(new SaveOrder(store.nextNumber(c.id()), step, kind, keep, c, exit, quitter));
 		autoMillis = 0;
 	}
 
@@ -178,8 +208,10 @@ final class MpSaves {
 			savedBeforeBattle = engine.battleAhead(); // a failed save too: the battle still begins, its outcome shown
 		status = outcome.isEmpty() ? "Campaign saved (save " + order.number() + ")." : "Save " + order.number() + ": " + outcome;
 		log.line("save " + order.number() + " done on every PC" + (outcome.isEmpty() ? "" : ": " + outcome));
-		if (order.exit())
+		if (order.exit()) {
 			exited = outcome;
+			exitedQuitter = order.quitter();
+		}
 		order = null;
 		savedHere = false;
 		changes++;
@@ -191,6 +223,11 @@ final class MpSaves {
 		return "MP " + name + (o.kind() == CampaignRecord.Kind.AUTO ? " Auto" : "");
 	}
 
+	/** Whether a save is under way: ordered, not yet done. */
+	boolean saving() {
+		return order != null;
+	}
+
 	/** Whether a save that ends the session is under way: ordered, not yet done. */
 	boolean exiting() {
 		return order != null && order.exit();
@@ -199,6 +236,11 @@ final class MpSaves {
 	/** After a save that ended the session: its outcome, empty when every PC saved the same world; null before. */
 	String exited() {
 		return exited;
+	}
+
+	/** After a save that ended the session: the player who quit with it, or SaveOrder.NO_QUITTER for a desync's Save and exit. */
+	int exitedQuitter() {
+		return exitedQuitter;
 	}
 
 	/** What the panel shows: a save under way, or the latest outcome. */

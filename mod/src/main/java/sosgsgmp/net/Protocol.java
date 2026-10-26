@@ -30,7 +30,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 11;
+    public static final int VERSION = 12;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -41,7 +41,7 @@ public final class Protocol {
     private static final int PICK = 14, PICKS = 15, SLOT_MAP = 16, WORLD_PART = 17, LOADED = 18, START_SPOT = 19, GO = 20, WORLD_PLAYERS = 21;
     private static final int CURSOR = 22, STREAM = 23, RESYNC = 24; // 25 was Save and exit's own message, until SOS-68
     private static final int SAVE_AT = 26, SAVED = 27, SAVE_DONE = 28;
-    private static final int PLAYER_GONE = 29, GONE_CHOICE = 30;
+    private static final int PLAYER_GONE = 29, GONE_CHOICE = 30, QUIT_ASK = 31;
     /** Largest piece of an engine stream in one message, in bytes: well under {@link #MAX_MESSAGE}. */
     public static final int MAX_STREAM_PIECE = 48 * 1024;
     /** Longest reason a location was cleared, in characters. */
@@ -88,6 +88,7 @@ public final class Protocol {
                 }
                 case Message.Start s -> out.writeByte(START);
                 case Message.Leave l -> out.writeByte(LEAVE);
+                case Message.QuitAsk q -> out.writeByte(QUIT_ASK);
                 case Message.MapBuild b -> {
                     out.writeByte(MAP_BUILD);
                     out.writeInt(b.buildId());
@@ -208,6 +209,7 @@ public final class Protocol {
                     out.writeByte(o.keep());
                     writeCampaign(out, o.campaign());
                     out.writeBoolean(o.exit());
+                    out.writeInt(o.quitter());
                 }
                 case Message.Saved s -> {
                     out.writeByte(SAVED);
@@ -287,6 +289,7 @@ public final class Protocol {
             case SAVE_DONE -> new Message.SaveDone(number(in, "save"), text(in, MAX_OUTCOME, "save outcome"));
             case PLAYER_GONE -> new Message.PlayerGone(playerId(in), step(in, "player gone hold"));
             case GONE_CHOICE -> new Message.GoneChoice(step(in, "gone choice hold"), in.readBoolean());
+            case QUIT_ASK -> new Message.QuitAsk();
             default -> throw new IOException("SOSGSGMP: unknown message type " + type);
         };
         if (in.available() > 0)
@@ -367,7 +370,13 @@ public final class Protocol {
             throw new IOException("SOSGSGMP: unknown save kind " + kind);
         int keep = in.readUnsignedByte();
         Campaign campaign = campaign(in);
-        return new Message.SaveAt(new SaveOrder(number, step, kinds[kind], keep, campaign, in.readBoolean()));
+        boolean exit = in.readBoolean();
+        int quitter = in.readInt();
+        try {
+            return new Message.SaveAt(new SaveOrder(number, step, kinds[kind], keep, campaign, exit, quitter));
+        } catch (IllegalArgumentException e) {
+            throw new IOException(e.getMessage(), e);
+        }
     }
 
     private static Message.Roster roster(DataInputStream in) throws IOException {

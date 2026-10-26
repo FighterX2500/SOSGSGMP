@@ -11,7 +11,6 @@ import snake2d.util.color.COLOR;
 import snake2d.util.datatypes.COORDINATE;
 import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.renderable.RENDEROBJ;
-import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbyPlayer;
@@ -63,8 +62,10 @@ final class MpSessionPanel extends Interrupter {
 	private boolean dragging;
 	private int grabX, grabY;
 
-	static void show(SetupSession setup, WorldSetupAdapter game, EnginePlay engine, MpSaves saves) {
+	/** Shows the panel in this view, and the escape menu's multiplayer column (SOS-79). */
+	static void show(SetupSession setup, WorldSetupAdapter game, EnginePlay engine, MpSaves saves, MpExit exit) {
 		new MpSessionPanel(setup, game, engine, saves).show(VIEW.inters().manager);
+		MpEscapeMenu.install(exit);
 	}
 
 	private MpSessionPanel(SetupSession setup, WorldSetupAdapter game, EnginePlay engine, MpSaves saves) {
@@ -115,20 +116,6 @@ final class MpSessionPanel extends Interrupter {
 		}
 		if (others > 0)
 			inner.addDown(8, dealButtons);
-		if (setup.isHost()) {
-			inner.addDown(8, new GButt.ButtPanel("save campaign") {
-				@Override
-				protected void clickA() {
-					if (saves.canSave())
-						saves.saveNow(CampaignRecord.Kind.SAVE);
-				}
-
-				@Override
-				protected void renAction() {
-					activeSet(saves.canSave());
-				}
-			});
-		}
 		inner.addDown(8, MpSetupLeave.button(setup, () -> {
 			leaving = true;
 			game.endSession();
