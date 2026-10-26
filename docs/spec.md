@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.21 · 2026-10-27
+Version 0.22 · 2026-10-27
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -96,6 +96,7 @@ Every player starts with the same starting resources and difficulty, set by the 
 - Players use vanilla's 64 faction slots, so each player takes one slot from the NPC factions: 61 NPC factions with 3 players, 48 with 16. With many players on a big map there are fewer NPC kingdoms than in vanilla.
 - The game is a sandbox with no win condition.
 - An eliminated player becomes a spectator (section 11).
+- A name or banner change made during play reaches every player: a player's faction name, ruler name and banner, changed in the profile window or loaded from a saved profile, change on every player's map at the same moment, and the campaign save keeps them.
 
 ## 6. Diplomacy
 

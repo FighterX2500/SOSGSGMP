@@ -23,6 +23,7 @@ import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.game.EnginePlay;
+import sosgsgmp.game.FactionIdentity;
 import sosgsgmp.game.PlayerDeals;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
@@ -65,7 +66,9 @@ import world.WORLD;
  * {@code capital} ({@code X:Y}: place this PC's capital at that world tile instead of searching for one, or search when
  * the location rules refuse it: SOS-75), {@code quit} (at this step this PC's player chooses Exit in the escape menu
  * and confirms: the campaign is saved on every PC, then the session ends: SOS-79). {@code save} goes through the escape
- * menu's Save Campaign.
+ * menu's Save Campaign. {@code rename} (at this step this PC's player renames the faction and the ruler and changes
+ * the banner, as the profile window does: SOS-78); every PC reports each player's name, ruler and banner with each
+ * hash.
  */
 public final class MpAutopilot {
 
@@ -92,6 +95,8 @@ public final class MpAutopilot {
 	private final long dealCancel;
 	/** The step this PC's player quits at, through the escape menu's Exit (SOS-79); -1 for never. */
 	private final long quit;
+	/** The step this PC's player renames the faction and changes the banner at (SOS-78); -1 for never. */
+	private final long rename;
 	/** This PC's capital's world tile from {@code capital=X:Y} (SOS-75); -1 to search for one. */
 	private final int capitalX, capitalY;
 	/** The location rules refused {@link #capitalX}, {@link #capitalY}: search for one instead. */
@@ -164,6 +169,7 @@ public final class MpAutopilot {
 		deal = Long.parseLong(m.getOrDefault("deal", "-1"));
 		dealCancel = Long.parseLong(m.getOrDefault("dealcancel", "-1"));
 		quit = Long.parseLong(m.getOrDefault("quit", "-1"));
+		rename = Long.parseLong(m.getOrDefault("rename", "-1"));
 		String[] capital = m.getOrDefault("capital", "-1:-1").split(":");
 		if (capital.length != 2)
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " capital '" + m.get("capital") + "', not X:Y");
@@ -475,11 +481,21 @@ public final class MpAutopilot {
 			resyncedAt = desync.resyncedStep();
 			event("resynced", "\"step\":" + resyncedAt + ",\"desync\":" + engine.desyncStep());
 		}
+		if (rename >= 0 && step >= rename && first("rename")) {
+			FactionIdentity.change(name + " Renamed", name + " Ruler");
+			event("rename", "\"step\":" + step);
+		}
 		long at = step / HASH_EVERY * HASH_EVERY;
 		if (at > hashedAt) {
 			hashedAt = at;
 			event("hash", "\"step\":" + at + ",\"hash\":\"" + Long.toHexString(engine.hash(at)) + "\",\"desync\":" + engine.desyncStep()
 					+ String.format(Locale.ROOT, ",\"speed\":%.2f", engine.agreedSpeed()));
+			StringBuilder ids = new StringBuilder();
+			for (LobbyPlayer p : setup.players()) {
+				int slot = setup.factions().slotOf(p.id());
+				ids.append(ids.length() == 0 ? "" : ",").append('"').append(slot).append("\":\"").append(clean(FactionIdentity.of(slot))).append('"');
+			}
+			event("identity", "\"step\":" + step + ",\"slots\":{" + ids + "}");
 		}
 		if (step >= steps && !done && (!host || peersReached(engine, MpPlay.otherPcs(setup), steps))) {
 			done = true;
