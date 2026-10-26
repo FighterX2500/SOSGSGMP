@@ -93,6 +93,8 @@ public final class MpAutopilot {
 	private final long deal;
 	/** Join: the step from which to cancel every treaty with the host at once (SOS-76); -1 for none. */
 	private final long dealCancel;
+	/** Join: the step to set a 50% tariff on what the host sells this player at (SOS-77); -1 for none. */
+	private final long tariff;
 	/** The step this PC's player quits at, through the escape menu's Exit (SOS-79); -1 for never. */
 	private final long quit;
 	/** The step this PC's player renames the faction and changes the banner at (SOS-78); -1 for never. */
@@ -168,6 +170,7 @@ public final class MpAutopilot {
 		crash = Long.parseLong(m.getOrDefault("crash", "-1"));
 		deal = Long.parseLong(m.getOrDefault("deal", "-1"));
 		dealCancel = Long.parseLong(m.getOrDefault("dealcancel", "-1"));
+		tariff = Long.parseLong(m.getOrDefault("tariff", "-1"));
 		quit = Long.parseLong(m.getOrDefault("quit", "-1"));
 		rename = Long.parseLong(m.getOrDefault("rename", "-1"));
 		String[] capital = m.getOrDefault("capital", "-1:-1").split(":");
@@ -192,7 +195,7 @@ public final class MpAutopilot {
 
 	/**
 	 * Deals between players (SOS-72, SOS-76): the joiner proposes one, the host accepts, the joiner may then cancel it at
-	 * once, and every PC reports what it sees.
+	 * once or set a tariff on the host (SOS-77), and every PC reports what it sees.
 	 */
 	private void deals(SetupSession setup, long step) {
 		int me = setup.factions().slotOf(setup.localPlayerId());
@@ -211,6 +214,15 @@ public final class MpAutopilot {
 		if (!host && once.containsKey("dealcancel") && DIP.get(FACTIONS.player(), FACTIONS.getByIndex(0)) == DIP.NEUTRAL()
 				&& first("dealcancelled")) // the cancel applied, at its step
 			event("dealcancelled", "\"stance\":\"" + DIP.get(FACTIONS.player(), FACTIONS.getByIndex(0)).key() + "\",\"step\":" + step);
+		if (!host && tariff >= 0 && step >= tariff && first("tariff")) {
+			String why = PlayerDeals.tariffRefusal(0, 50);
+			if (why == null)
+				PlayerDeals.setTariff(0, 50);
+			event("tariffset", "\"step\":" + step + ",\"refused\":\"" + clean(why == null ? "" : why) + "\"");
+		}
+		for (int s = 1; s < players; s++) // every PC sees the joiner's tariff on the host, at the same step
+			if (PlayerDeals.tariff(s, 0) == 50 && first("tariffseen" + s)) // the host has no tariff= of its own
+				event("tariffseen", "\"setter\":" + s + ",\"step\":" + step + ",\"revenue\":" + PlayerDeals.tariffRevenue(s, 0, false));
 		for (DealBook.Proposal p : PlayerDeals.open()) {
 			if (first("dealopen" + p.id()))
 				event("dealopen", "\"id\":" + p.id() + ",\"from\":" + p.from() + ",\"to\":" + p.to() + ",\"step\":" + step);

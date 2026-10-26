@@ -204,6 +204,8 @@ def main():
                     help="the joiner proposes trade and 100 denari to the host at this step, and the host accepts (SOS-72)")
     ap.add_argument("--deal-cancel", type=int, default=-1,
                     help="with --deal: from this step the joiner cancels every treaty with the host at once (SOS-76)")
+    ap.add_argument("--tariff", type=int, default=-1,
+                    help="the joiner's step to set a 50%% tariff on the host (SOS-77); needs --deal first")
     ap.add_argument("--quit", type=int, default=-1,
                     help="the joiner chooses Exit in the escape menu at this step: both PCs save the campaign, then end (SOS-79)")
     ap.add_argument("--rename", type=int, default=-1,
@@ -272,9 +274,9 @@ def main():
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     game_pid = relaunched(host)
     log("host started here (pid %d)" % game_pid)
-    joiner = "role=join,name=Joiner,address=%s,corrupt=%d,crash=%s,deal=%d,dealcancel=%d,quit=%d,rename=%d,%s" % (
+    joiner = "role=join,name=Joiner,address=%s,corrupt=%d,crash=%s,deal=%d,dealcancel=%d,tariff=%d,quit=%d,rename=%d,%s" % (
         "127.0.0.1" if args.here else HOST_ADDRESS, args.corrupt, crash_at if crash_who == "remote" else "-1", args.deal,
-        args.deal_cancel, args.quit, args.rename, common + join_capital)
+        args.deal_cancel, args.tariff, args.quit, args.rename, common + join_capital)
     if not args.no_joiner and args.here:
         time.sleep(15)  # the host's lobby is open before the joiner here starts looking for it
         start_here(local2, joiner)
@@ -370,6 +372,11 @@ def main():
         cancelled = [e for w in evs for e in evs[w] if e["event"] == "dealcancelled"]
         log("cancel: %s" % [(e["stance"], e["step"]) for e in cancelled])
         ok = ok and len(cancelled) == 1 and cancelled[0]["stance"] == "NEUTRAL"
+    if args.tariff >= 0:
+        # SOS-77: the joiner's tariff on the host applied at once and every PC saw it; the world hashes say they agree
+        seen = {w: [e for e in evs[w] if e["event"] == "tariffseen"] for w in evs}
+        log("tariff seen: %s" % {w: [(e["setter"], e["step"], e["revenue"]) for e in seen[w]] for w in seen})
+        ok = ok and all(len(s) == 1 for s in seen.values())
     for w in evs:
         for e in [e for e in evs[w] if e["event"] == "capitalrefused"]:
             log("%s: capital %d,%d refused: %s" % (w, e["x"], e["y"], e["reason"]))
