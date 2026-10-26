@@ -11,6 +11,7 @@ import game.faction.FACTIONS;
 import game.faction.player.Player;
 import game.save.SaveFile;
 import init.paths.PATHS;
+import settlement.main.SETT;
 import settlement.stats.POP;
 import snake2d.LOG;
 import sosdet.Engine;
@@ -192,6 +193,11 @@ public final class WorldSetupAdapter implements FactionWorld {
      */
     public void ownCity(int x, int y) {
         Engine.ownCityAt(x, y);
+    }
+
+    /** This PC's own city now: how many of its entry points are active (none: no roads, SOS-75). */
+    public int activeEntries() {
+        return SETT.ENTRY().points.active().size();
     }
 
     /**

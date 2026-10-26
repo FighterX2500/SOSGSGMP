@@ -49,7 +49,7 @@ From now on, move a card to In Review when its PR opens. When the PR merges, com
 ## 4. Known issues
 
 - **Speed cap at 5x and above:** the lockstep cadence keeps high speeds from reaching their full rate.
-- **"No active entry points" warning:** at the end of test S64A, vanilla's error window opened on the laptop. The warning says the joiner's city map got no roads, at the capital the autopilot picked. The run passed. Look at it with the joiner's city generation (`Engine.ownCityAt`).
+- **"No active entry points" warning:** found and fixed in SOS-75 (SOSDET #46 and the SOSGSGMP PR). Islet capitals with no land beyond their square could get no roads; the location rules now refuse them. Plan and results: [joiner-roads.md](joiner-roads.md).
 - **City↔world items at a resume:** anything crossing in the last ~0.5 s before a campaign save is lost on resume. A battle's return has the same gap.
 - **Engine open items** (SOSDET HANDOFF): SOS-32's owner checks (camera and clicks, older-save followers, draw tracing), the V01B rig split at step 154,365, and the resync with an open prompt.
 

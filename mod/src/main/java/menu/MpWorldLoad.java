@@ -89,12 +89,15 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 		}
 		if (resumed == null)
 			game.openLanding();
+		log.line("own city: " + game.activeEntries() + " entry points active"); // none: no roads (SOS-75)
 		setup.worldLoaded(game.worldHash());
 		log.line(String.format(Locale.ROOT, "world loaded in %.1f s%s: map seed %d, this PC's slot %d, world hash %016x",
 				(System.nanoTime() - t) / 1e9, resumed == null ? "" : " from campaign save " + resumed.number() + " (" + resumed.file() + ")",
 				seed, f.slotOf(setup.localPlayerId()), game.worldHash()));
-		if (autopilot != null)
+		if (autopilot != null) {
 			autopilot.loaded(game.worldHash());
+			autopilot.roads(game.activeEntries());
+		}
 		MpSaves saves = new MpSaves(setup, engine, game, log);
 		MpPlay play = new MpPlay(setup, engine, game, log, saves);
 		GAME.addAfterUpdate(play);
