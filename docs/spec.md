@@ -102,7 +102,9 @@ Every player starts with the same starting resources and difficulty, set by the 
 Players use the same agreements that exist between a player and an NPC faction in vanilla.
 
 - **No opinion requirement.** Between players, any agreement can be concluded at any time. Opinion limits apply only to NPC factions.
-- **Proposals** reach the other player as a popup (section 12). One left unanswered for 30 in-game days expires and counts as declined.
+- **The faction window.** Another player opens in vanilla's faction window, from the same places as an NPC. What only an NPC has is gone: the Court, the ruler, opinion, trust, power and the emissary target. Where vanilla shows the stance, it says "Player". Agreements not yet available between players stay in the list, greyed out with the reason.
+- **Proposals** reach the other player as a notice; they answer it in the proposer's faction window, as vanilla's requests from an NPC are answered (section 12). One left unanswered for 30 in-game days expires and counts as declined.
+- **No answer needed.** Declaring war and cancelling all agreements apply at once, with no proposal and no answer.
 - **No uniting.** Vanilla's "Unite" agreement, where a whole faction joins another, isn't available between players.
 - **Regions** other than capitals can be given in an agreement, as in vanilla.
 - **Emissaries** work as in vanilla against NPC factions. Against another player only Gather support works, in that player's regions; the missions aimed at a court (Flatter, Sabotage, Assassinate) aren't available.
@@ -304,6 +306,8 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A player can break a treaty with another player at any time, with no penalty, and NPC factions' opinion of them doesn't drop. [AT]
 - A vassal pays tribute and shares wars, and the sovereign is not pulled into the vassal's offensive wars. [AT]
 - A proposal unanswered for 30 in-game days expires as declined. [AT]
+- Cancelling all agreements with another player applies at once, on every PC, with no answer; so does declaring war once battles between players exist. [AT]
+- Another player's faction window has no Court and no ruler, opinion, trust or power, and says "Player" where vanilla shows the stance. [PT]
 - "Unite" can't be offered between players; regions other than capitals can be given. [AT]
 - Against another player, only the Gather support emissary mission is offered. [AT]
 - A player's army crosses another player's territory at peace with no penalty. [AT]

@@ -3,60 +3,59 @@ package menu;
 import java.util.ArrayList;
 import java.util.List;
 
+import game.faction.FACTIONS;
 import init.trade.TR;
 import snake2d.LOG;
 import sosdet.game.deal.DealBook;
-import sosgsgmp.game.EnginePlay;
+import sosgsgmp.game.PlayerDeals;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.session.DealInbox;
 import sosgsgmp.session.SetupSession;
 
 /**
- * SOSGSGMP: deals between players in the running game (spec §6 Diplomacy, §12 popups; SOS-72). The engine keeps the
- * proposals and answers as world state; this PC shows a popup for each proposal made to its player
- * ({@link MpDealPopup}), opens the offer window for another player ({@link MpDealOffer}), and keeps the latest answer to
- * its own proposals for the session panel. From the panel's refresh, outside the step.
+ * SOSGSGMP: deals between players in the running game (spec §6 Diplomacy, §12 popups; SOS-72, SOS-76). The engine
+ * keeps the proposals and answers as world state; this PC shows a notice for each proposal made to its player
+ * ({@link MpDealNotice}), whose Inspect opens the proposer's faction window on its Diplomacy tab, and keeps the latest
+ * answer to its own proposals for the session panel. From the panel's refresh, outside the step.
  */
 final class MpDeals {
 
 	private final SetupSession setup;
-	private final EnginePlay engine;
 	private final DealInbox inbox;
 	private final int me;
-	private MpDealPopup popup;
+	private MpDealNotice notice;
 	private String lastAnswer = "";
 
-	MpDeals(SetupSession setup, EnginePlay engine) {
+	MpDeals(SetupSession setup) {
 		this.setup = setup;
-		this.engine = engine;
 		this.me = setup.factions().slotOf(setup.localPlayerId());
 		this.inbox = new DealInbox(me);
 	}
 
-	/** While playing, every refresh of the session panel: news of answers, and the next proposal's popup. */
+	/** While playing, every refresh of the session panel: news of answers, and the next proposal's notice. */
 	void refresh() {
 		List<DealInbox.Entry> answers = new ArrayList<>();
-		for (DealBook.Answer a : engine.dealAnswers())
+		for (DealBook.Answer a : PlayerDeals.answers())
 			answers.add(new DealInbox.Entry(a.id(), a.from(), a.to()));
 		for (DealInbox.Entry e : inbox.newAnswers(answers))
 			answered(e.id());
-		if (popup != null && popup.isActivated()) {
-			popup.refresh();
+		if (notice != null && notice.isActivated()) {
+			notice.refresh();
 			return;
 		}
 		List<DealInbox.Entry> open = new ArrayList<>();
-		for (DealBook.Proposal p : engine.deals())
+		for (DealBook.Proposal p : PlayerDeals.open())
 			open.add(new DealInbox.Entry(p.id(), p.from(), p.to()));
 		DealInbox.Entry next = inbox.nextProposal(open, answers);
 		if (next == null)
 			return;
 		inbox.shown(next.id());
-		popup = new MpDealPopup(this, proposal(next.id()));
-		popup.open();
+		notice = new MpDealNotice(next.id(), FACTIONS.getByIndex(next.from()));
+		notice.open();
 	}
 
 	private void answered(int id) {
-		for (DealBook.Answer a : engine.dealAnswers()) {
+		for (DealBook.Answer a : PlayerDeals.answers()) {
 			if (a.id() != id)
 				continue;
 			String who = name(a.to());
@@ -74,23 +73,6 @@ final class MpDeals {
 	/** The latest answer to this player's own proposals, as a sentence; empty before the first. */
 	String lastAnswer() {
 		return lastAnswer;
-	}
-
-	/** Opens the offer window for the player in {@code slot}. */
-	void offer(int slot) {
-		new MpDealOffer(this, slot).open();
-	}
-
-	EnginePlay engine() {
-		return engine;
-	}
-
-	/** The open proposal {@code id}, or null when it closed. */
-	DealBook.Proposal proposal(int id) {
-		for (DealBook.Proposal p : engine.deals())
-			if (p.id() == id)
-				return p;
-		return null;
 	}
 
 	/** The name of the player in {@code slot}. */
@@ -124,14 +106,5 @@ final class MpDeals {
 			b.append(goods[i + 1]).append(' ').append(TR.ALL().get(goods[i]).name);
 		}
 		return b.length() == 0 ? "nothing" : b.toString();
-	}
-
-	/** A proposal as this PC's player reads it. */
-	String describe(DealBook.Proposal p) {
-		DealBook.Terms t = p.terms();
-		String from = name(p.from());
-		return from + " proposes a deal" + (t.treaty == DealBook.NO_TREATY ? "" : ": " + treatyName(t.treaty)) + ".\n"
-				+ from + " gives " + gives(t.fromCredits, t.fromGoods()) + ".\nYou give " + gives(t.toCredits, t.toGoods())
-				+ ".\nIt expires unanswered after 30 days.";
 	}
 }

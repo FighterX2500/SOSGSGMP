@@ -202,6 +202,8 @@ def main():
                     help="the host's choice when a player left: continue without them, or return to the last save")
     ap.add_argument("--deal", type=int, default=-1,
                     help="the joiner proposes trade and 100 denari to the host at this step, and the host accepts (SOS-72)")
+    ap.add_argument("--deal-cancel", type=int, default=-1,
+                    help="with --deal: from this step the joiner cancels every treaty with the host at once (SOS-76)")
     ap.add_argument("--quit", type=int, default=-1,
                     help="the joiner chooses Exit in the escape menu at this step: both PCs save the campaign, then end (SOS-79)")
     ap.add_argument("--host-capital", default="", help="X:Y: the host places its capital at that world tile (SOS-75)")
@@ -266,9 +268,9 @@ def main():
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     game_pid = relaunched(host)
     log("host started here (pid %d)" % game_pid)
-    joiner = "role=join,name=Joiner,address=%s,corrupt=%d,crash=%s,deal=%d,quit=%d,%s" % (
+    joiner = "role=join,name=Joiner,address=%s,corrupt=%d,crash=%s,deal=%d,dealcancel=%d,quit=%d,%s" % (
         "127.0.0.1" if args.here else HOST_ADDRESS, args.corrupt, crash_at if crash_who == "remote" else "-1", args.deal,
-        args.quit, common + join_capital)
+        args.deal_cancel, args.quit, common + join_capital)
     if not args.no_joiner and args.here:
         time.sleep(15)  # the host's lobby is open before the joiner here starts looking for it
         start_here(local2, joiner)
@@ -350,6 +352,11 @@ def main():
         for w in evs:
             log("%s: deal answers %s" % (w, [(e["id"], e["outcome"], e["stance"]) for e in answers[w]]))
         ok = ok and all(a and a[0]["outcome"] == "ACCEPTED" and a[0]["stance"] == "TRADE" for a in answers.values())
+    if args.deal_cancel >= 0:
+        # SOS-76: the joiner's cancel applied at once, with no answer; the world hashes say the host's world agrees
+        cancelled = [e for w in evs for e in evs[w] if e["event"] == "dealcancelled"]
+        log("cancel: %s" % [(e["stance"], e["step"]) for e in cancelled])
+        ok = ok and len(cancelled) == 1 and cancelled[0]["stance"] == "NEUTRAL"
     for w in evs:
         for e in [e for e in evs[w] if e["event"] == "capitalrefused"]:
             log("%s: capital %d,%d refused: %s" % (w, e["x"], e["y"], e["reason"]))
