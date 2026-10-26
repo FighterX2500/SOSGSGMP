@@ -44,7 +44,7 @@ Version 1 includes six features:
 
 | Item | Requirement |
 | --- | --- |
-| Players per campaign | 2–16 supported; 2–3 expected |
+| Players per campaign | 2–16 supported, tested so far with up to 3; 2–3 expected |
 | Who plays | Friends who trust each other |
 | Location | Worldwide, with no ping limit |
 | Operating system | Windows only |
@@ -59,7 +59,7 @@ All players are online at the same time. A campaign is saved and resumed later, 
 
 - **Pausing.** Any player can pause and any player can unpause a normal pause. While paused, every player sees who paused the game. A priority pause can only be unpaused by the host; the game enters one when a player disconnects (section 11).
 - **Game speed.** The host sets the speed. It is capped by the slowest PC: if one player's game falls behind, the speed drops for everyone, as in Paradox grand strategy games.
-- **Speeds.** The host can choose 1×, 5×, 25× or 250×. Vanilla's 0.25× isn't available in multiplayer, in battles either, since 0.5× is the lowest speed.
+- **Speeds.** The host can choose 1×, 5×, 25× or 250×. Vanilla's 0.25× isn't offered in multiplayer, in battles either.
 - **Lowest speed.** A slow PC can lower the speed to 0.5× and no further. If a PC can't hold even 0.5×, the game stops for everyone until it catches up, then resumes.
 - **Menus, notifications and prompts don't pause.** Opening a menu or window, getting a notification popup, or a prompt that needs an answer (such as a world battle or a declaration of war) never pauses, holds or slows the game in multiplayer, unlike vanilla. The player's city and the world keep running; while a world-battle prompt is open, only the armies in that battle wait (section 8). Only the pauses in this section stop time. Single-player keeps vanilla's behaviour.
 - **No debug mode or cheats** in multiplayer: the game's debug mode and cheat tools are turned off.
@@ -73,7 +73,7 @@ Every player starts with the same starting resources and difficulty, set by the 
 
 1. In the main menu, a player opens Multiplayer and chooses Create Lobby, Load Saved Lobby or Join Lobby. A player joins by the host's IP address or through Steam (section 3).
 2. With Create Lobby, the host chooses the difficulty and number of players.
-3. The lobby waits for players to join and shows a list of everyone in it. This list will be refined later.
+3. The lobby waits for players to join and shows a list of everyone in it.
 4. The host clicks Start Lobby.
 
 **Map**
@@ -118,7 +118,7 @@ Players use the same agreements that exist between a player and an NPC faction i
 Players trade through direct contracts and through a shared market.
 
 - **Direct contracts** are agreed between two players: a player who wants a specific deal with another player proposes it as a diplomatic request (section 6).
-- **Shared market.** Players' goods join the market, and prices form as in vanilla. The market is the same for everyone: no player gets special terms on it. Two players with a trade agreement (trade partners, colleagues, allies) trade in it with each other as a player and an NPC do: the buyer pays the seller's export price plus the toll, which uses the distance from capital to capital. As in vanilla, a trade partner must be reachable: across bordering land, or through a neighbour's land with transit, never across unclaimed land.
+- **Shared market.** Players' goods join the market, and prices form as in vanilla. The market is the same for everyone: apart from tariffs between players, no player gets special terms on it. Two players with a trade agreement (trade partners, colleagues, allies) trade in it with each other as a player and an NPC do: the buyer pays the seller's export price plus the toll, which uses the distance from capital to capital. As in vanilla, a trade partner must be reachable: across bordering land, or through a neighbour's land with transit, never across unclaimed land.
 - **Tariffs between players.** Each player sets their own tariff on what another player sells them, from 0% to 80% in steps of 5%, with Set Tariff in that player's Diplomacy list. It needs a trade agreement and applies at once, with no answer. The tariff is cut from what the seller gets and paid to the buyer's treasury, shown as tariff revenue in Economy & Trade. A tariff nobody set is 20%, for every trade agreement: between players, Become Colleagues and Alliance don't lower it (owner, 2026-10-27).
 - **Caravans** work as in vanilla: they are visible on the map, travel to the other player, and cannot be raided.
 
@@ -139,7 +139,6 @@ When two players' armies meet, a real-time battle is mandatory. Battles against 
 - **Retreat.** Only a side's commanders can order that side's retreat.
 - **No restart.** Vanilla's battle restart is turned off in battles between players.
 - **Spectating.** All other players watch the battle while the world is paused (section 4).
-- **Offline players** cannot be attacked. Other armies can pass through their territory freely.
 
 ## 9. Sieges of player cities
 
@@ -228,7 +227,7 @@ A disconnected player never rejoins a running session; they come back only throu
 
 Players talk through an in-game chat.
 
-- **Event notifications** appear in the chat or event log, for example when war is declared or a siege starts.
+- **Event notifications** appear in the chat, for example when war is declared or a siege starts.
 - **Prompts that need an answer**, such as a battle invite, appear as popups in the vanilla style.
 - **Other players' cursors.** Every player sees the other players' mouse cursors, each marked with that player's name and color: on the world map, every other player's cursor that is on the world map too; in a city, the cursor of every other player looking at the same city (its owner and its viewers, section 10). A cursor is only shown, never an action.
 
@@ -259,8 +258,6 @@ These targets are tested with 2 players at 300 ms ping. The battle targets depen
 | Desync detection | Any world map desync is detected within 2 seconds |
 | Desync recovery | After the host chooses Resync (section 11), every world map is identical to the host's again within 10 seconds |
 | Desync reports | Every world map desync writes a report for debugging |
-| Battle order latency | At or under 1 second between an order and its effect |
-| World map | The world map recovers from any mismatch with the host when the host chooses Resync |
 
 ## 14. Development workflow
 
@@ -336,7 +333,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 ### Sieges
 
 - The attacker can't assault before the waiting period for the city's population band ends. [AT]
-- The besieged city receives no trade. [AT]
+- The besieged city receives no trade, from NPCs or from other players. [AT]
 - A defender's attack on the besiegers starts a real-time field battle. [PT]
 - The assault shows the defender's city in real time to every player, and the attacker's orders work. [PT]
 - A forced assault desync is detected within 2 seconds, recovered from the host's assault state within 10 seconds, and writes a report. [AT]
@@ -361,7 +358,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A campaign saved under one host can be resumed with a different host. [PT]
 - The host can start a resume without a missing player, who is then removed. [AT]
 - A campaign saved from the escape menu's Save Campaign resumes. A joining player's Exit makes every PC save the campaign before the session ends, and that save resumes too. [AT]
-- A removed player's city becomes a neutral NPC city, and they can't rejoin as a player. [AT]
+- Every region a removed player held, their city's included, becomes free with no owner, and they can't rejoin as a player. [AT]
 
 ### Disconnects
 
@@ -396,6 +393,7 @@ Every card on the board, not only features, is done when:
 
 - [ ] **Viewing numbers:** the catch-up numbers in section 10 (a 5-second gap closed in about 2 seconds, and the 1-minute limit before a view that can't keep up ends) are first guesses. Confirm them in playtests (owner, 2026-10-24): city save size and time, loading a city into a running game, and a 10,000-person city.
 - [ ] **Order delay above 1×:** the engine applies an order a fixed number of steps after it is given. Just above 1× speed that comes to about 1 second, plus ping, which is over the 1-second limit (section 8). Measure it in playtests and decide whether the engine's delay should shrink there.
+- [ ] **Passage and trade reach:** players at peace move armies freely through each other's land (section 6), but trade between players reaches only as in vanilla, so crossing another player's land needs a transit treaty (section 7). Should free passage between players also let trade through? (Spec review, 2026-10-27.)
 
 ## 17. Milestones
 
