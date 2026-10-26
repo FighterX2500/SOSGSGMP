@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.23 · 2026-10-27
+Version 0.24 · 2026-10-27
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -396,3 +396,45 @@ Every card on the board, not only features, is done when:
 
 - [ ] **Viewing numbers:** the catch-up numbers in section 10 (a 5-second gap closed in about 2 seconds, and the 1-minute limit before a view that can't keep up ends) are first guesses. Confirm them in playtests (owner, 2026-10-24): city save size and time, loading a city into a running game, and a 10,000-person city.
 - [ ] **Order delay above 1×:** the engine applies an order a fixed number of steps after it is given. Just above 1× speed that comes to about 1 second, plus ping, which is over the 1-second limit (section 8). Measure it in playtests and decide whether the engine's delay should shrink there.
+
+## 17. Milestones
+
+What was built and when, from the merged pull requests of both repositories, and an estimate of when v1 is done. This section records progress; it sets no rules.
+
+### Done so far
+
+| Date | Milestone | Cards |
+| --- | --- | --- |
+| 2026-10-20 | Project set up; spec 0.3; Sprint 0 planning: the rebuild check, the hook surface and the single-player assumptions; menus don't pause; the battle-streaming spike | KAN-4, SOS-2 to SOS-10 |
+| 2026-10-21 | The determinism spike: a battle and a city run identically twice | SOS-11, SOS-23 |
+| 2026-10-22 | The engine splits off as SOSDET: its build, core, the host's battle AI, the state hash and the battle resync | SOS-24 to SOS-30 |
+| 2026-10-23 | City commands and room planning in lockstep; the world map in lockstep; SOSDET goes public (MIT); the city-world link (ADR 0005) | SOS-32, SOS-34 to SOS-38 |
+| 2026-10-24 | Battles started from the world map; the speed governor; local checks instead of CI; spec 0.11 and 0.12 (lockstep viewing and assaults, the full review) | SOS-19, SOS-32, SOS-38, SOS-40 to SOS-43 |
+| 2026-10-25 | Two-PC battles with a viewer; prompts don't hold the world; several humans in one world; the scenario suite. **The walking skeleton:** the lobby, the setup's map and factions, the game over the network, the desync window, Steam, battles, the playtest log, campaign saves | SOS-15, SOS-31, SOS-44 to SOS-64 |
+| 2026-10-26 | A save before every battle; a desync's Save and exit; disconnects and removing a player; sieges by another human arrive; **diplomacy milestone 1** (treaties, money and goods between players); no capital without roads | SOS-65 to SOS-72, SOS-75 |
+| 2026-10-27 | Another player's faction window; Save Campaign in the escape menu; names and banners on every PC; **goods and tariffs between players** | SOS-76 to SOS-79 |
+
+### Where each v1 feature stands (2026-10-27)
+
+| Feature (section 2) | Done | Still to build |
+| --- | --- | --- |
+| Groundwork: the lockstep engine, lobby, setup, network, Steam, saves, disconnects, desyncs | About 90% | The 2-hour world check and the tests at 300 ms ping |
+| A shared NPC world | About 90% | Covered by the groundwork's long tests |
+| Diplomacy (section 6) | About 45% | Milestone 2: regions, vassalage, emissaries, passage (SOS-73). Milestone 3: war between players (SOS-74) |
+| Trade (section 7) | About 85% | No trade into a besieged city; caravans on a disconnect, checked in a playtest |
+| Field battles (section 8) | About 50% | Player against player: deployment, the commanders, the speed vote, retreat, no restart, captives, spectators (engine plan 0006 M2, M3) |
+| Sieges of player cities (section 9) | About 15% | The waiting period, the lockstep assault on a player's city, the outcomes and the removed people, allied attackers, NPC invasions of a capital |
+| City viewing (section 10) | About 10% | Everything: the live view, catching up, the frozen own city |
+| Chat, notifications, pause, spectators (sections 4, 11, 12) | About 25% | Chat, notifications, cursors in cities (SOS-58), who paused, debug mode off, elimination and spectating |
+| Release: performance and distribution (sections 13, 14) | About 10% | The 10,000-person city at 1×, the 30-minute battle with 2,000 units per side, a player's install (SOS-18) |
+
+Weighted by the effort each took or is expected to take, about 60% of v1 is built after 6.5 days.
+
+### Estimate for v1
+
+The pace so far is about 8 to 14 merged pull requests a day across both repositories, with near-continuous work sessions. Two ways to project it:
+
+- **Straight line:** 60% in 6.5 days puts v1 at about 11 days, so **around 2026-11-01**. This is the optimistic end: what's left (sieges, viewing, battles between players) is new systems, not variations of built ones.
+- **Bottom up**, in days of work at the current pace: diplomacy milestone 2, 1; war between players, 0.75; battles between players, 2; sieges of player cities, 3; city viewing, 2; chat, notifications and spectators, 1.25; trade leftovers, 0.25; performance, long tests and distribution, 1.5. That's about 12 days, plus a quarter for fixes from playtests: about 14.5 days, so **around 2026-11-10**.
+
+**Most likely:** v1 is feature-complete between **2026-11-05 and 2026-11-10**, and ready to play with friends after a few days of playtests, **around mid-November 2026**. This holds only at today's pace; slower playtest feedback, or a hard desync in sieges or viewing, moves it later.
