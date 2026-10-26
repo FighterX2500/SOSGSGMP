@@ -202,6 +202,8 @@ def main():
                     help="the host's choice when a player left: continue without them, or return to the last save")
     ap.add_argument("--deal", type=int, default=-1,
                     help="the joiner proposes trade and 100 denari to the host at this step, and the host accepts (SOS-72)")
+    ap.add_argument("--host-capital", default="", help="X:Y: the host places its capital at that world tile (SOS-75)")
+    ap.add_argument("--join-capital", default="", help="X:Y: the joiner places its capital at that world tile (SOS-75)")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
     if not args.here and (not REMOTE or not HOST_ADDRESS):
@@ -251,10 +253,12 @@ def main():
         log("data folders ready; sending the joiner's to the second PC")
         rdir = None if args.here else send_remote(remote_data.parent)
     common = "port=%d,steps=%d,net=%s" % (args.port, args.steps, args.net)
+    host_capital = ",capital=" + args.host_capital if args.host_capital else ""
+    join_capital = ",capital=" + args.join_capital if args.join_capital else ""
     # Steam finds the App ID here when the game isn't started by Steam
     host_env = dict(os.environ, APPDATA=str(local.parent), SteamAppId=STEAM_APP_ID,
                     SOSGSGMP_AUTOPILOT="role=host,name=Host,players=%d,seed=%d,speed=%g,ondesync=%s,save=%d,resume=%d,ongone=%s,startafter=%d,%s"
-                    % (players, args.seed, args.speed, args.on_desync, args.save, 1 if args.resume else 0, args.on_gone, args.start_after, common))
+                    % (players, args.seed, args.speed, args.on_desync, args.save, 1 if args.resume else 0, args.on_gone, args.start_after, common + host_capital))
     java = GAME / "jre" / "bin" / "java.exe"
     host = subprocess.Popen([str(java), "-cp", str(GAME / "SongsOfSyx.jar"), "init.Main"], cwd=str(GAME), env=host_env,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -262,7 +266,7 @@ def main():
     log("host started here (pid %d)" % game_pid)
     joiner = "role=join,name=Joiner,address=%s,corrupt=%d,crash=%s,deal=%d,%s" % (
         "127.0.0.1" if args.here else HOST_ADDRESS, args.corrupt, crash_at if crash_who == "remote" else "-1", args.deal,
-        common)
+        common + join_capital)
     if not args.no_joiner and args.here:
         time.sleep(15)  # the host's lobby is open before the joiner here starts looking for it
         start_here(local2, joiner)
@@ -339,6 +343,14 @@ def main():
         for w in evs:
             log("%s: deal answers %s" % (w, [(e["id"], e["outcome"], e["stance"]) for e in answers[w]]))
         ok = ok and all(a and a[0]["outcome"] == "ACCEPTED" and a[0]["stance"] == "TRADE" for a in answers.values())
+    for w in evs:
+        for e in [e for e in evs[w] if e["event"] == "capitalrefused"]:
+            log("%s: capital %d,%d refused: %s" % (w, e["x"], e["y"], e["reason"]))
+    # SOS-75: every PC's own city has roads (a new game; a resume loads the cities as saved)
+    for w in evs:
+        for e in [e for e in evs[w] if e["event"] == "roads"][:1]:
+            log("%s: own city %d entry points active" % (w, e["active"]))
+            ok = ok and e["active"] > 0
     if args.save >= 0:
         saved = {w: [e for e in evs[w] if e["event"] == "save" and e["status"].startswith("Campaign saved")] for w in evs}
         log("campaign saved on: %s" % ", ".join(w for w in saved if saved[w]))

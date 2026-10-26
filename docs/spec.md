@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.18 · 2026-10-26
+Version 0.19 · 2026-10-26
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -85,7 +85,7 @@ Every player starts with the same starting resources and difficulty, set by the 
 **Factions and starting locations**
 
 1. Each player, at their own pace, picks their race, customizes their faction and picks a location on the world map. A player who is done doesn't wait for the others to start, and can change their picks until the host initializes the world. Customizing works as in vanilla, including saving and loading the faction profile. No titles are given at this stage.
-2. Every player sees the locations the others have picked. There is no maximum distance, but a location closer than 6 tiles to another player's can't be picked.
+2. Every player sees the locations the others have picked. There is no maximum distance, but a location closer than 6 tiles to another player's can't be picked. Vanilla's terrain rules for a capital apply, plus one: the capital needs land beyond its square, on at least one side. A capital surrounded by water can end up with no roads on its city map, and that city is unplayable (SOS-75).
 3. When everyone has picked, the host can initialize the world: NPC countries and routes are generated around the players. Any two players 6–15 tiles apart are guaranteed a land or water route between them. Players further apart are connected the vanilla way, through NPC states and other players.
 4. Each player then picks their starting spot on their own city map. The game stays paused, and nobody can unpause it, but players can already plan their city.
 5. When the last player picks their starting spot, the game unpauses automatically.

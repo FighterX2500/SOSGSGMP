@@ -58,7 +58,9 @@ import world.WORLD;
  * folder instead of a new game; the joining PC learns it from the lobby), {@code crash} (this PC's game stops dead at
  * this step, as a crash or a pulled cable leaves the others: SOS-65), {@code ongone} (host: {@code continue} or
  * {@code return} when a player left), {@code startafter} (host: keep the lobby open this many seconds first),
- * {@code deal} (join: at this step propose trade and up to 100 denari to the host, who accepts every proposal: SOS-72).
+ * {@code deal} (join: at this step propose trade and up to 100 denari to the host, who accepts every proposal: SOS-72),
+ * {@code capital} ({@code X:Y}: place this PC's capital at that world tile instead of searching for one, or search when
+ * the location rules refuse it: SOS-75).
  */
 public final class MpAutopilot {
 
@@ -81,6 +83,10 @@ public final class MpAutopilot {
 	private final long crash;
 	/** Join: the step to propose a deal to the host at (SOS-72); -1 for none. */
 	private final long deal;
+	/** This PC's capital's world tile from {@code capital=X:Y} (SOS-75); -1 to search for one. */
+	private final int capitalX, capitalY;
+	/** The location rules refused {@link #capitalX}, {@link #capitalY}: search for one instead. */
+	private boolean capitalRefused;
 	/** Host: seconds the lobby stays open before it starts, so that a refused PC has tried to join (SOS-65). */
 	private final long startAfterNanos;
 	private long lobbyAt;
@@ -147,6 +153,11 @@ public final class MpAutopilot {
 		resume = m.getOrDefault("resume", "0").equals("1");
 		crash = Long.parseLong(m.getOrDefault("crash", "-1"));
 		deal = Long.parseLong(m.getOrDefault("deal", "-1"));
+		String[] capital = m.getOrDefault("capital", "-1:-1").split(":");
+		if (capital.length != 2)
+			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " capital '" + m.get("capital") + "', not X:Y");
+		capitalX = Integer.parseInt(capital[0]);
+		capitalY = Integer.parseInt(capital[1]);
 		startAfterNanos = Long.parseLong(m.getOrDefault("startafter", "0")) * 1_000_000_000L;
 		onGone = m.getOrDefault("ongone", "continue");
 		if (!onGone.equals("continue") && !onGone.equals("return"))
@@ -304,7 +315,16 @@ public final class MpAutopilot {
 			return;
 		if (FACTIONS.player().name.toString().isBlank())
 			FACTIONS.player().name.clear().add(name);
-		if (!hasLocation && due()) {
+		if (!hasLocation && capitalX >= 0 && !capitalRefused && due()) { // due() starts its wait: one branch calls it
+			String why = setup.locationProblem(capitalX, capitalY);
+			if (why == null) {
+				placeAt.applyAsInt(capitalX, capitalY);
+				event("placed", "\"x\":" + capitalX + ",\"y\":" + capitalY);
+			} else {
+				capitalRefused = true;
+				event("capitalrefused", "\"x\":" + capitalX + ",\"y\":" + capitalY + ",\"reason\":\"" + clean(why) + "\"");
+			}
+		} else if (!hasLocation && due()) {
 			List<LobbyPlayer> ps = setup.players();
 			int i = 0;
 			while (i < ps.size() && ps.get(i).id() != setup.localPlayerId())
@@ -470,6 +490,11 @@ public final class MpAutopilot {
 	public void loaded(long worldHash) {
 		event("loaded", "\"hash\":\"" + Long.toHexString(worldHash) + "\",\"view\":\"" + VIEW.current().getClass().getSimpleName()
 				+ "\",\"pop\":" + POP.tot());
+	}
+
+	/** SOS-75: this PC's own city's active entry points; none means it has no roads. */
+	public void roads(int active) {
+		event("roads", "\"active\":" + active);
 	}
 
 	/** The host's world arrived; the load starts. */
