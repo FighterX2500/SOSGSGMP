@@ -583,6 +583,77 @@ class LoopbackSetupTest {
         });
     }
 
+    /**
+     * Cid's PC leaves while a campaign save is open: every PC holds at the host's step plus the lead, the save stops
+     * waiting for Cid, and the host's Continue reaches Bob once and marks Cid removed in the campaign (SOS-65).
+     */
+    @Test
+    void aPlayerLeavingHoldsEveryPcUntilTheHostContinuesWithoutThem() throws Exception {
+        EngineLinkTest.FakePort hp = new EngineLinkTest.FakePort();
+        playing(hp, new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        int cidId = idOf(host, "Cid");
+        SaveOrder order = new SaveOrder(1, 660, CampaignRecord.Kind.SAVE, 0, host.campaign(), false);
+        host.orderSave(order);
+        playUntil("the order at Bob", () -> bob.takeSaveOrder() != null);
+        hp.step = 500;
+        cid.leave();
+        playUntil("Bob holds for Cid", () -> bob.departures().waiting());
+        Departures.Gone g = new Departures.Gone(cidId, "Cid", 2);
+        assertEquals(List.of(g), host.departures().gone());
+        assertEquals(List.of(g), bob.departures().gone());
+        assertEquals(500 + Departures.LEAD, host.departures().holdStep());
+        assertEquals(500 + Departures.LEAD, bob.departures().holdStep(), "one hold step on every PC");
+        assertEquals(List.of("Ann", "Bob"), names(host.players()));
+        assertEquals(List.of("Ann", "Bob"), names(bob.players()));
+        assertFalse(host.closed());
+
+        host.saved(1, 9, null);
+        bob.saved(1, 9, null);
+        String[] done = new String[1];
+        playUntil("the save done without Cid", () -> (done[0] = bob.takeSaveDone(1)) != null);
+        assertTrue(done[0].contains("left the game"), done[0]);
+
+        assertThrows(IllegalStateException.class, () -> bob.chooseGone(Departures.Choice.CONTINUE), "only the host chooses");
+        host.chooseGone(Departures.Choice.CONTINUE);
+        assertThrows(IllegalStateException.class, () -> host.chooseGone(Departures.Choice.RETURN), "once");
+        playUntil("Bob hears Continue", () -> bob.departures().choice() == Departures.Choice.CONTINUE);
+        assertTrue(host.campaign().players().get(2).removed(), "the next save marks Cid removed");
+        assertFalse(host.campaign().players().get(1).removed());
+        for (SetupSession s : List.of(host, bob)) {
+            s.departures().continued();
+            assertFalse(s.departures().waiting());
+            assertEquals(List.of(g), s.departures().removed());
+        }
+        assertFalse(bob.closed());
+    }
+
+    @Test
+    void returnToTheLastSaveEndsTheSessionOnEveryPc() throws Exception {
+        playing(new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        cid.leave();
+        playUntil("Bob holds for Cid", () -> bob.departures().waiting());
+        host.chooseGone(Departures.Choice.RETURN);
+        until("Bob's session ended", () -> bob.closed());
+        assertEquals(Departures.Choice.RETURN, bob.departures().choice());
+        assertTrue(host.closed());
+        assertEquals("The host chose to return to the last save. Resume the campaign from Load Saved Lobby.", bob.closedReason());
+        assertEquals("You chose to return to the last save. Resume the campaign from Load Saved Lobby.", host.closedReason());
+    }
+
+    private static int idOf(SetupSession s, String name) {
+        for (LobbyPlayer p : s.players())
+            if (p.name().equals(name))
+                return p.id();
+        throw new AssertionError("no player " + name);
+    }
+
+    private static List<String> names(List<LobbyPlayer> players) {
+        List<String> out = new ArrayList<>();
+        for (LobbyPlayer p : players)
+            out.add(p.name());
+        return out;
+    }
+
     @Test
     void aWorldThatDiffersNeverStarts() throws Exception {
         initialize();

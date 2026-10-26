@@ -28,6 +28,7 @@ import sosgsgmp.net.SteamPort;
 import sosgsgmp.session.HostedLobby;
 import sosgsgmp.session.JoinedLobby;
 import sosgsgmp.session.LobbySession;
+import sosgsgmp.session.Departures;
 import sosgsgmp.session.SetupSession;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStep;
@@ -50,7 +51,9 @@ import world.WORLD;
  * {@code Go}, as a player's speed buttons set it), {@code corrupt} (break this PC's world at this step, a test desync, as
  * SOSDET's rig {@code wcorrupt}), {@code ondesync} (host: {@code resync} or {@code exit} at a desync), {@code save}
  * (host: save the campaign at this step), {@code resume} (host, {@code 1}: host the newest campaign save of this data
- * folder instead of a new game; the joining PC learns it from the lobby).
+ * folder instead of a new game; the joining PC learns it from the lobby), {@code crash} (this PC's game stops dead at
+ * this step, as a crash or a pulled cable leaves the others: SOS-65), {@code ongone} (host: {@code continue} or
+ * {@code return} when a player left).
  */
 public final class MpAutopilot {
 
@@ -70,6 +73,10 @@ public final class MpAutopilot {
 	private final long corrupt;
 	private final String onDesync;
 	private final long save;
+	private final long crash;
+	private final String onGone;
+	/** The hold step of the last player-gone hold seen; -1 before the first. */
+	private long seenGone = -1;
 	private final boolean resume;
 	private final Path events;
 	private int shownSaves;
@@ -126,6 +133,10 @@ public final class MpAutopilot {
 		onDesync = m.getOrDefault("ondesync", "resync");
 		save = Long.parseLong(m.getOrDefault("save", "-1"));
 		resume = m.getOrDefault("resume", "0").equals("1");
+		crash = Long.parseLong(m.getOrDefault("crash", "-1"));
+		onGone = m.getOrDefault("ongone", "continue");
+		if (!onGone.equals("continue") && !onGone.equals("return"))
+			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " ongone '" + onGone + "', not continue or return");
 		if (!onDesync.equals("resync") && !onDesync.equals("exit"))
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " ondesync '" + onDesync + "', not resync or exit");
 		String net = m.getOrDefault("net", "ip");
@@ -269,7 +280,7 @@ public final class MpAutopilot {
 	 * The loaded game, every frame after the update: the landing party; while playing, hashes, the test desync and the
 	 * host's choice in the desync window; at the end, quit.
 	 */
-	void game(SetupSession setup, EnginePlay engine, MpDesync desync, MpSaves saves) {
+	void game(SetupSession setup, EnginePlay engine, MpDesync desync, MpSaves saves, MpGone gone) {
 		if (desync.exitOutcome() != null && first("desyncexit")) {
 			// the engine has ended
 			event("desyncexit", "\"outcome\":\"" + clean(desync.exitOutcome()) + "\",\"resynced\":" + desync.resyncedStep());
@@ -321,7 +332,8 @@ public final class MpAutopilot {
 			event("status", String.format(Locale.ROOT, "\"step\":%d,\"speed\":%.2f,\"target\":%.2f,\"paused\":%b,\"agreed\":%.2f,\"other\":%d,\"load\":%b,"
 					+ "\"fps\":%.1f,\"stepsPerS\":%.1f,\"stepMsPerS\":%.1f,\"stepMs\":%.2f",
 					step, GAME.SPEED.speed(), GAME.SPEED.speedTarget(), GAME.SPEED.isPaused(), s.agreedSpeed,
-					engine.peerStep(MpPlay.otherPcs(setup)[0]), VIEW.inters().load.isActivated(), (frames - statusFrames) / seconds,
+					MpPlay.otherPcs(setup).length == 0 ? -1 : engine.peerStep(MpPlay.otherPcs(setup)[0]),
+					VIEW.inters().load.isActivated(), (frames - statusFrames) / seconds,
 					(step - statusSteps) / seconds, timedMs / seconds, timed > 0 ? timedMs / timed : 0));
 			statusFrames = frames;
 			statusSteps = step;
@@ -330,6 +342,20 @@ public final class MpAutopilot {
 		}
 		if (corrupt >= 0 && step >= corrupt && first("corrupt"))
 			corruptWorld(step);
+		if (crash >= 0 && step >= crash) {
+			event("crash", "\"step\":" + step);
+			Runtime.getRuntime().halt(1); // no goodbye to the host: the connection just drops
+		}
+		Departures d = setup.departures();
+		if (d.waiting() && d.holdStep() != seenGone) {
+			seenGone = d.holdStep();
+			event("gone", "\"holdStep\":" + d.holdStep() + ",\"names\":\"" + clean(d.names()) + "\",\"step\":" + step);
+		}
+		if (host && gone.waiting())
+			gone.choose(onGone.equals("continue"));
+		for (Departures.Gone g : d.removed())
+			if (engine.retired(g.slot()) && first("retired" + g.slot()))
+				event("retired", "\"slot\":" + g.slot() + ",\"step\":" + step);
 		DesyncHold hold = desync.shown();
 		if (hold != null && hold != seenHold) {
 			seenHold = hold;

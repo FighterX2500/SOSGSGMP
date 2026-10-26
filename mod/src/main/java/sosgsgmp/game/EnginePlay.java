@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.EnumMap;
+import java.util.Map;
 
 import game.GAME;
 import snake2d.LOG;
@@ -28,6 +30,14 @@ public final class EnginePlay implements EnginePort {
     /** The speed every PC starts at: the engine's agreed speed at step 0, 1x by default. */
     private static final double AGREED_START = 1;
     private static final byte[] NONE = new byte[0];
+
+    /** Who holds the engine at a step: a campaign save (SOS-64), or a player gone (SOS-65). */
+    public enum Hold {
+        SAVE, GONE
+    }
+
+    /** Each hold's step: the engine runs to the earliest, and freely once there is none. */
+    private final Map<Hold, Long> holds = new EnumMap<>(Hold.class);
 
     /** Battle saves from the BATTLE stream and this PC's own, until its engine loads them (plan 0006). */
     private final BattleSaves battles = new BattleSaves();
@@ -121,14 +131,44 @@ public final class EnginePlay implements EnginePort {
         return Engine.step();
     }
 
-    /** Holds every step past {@code step}: a campaign save's step (SOS-64). */
-    public void runUntil(long step) {
-        Engine.runUntil(step);
+    /** Holds every step past {@code step} for {@code who}, until {@link #release}; another hold may stop it sooner. */
+    public void hold(Hold who, long step) {
+        holds.put(who, step);
+        applyHolds();
     }
 
-    /** Lets the steps run on after a hold. */
-    public void runFreely() {
-        Engine.runFreely();
+    /** {@code who}'s hold ends; the steps run on unless another holds them. */
+    public void release(Hold who) {
+        holds.remove(who);
+        applyHolds();
+    }
+
+    private void applyHolds() {
+        long until = Long.MAX_VALUE;
+        for (long step : holds.values())
+            until = Math.min(until, step);
+        if (until == Long.MAX_VALUE)
+            Engine.runFreely();
+        else
+            Engine.runUntil(until);
+    }
+
+    /**
+     * Host, between steps: removes the human in {@code slot}, whose player left (spec §11 Removing a player). The engine
+     * logs it for a step ahead, so every PC removes it at that step. Check {@link #removeRefusal} first.
+     */
+    public void removeHuman(int slot) {
+        Engine.removeHuman(slot);
+    }
+
+    /** Why {@link #removeHuman} would refuse {@code slot} now, as a sentence for the player; null when it wouldn't. */
+    public String removeRefusal(int slot) {
+        return Engine.removeRefusal(slot, false);
+    }
+
+    /** Whether the human in {@code slot} is removed: it owns nothing now, and nothing runs for it. */
+    public boolean retired(int slot) {
+        return Engine.retired(slot);
     }
 
     /** Whether the engine's session runs: it ends at Save and exit. */
@@ -204,7 +244,7 @@ public final class EnginePlay implements EnginePort {
         } finally {
             delete(file);
         }
-        Engine.runFreely();
+        applyHolds(); // the load held the engine at its step: back to what the mod's holds say
     }
 
     private static Path tempFile() {

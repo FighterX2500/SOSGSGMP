@@ -12,8 +12,11 @@ import java.util.Map;
  */
 public record CampaignRecord(Campaign campaign, int number, Kind kind, long time, int slot, String file, long worldHash) {
 
-    /** Raise whenever the text's keys or their meaning change; {@link #fromText} reads every version still around. */
-    public static final int FORMAT = 1;
+    /**
+     * Raise whenever the text's keys or their meaning change; {@link #fromText} reads every version still around. 2: each
+     * player's {@code removed} (SOS-65); a format 1 record has no removed player.
+     */
+    public static final int FORMAT = 2;
 
     /** Save: the host's button, kept until deleted. Auto: an autosave, rotated. */
     public enum Kind {
@@ -53,6 +56,7 @@ public record CampaignRecord(Campaign campaign, int number, Kind kind, long time
             line(b, "player." + i + ".key", Long.toHexString(p.key()));
             line(b, "player." + i + ".name", p.name());
             line(b, "player." + i + ".slot", p.slot());
+            line(b, "player." + i + ".removed", p.removed());
         }
         line(b, "number", number);
         line(b, "kind", kind.name());
@@ -82,13 +86,13 @@ public record CampaignRecord(Campaign campaign, int number, Kind kind, long time
             v.put(l.substring(0, eq), l.substring(eq + 1));
         }
         int format = integer(v, "format");
-        if (format != FORMAT)
-            throw new IllegalArgumentException("SOSGSGMP: campaign record of format " + format + "; this mod reads " + FORMAT);
+        if (format < 1 || format > FORMAT)
+            throw new IllegalArgumentException("SOSGSGMP: campaign record of format " + format + "; this mod reads 1 to " + FORMAT);
         int n = integer(v, "players");
         List<Campaign.Player> players = new ArrayList<>(n);
         for (int i = 0; i < n; i++)
             players.add(new Campaign.Player(hex(v, "player." + i + ".key"), text(v, "player." + i + ".name"),
-                    integer(v, "player." + i + ".slot")));
+                    integer(v, "player." + i + ".slot"), format >= 2 && bool(v, "player." + i + ".removed")));
         Campaign c = new Campaign(hex(v, "campaign"), text(v, "name"), integer(v, "seed"), text(v, "difficulty"), players);
         Kind kind;
         try {
@@ -105,6 +109,13 @@ public record CampaignRecord(Campaign campaign, int number, Kind kind, long time
         if (s == null)
             throw new IllegalArgumentException("SOSGSGMP: campaign record without " + key);
         return s;
+    }
+
+    private static boolean bool(Map<String, String> v, String key) {
+        String s = text(v, key);
+        if (!s.equals("true") && !s.equals("false"))
+            throw new IllegalArgumentException("SOSGSGMP: campaign record's " + key + " isn't true or false: " + s);
+        return s.equals("true");
     }
 
     private static int integer(Map<String, String> v, String key) {

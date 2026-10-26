@@ -20,6 +20,8 @@ final class MpPlay implements ACTION {
 	private final EnginePlay engine;
 	/** The desync window: it runs the host's choice on every PC. */
 	private final MpDesync desync;
+	/** The window when a player left: it holds every PC and runs the host's choice (SOS-65). */
+	private final MpGone gone;
 	/** Test tooling: the autopilot, or null in play. */
 	private final MpAutopilot autopilot = MpAutopilot.fromEnv();
 	private final MpLog log;
@@ -30,6 +32,7 @@ final class MpPlay implements ACTION {
 		this.setup = setup;
 		this.engine = engine;
 		this.desync = new MpDesync(setup, engine, game, saves);
+		this.gone = new MpGone(setup, engine, game, saves);
 		this.log = log;
 		this.saves = saves;
 	}
@@ -59,11 +62,14 @@ final class MpPlay implements ACTION {
 			}
 		}
 		if (setup.playing()) {
-			desync.frame();
-			saves.frame();
+			gone.frame();
+			if (!gone.ended()) { // Return to the last save ended the engine
+				desync.frame();
+				saves.frame();
+			}
 		}
 		if (autopilot != null)
-			autopilot.game(setup, engine, desync, saves);
+			autopilot.game(setup, engine, desync, saves, gone);
 	}
 
 	/** The other players' PC numbers: their slots. */

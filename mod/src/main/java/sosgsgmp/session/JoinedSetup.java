@@ -1,5 +1,6 @@
 package sosgsgmp.session;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import sosgsgmp.campaign.Campaign;
@@ -36,6 +37,8 @@ public final class JoinedSetup implements SetupSession {
     /** The host's world once all its pieces are here, until this PC takes it to load; null otherwise. */
     private byte[] save;
     private final Cursors cursors = new Cursors();
+    /** Players whose PC left the running game, as the host tells it, and the hold for them (SOS-65). */
+    private final Departures departures = new Departures();
     /** The engine's streams once this PC plays; null before. */
     private EngineLink link;
     private final Pieces.Receiver resyncParts = new Pieces.Receiver();
@@ -157,10 +160,44 @@ public final class JoinedSetup implements SetupSession {
                 if (c.playerId() != localPlayerId())
                     cursors.set(c.playerId(), c.onMap(), c.x(), c.y());
             }
+            case Message.PlayerGone g when link != null -> gone(g.playerId(), g.holdStep());
+            case Message.GoneChoice c when link != null -> {
+                Departures.Choice choice = c.continued() ? Departures.Choice.CONTINUE : Departures.Choice.RETURN;
+                if (departures.chosen(c.holdStep(), choice) && choice == Departures.Choice.RETURN)
+                    close("The host chose to return to the last save. Resume the campaign from Load Saved Lobby.");
+            }
             case Message.Leave l -> close("The host closed the game.");
             case Message.Unsupported u -> close("The host runs another version of the mod (protocol " + u.version() + ").");
             default -> close("The host sent a message that doesn't belong in the setup.");
         }
+    }
+
+    /** The host says player {@code id}'s PC left: this PC holds at {@code hold} until the host chooses (spec §11). */
+    private void gone(int id, long hold) {
+        if (id == localPlayerId() || id == hostId()) {
+            close("The host said a player who is still here left (player " + id + ").");
+            return;
+        }
+        String name = "A player";
+        for (LobbyPlayer p : players)
+            if (p.id() == id)
+                name = p.name();
+        if (!departures.heard(new Departures.Gone(id, name, factions.slotOf(id)), hold))
+            return;
+        List<LobbyPlayer> left = new ArrayList<>(players);
+        left.removeIf(p -> p.id() == id);
+        players = List.copyOf(left);
+        cursors.retain(players);
+    }
+
+    @Override
+    public Departures departures() {
+        return departures;
+    }
+
+    @Override
+    public void chooseGone(Departures.Choice choice) {
+        throw new IllegalStateException("SOSGSGMP: only the host chooses after a player left");
     }
 
     private void load(MapOptions options, byte[] bytes) {

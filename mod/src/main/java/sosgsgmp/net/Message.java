@@ -247,6 +247,18 @@ public sealed interface Message {
     /** Host to every joined PC: every PC reported on order {@code number}; {@code outcome} is empty, or what went wrong. Play goes on. */
     record SaveDone(int number, String outcome) implements Message {}
 
+    /**
+     * Host to every joined PC: player {@code playerId}'s PC is gone (spec §11 Disconnects, SOS-65). Every PC holds at
+     * {@code holdStep} until the host's {@link GoneChoice} for it.
+     */
+    record PlayerGone(int playerId, long holdStep) implements Message {}
+
+    /**
+     * Host to every joined PC: its choice for the hold at {@code holdStep}: Continue without the players gone
+     * ({@code continued}), or Return to the last save, which ends the session.
+     */
+    record GoneChoice(long holdStep, boolean continued) implements Message {}
+
     /** A message from another protocol version; only its version is read. */
     record Unsupported(int version) implements Message {}
 }

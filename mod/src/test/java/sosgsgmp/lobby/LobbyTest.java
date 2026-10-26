@@ -10,9 +10,33 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import sosgsgmp.campaign.Campaign;
+
 class LobbyTest {
 
     private static final LobbySettings THREE = new LobbySettings("normal", 3);
+
+    /** Ann in slot 0, Bob in slot 1, Cid in slot 2 removed earlier (SOS-65). */
+    private static final Campaign THREE_PLAYED = new Campaign(7, "Ann's campaign", 1, "normal",
+            List.of(new Campaign.Player(1, "Ann", 0), new Campaign.Player(2, "Bob", 1), new Campaign.Player(3, "Cid", 2, true)));
+
+    @Test
+    void aResumeStartsWithoutMissingPlayersButNeverWithoutSlot0() {
+        Lobby lobby = new Lobby(LobbySettings.resuming(new LobbySettings.Resume(THREE_PLAYED, 4)), "Ann", 1);
+        assertEquals(List.of(THREE_PLAYED.players().get(1)), lobby.missing(), "Cid is removed: nobody waits for them");
+        assertTrue(lobby.canStart(), "Bob is removed at the start");
+        assertEquals(Refusal.REMOVED, lobby.refusal(3));
+        assertNull(lobby.refusal(2));
+        lobby.join("Bob", 2);
+        assertEquals(List.of(), lobby.missing());
+
+        Lobby bobs = new Lobby(LobbySettings.resuming(new LobbySettings.Resume(THREE_PLAYED, 4)), "Bob", 2);
+        assertFalse(bobs.canStart(), "Ann's slot 0 can't be removed");
+        bobs.join("Ann", 1);
+        assertTrue(bobs.canStart());
+        assertThrows(IllegalArgumentException.class,
+                () -> new Lobby(LobbySettings.resuming(new LobbySettings.Resume(THREE_PLAYED, 4)), "Cid", 3), "a removed host");
+    }
 
     @Test
     void theHostIsTheFirstPlayer() {

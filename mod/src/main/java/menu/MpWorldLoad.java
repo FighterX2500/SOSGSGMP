@@ -1,12 +1,14 @@
 package menu;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 import game.GAME;
 import game.save.GameLoader;
 import snake2d.CORE_STATE;
+import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.WorldSetupAdapter;
@@ -76,6 +78,9 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 				game.deleteSaveFile(file);
 		}
 		game.humans(slots(), seed);
+		if (resumed != null)
+			for (int slot : Campaign.missingSlots(resumed.campaign(), slotList()))
+				game.removeAtStart(slot); // a player missing at a resume (spec §11 Resuming)
 		if (resumed == null && !setup.isHost()) {
 			FactionPick own = ownPick(f);
 			game.ownCity(own.x(), own.y());
@@ -98,6 +103,13 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 			log.line("whole game loaded at step " + engine.step() + "; the mod is back in it");
 		});
 		return view;
+	}
+
+	private List<Integer> slotList() {
+		List<Integer> out = new ArrayList<>();
+		for (int slot : slots())
+			out.add(slot);
+		return out;
 	}
 
 	private int[] slots() {

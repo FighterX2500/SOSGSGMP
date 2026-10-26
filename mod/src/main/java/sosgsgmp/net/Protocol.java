@@ -30,7 +30,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 10;
+    public static final int VERSION = 11;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -41,6 +41,7 @@ public final class Protocol {
     private static final int PICK = 14, PICKS = 15, SLOT_MAP = 16, WORLD_PART = 17, LOADED = 18, START_SPOT = 19, GO = 20, WORLD_PLAYERS = 21;
     private static final int CURSOR = 22, STREAM = 23, RESYNC = 24; // 25 was Save and exit's own message, until SOS-68
     private static final int SAVE_AT = 26, SAVED = 27, SAVE_DONE = 28;
+    private static final int PLAYER_GONE = 29, GONE_CHOICE = 30;
     /** Largest piece of an engine stream in one message, in bytes: well under {@link #MAX_MESSAGE}. */
     public static final int MAX_STREAM_PIECE = 48 * 1024;
     /** Longest reason a location was cleared, in characters. */
@@ -219,6 +220,16 @@ public final class Protocol {
                     out.writeInt(d.number());
                     out.writeUTF(d.outcome());
                 }
+                case Message.PlayerGone g -> {
+                    out.writeByte(PLAYER_GONE);
+                    out.writeInt(g.playerId());
+                    out.writeLong(g.holdStep());
+                }
+                case Message.GoneChoice c -> {
+                    out.writeByte(GONE_CHOICE);
+                    out.writeLong(c.holdStep());
+                    out.writeBoolean(c.continued());
+                }
                 case Message.Unsupported u -> throw new IllegalArgumentException("SOSGSGMP: can't send a message of protocol version " + u.version());
             }
         } catch (IOException e) {
@@ -274,6 +285,8 @@ public final class Protocol {
             case SAVE_AT -> saveAt(in);
             case SAVED -> new Message.Saved(number(in, "save"), in.readLong(), text(in, MAX_REASON, "save problem"));
             case SAVE_DONE -> new Message.SaveDone(number(in, "save"), text(in, MAX_OUTCOME, "save outcome"));
+            case PLAYER_GONE -> new Message.PlayerGone(playerId(in), step(in, "player gone hold"));
+            case GONE_CHOICE -> new Message.GoneChoice(step(in, "gone choice hold"), in.readBoolean());
             default -> throw new IOException("SOSGSGMP: unknown message type " + type);
         };
         if (in.available() > 0)
@@ -319,6 +332,7 @@ public final class Protocol {
             out.writeLong(p.key());
             out.writeUTF(p.name());
             out.writeByte(p.slot());
+            out.writeBoolean(p.removed());
         }
     }
 
@@ -335,7 +349,7 @@ public final class Protocol {
             int slot = in.readUnsignedByte();
             if (slot >= LobbySettings.MAX_PLAYERS)
                 throw new IOException("SOSGSGMP: campaign slot " + slot);
-            players.add(new Campaign.Player(key, name2, slot));
+            players.add(new Campaign.Player(key, name2, slot, in.readBoolean()));
         }
         try {
             return new Campaign(id, name, seed, difficulty, players);

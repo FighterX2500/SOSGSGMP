@@ -6,6 +6,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import sosgsgmp.campaign.Campaign;
+
 /** The host's lobby: its settings, who is in it, and when it can start (spec §5, lobby steps 1 to 4). */
 public final class Lobby {
 
@@ -21,7 +23,8 @@ public final class Lobby {
 
     public Lobby(LobbySettings settings, String hostName, long hostKey) {
         this.settings = settings;
-        if (settings.resume() != null && settings.resume().campaign().player(hostKey) == null)
+        Campaign.Player self = settings.resume() == null ? null : settings.resume().campaign().player(hostKey);
+        if (settings.resume() != null && (self == null || self.removed()))
             throw new IllegalArgumentException("SOSGSGMP: this PC isn't a player of campaign " + settings.resume().campaign().name());
         keys.put(nextId, hostKey);
         players.add(new LobbyPlayer(nextId++, cleanName(hostName), true));
@@ -41,6 +44,8 @@ public final class Lobby {
             return Refusal.STARTED;
         if (settings.resume() != null && settings.resume().campaign().player(key) == null)
             return Refusal.NOT_IN_CAMPAIGN;
+        if (settings.resume() != null && settings.resume().campaign().player(key).removed())
+            return Refusal.REMOVED;
         if (keys.containsValue(key))
             return Refusal.ALREADY_JOINED;
         if (players.size() >= settings.maxPlayers())
@@ -72,13 +77,32 @@ public final class Lobby {
         keys.remove(id);
     }
 
-    /** Start Lobby is active with 2 or more players, or for a resume with every player of the campaign, until started. */
+    /**
+     * Start Lobby is active with 2 or more players until started. A resume can start without players of the campaign:
+     * those still {@link #missing} are removed at the start (spec §11 Resuming). Only the player in slot 0 has to be in,
+     * since the engine never removes slot 0's human.
+     */
     public boolean canStart() {
         if (started)
             return false;
-        if (settings.resume() != null)
-            return players.size() == settings.resume().campaign().players().size();
+        if (settings.resume() != null) {
+            for (Campaign.Player p : missing())
+                if (p.slot() == 0)
+                    return false;
+            return true;
+        }
         return players.size() >= LobbySettings.MIN_PLAYERS;
+    }
+
+    /** A resume's players not in the lobby, the removed ones left out; empty for a new game. */
+    public List<Campaign.Player> missing() {
+        List<Campaign.Player> out = new ArrayList<>();
+        if (settings.resume() == null)
+            return out;
+        for (Campaign.Player p : settings.resume().campaign().playing())
+            if (!keys.containsValue(p.key()))
+                out.add(p);
+        return out;
     }
 
     public void start() {

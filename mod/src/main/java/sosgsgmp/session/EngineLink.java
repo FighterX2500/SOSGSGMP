@@ -42,6 +42,11 @@ public final class EngineLink {
         this.port = port;
     }
 
+    /** This PC's engine's step. */
+    long step() {
+        return port.step();
+    }
+
     /** Whether this PC makes stream {@code kind}. */
     boolean makes(StreamKind kind) {
         return switch (kind) {

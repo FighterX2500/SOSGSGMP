@@ -118,6 +118,15 @@ public interface SetupSession {
     /** The host's latest world resync once all of it is here, for this PC to load at its step; returned once, else null. */
     WorldResync takeResync();
 
+    /** Players whose PC left the running game, and the hold for them (spec §11 Disconnects, SOS-65); for reading. */
+    Departures departures();
+
+    /**
+     * Host, while {@link Departures#waiting}: Continue without the players gone (call it once the engine removed them)
+     * or Return to the last save, which ends the session on every PC. Every PC hears the choice.
+     */
+    void chooseGone(Departures.Choice choice);
+
     /** Leaves the setup (the host closes it for everyone) and frees the connection. */
     void leave();
 
