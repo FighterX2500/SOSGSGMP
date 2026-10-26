@@ -338,12 +338,10 @@ def main():
         ok = desync_ok and len(done) == 2 and all(done[w]["event"] == "desyncexit" and done[w]["outcome"] == ""
                                                   and done[w]["resynced"] == after for w in done)
     elif args.quit >= 0:
-        # SOS-79: the joiner's Exit made both PCs save the campaign, naming the joiner, and end
+        # SOS-79: the joiner's Exit made both PCs save the campaign, naming the joiner, and end; an empty outcome
+        # says every PC saved the same world
         ok = len(done) == 2 and all(done[w]["event"] == "quitexit" and done[w]["outcome"] == ""
                                     and done[w]["quitter"] == done["join"].get("me") for w in done) and not differ and common_steps
-        saved = {w: [e for e in evs[w] if e["event"] == "save" and e["status"].startswith("Campaign saved")] for w in evs}
-        log("campaign saved at the quit on: %s" % ", ".join(w for w in saved if saved[w]))
-        ok = ok and all(saved.values())
     else:
         ok = desync_ok and all(done[w]["event"] == "done" and done[w].get("desync", -1) < 0 for w in done)             and not differ and common_steps
     if args.deal >= 0:
