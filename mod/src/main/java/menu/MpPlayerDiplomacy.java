@@ -21,6 +21,7 @@ import sosgsgmp.game.PlayerDeals;
 import sosgsgmp.session.PlayerTerms;
 import sosgsgmp.session.PlayerTerms.Kind;
 import sosgsgmp.session.PlayerTerms.Term;
+import sosgsgmp.session.TariffSteps;
 import util.colors.GCOLOR;
 import util.data.INT;
 import util.data.INT_O.INT_OE;
@@ -28,7 +29,9 @@ import util.gui.common.UIPicker;
 import util.gui.misc.GBox;
 import util.gui.misc.GButt;
 import util.gui.misc.GInputInt;
+import util.gui.misc.GStat;
 import util.gui.misc.GText;
+import util.gui.slider.GSliderInt;
 import util.gui.table.GScrollRows;
 import util.info.GFORMAT;
 import util.text.Dic;
@@ -50,6 +53,7 @@ final class MpPlayerDiplomacy extends GuiSection {
 	private static final int[] NONE = new int[0];
 	private static final String TITLE = "What do you wish to offer?";
 	private static final String NOT_YET = "Not between players yet.";
+	private static final String TARIFF_D = "Your tariff on what this player sells you. It's cut from what they get and paid into your treasury. From 0% to 80%; 20% until you set it. It applies at once.";
 	private static final String WAITING = "Your proposal waits for their answer; it expires unanswered after 30 days.";
 
 	private final Faction f;
@@ -60,6 +64,8 @@ final class MpPlayerDiplomacy extends GuiSection {
 	/** Why each term is greyed out now, by {@link Term} ordinal; null where it can be chosen. */
 	private final String[] termWhy = new String[Term.values().length];
 	private String dealWhy;
+	/** Why Set Tariff is greyed out now; null while it can be set (SOS-77). */
+	private String tariffWhy;
 	private int frames = RECHECK_FRAMES;
 
 	/** The oldest open proposal from this player to this PC's, or -1; and its terms as words. */
@@ -167,6 +173,7 @@ final class MpPlayerDiplomacy extends GuiSection {
 		Term[] all = Term.values();
 		for (int i = 0; i < all.length; i++)
 			termWhy[i] = why(all[i]);
+		tariffWhy = PlayerDeals.tariffRefusal(slot, PlayerDeals.tariff(FACTIONS.player().index(), slot));
 		String own = terms.refusal();
 		if (own != null)
 			dealWhy = own;
@@ -279,8 +286,11 @@ final class MpPlayerDiplomacy extends GuiSection {
 		DealBool[] bools = {names.bools.WAR, names.bools.PEACE, names.bools.CANCEL_ALL, names.bools.TRADE,
 				names.bools.PACT, names.bools.ALLY, names.bools.VASSAL, names.bools.OVERLORD, names.bools.ABSORB};
 		Term[] all = Term.values();
-		for (int i = 0; i < all.length; i++)
+		for (int i = 0; i < all.length; i++) {
 			rows.add(new Bool(all[i], bools[i]));
+			if (all[i] == Term.TRADE)
+				rows.add(tariff()); // between Trade and Become Colleagues (owner, 2026-10-27)
+		}
 		rows.add(header("Offer"));
 		rows.add(regions());
 		rows.add(resources(true));
@@ -355,6 +365,75 @@ final class MpPlayerDiplomacy extends GuiSection {
 			if (why != null)
 				b.error(why);
 		}
+	}
+
+	/**
+	 * Set Tariff (spec §7; SOS-77): this player's tariff on what the other sells them, 0% to 80%. It's cut from what the
+	 * seller gets and paid into this player's treasury, and applies at once, with no answer. It needs a trade agreement.
+	 */
+	private RENDEROBJ tariff() {
+		INT.IntImp step = new INT.IntImp(0, TariffSteps.LAST);
+		GuiSection pop = new GuiSection();
+		pop.add(new GText(UI.FONT().H2, "Your tariff on " + f.name).lablify(), 0, 0);
+		pop.addDown(8, new GSliderInt(step, 300, true, false));
+		pop.addRightC(16, new GStat() {
+			@Override
+			public void update(GText text) {
+				text.add(TariffSteps.percent(step.get())).add('%');
+			}
+		});
+		GuiSection end = new GuiSection();
+		end.addRightC(0, new GButt.ButtPanel("Apply") {
+			@Override
+			protected void clickA() {
+				int percent = TariffSteps.percent(step.get());
+				if (PlayerDeals.tariffRefusal(slot, percent) == null)
+					PlayerDeals.setTariff(slot, percent);
+				VIEW.inters().popup.close();
+				changed();
+			}
+		});
+		end.addRightC(16, new GStat() {
+			@Override
+			public void update(GText text) {
+				text.add("Theirs on you: ").add(PlayerDeals.tariff(slot, FACTIONS.player().index())).add('%');
+			}
+		});
+		pop.addDown(8, end);
+		GButt.ButtPanel b = new GButt.ButtPanel("Set Tariff") {
+			private final GText rate = new GText(UI.FONT().M, 8);
+
+			@Override
+			protected void render(SPRITE_RENDERER r, float ds, boolean isActive, boolean isSelected, boolean isHovered) {
+				super.render(r, ds, tariffWhy == null, false, isHovered);
+				rate.clear().add(PlayerDeals.tariff(FACTIONS.player().index(), slot)).add('%');
+				rate.renderCY(r, body().x2() - 48, body().cY());
+			}
+
+			@Override
+			protected void clickA() {
+				if (tariffWhy != null)
+					return;
+				step.set(TariffSteps.step(PlayerDeals.tariff(FACTIONS.player().index(), slot)));
+				VIEW.inters().popup.show(pop, this);
+			}
+
+			@Override
+			public void hoverInfoGet(GUI_BOX text) {
+				GBox b = (GBox) text;
+				b.title("Set Tariff");
+				b.text(TARIFF_D);
+				b.NL(4);
+				b.textLL("Theirs on you");
+				b.tab(6);
+				b.add(b.text().add(PlayerDeals.tariff(slot, FACTIONS.player().index())).add('%'));
+				if (tariffWhy != null)
+					b.error(tariffWhy);
+			}
+		};
+		b.icon(UI.icons().s.money);
+		b.body().setDim(BW, BH);
+		return b;
 	}
 
 	/** Regions can't change hands between players yet (SOS-73): greyed out, not removed. */

@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.22 · 2026-10-27
+Version 0.23 · 2026-10-27
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -118,8 +118,8 @@ Players use the same agreements that exist between a player and an NPC faction i
 Players trade through direct contracts and through a shared market.
 
 - **Direct contracts** are agreed between two players: a player who wants a specific deal with another player proposes it as a diplomatic request (section 6).
-- **Shared market.** Players' goods join the market, and prices form as in vanilla. The market is the same for everyone: no player gets special terms on it.
-- **Trade agreements between players** (trade partners, colleagues, allies) give the same price discount on trade between the two as in vanilla.
+- **Shared market.** Players' goods join the market, and prices form as in vanilla. The market is the same for everyone: no player gets special terms on it. Two players with a trade agreement (trade partners, colleagues, allies) trade in it with each other as a player and an NPC do: the buyer pays the seller's export price plus the toll, which uses the distance from capital to capital. As in vanilla, a trade partner must be reachable: across bordering land, or through a neighbour's land with transit, never across unclaimed land.
+- **Tariffs between players.** Each player sets their own tariff on what another player sells them, from 0% to 80% in steps of 5%, with Set Tariff in that player's Diplomacy list. It needs a trade agreement and applies at once, with no answer. The tariff is cut from what the seller gets and paid to the buyer's treasury, shown as tariff revenue in Economy & Trade. A tariff nobody set is 20%, for every trade agreement: between players, Become Colleagues and Alliance don't lower it (owner, 2026-10-27).
 - **Caravans** work as in vanilla: they are visible on the map, travel to the other player, and cannot be raided.
 
 ## 8. Military
@@ -317,7 +317,8 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 
 - Goods sent in a direct contract leave the sender's warehouse and arrive at the receiver's after the travel time, with the caravan visible on the map. [PT]
 - A resent or duplicated trade message never changes the amount delivered. [AT]
-- A trade agreement between two players gives the vanilla discount on their trade. [AT]
+- Two players with a trade agreement buy each other's exports in the shared market, and every PC agrees on every sale. [AT]
+- A player's tariff on another is cut from the seller's proceeds and paid to the buyer's treasury: the trade creates or destroys no money. [AT]
 - Disconnecting mid-delivery never creates goods. Caravans to or from a disconnected city are deleted with their goods. [AT]
 
 ### Field battles

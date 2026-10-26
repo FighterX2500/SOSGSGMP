@@ -18,6 +18,11 @@ public final class PlayerDeals {
     private PlayerDeals() {
     }
 
+    /** True while a multiplayer game's engine session runs; false in single player. */
+    public static boolean inSession() {
+        return Engine.active();
+    }
+
     /**
      * True for another player in a running multiplayer game who wasn't removed: their faction window and hover box are
      * the mod's. False in single player, where no engine session runs.
@@ -57,6 +62,37 @@ public final class PlayerDeals {
     /** This PC's player cancels every treaty with the player in {@code slot}, at once. Check {@link #cancelRefusal} first. */
     public static void cancel(int slot) {
         Engine.dealCancel(slot);
+    }
+
+    /** Why this PC's player can't set a tariff of {@code percent} on the player in {@code slot} now, or null. */
+    public static String tariffRefusal(int slot, int percent) {
+        return Engine.tariffRefusal(slot, percent);
+    }
+
+    /** This PC's player sets their tariff on the player in {@code slot}, at once. Check {@link #tariffRefusal} first. */
+    public static void setTariff(int slot, int percent) {
+        Engine.setTariff(slot, percent);
+    }
+
+    /** The tariff the player in {@code setter} puts on what the player in {@code other} sells them, in percent. */
+    public static int tariff(int setter, int other) {
+        return Engine.tariff(setter, other);
+    }
+
+    /**
+     * What the tariff of the player in {@code buyer} on the player in {@code seller} brought in this year, or last
+     * year; with {@code seller} -1, all of {@code buyer}'s tariffs this year.
+     */
+    public static int tariffRevenue(int buyer, int seller, boolean lastYear) {
+        return Engine.tariffRevenue(buyer, seller, lastYear);
+    }
+
+    /**
+     * The price per item the player in {@code slot} last reported for the goods with index {@code tradable}: their
+     * lowest export price ({@code sell}), or their highest import price; 0 before their first report.
+     */
+    public static int price(int slot, int tradable, boolean sell) {
+        return Engine.reportedPrice(slot, tradable, sell);
     }
 
     /** Every open proposal between players, oldest first: a live view. */

@@ -1,0 +1,113 @@
+diff --git a/view/ui/economy/Factions.java b/view/ui/economy/Factions.java
+index 15a42ff..f0873eb 100644
+--- a/view/ui/economy/Factions.java
++++ b/view/ui/economy/Factions.java
+@@ -1,6 +1,7 @@
+ package view.ui.economy;
+ 
+ import game.faction.FACTIONS;
++import game.faction.Faction;
+ import game.faction.diplomacy.DIP;
+ import game.faction.npc.FactionNPC;
+ import game.faction.royalty.opinion.ROPINION;
+@@ -26,7 +27,7 @@ import world.region.RD;
+ 
+ final class Factions extends GuiSection{
+ 
+-	private ArrayList<FactionNPC> all = new ArrayList<FactionNPC>(FACTIONS.MAX());
++	private ArrayList<Faction> all = new ArrayList<Faction>(FACTIONS.MAX()); // SOSGSGMP hook M7 (docs/hooks.md): players too
+ 	private static final int width = 96;
+ 	private final GText t = new GText(UI.FONT().S, 16);
+ 	
+@@ -48,13 +49,16 @@ final class Factions extends GuiSection{
+ 			}
+ 		});
+ 		
+-		add(bu.createHeight(48*(HEIGHT/48), false));
++		RENDEROBJ sosgsgmp = menu.MpPlayers.tariffTotal(width); // SOSGSGMP hook M7 (docs/hooks.md): this year's tariff revenue, above the list
++		add(sosgsgmp, 0, 0);
++		addDown(0, bu.createHeight(48*((HEIGHT-sosgsgmp.body().height())/48), false));
+ 	}
+ 	
+ 	@Override
+ 	public void render(SPRITE_RENDERER r, float ds) {
+ 		
+ 		all.clearSloppy();
++		menu.MpPlayers.addOthers(all); // SOSGSGMP hook M7 (docs/hooks.md): the other players first
+ 		for (FactionNPC f : FACTIONS.NPCs()) {
+ 			if (RD.DIST().reachable(f)) {
+ 				all.add(f);
+@@ -81,17 +85,20 @@ final class Factions extends GuiSection{
+ 		
+ 		@Override
+ 		protected void render(SPRITE_RENDERER r, float ds, boolean isActive, boolean isSelected, boolean isHovered) {
+-			GButt.ButtPanel.renderBG(r, RD.DIST().reachable(f()), DIP.get(f()).trades, isHovered, body);
++			GButt.ButtPanel.renderBG(r, RD.DIST().reachable(f()), DIP.get(FACTIONS.player(), f()).trades, isHovered, body); // SOSGSGMP hook M7 (docs/hooks.md)
+ 			
+ 			f().banner().BIG.renderCY(r, body.x1()+8, body.cY());
+ 			
+ 			t.clear();
+-			GFORMAT.percInv(t, ROPINION.tradeCost(f()));
++			if (f() instanceof FactionNPC) // SOSGSGMP hook M7 (docs/hooks.md)
++				GFORMAT.percInv(t, ROPINION.tradeCost((FactionNPC) f()));
++			else
++				menu.MpPlayers.theirTariff(t, f()); // their tariff on what you sell them
+ 			
+ 			t.render(r, body().x2()-48, body.y1()+8);
+ 			
+ 			t.clear();
+-			GFORMAT.i(t, Math.round(TradeManager.toll(f())));
++			GFORMAT.i(t, Math.round(menu.MpPlayers.toll(f()))); // SOSGSGMP hook M7 (docs/hooks.md): vanilla's toll, for a player too
+ 			
+ 			t.render(r, body().x2()-48, body.y1()+8+18);
+ 			
+@@ -105,7 +112,7 @@ final class Factions extends GuiSection{
+ 			
+ 		}
+ 		
+-		FactionNPC f() {
++		Faction f() { // SOSGSGMP hook M7 (docs/hooks.md)
+ 			return all.get(ier.get());
+ 		}
+ 		
+@@ -114,30 +121,36 @@ final class Factions extends GuiSection{
+ 			VIEW.world().UI.factions.hover(text, f());
+ 			GBox b = (GBox) text;
+ 			b.sep();
++			if (menu.MpPlayers.tradeHover(b, f())) // SOSGSGMP hook M7 (docs/hooks.md): a player's tariffs and revenue
++				return;
++			FactionNPC f = (FactionNPC) f();
+ 			
+ 			b.add(UI.icons().s.wheel);
+ 			b.textLL(Dic.¤¤Toll);
+ 			b.tab(7);
+-			b.add(GFORMAT.f(b.text(), TradeManager.toll(f())));
++			b.add(GFORMAT.f(b.text(), TradeManager.toll(f)));
+ 			b.NL();
+ 			
+ 			b.add(UI.icons().s.money);
+ 			b.textLL(Dic.¤¤CreditScore);
+ 			b.tab(7);
+-			b.add(GFORMAT.percInc(b.text(), f().stockpile.creditScore()-1.0));
++			b.add(GFORMAT.percInc(b.text(), f.stockpile.creditScore()-1.0));
+ 			b.NL();
+ 			
+ 			b.add(UI.icons().s.angry);
+ 			b.textLL(Dic.¤¤Tariff);
+ 			b.tab(7);
+-			b.add(GFORMAT.percInv(b.text(), ROPINION.tradeCost(f())));
++			b.add(GFORMAT.percInv(b.text(), ROPINION.tradeCost(f)));
+ 			b.NL();
+ 		}
+ 		
+ 		@Override
+ 		protected void clickA() {
+ 			VIEW.UI().manager.close();
+-			VIEW.world().UI.factions.open(f());
++			if (f() instanceof FactionNPC) // SOSGSGMP hook M7 (docs/hooks.md)
++				VIEW.world().UI.factions.open((FactionNPC) f());
++			else
++				menu.MpPlayers.open(f());
+ 		}
+ 	}
+ 	

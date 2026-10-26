@@ -26,7 +26,7 @@ Written 2026-10-25, end of day, after SOS-64. It covers both repositories. SOSDE
 - campaign saves and resume (SOS-64: SOSGSGMP #39 with the engine fix SOSDET #38). Plan and test results: [campaign-saves.md](campaign-saves.md).
 - disconnects (SOS-65, with the engine's removal SOS-66 and SOSDET #43): a player dropping holds every PC at one step; the host continues without them (they are removed and the campaign autosaves) or returns to the last save. A resume can start without a missing player, who is then removed. Plan and results: [disconnects.md](disconnects.md).
 
-**Open PRs** (2026-10-26): SOS-72, SOSDET #45 (deals between humans), then the SOSGSGMP PR for SOS-72, which needs it. SOSDET #43, #44 and SOSGSGMP #46 are merged.
+**Open PRs** (2026-10-27): SOS-77 (goods and tariffs between players), SOSDET #50 first, then SOSGSGMP #52, which needs it. Plan and results: [goods-tariffs.md](goods-tariffs.md); the engine's half is SOSDET plan 0010. SOS-72, SOS-75, SOS-76, SOS-78 and SOS-79 are merged.
 
 **Jira** (cleaned up 2026-10-25 at the owner's request; SOS-64 Done 2026-10-26). Every card with a merged PR is Done. Open:
 - SOS-58: In Progress. Cursors are built on the setup map and the world map, not yet in cities.
@@ -48,6 +48,8 @@ From now on, move a card to In Review when its PR opens. When the PR merges, com
 
 ## 4. Known issues
 
+- **Rig `--humans` runs fail on main until SOSDET #50 merges:** `makehuman` hashes the world before a session exists, and SOS-78's banner part needed a session. #50 fixes it.
+- **Market runs in the rig:** a human trades only with capitals it reaches, never across unclaimed land. In Mogus-72 use `--make-humans 2,24`. A game day is 1,152 s and trade runs once a day, so a sale needs about 45,000 steps.
 - **Speed cap at 5x and above:** the lockstep cadence keeps high speeds from reaching their full rate.
 - **"No active entry points" warning:** found and fixed in SOS-75 (SOSDET #46 and the SOSGSGMP PR). Islet capitals with no land beyond their square could get no roads; the location rules now refuse them. Plan and results: [joiner-roads.md](joiner-roads.md).
 - **City↔world items at a resume:** anything crossing in the last ~0.5 s before a campaign save is lost on resume. A battle's return has the same gap.

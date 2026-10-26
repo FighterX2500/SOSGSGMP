@@ -48,6 +48,7 @@ final class MpPlayerWindow extends ISidePanel {
 	/** Beside vanilla's faction list, whose rows are {@code C.SG*264} wide, in the side panels' width. */
 	private static final int WIDTH = C.MIN_WIDTH - C.SG * 264 - 48;
 	private static final int TAB_WIDTH = 140;
+	private static final String PRICE_D = "What one item costs you: their lowest export price, as they last reported it, and the toll.";
 	private static final String NO_BOOSTS = "Another player's boosts come from their city, which runs on their PC: not shown yet.";
 
 	private final CLICKABLE.ClickSwitch sw;
@@ -244,8 +245,8 @@ final class MpPlayerWindow extends ISidePanel {
 	}
 
 	/**
-	 * The Goods tab: what the player last reported having of each good. Vanilla's Rate, Purchasing Power and traded
-	 * bar describe an NPC's own market, so they're gone; trade between players is SOS-77.
+	 * The Goods tab: what the player last reported having of each good, and what one costs from them (SOS-77). Vanilla's
+	 * Rate, Purchasing Power and traded bar describe an NPC's own market, so they're gone.
 	 */
 	private static CLICKABLE goods(Faction f, int height) {
 		int slot = f.index();
@@ -257,12 +258,14 @@ final class MpPlayerWindow extends ISidePanel {
 				GCOLOR.T().H1.bind();
 				UI.FONT().H2.render(r, Dic.¤¤Resource, body.x1() + 40, body.y1());
 				UI.FONT().H2.render(r, Dic.¤¤Stored, body.x1() + rowW / 2, body.y1());
+				UI.FONT().H2.render(r, Dic.¤¤Price, body.x1() + rowW * 3 / 4, body.y1());
 				COLOR.unbind();
 			}
 		});
 		for (TRADABLE t : TR.ALL()) {
 			rows.add(new GuiSection() {
 				private final GText amount = new GText(UI.FONT().M, 16);
+				private final GText price = new GText(UI.FONT().M, 16);
 
 				{
 					body().setDim(rowW, Icon.M + 8);
@@ -275,12 +278,41 @@ final class MpPlayerWindow extends ISidePanel {
 					UI.FONT().M.render(r, t.name, body().x1() + 40, body().y1() + 4);
 					GFORMAT.i(amount.clear(), PlayerDeals.stock(slot, t.index()));
 					amount.render(r, body().x1() + rowW / 2, body().y1() + 4);
+					int sells = PlayerDeals.price(slot, t.index(), true);
+					if (sells > 0) {
+						GFORMAT.i(price.clear(), sells + toll(f));
+						price.render(r, body().x1() + rowW * 3 / 4, body().y1() + 4);
+					}
 					COLOR.unbind();
+				}
+
+				@Override
+				public void hoverInfoGet(GUI_BOX text) {
+					GBox b = (GBox) text;
+					b.title(t.name);
+					b.textLL(Dic.¤¤buyPrice);
+					b.tab(6);
+					b.add(GFORMAT.i(b.text(), PlayerDeals.price(slot, t.index(), true) + toll(f)));
+					b.NL();
+					b.text(PRICE_D);
+					b.NL(4);
+					b.textLL(Dic.¤¤sellPrice);
+					b.tab(6);
+					b.add(GFORMAT.i(b.text(), PlayerDeals.price(slot, t.index(), false)));
+					b.NL();
+					b.textLL("Their tariff on you");
+					b.tab(6);
+					b.add(b.text().add(PlayerDeals.tariff(slot, FACTIONS.player().index())).add('%'));
+					b.NL();
 				}
 			});
 		}
 		GuiSection s = new GuiSection();
 		s.add(new GScrollRows(rows, height).view());
 		return s;
+	}
+
+	private static int toll(Faction f) {
+		return (int) Math.round(MpPlayers.toll(f));
 	}
 }
