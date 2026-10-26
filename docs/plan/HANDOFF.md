@@ -24,8 +24,9 @@ Written 2026-10-25, end of day, after SOS-64. It covers both repositories. SOSDE
 - battles: the battle PC sends its battle save, and every PC runs the battle (SOS-61 engine, SOS-62 mod);
 - a playtest log on every PC (SOS-63);
 - campaign saves and resume (SOS-64: SOSGSGMP #39 with the engine fix SOSDET #38). Plan and test results: [campaign-saves.md](campaign-saves.md).
+- disconnects (SOS-65, with the engine's removal SOS-66 and SOSDET #43): a player dropping holds every PC at one step; the host continues without them (they are removed and the campaign autosaves) or returns to the last save. A resume can start without a missing player, who is then removed. Plan and results: [disconnects.md](disconnects.md).
 
-**Open PRs.** None in either repository (2026-10-26). SOSDET #38, SOSGSGMP #39 and the docs PRs SOSGSGMP #40 and SOSDET #39 are merged.
+**Open PRs** (2026-10-26): SOSDET #43 (`Engine.removeRefusal`) and the SOSGSGMP PR for SOS-65, which needs it. Merge SOSDET #43 first. SOSDET #38, SOSGSGMP #39 and the docs PRs SOSGSGMP #40 and SOSDET #39 are merged.
 
 **Jira** (cleaned up 2026-10-25 at the owner's request; SOS-64 Done 2026-10-26). Every card with a merged PR is Done. Open:
 - SOS-58: In Progress. Cursors are built on the setup map and the world map, not yet in cities.
@@ -38,16 +39,14 @@ From now on, move a card to In Review when its PR opens. When the PR merges, com
 
 ## 3. Next
 
-1. **The owner's playtests**, with a friend over Steam or the laptop, using saves and resume. Collect the logs (section 5) and turn findings into cards.
-2. **Spec §11 gaps**, as cards for the owner to approve:
-   - a missing player's city frozen at resume (today every campaign player has to join);
-   - removing a player;
+1. **SOS-71, the siege bug** (owner, 2026-10-26: next after SOS-65): a siege by a human other than slot 0 never arrives.
+2. **The owner's playtests**, with a friend over Steam or the laptop, using saves and resume. Collect the logs (section 5) and turn findings into cards.
+3. **Spec §11 gaps**, as cards for the owner to approve:
    - the save before every battle;
-   - the disconnect priority pause (today a disconnect ends the game for every PC; resume from the last save);
    - a desync's Save and exit as a campaign save. Today it writes a plain save, and the window says so. Resuming one needs a resync at the start, because its worlds differ.
-3. **Battles, engine plan 0006:** M2 (the commanders table, spectators) and M3 (resync in a battle). Player against player and the speed vote come after.
-4. **Other spec sections not started:** trade (§7), sieges of player cities (§9), city viewing (§10), chat and notifications (§12, apart from cursors).
-5. **Planning cards still open:** SOS-18 (distribution), SOS-19 (test plan), SOS-21 (the board).
+4. **Battles, engine plan 0006:** M2 (the commanders table, spectators) and M3 (resync in a battle). Player against player and the speed vote come after.
+5. **Other spec sections not started:** trade (§7), sieges of player cities (§9), city viewing (§10), chat and notifications (§12, apart from cursors).
+6. **Planning cards still open:** SOS-18 (distribution), SOS-19 (test plan), SOS-21 (the board).
 
 ## 4. Known issues
 

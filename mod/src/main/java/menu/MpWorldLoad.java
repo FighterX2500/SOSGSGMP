@@ -79,8 +79,10 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 		}
 		game.humans(slots(), seed);
 		if (resumed != null)
-			for (int slot : Campaign.missingSlots(resumed.campaign(), slotList()))
+			for (int slot : Campaign.missingSlots(resumed.campaign(), slotList())) {
 				game.removeAtStart(slot); // a player missing at a resume (spec §11 Resuming)
+				log.line("the missing player in slot " + slot + " is removed at the start");
+			}
 		if (resumed == null && !setup.isHost()) {
 			FactionPick own = ownPick(f);
 			game.ownCity(own.x(), own.y());

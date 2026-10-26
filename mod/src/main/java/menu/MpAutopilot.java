@@ -18,10 +18,12 @@ import settlement.main.SETT;
 import settlement.stats.POP;
 import snake2d.CORE;
 import snake2d.LOG;
+import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
+import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.game.SteamworksPort;
 import sosgsgmp.net.SteamNode;
 import sosgsgmp.net.SteamPort;
@@ -53,7 +55,7 @@ import world.WORLD;
  * (host: save the campaign at this step), {@code resume} (host, {@code 1}: host the newest campaign save of this data
  * folder instead of a new game; the joining PC learns it from the lobby), {@code crash} (this PC's game stops dead at
  * this step, as a crash or a pulled cable leaves the others: SOS-65), {@code ongone} (host: {@code continue} or
- * {@code return} when a player left).
+ * {@code return} when a player left), {@code startafter} (host: keep the lobby open this many seconds first).
  */
 public final class MpAutopilot {
 
@@ -74,9 +76,14 @@ public final class MpAutopilot {
 	private final String onDesync;
 	private final long save;
 	private final long crash;
+	/** Host: seconds the lobby stays open before it starts, so that a refused PC has tried to join (SOS-65). */
+	private final long startAfterNanos;
+	private long lobbyAt;
 	private final String onGone;
 	/** The hold step of the last player-gone hold seen; -1 before the first. */
 	private long seenGone = -1;
+	private long goneSeenAt;
+	private static final long CHOOSE_AFTER_NANOS = 3_000_000_000L;
 	private final boolean resume;
 	private final Path events;
 	private int shownSaves;
@@ -134,6 +141,7 @@ public final class MpAutopilot {
 		save = Long.parseLong(m.getOrDefault("save", "-1"));
 		resume = m.getOrDefault("resume", "0").equals("1");
 		crash = Long.parseLong(m.getOrDefault("crash", "-1"));
+		startAfterNanos = Long.parseLong(m.getOrDefault("startafter", "0")) * 1_000_000_000L;
 		onGone = m.getOrDefault("ongone", "continue");
 		if (!onGone.equals("continue") && !onGone.equals("return"))
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " ongone '" + onGone + "', not continue or return");
@@ -221,7 +229,18 @@ public final class MpAutopilot {
 			event("steamlobby", "\"lobby\":" + hostSteam.lobby());
 		if (hostSteam != null && hostSteam.failure() != null && first("steamfail"))
 			event("steamfail", "\"reason\":\"" + clean(hostSteam.failure()) + "\"");
-		if (host && s.canStart() && s.players().size() >= players && first("started")) {
+		if (lobbyAt == 0)
+			lobbyAt = System.nanoTime();
+		if (!host && s.state() == LobbyState.CLOSED) {
+			// refused, or the host closed the lobby: nothing else comes
+			if (first("closed")) {
+				event("closed", "\"reason\":\"" + clean(s.closedReason()) + "\"");
+				CORE.annihilate();
+			}
+			return;
+		}
+		if (host && s.canStart() && s.players().size() >= players && System.nanoTime() - lobbyAt >= startAfterNanos
+				&& first("started")) {
 			s.start();
 			event("started", "\"players\":" + s.players().size());
 		}
@@ -349,11 +368,18 @@ public final class MpAutopilot {
 		Departures d = setup.departures();
 		if (d.waiting() && d.holdStep() != seenGone) {
 			seenGone = d.holdStep();
+			goneSeenAt = now;
 			event("gone", "\"holdStep\":" + d.holdStep() + ",\"names\":\"" + clean(d.names()) + "\",\"step\":" + step);
 		}
-		if (host && gone.waiting())
+		// the host reads the window first, as a player would: every other PC shows the hold before the choice arrives
+		if (host && gone.waiting() && now - goneSeenAt > CHOOSE_AFTER_NANOS)
 			gone.choose(onGone.equals("continue"));
-		for (Departures.Gone g : d.removed())
+		// every removed player of the campaign, by Continue or missing at a resume
+		if (setup.campaign() != null)
+			for (Campaign.Player p : setup.campaign().players())
+				if (p.slot() != 0 && engine.retired(p.slot()) && first("retired" + p.slot()))
+					event("retired", "\"slot\":" + p.slot() + ",\"step\":" + step);
+		for (Departures.Gone g : d.removed()) // a joining PC learns the campaign only from the first save order
 			if (engine.retired(g.slot()) && first("retired" + g.slot()))
 				event("retired", "\"slot\":" + g.slot() + ",\"step\":" + step);
 		DesyncHold hold = desync.shown();

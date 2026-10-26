@@ -126,6 +126,13 @@ def start_remote(rdir, autopilot):
               " Start-ScheduledTask -TaskName 'SOSGSGMP-twopc'" % path)
 
 
+def start_here(data, autopilot):
+    """A joiner's game on this PC, in its own data folder."""
+    env = dict(os.environ, APPDATA=str(data.parent), SteamAppId=STEAM_APP_ID, SOSGSGMP_AUTOPILOT=autopilot)
+    subprocess.Popen([str(GAME / "jre" / "bin" / "java.exe"), "-cp", str(GAME / "SongsOfSyx.jar"), "init.Main"], cwd=str(GAME),
+                     env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 def remote_text(path):
     # read sharing writes, so the game's appends never find the file locked (laptop T7 crashed on that)
     out = remote_ps("if (Test-Path '%s') { $s = [IO.File]::Open('%s', 'Open', 'Read', 'ReadWrite');"
@@ -183,59 +190,108 @@ def main():
     ap.add_argument("--resume", action="store_true",
                     help="keep both data folders and host their newest campaign save instead of a new game")
     ap.add_argument("--tag", default="twopc")
+    ap.add_argument("--here", action="store_true",
+                    help="no second PC: the joiner runs on this PC too (data folder inst\\2, over loopback)")
+    ap.add_argument("--local-joiner", action="store_true",
+                    help="a second joiner on this PC (data folder inst\\3, over loopback): three PCs (SOS-65)")
+    ap.add_argument("--no-joiner", action="store_true", help="with --resume: the second PC's joiner isn't started")
+    ap.add_argument("--players", type=int, default=0, help="the host starts with this many players (default: every PC started)")
+    ap.add_argument("--start-after", type=int, default=0, help="the host keeps the lobby open this many seconds first")
+    ap.add_argument("--crash", default="", help="'remote:STEP' or 'local:STEP': that joiner's game stops dead at STEP (SOS-65)")
+    ap.add_argument("--on-gone", choices=("continue", "return"), default="continue",
+                    help="the host's choice when a player left: continue without them, or return to the last save")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
-    if not REMOTE or not HOST_ADDRESS:
+    if not args.here and (not REMOTE or not HOST_ADDRESS):
         fail("set SOSGSGMP_REMOTE and SOSGSGMP_HOST_ADDRESS")
+    crash_who, _, crash_at = args.crash.partition(":")
+    if args.crash and (crash_who not in ("remote", "local") or not crash_at.isdigit()
+                       or crash_who == "local" and not args.local_joiner or crash_who == "remote" and args.no_joiner):
+        fail("--crash is remote:STEP or local:STEP, for a joiner that is started")
+    if args.no_joiner and not args.resume:
+        fail("--no-joiner is for --resume")
+    who_all = ["host"] + ([] if args.no_joiner else ["join"]) + (["local"] if args.local_joiner else [])
+    players = args.players or len(who_all)
     run = RUNS / args.tag
     shutil.rmtree(run, ignore_errors=True)
     run.mkdir(parents=True)
 
-    if game_running_here() or "java" in remote_ps("Get-Process java -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '%s\\game\\*' } | Select-Object -ExpandProperty Name" % REMOTE_ROOT):
+    if game_running_here() or not args.here and "java" in remote_ps("Get-Process java -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '%s\\game\\*' } | Select-Object -ExpandProperty Name" % REMOTE_ROOT):
         fail("a game still runs on this PC or the second one; close it first")
     if args.resume:
         # the campaign saves, records and player keys of the last run stay; only its events go
         local = INST / "1" / "songsofsyx"
+        local3 = INST / "3" / "songsofsyx"
         rdir = "%s\\inst\\%d" % (REMOTE_ROOT, REMOTE_K)
         if not (local / "sosgsgmp-campaigns").is_dir():
             fail("no campaign records in %s: run with --save first" % local)
         (local / EVENTS).unlink(missing_ok=True)
-        remote_ps("Remove-Item -Force -ErrorAction SilentlyContinue '%s\\songsofsyx\\%s'" % (rdir, str(EVENTS)))
-        refresh_mods(local, rdir)
+        (local3 / EVENTS).unlink(missing_ok=True)
+        if args.local_joiner:
+            for m in MODS:
+                shutil.rmtree(local3 / "mods" / m, ignore_errors=True)
+                shutil.copytree(REAL / "mods" / m, local3 / "mods" / m)
+        local2 = INST / str(REMOTE_K) / "songsofsyx"
+        if args.here:
+            (local2 / EVENTS).unlink(missing_ok=True)
+            for m in MODS:
+                shutil.rmtree(local2 / "mods" / m, ignore_errors=True)
+                shutil.copytree(REAL / "mods" / m, local2 / "mods" / m)
+        else:
+            remote_ps("Remove-Item -Force -ErrorAction SilentlyContinue '%s\\songsofsyx\\%s'" % (rdir, str(EVENTS)))
+            refresh_mods(local, rdir)
         log("resuming in the last run's data folders")
     else:
         local = data_folder(INST / "1", (1280, 720))
-        remote_data = data_folder(INST / str(REMOTE_K), (1600, 900))
+        local3 = data_folder(INST / "3", (1024, 640)) if args.local_joiner else INST / "3" / "songsofsyx"
+        remote_data = data_folder(INST / str(REMOTE_K), (1024, 640) if args.here else (1600, 900))
+        local2 = remote_data
         log("data folders ready; sending the joiner's to the second PC")
-        rdir = send_remote(remote_data.parent)
+        rdir = None if args.here else send_remote(remote_data.parent)
     common = "port=%d,steps=%d,net=%s" % (args.port, args.steps, args.net)
     # Steam finds the App ID here when the game isn't started by Steam
     host_env = dict(os.environ, APPDATA=str(local.parent), SteamAppId=STEAM_APP_ID,
-                    SOSGSGMP_AUTOPILOT="role=host,name=Host,players=2,seed=%d,speed=%g,ondesync=%s,save=%d,resume=%d,%s"
-                    % (args.seed, args.speed, args.on_desync, args.save, 1 if args.resume else 0, common))
+                    SOSGSGMP_AUTOPILOT="role=host,name=Host,players=%d,seed=%d,speed=%g,ondesync=%s,save=%d,resume=%d,ongone=%s,startafter=%d,%s"
+                    % (players, args.seed, args.speed, args.on_desync, args.save, 1 if args.resume else 0, args.on_gone, args.start_after, common))
     java = GAME / "jre" / "bin" / "java.exe"
     host = subprocess.Popen([str(java), "-cp", str(GAME / "SongsOfSyx.jar"), "init.Main"], cwd=str(GAME), env=host_env,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     game_pid = relaunched(host)
     log("host started here (pid %d)" % game_pid)
-    start_remote(rdir, "role=join,name=Joiner,address=%s,corrupt=%d,%s" % (HOST_ADDRESS, args.corrupt, common))
-    log("joiner started on the second PC")
+    joiner = "role=join,name=Joiner,address=%s,corrupt=%d,crash=%s,%s" % (
+        "127.0.0.1" if args.here else HOST_ADDRESS, args.corrupt, crash_at if crash_who == "remote" else "-1", common)
+    if not args.no_joiner and args.here:
+        time.sleep(15)  # the host's lobby is open before the joiner here starts looking for it
+        start_here(local2, joiner)
+        log("joiner started on this PC (--here)")
+    elif not args.no_joiner:
+        start_remote(rdir, joiner)
+        log("joiner started on the second PC")
+    if args.local_joiner:
+        time.sleep(20)  # the host's lobby is open before the second game here starts looking for it
+        start_here(local3, "role=join,name=Local,address=127.0.0.1,crash=%s,%s"
+                   % (crash_at if crash_who == "local" else "-1", common))
+        log("the second joiner started on this PC")
 
-    seen = {"host": 0, "join": 0}
+    seen = {w: 0 for w in who_all}
     done = {}
     deadline = time.time() + args.timeout
     while time.time() < deadline:
-        texts = {"host": (local / EVENTS).read_text(encoding="utf-8") if (local / EVENTS).exists() else "",
-                 "join": remote_text(rdir + "\\songsofsyx\\" + str(EVENTS))}
+        texts = {"host": (local / EVENTS).read_text(encoding="utf-8") if (local / EVENTS).exists() else ""}
+        if "join" in who_all:
+            texts["join"] = (((local2 / EVENTS).read_text(encoding="utf-8") if (local2 / EVENTS).exists() else "")
+                             if args.here else remote_text(rdir + "\\songsofsyx\\" + str(EVENTS)))
+        if "local" in who_all:
+            texts["local"] = (local3 / EVENTS).read_text(encoding="utf-8") if (local3 / EVENTS).exists() else ""
         for who, text in texts.items():
             evs = events(text)
             for e in evs[seen[who]:]:
                 log("%s %s" % (who, json.dumps(e)))
-                if e["event"] in ("done", "closed", "desyncexit"):
+                if e["event"] in ("done", "closed", "desyncexit", "crash"):
                     done[who] = e
             seen[who] = len(evs)
             (run / ("%s-events.jsonl" % who)).write_text(text, encoding="utf-8")
-        if len(done) == 2:
+        if len(done) == len(who_all):
             break
         if "host" not in done and not running(game_pid):
             # its last event may have landed after this round's read: once more before failing
@@ -247,7 +303,11 @@ def main():
     else:
         fail("timed out after %d s" % args.timeout)
 
-    evs = {w: events((run / ("%s-events.jsonl" % w)).read_text(encoding="utf-8")) for w in ("host", "join")}
+    evs = {w: events((run / ("%s-events.jsonl" % w)).read_text(encoding="utf-8")) for w in who_all}
+    if args.crash:
+        sys.exit(0 if gone_verdict(args, evs, done, local, crash_who, int(crash_at)) else 1)
+    if args.no_joiner or args.local_joiner or (args.resume and players < len(who_all)):
+        sys.exit(0 if resume_without_verdict(evs, done, who_all, args.no_joiner) else 1)
     after = -1
     desync_ok = True
     if args.corrupt >= 0:
@@ -277,6 +337,77 @@ def main():
     log("RESULT: %s: %d common hash steps, %d differ%s" % ("PASS" if ok else "FAIL", len(common_steps), len(differ),
                                                           (", first at step %d" % differ[0]) if differ else ""))
     sys.exit(0 if ok else 1)
+
+
+def hashes_after(evs, w, before=None):
+    return {e["step"]: e["hash"] for e in evs[w] if e["event"] == "hash" and (before is None or e["step"] < before)}
+
+
+def compare(evs, a, b, before=None):
+    """Hash steps both of `a` and `b` reached (before `before`), and those that differ."""
+    ha, hb = hashes_after(evs, a, before), hashes_after(evs, b, before)
+    common = sorted(set(ha) & set(hb))
+    return common, [s for s in common if ha[s] != hb[s]]
+
+
+def gone_verdict(args, evs, done, local, crash_who, crash_at):
+    """A joiner's game stopped dead (SOS-65): every other PC held for it at one step, and the host's choice ran."""
+    gone_who = "join" if crash_who == "remote" else "local"
+    stay = [w for w in evs if w not in ("host", gone_who)]
+    ok = done.get(gone_who, {}).get("event") == "crash"
+    holds = {w: [e for e in evs[w] if e["event"] == "gone"] for w in ["host"] + stay}
+    ok = ok and all(holds.values()) and len({h[0]["holdStep"] for h in holds.values()}) == 1
+    if ok:
+        log("every other PC held at step %d for %s" % (holds["host"][0]["holdStep"], holds["host"][0]["names"]))
+    for w in stay + [gone_who]:
+        common, differ = compare(evs, "host", w, before=crash_at if w == gone_who else None)
+        log("host and %s: %d common hash steps, %d differ" % (w, len(common), len(differ)))
+        ok = ok and common and not differ
+    if args.on_gone == "return":
+        want = {"host": "You chose to return"}
+        want.update({w: "The host chose to return" for w in stay})
+        for w, start in want.items():
+            reason = done.get(w, {}).get("reason", "")
+            log("%s closed: %s" % (w, reason))
+            ok = ok and done.get(w, {}).get("event") == "closed" and reason.startswith(start)
+    else:
+        retired = [e for e in evs["host"] if e["event"] == "retired"]
+        saved = [e for e in evs["host"] if e["event"] == "save" and e["status"].startswith("Campaign saved")
+                 and retired and e["step"] >= retired[0]["step"]]
+        log("host: retired %s; campaign saved after it: %s" % (retired[:1], bool(saved)))
+        ok = ok and retired and saved and all(done[w]["event"] == "done" for w in ["host"] + stay)
+        for w in stay:
+            ok = ok and any(e["event"] == "retired" for e in evs[w])
+        record = newest_record(local)
+        log("host's newest campaign record: %s" % (record.name if record else "none"))
+        ok = ok and record is not None and "removed=true" in record.read_text(encoding="utf-8")
+    log("RESULT: %s" % ("PASS" if ok else "FAIL"))
+    return bool(ok)
+
+
+def resume_without_verdict(evs, done, who_all, joiner_missing):
+    """A resume without a player, or with one the host removed earlier: the host plays on; a removed joiner is refused."""
+    ok = done.get("host", {}).get("event") == "done"
+    for w in who_all[1:]:
+        e = done.get(w, {})
+        log("%s ended: %s%s" % (w, e.get("event"), " (%s)" % e.get("reason") if e.get("event") == "closed" else ""))
+        if e.get("event") == "done":
+            common, differ = compare(evs, "host", w)
+            ok = ok and common and not differ
+        else:
+            ok = ok and e.get("event") == "closed" and "removed you" in e.get("reason", "")  # a removed player
+    retired = [e for e in evs["host"] if e["event"] == "retired"]
+    log("host: removed at the start: %s" % [e["slot"] for e in retired])
+    if joiner_missing:
+        ok = ok and any(e["slot"] == 1 and e["step"] <= 300 for e in retired)  # the joiner's slot, removed in the first world part
+    log("RESULT: %s" % ("PASS" if ok else "FAIL"))
+    return bool(ok)
+
+
+def newest_record(data):
+    folder = data / "sosgsgmp-campaigns"
+    records = sorted((p for p in folder.rglob("*") if p.is_file()), key=lambda p: p.stat().st_mtime) if folder.is_dir() else []
+    return records[-1] if records else None
 
 
 if __name__ == "__main__":
