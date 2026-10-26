@@ -14,6 +14,7 @@ import java.util.function.IntBinaryOperator;
 
 import game.GAME;
 import game.faction.FACTIONS;
+import game.faction.diplomacy.DIP;
 import settlement.main.SETT;
 import settlement.stats.POP;
 import snake2d.CORE;
@@ -36,6 +37,7 @@ import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStep;
 import sosdet.DesyncHold;
 import sosdet.Stats;
+import sosdet.game.deal.DealBook;
 import view.main.VIEW;
 import view.tool.PlacableFixed;
 import world.WORLD;
@@ -55,7 +57,8 @@ import world.WORLD;
  * (host: save the campaign at this step), {@code resume} (host, {@code 1}: host the newest campaign save of this data
  * folder instead of a new game; the joining PC learns it from the lobby), {@code crash} (this PC's game stops dead at
  * this step, as a crash or a pulled cable leaves the others: SOS-65), {@code ongone} (host: {@code continue} or
- * {@code return} when a player left), {@code startafter} (host: keep the lobby open this many seconds first).
+ * {@code return} when a player left), {@code startafter} (host: keep the lobby open this many seconds first),
+ * {@code deal} (join: at this step propose trade and up to 100 denari to the host, who accepts every proposal: SOS-72).
  */
 public final class MpAutopilot {
 
@@ -76,6 +79,8 @@ public final class MpAutopilot {
 	private final String onDesync;
 	private final long save;
 	private final long crash;
+	/** Join: the step to propose a deal to the host at (SOS-72); -1 for none. */
+	private final long deal;
 	/** Host: seconds the lobby stays open before it starts, so that a refused PC has tried to join (SOS-65). */
 	private final long startAfterNanos;
 	private long lobbyAt;
@@ -141,6 +146,7 @@ public final class MpAutopilot {
 		save = Long.parseLong(m.getOrDefault("save", "-1"));
 		resume = m.getOrDefault("resume", "0").equals("1");
 		crash = Long.parseLong(m.getOrDefault("crash", "-1"));
+		deal = Long.parseLong(m.getOrDefault("deal", "-1"));
 		startAfterNanos = Long.parseLong(m.getOrDefault("startafter", "0")) * 1_000_000_000L;
 		onGone = m.getOrDefault("ongone", "continue");
 		if (!onGone.equals("continue") && !onGone.equals("return"))
@@ -154,6 +160,32 @@ public final class MpAutopilot {
 		events = Paths.get(System.getenv("APPDATA"), "songsofsyx", "sosgsgmp-autopilot", "events.jsonl");
 		if (!host && !steam && address.isEmpty())
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " role=join needs address=");
+	}
+
+	/** Deals between players (SOS-72): the joiner proposes one, the host accepts, every PC reports what it sees. */
+	private void deals(SetupSession setup, EnginePlay engine, long step) {
+		int me = setup.factions().slotOf(setup.localPlayerId());
+		if (!host && deal >= 0 && step >= deal && first("deal")) {
+			int give = (int) Math.min(100, Math.max(0, FACTIONS.player().credits().credits())); // a new city may have less
+			DealBook.Terms t = new DealBook.Terms(DealBook.TRADE, give, 0, new int[0], new int[0]);
+			String why = engine.dealRefusal(0, t);
+			if (why == null)
+				engine.dealPropose(0, t);
+			event("dealproposed", "\"step\":" + step + ",\"refused\":\"" + clean(why == null ? "" : why) + "\"");
+		}
+		for (DealBook.Proposal p : engine.deals()) {
+			if (first("dealopen" + p.id()))
+				event("dealopen", "\"id\":" + p.id() + ",\"from\":" + p.from() + ",\"to\":" + p.to() + ",\"step\":" + step);
+			if (host && p.to() == me && first("dealaccept" + p.id()))
+				engine.dealAnswer(p.id(), true);
+		}
+		for (DealBook.Answer a : engine.dealAnswers()) {
+			if (first("dealanswered" + a.id())) {
+				String stance = DIP.get(FACTIONS.getByIndex(a.from()), FACTIONS.getByIndex(a.to())).key();
+				event("dealanswered", "\"id\":" + a.id() + ",\"outcome\":\"" + a.outcome() + "\",\"stance\":\"" + stance
+						+ "\",\"step\":" + step);
+			}
+		}
 	}
 
 	/** The main menu, every frame until the lobby opens: create or join it, as Create Lobby and Join do. */
@@ -365,6 +397,7 @@ public final class MpAutopilot {
 			event("crash", "\"step\":" + step);
 			Runtime.getRuntime().halt(1); // no goodbye to the host: the connection just drops
 		}
+		deals(setup, engine, step);
 		Departures d = setup.departures();
 		if (d.waiting() && d.holdStep() != seenGone) {
 			seenGone = d.holdStep();

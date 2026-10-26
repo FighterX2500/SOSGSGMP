@@ -5,6 +5,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 import game.GAME;
@@ -13,6 +14,7 @@ import sosdet.DesyncHold;
 import sosdet.Engine;
 import sosdet.OwnBattle;
 import sosdet.Stats;
+import sosdet.game.deal.DealBook;
 import sosdet.hash.Desync;
 import sosgsgmp.net.StreamKind;
 import sosgsgmp.session.BattleSaves;
@@ -169,6 +171,39 @@ public final class EnginePlay implements EnginePort {
     /** Whether the human in {@code slot} is removed: it owns nothing now, and nothing runs for it. */
     public boolean retired(int slot) {
         return Engine.retired(slot);
+    }
+
+    /**
+     * Why this PC's player can't propose {@code terms} to the player in {@code slot} now, as a sentence, or null (spec §6,
+     * SOS-72). Only this PC's own money and goods are checked here; the other side's are checked when the deal applies.
+     */
+    public String dealRefusal(int slot, DealBook.Terms terms) {
+        return Engine.dealRefusal(slot, terms);
+    }
+
+    /** This PC's player proposes {@code terms} to the player in {@code slot}. Check {@link #dealRefusal} first. */
+    public void dealPropose(int slot, DealBook.Terms terms) {
+        Engine.dealPropose(slot, terms);
+    }
+
+    /** Why this PC's player can't accept the proposal {@code id} now, or null. Declining always works. */
+    public String dealAcceptRefusal(int id) {
+        return Engine.dealAcceptRefusal(id);
+    }
+
+    /** This PC's player answers the proposal {@code id} made to them. */
+    public void dealAnswer(int id, boolean accept) {
+        Engine.dealAnswer(id, accept);
+    }
+
+    /** Every open proposal between players, oldest first: a live view. */
+    public List<DealBook.Proposal> deals() {
+        return Engine.deals();
+    }
+
+    /** The latest answers to proposals between players, oldest first: a live view. */
+    public List<DealBook.Answer> dealAnswers() {
+        return Engine.dealAnswers();
     }
 
     /** Whether the engine's session runs: it ends at Save and exit. */

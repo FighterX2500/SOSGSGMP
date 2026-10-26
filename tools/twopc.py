@@ -200,6 +200,8 @@ def main():
     ap.add_argument("--crash", default="", help="'remote:STEP' or 'local:STEP': that joiner's game stops dead at STEP (SOS-65)")
     ap.add_argument("--on-gone", choices=("continue", "return"), default="continue",
                     help="the host's choice when a player left: continue without them, or return to the last save")
+    ap.add_argument("--deal", type=int, default=-1,
+                    help="the joiner proposes trade and 100 denari to the host at this step, and the host accepts (SOS-72)")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
     if not args.here and (not REMOTE or not HOST_ADDRESS):
@@ -258,8 +260,9 @@ def main():
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     game_pid = relaunched(host)
     log("host started here (pid %d)" % game_pid)
-    joiner = "role=join,name=Joiner,address=%s,corrupt=%d,crash=%s,%s" % (
-        "127.0.0.1" if args.here else HOST_ADDRESS, args.corrupt, crash_at if crash_who == "remote" else "-1", common)
+    joiner = "role=join,name=Joiner,address=%s,corrupt=%d,crash=%s,deal=%d,%s" % (
+        "127.0.0.1" if args.here else HOST_ADDRESS, args.corrupt, crash_at if crash_who == "remote" else "-1", args.deal,
+        common)
     if not args.no_joiner and args.here:
         time.sleep(15)  # the host's lobby is open before the joiner here starts looking for it
         start_here(local2, joiner)
@@ -330,6 +333,12 @@ def main():
                                                   and done[w]["resynced"] == after for w in done)
     else:
         ok = desync_ok and all(done[w]["event"] == "done" and done[w].get("desync", -1) < 0 for w in done)             and not differ and common_steps
+    if args.deal >= 0:
+        # SOS-72: the joiner's deal reached the host, who accepted it; both PCs see the answer and the trade treaty
+        answers = {w: [e for e in evs[w] if e["event"] == "dealanswered"] for w in evs}
+        for w in evs:
+            log("%s: deal answers %s" % (w, [(e["id"], e["outcome"], e["stance"]) for e in answers[w]]))
+        ok = ok and all(a and a[0]["outcome"] == "ACCEPTED" and a[0]["stance"] == "TRADE" for a in answers.values())
     if args.save >= 0:
         saved = {w: [e for e in evs[w] if e["event"] == "save" and e["status"].startswith("Campaign saved")] for w in evs}
         log("campaign saved on: %s" % ", ".join(w for w in saved if saved[w]))
