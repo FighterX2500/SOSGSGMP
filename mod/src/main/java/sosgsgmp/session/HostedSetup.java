@@ -49,6 +49,8 @@ public final class HostedSetup implements SetupSession {
     private byte[] save;
     private final Cursors cursors = new Cursors();
     private final Notes notes = new Notes();
+    /** Players whose PC left the running game, and the hold for them (spec §11 Disconnects, SOS-65). */
+    private final Departures departures = new Departures();
     /** Each player's key, by player id: who they are in the campaign (SOS-64). */
     private final Map<Integer, Long> keys;
     private Campaign campaign;
@@ -88,6 +90,8 @@ public final class HostedSetup implements SetupSession {
             Map<Integer, Integer> slots = new HashMap<>();
             for (LobbyPlayer p : players)
                 slots.put(p.id(), campaign.player(keys.get(p.id())).slot());
+            // whoever of the campaign is missing is removed at the start (spec §11 Resuming), and saves say so from now
+            campaign = campaign.removing(Campaign.missingSlots(campaign, slots.values()));
             factions = FactionStep.resumed(players.get(0).id(), slots);
             sendAll(new Message.SlotMap(factions.transfer(), factions.slotMap()));
         }
@@ -182,9 +186,12 @@ public final class HostedSetup implements SetupSession {
         Integer id = joined.remove(peer);
         if (id == null)
             return;
+        if (link != null) {
+            gone(id);
+            return;
+        }
         if (factions != null && factions.initialized()) {
-            // Their slot is in the world every PC loads: the game can't start, or go on, without them (rejoining is
-            // spec §11's, a later card).
+            // Their slot is in the world every PC loads: the game can't start without them (a resume can: spec §11).
             closedByPeer(id, name(id) + (factions.started() ? " left; the game can't go on without them."
                     : " left after the world was built; the game can't start without them."));
             return;
@@ -196,6 +203,50 @@ public final class HostedSetup implements SetupSession {
         changed();
         if (factions != null && factions.remove(id))
             picksChanged();
+    }
+
+    /**
+     * Player {@code id}'s PC left the running game (spec §11 Disconnects): every PC holds at one step until this PC's
+     * player chooses ({@link #chooseGone}). Nothing more comes from that PC, so nothing of it is relayed.
+     */
+    private void gone(int id) {
+        Departures.Gone g = new Departures.Gone(id, name(id), factions.slotOf(id));
+        players.removeIf(p -> p.id() == id);
+        cursors.removePlayer(id);
+        long hold = departures.left(g, link.step());
+        notes.add(g.name() + " left at step " + link.step() + "; every PC holds at " + hold);
+        sendAll(new Message.PlayerGone(id, hold));
+        if (saveRound != null && saveRound.report(id, 0, "left the game")) // the open save waits for them no more
+            saveDoneWhenComplete();
+        changes++;
+    }
+
+    @Override
+    public Departures departures() {
+        return departures;
+    }
+
+    @Override
+    public void chooseGone(Departures.Choice choice) {
+        if (!departures.waiting())
+            throw new IllegalStateException("SOSGSGMP: a choice with no player gone, or chosen already");
+        long hold = departures.holdStep();
+        departures.chosen(hold, choice);
+        sendAll(new Message.GoneChoice(hold, choice == Departures.Choice.CONTINUE));
+        changes++;
+        if (choice == Departures.Choice.RETURN) {
+            leave();
+            closedReason = "You chose to return to the last save. Resume the campaign from Load Saved Lobby.";
+        } else {
+            campaign = campaign.removing(slotsOf(departures.gone()));
+        }
+    }
+
+    static List<Integer> slotsOf(List<Departures.Gone> gone) {
+        List<Integer> slots = new ArrayList<>();
+        for (Departures.Gone g : gone)
+            slots.add(g.slot());
+        return slots;
     }
 
     /** Closes the setup for everyone because of player {@code id}: they left, or broke the protocol. */

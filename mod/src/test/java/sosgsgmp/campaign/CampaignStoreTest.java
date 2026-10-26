@@ -33,9 +33,28 @@ public class CampaignStoreTest {
     }
 
     @Test
+    void aRemovedPlayerStaysListedAndIsKeptByTheRecord() {
+        Campaign c = CAMPAIGN_FOR_TESTS.removing(java.util.Set.of(0));
+        assertEquals(List.of(new Campaign.Player(-5, "Ann", 0, true), CAMPAIGN_FOR_TESTS.players().get(1)), c.players());
+        assertEquals(List.of(CAMPAIGN_FOR_TESTS.players().get(1)), c.playing(), "a resume waits only for Bob");
+        assertEquals(c, c.removing(java.util.Set.of(0)), "removing twice changes nothing");
+        CampaignRecord r = new CampaignRecord(c, 4, CampaignRecord.Kind.AUTO, 9, 1, "b.save", 77);
+        assertEquals(r, CampaignRecord.fromText(r.toText()));
+    }
+
+    @Test
+    void aFormat1RecordLoadsWithNobodyRemoved() {
+        CampaignRecord r = record(2, CampaignRecord.Kind.SAVE, 5);
+        String v1 = r.toText().replace("format=2", "format=1").replaceAll("player\\.\\d+\\.removed=false\n", "");
+        assertEquals(r, CampaignRecord.fromText(v1));
+    }
+
+    @Test
     void anUnknownFormatOrABrokenRecordIsRefused() {
         String text = record(1, CampaignRecord.Kind.SAVE, 1).toText();
-        assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("format=1", "format=2")));
+        assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("format=2", "format=3")));
+        assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("player.0.removed=false",
+                "player.0.removed=yes")));
         assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("\nslot=1\n", "\n")));
         assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("\nslot=1\n", "\nslot=5\n")),
                 "a slot the campaign doesn't have");

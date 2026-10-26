@@ -138,7 +138,7 @@ final class MpSaves {
 		changes++;
 		log.line("save " + o.number() + " (" + o.kind() + ") ordered for step " + o.step() + " at step " + engine.step());
 		if (engine.step() <= o.step())
-			engine.runUntil(o.step());
+			engine.hold(EnginePlay.Hold.SAVE, o.step());
 	}
 
 	/** At the order's step: this PC's game and record, then the report to the host. A PC past the step reports why. */
@@ -173,7 +173,7 @@ final class MpSaves {
 	}
 
 	private void finish(String outcome) {
-		engine.runFreely();
+		engine.release(EnginePlay.Hold.SAVE);
 		if (engine.battleAhead() >= 0)
 			savedBeforeBattle = engine.battleAhead(); // a failed save too: the battle still begins, its outcome shown
 		status = outcome.isEmpty() ? "Campaign saved (save " + order.number() + ")." : "Save " + order.number() + ": " + outcome;

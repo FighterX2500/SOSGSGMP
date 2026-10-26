@@ -3,6 +3,8 @@ package sosgsgmp.campaign;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -14,13 +16,21 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
     /** Longest campaign name, in characters. */
     public static final int MAX_NAME = 48;
 
-    /** A player of the campaign: the key its PC sends in its hello, its name, and its human's slot. */
-    public record Player(long key, String name, int slot) {
+    /**
+     * A player of the campaign: the key its PC sends in its hello, its name, its human's slot, and whether the host
+     * removed them (spec §11 Removing a player, SOS-65): a removed player stays listed, but never plays again.
+     */
+    public record Player(long key, String name, int slot, boolean removed) {
         public Player {
             if (name == null || name.isEmpty())
                 throw new IllegalArgumentException("SOSGSGMP: a campaign player without a name (slot " + slot + ")");
             if (slot < 0)
                 throw new IllegalArgumentException("SOSGSGMP: campaign player " + name + " in slot " + slot);
+        }
+
+        /** A player still in the campaign. */
+        public Player(long key, String name, int slot) {
+            this(key, name, slot, false);
         }
     }
 
@@ -45,6 +55,32 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
             if (p.key() == key)
                 return p;
         return null;
+    }
+
+    /** The players not removed: the ones a resume waits for. */
+    public List<Player> playing() {
+        List<Player> in = new ArrayList<>();
+        for (Player p : players)
+            if (!p.removed())
+                in.add(p);
+        return in;
+    }
+
+    /** This campaign with the players in {@code slots} removed (spec §11 Removing a player). */
+    public Campaign removing(Collection<Integer> slots) {
+        List<Player> now = new ArrayList<>(players.size());
+        for (Player p : players)
+            now.add(slots.contains(p.slot()) && !p.removed() ? new Player(p.key(), p.name(), p.slot(), true) : p);
+        return new Campaign(id, name, seed, difficulty, now);
+    }
+
+    /** The slots of {@code c}'s players still playing that aren't among {@code present}: a resume's missing players. */
+    public static List<Integer> missingSlots(Campaign c, Collection<Integer> present) {
+        List<Integer> out = new ArrayList<>();
+        for (Player p : c.playing())
+            if (!present.contains(p.slot()))
+                out.add(p.slot());
+        return out;
     }
 
     /** A first game's campaign id, as its start id: the first 8 bytes of the world save's SHA-256, the same on every PC. */

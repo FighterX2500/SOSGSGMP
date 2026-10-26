@@ -250,11 +250,12 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		status.clear();
 		switch (session.state()) {
 			case CONNECTING -> status.add("Connecting to the host...");
-			case OPEN -> status.add(session.isHost()
-					? (session.canStart() ? "Start the lobby when everyone is in."
-							: ls != null && ls.resume() != null ? "Waiting for every player of the campaign: " + missing(ls.resume(), players)
-									: "Waiting for players. Start needs 2 or more.")
-					: "Waiting for the host to start.");
+			case OPEN -> status.add(!session.isHost() ? "Waiting for the host to start."
+					: ls != null && ls.resume() != null && !missing(ls.resume(), players).isEmpty()
+							? "Still missing: " + missing(ls.resume(), players) + (session.canStart()
+									? ". Wait for them, or start now: they are removed from the campaign and can't play in it again."
+									: ". The player in the campaign's first slot has to be in before it can start.")
+							: session.canStart() ? "Start the lobby when everyone is in." : "Waiting for players. Start needs 2 or more.");
 			case STARTED -> status.add(resumed != null ? "The lobby has started. Loading your save of the campaign..."
 					: "The lobby has started. Building the game for the map...");
 			case CLOSED -> status.add(resumeProblem != null ? resumeProblem : session.closedReason());
@@ -264,14 +265,14 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 	/** The campaign's players not in the lobby yet, by name. */
 	private static String missing(LobbySettings.Resume r, List<LobbyPlayer> in) {
 		StringBuilder b = new StringBuilder();
-		for (var p : r.campaign().players()) {
+		for (var p : r.campaign().playing()) {
 			boolean here = false;
 			for (LobbyPlayer l : in)
 				here |= l.name().equals(p.name());
 			if (!here)
 				b.append(b.length() == 0 ? "" : ", ").append(p.name());
 		}
-		return b.length() == 0 ? "everyone is here" : b.toString();
+		return b.toString();
 	}
 
 	private void leave() {

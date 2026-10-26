@@ -7,7 +7,8 @@ public enum Refusal {
     STARTED("The game has already started."),
     NOT_IN_CAMPAIGN("You aren't a player of the campaign this lobby resumes."),
     ALREADY_JOINED("A PC with your player key is already in the lobby. If one PC's profile was copied from the other, delete"
-            + " saves\\profile\\SOSGSGMP-lobby.properties on one of them: it gets a new key.");
+            + " saves\\profile\\SOSGSGMP-lobby.properties on one of them: it gets a new key."),
+    REMOVED("The host removed you from this campaign, so you can't play in it again.");
 
     public final String text;
 
