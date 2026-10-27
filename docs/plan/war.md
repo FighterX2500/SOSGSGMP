@@ -37,6 +37,7 @@ Game paths are relative to `<game>/info/SongsOfSyx-sources/`; line numbers are v
     - its soldier type: "enemy".
 - **Commanders:**
   - Vanilla's army 1 is always the AI general.
+  - **Two PCs commanding opposite armies already works:** SOSDET stage E, run V3 (`--commanders "0 1"`): the owner commanded army 0 on this PC and the laptop the enemy army, to step 15,219, identical at every step, the AI general's orders for army 1 skipped ("All fine"). That battle was loaded from a battle save in the rig's co-op mode, not started from the world map.
   - SOSDET has the commanders table from SOS-15 (`Engine.commanders`, orders from a PC that doesn't command a division are skipped), but the mod never sets it. Today anyone can order anything (plan 0006 M1 gap).
 - **Retreat and the result:**
   - Only army 0 can retreat in vanilla, and SOSDET's Retreat doesn't check who sent it.
@@ -105,7 +106,7 @@ War is offered in the Diplomacy tab only when milestone 2 is merged, so a war be
 
 **Not in this card:** sieges and assaults of a player's capital (spec §9: the waiting period, the lockstep assault, sack, eliminate, vassalage), the speed vote, allies joining a battle between players, and resync during a battle (plan 0006 M3). These are cards of their own.
 
-**Size:** M1 about half a day. M2 about 1.5 to 2 days; the other human's boosts and army 1's retreat are the largest parts.
+**Size:** M1 about half a day. M2 about 1 to 1.5 days: two PCs commanding opposite armies is proven (V3), so M2 is mostly wiring it into the world-map battle; the other human's boosts and army 1's retreat are the largest parts.
 
 **PRs:** each milestone ends with the SOSDET PR first, then the SOSGSGMP PR. Short smoke runs, each with a monitor every minute.
 
