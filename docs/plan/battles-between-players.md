@@ -138,3 +138,19 @@ War is switched on only in the last mod PR. Short smoke runs, each with a monito
 4. **Retreat penalty for army 1.**
    - **(a) recommended:** vanilla's, mirrored, so both sides lose the same when they retreat.
    - **(b):** no penalty for army 1's retreat.
+
+## 4. As built (2026-10-28)
+
+**Engine (SOSDET, plan 0012 milestone 2):** steps A to E as planned, every decision as recommended. Three things went differently:
+- **B's values (step C)** come from B's city report as it was at Engage, which the engine keeps for the battle: a battle's load clears the reports. One hook in `BValue` covers every boost of army 1's divisions, soldiers and faction.
+- **B's losses** needed no new code: B's world divisions already send each death to B's city as a transaction of the division's owner (ADR 0005, SOS-46).
+- **B's side of the panels:** when B wins, the result panel reads Victory (or Enemy Retreats) with B's side first, and the battle map's victory or defeat panel reads the other way on B's PC. Found while building, not in the plan.
+
+**Mod:** War in the Diplomacy tab (Declare War in Propose's place, like Cancel All), the loser's Defeat window, the outcome in the playtest log, spec 0.26. Test tooling: the autopilot fights battles on its own (`twopc --battles auto`) and takes an outside player's actions from `command.txt` (for agent playtests and in-game screenshots).
+
+**Not done, as planned:** the speed vote, allies joining, resync in a battle, several humans on one side, capitals. **Also not done:** B choosing captives and spoils when B wins (vanilla's defaults are shipped to B, with no choice); army 1's names, banners and formation (it shows the battle PC's).
+
+## 5. Results
+
+- **Engine:** rig runs W83A to W83H, all copies identical; see SOSDET plan 0012, Milestone 2, Results. One bug was found and fixed: after a declined sally, the besieger was never asked about its siege (W83G, fixed in W83H).
+- **Mod:** `gradlew.bat build` green, 145 tests (`PlayerTermsTest.warAppliesAtOnce` new). A two-PC GUI run follows in the PR comment.
