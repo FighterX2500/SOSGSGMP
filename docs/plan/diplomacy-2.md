@@ -1,6 +1,6 @@
 # Diplomacy between players, part 2 (SOS-73)
 
-Spec §6 Diplomacy and §7 Trade; the open question in §16 on passage and trade. Card: [SOS-73](https://fighterx2500.atlassian.net/browse/SOS-73). Part 1 is [diplomacy.md](diplomacy.md) (SOS-72); war between players is SOS-74. Status: **proposed, waiting for the owner's approval.**
+Spec §6 Diplomacy and §7 Trade; the open question in §16 on passage and trade. Card: [SOS-73](https://fighterx2500.atlassian.net/browse/SOS-73). Part 1 is [diplomacy.md](diplomacy.md) (SOS-72); war between players is SOS-74. Status: **approved (owner, 2026-10-27)**, with tribute as a rate set in the deal (decision 2).
 
 Game paths are relative to `<game>/info/SongsOfSyx-sources/`. The vanilla line numbers come from the audit of 2026-10-27; SOSDET's patches already change some of these files (`build/patched-src/` in SOSDET), so each step starts by reading the patched file.
 
@@ -54,7 +54,7 @@ Game paths are relative to `<game>/info/SongsOfSyx-sources/`. The vanilla line n
 
 - **Terms:** Protector (the proposer becomes overlord) and Vassal (the proposer becomes vassal) join the treaties, applied with `DIP.VASSAL().set(vassal, overlord)` and nothing else. The existing rule stays: a vassal agrees only trade with others.
 - **Shared wars:** the vassal joins its overlord's wars, as vanilla does. The overlord does **not** join a war its vassal starts (spec §6). That needs a hook in `DIP.ally` (patch 15 owns `DIP.java`): when the faction that went to war is a human's vassal, propagation to the overlord is skipped.
-- **Tribute:** once a year, in the step, the vassal pays its overlord a set share of its worth, and both get a notice (decision 2).
+- **Tribute:** the deal sets a rate, 10% by default (0 to 100), kept in the world state per vassalage. Once a year, in the step, the vassal pays its overlord that share of its worth, as vanilla's `UpVassal` computes it, and both get a notice. The rate is a term of the deal (`Terms.tributePercent`), saved with the vassalage and hashed.
 - **Right to rebel:** the vassal ends the vassalage at once, with Cancel all (command 8102, no answer needed), at no penalty, and the two are at peace. War comes with SOS-74. Check that `cancelRefusal` allows it.
 - **Mod:** the two terms stop being greyed out, and the Diplomacy tab and the faction list show "Vassal of X" and "Overlord of X".
 
@@ -91,7 +91,7 @@ The owner's rules apply: short smoke runs, a monitor every minute, no GUI tests,
    - spec §6, §7 and §16 updated;
    - one short twopc run with a region deal, then a save and a resume.
 
-## 4. Decisions for the owner
+## 4. Decisions (owner, 2026-10-27: 1, 3 and 4 as recommended; 2 is (c), default 10%)
 
 1. **Which regions can be given:** **(a) recommended:** vanilla's reach, where each region neighbours the receiver's land or another region in the same deal. **(b)** Any region except the capital, even far away.
 2. **Tribute between players:** **(a) recommended:** vanilla's own rate, 10% of the vassal's worth once a year, paid automatically to the overlord, with a notice to both. **(b)** No tribute between players. **(c)** A rate set in the deal.
