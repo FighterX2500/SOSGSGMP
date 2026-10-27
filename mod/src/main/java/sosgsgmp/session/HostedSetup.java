@@ -29,6 +29,8 @@ public final class HostedSetup implements SetupSession {
     private final FactionWorld factionWorld;
     /** The lobby's difficulty, set on the world the host builds. */
     private final String difficulty;
+    /** The lobby's switch for the playtest log (SOS-81). */
+    private final boolean fullTransferLog;
     /** Connected peers in the setup, to their player ids. */
     private final Map<Integer, Integer> joined;
     private final List<LobbyPlayer> players;
@@ -85,6 +87,7 @@ public final class HostedSetup implements SetupSession {
         this.world = world;
         this.factionWorld = factionWorld;
         this.difficulty = settings.difficulty();
+        this.fullTransferLog = settings.fullTransferLog();
         this.joined = new HashMap<>(joined);
         this.players = new ArrayList<>(players);
         this.keys = new HashMap<>(keys);
@@ -532,6 +535,11 @@ public final class HostedSetup implements SetupSession {
     @Override
     public FactionStep factions() {
         return factions;
+    }
+
+    @Override
+    public boolean fullTransferLog() {
+        return fullTransferLog;
     }
 
     @Override

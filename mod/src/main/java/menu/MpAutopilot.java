@@ -15,6 +15,7 @@ import java.util.function.IntBinaryOperator;
 import game.GAME;
 import game.faction.FACTIONS;
 import game.faction.diplomacy.DIP;
+import init.trade.TR;
 import settlement.main.SETT;
 import settlement.stats.POP;
 import snake2d.CORE;
@@ -61,7 +62,8 @@ import world.WORLD;
  * folder instead of a new game; the joining PC learns it from the lobby), {@code crash} (this PC's game stops dead at
  * this step, as a crash or a pulled cable leaves the others: SOS-65), {@code ongone} (host: {@code continue} or
  * {@code return} when a player left), {@code startafter} (host: keep the lobby open this many seconds first),
- * {@code deal} (join: at this step propose trade and up to 100 denari to the host, who accepts every proposal: SOS-72),
+ * {@code deal} (join: at this step propose trade, up to 100 denari and 5 of a good it has to the host, who accepts every
+ * proposal: SOS-72), {@code fulllog} (host, {@code 0}: the lobby's transfer log lists only transfers between players: SOS-81),
  * {@code dealcancel} (join: from this step, cancel every treaty with the host at once, once there is one: SOS-76),
  * {@code capital} ({@code X:Y}: place this PC's capital at that world tile instead of searching for one, or search when
  * the location rules refuse it: SOS-75), {@code quit} (at this step this PC's player chooses Exit in the escape menu
@@ -93,6 +95,8 @@ public final class MpAutopilot {
 	private final long deal;
 	/** Join: the step from which to cancel every treaty with the host at once (SOS-76); -1 for none. */
 	private final long dealCancel;
+	/** Host: the lobby's switch for the playtest log (SOS-81). */
+	private final boolean fullLog;
 	/** Join: the step to set a 50% tariff on what the host sells this player at (SOS-77); -1 for none. */
 	private final long tariff;
 	/** The step this PC's player quits at, through the escape menu's Exit (SOS-79); -1 for never. */
@@ -170,6 +174,7 @@ public final class MpAutopilot {
 		crash = Long.parseLong(m.getOrDefault("crash", "-1"));
 		deal = Long.parseLong(m.getOrDefault("deal", "-1"));
 		dealCancel = Long.parseLong(m.getOrDefault("dealcancel", "-1"));
+		fullLog = !"0".equals(m.getOrDefault("fulllog", "1"));
 		tariff = Long.parseLong(m.getOrDefault("tariff", "-1"));
 		quit = Long.parseLong(m.getOrDefault("quit", "-1"));
 		rename = Long.parseLong(m.getOrDefault("rename", "-1"));
@@ -197,12 +202,24 @@ public final class MpAutopilot {
 	 * Deals between players (SOS-72, SOS-76): the joiner proposes one, the host accepts, the joiner may then cancel it at
 	 * once or set a tariff on the host (SOS-77), and every PC reports what it sees.
 	 */
+	/** 5 of the first good the player in {@code slot} last reported having 5 of, as a deal's goods; none when it has none. */
+	private static int[] someGoods(int slot) {
+		for (int i = 0; i < TR.ALL().size(); i++)
+			if (PlayerDeals.stock(slot, i) >= 5)
+				return new int[] {i, 5};
+		return new int[0];
+	}
+
 	private void deals(SetupSession setup, long step) {
 		int me = setup.factions().slotOf(setup.localPlayerId());
 		if (!host && deal >= 0 && step >= deal && first("deal")) {
 			int give = (int) Math.min(100, Math.max(0, FACTIONS.player().credits().credits())); // a new city may have less
-			DealBook.Terms t = new DealBook.Terms(DealBook.TRADE, give, 0, new int[0], new int[0]);
+			DealBook.Terms t = new DealBook.Terms(DealBook.TRADE, give, 0, someGoods(me), new int[0]);
 			String why = PlayerDeals.refusal(0, t);
+			if (why != null) { // the goods may not be in its warehouses yet
+				t = new DealBook.Terms(DealBook.TRADE, give, 0, new int[0], new int[0]);
+				why = PlayerDeals.refusal(0, t);
+			}
 			if (why == null)
 				PlayerDeals.propose(0, t);
 			event("dealproposed", "\"step\":" + step + ",\"refused\":\"" + clean(why == null ? "" : why) + "\"");
@@ -295,7 +312,7 @@ public final class MpAutopilot {
 		if (!resume)
 			// as Create Lobby: the remembered mode, or the game's first when none is (a fresh profile)
 			return new LobbySettings(difficulty.isEmpty() ? mp.modes.keys[mp.modes.index(mp.prefs.difficulty)] : difficulty,
-					Math.max(players, 2));
+					Math.max(players, 2)).withFullTransferLog(fullLog);
 		List<CampaignRecord> all = MpSaves.store().all();
 		if (all.isEmpty())
 			throw new IllegalStateException("SOSGSGMP: " + VARIABLE + " resume=1, but this data folder has no campaign save");

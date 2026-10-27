@@ -27,6 +27,8 @@ public final class JoinedSetup implements SetupSession {
 
     private final Node node;
     private final MapWorld world;
+    /** The host's lobby switch for the playtest log (SOS-81). */
+    private final boolean fullTransferLog;
     private final FactionWorld factionWorld;
     private final MapStep step;
     private final Pieces.Receiver terrain = new Pieces.Receiver();
@@ -58,8 +60,9 @@ public final class JoinedSetup implements SetupSession {
      * not null) starts at the world-loaded step: the host's slot map follows, and every PC loads its own save (SOS-64).
      */
     JoinedSetup(Node node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld,
-            LobbySettings.Resume resume) {
+            LobbySettings.Resume resume, boolean fullTransferLog) {
         this.node = node;
+        this.fullTransferLog = fullTransferLog;
         this.world = world;
         this.factionWorld = factionWorld;
         this.players = List.copyOf(players);
@@ -321,6 +324,11 @@ public final class JoinedSetup implements SetupSession {
     @Override
     public FactionStep factions() {
         return factions;
+    }
+
+    @Override
+    public boolean fullTransferLog() {
+        return fullTransferLog;
     }
 
     @Override

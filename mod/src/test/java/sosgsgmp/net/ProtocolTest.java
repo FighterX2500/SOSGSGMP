@@ -29,6 +29,7 @@ class ProtocolTest {
         List<Message> all = List.of(
             new Message.Hello("Ann", -42L),
             new Message.Welcome(3, new LobbySettings("hard", 16)),
+            new Message.Welcome(4, new LobbySettings("hard", 16).withFullTransferLog(false)),
             new Message.Roster(List.of(new LobbyPlayer(0, "Ann", true), new LobbyPlayer(5, "Bøb", false))),
             new Message.Refused(Refusal.FULL),
             new Message.Start(),

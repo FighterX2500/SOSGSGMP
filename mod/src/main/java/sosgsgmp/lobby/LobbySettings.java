@@ -8,8 +8,10 @@ import sosgsgmp.campaign.Campaign;
  * @param difficulty key of a vanilla difficulty mode (a file in the game's player/mode folder)
  * @param maxPlayers player limit, 2 to 16 (spec §3)
  * @param resume the campaign save the lobby resumes (spec §11, SOS-64), or null for a new game
+ * @param fullTransferLog every PC's playtest log lists every goods and money transfer, NPC trade included; off, only
+ *        those between players (SOS-81)
  */
-public record LobbySettings(String difficulty, int maxPlayers, Resume resume) {
+public record LobbySettings(String difficulty, int maxPlayers, Resume resume, boolean fullTransferLog) {
 
     /** A campaign save to resume: only its players can join, and every PC loads its own save of that number. */
     public record Resume(Campaign campaign, int number) {
@@ -32,13 +34,18 @@ public record LobbySettings(String difficulty, int maxPlayers, Resume resume) {
                     + " players in a lobby of " + maxPlayers);
     }
 
-    /** A new game's lobby. */
+    /** A new game's lobby, with the full transfer log on. */
     public LobbySettings(String difficulty, int maxPlayers) {
-        this(difficulty, maxPlayers, null);
+        this(difficulty, maxPlayers, null, true);
     }
 
-    /** The lobby resuming {@code resume}: the campaign's difficulty and players. */
+    /** The lobby resuming {@code resume}: the campaign's difficulty and players, with the full transfer log on. */
     public static LobbySettings resuming(Resume resume) {
-        return new LobbySettings(resume.campaign().difficulty(), resume.campaign().players().size(), resume);
+        return new LobbySettings(resume.campaign().difficulty(), resume.campaign().players().size(), resume, true);
+    }
+
+    /** These settings with the full transfer log on or off. */
+    public LobbySettings withFullTransferLog(boolean on) {
+        return new LobbySettings(difficulty, maxPlayers, resume, on);
     }
 }

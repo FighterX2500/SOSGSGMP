@@ -104,4 +104,14 @@ class LobbyTest {
         assertThrows(IllegalArgumentException.class, () -> new LobbySettings("normal", 17));
         assertThrows(IllegalArgumentException.class, () -> new LobbySettings("", 4));
     }
+
+    @Test
+    void theFullTransferLogIsOnUnlessTheHostTurnsItOff() {
+        LobbySettings settings = new LobbySettings("normal", 4);
+        assertTrue(settings.fullTransferLog());
+        LobbySettings off = settings.withFullTransferLog(false);
+        assertFalse(off.fullTransferLog());
+        assertEquals(settings.difficulty(), off.difficulty());
+        assertEquals(settings.maxPlayers(), off.maxPlayers());
+    }
 }

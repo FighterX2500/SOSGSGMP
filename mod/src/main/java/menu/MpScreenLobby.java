@@ -245,6 +245,8 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 			settings.add(mp.modes.name(ls.difficulty())).add(",  ").add(shownPlayers).add(" / ").add(ls.maxPlayers()).add(" players");
 		if (ls != null && ls.resume() != null)
 			settings.add(",  ").add(ls.resume().campaign().name()).add(", save ").add(ls.resume().number());
+		if (ls != null)
+			settings.add(ls.fullTransferLog() ? ",  every transfer logged" : ",  transfers between players logged");
 		settings.color(COLORS.label);
 
 		status.clear();

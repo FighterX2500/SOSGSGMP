@@ -57,6 +57,9 @@ public interface SetupSession {
     /** The factions step once the map is confirmed, for reading; null before. It changes only through this session. */
     FactionStep factions();
 
+    /** The lobby's switch: the playtest log lists every transfer, or only those between players (SOS-81). */
+    boolean fullTransferLog();
+
     /**
      * This PC's latest picks, sent whenever they change: the host records them at once (checking the location as it
      * checks everyone's), a joining PC sends them to the host. Only once the map is confirmed.
