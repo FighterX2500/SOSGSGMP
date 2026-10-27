@@ -10,6 +10,7 @@ import java.util.Locale;
 
 import game.GAME;
 import game.VERSION;
+import game.faction.FACTIONS;
 import snake2d.LOG;
 import sosdet.DesyncHold;
 import sosdet.OwnBattle;
@@ -23,7 +24,8 @@ import sosgsgmp.session.SetupSession;
 /**
  * SOSGSGMP: the playtest log's game side (SOS-63). From the world's load to the session's end it writes, to
  * {@code %APPDATA%/songsofsyx/sosgsgmp-logs}: the session, the network's notes, the players, every 600 steps the step,
- * the state hash and the engine's counters, the battles, the desyncs with the engine's report, the resyncs, and every
+ * the state hash, the engine's counters and this player's treasury, the battles, the desyncs with the engine's report,
+ * the resyncs, the deals, treaties, tariffs and realms between players ({@link MpDiplomacyLog}), and every
  * exception {@link MpPlay} and {@link MpWorldLoad} see. Each frame only compares a few values; it builds text only when it
  * writes. The log never stops the game: a failure of its own is logged, and the log stops.
  */
@@ -31,6 +33,8 @@ final class MpLog {
 
 	/** A status line every this many steps, at the same steps on every PC: their hashes compare across the logs. */
 	private static final long EVERY = 600;
+	/** The diplomacy lines look again this often, in frames: about twice a second. */
+	private static final int DIPLOMACY_FRAMES = 30;
 
 	private final PlayLog log;
 	private final SetupSession setup;
@@ -46,11 +50,13 @@ final class MpLog {
 	private DesyncHold hold;
 	private long desyncStep = -1;
 	private long resyncedStep = -1;
+	private final MpDiplomacyLog diplomacy;
 
 	private MpLog(PlayLog log, SetupSession setup, EnginePlay engine) {
 		this.log = log;
 		this.setup = setup;
 		this.engine = engine;
+		this.diplomacy = new MpDiplomacyLog(setup);
 	}
 
 	/** A new log for this PC's session, with the session's facts first. */
@@ -146,6 +152,8 @@ final class MpLog {
 		}
 		battle();
 		desync(desync);
+		if (frames % DIPLOMACY_FRAMES == 1)
+			diplomacy.look(this);
 		long at = engine.step() / EVERY * EVERY;
 		if (at > statusAt) {
 			statusAt = at;
@@ -212,11 +220,11 @@ final class MpLog {
 		line(String.format(Locale.ROOT,
 				"step %d hash %s | speed agreed %.2f, game %.2f, paused %b | %.1f fps, step ms mean %.2f p99 %.2f max %.1f,"
 						+ " over 100 ms %d | peers at %s | held %.1f s, longest %.2f s | hashes compared %d, missed %d | orders %d,"
-						+ " commands %d, txns %d, reports %d, AI %d",
+						+ " commands %d, txns %d, reports %d, AI %d | treasury %d",
 				at, hash(at), s.agreedSpeed, GAME.SPEED.speed(), GAME.SPEED.isPaused(), (frames - statusFrames) / seconds,
 				s.meanMs, s.p99Ms, s.maxMs, s.stepsOver100Ms, peers, engine.heldSeconds(), engine.longestHoldSeconds(),
 				s.hashesCompared, s.hashesMissed, s.ordersApplied, s.commandsApplied, s.txnsApplied, s.reportsReceived,
-				s.aiApplied));
+				s.aiApplied, (long) FACTIONS.player().credits().credits()));
 		statusNanos = now;
 		statusFrames = frames;
 	}
