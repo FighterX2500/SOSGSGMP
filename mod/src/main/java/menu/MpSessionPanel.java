@@ -35,6 +35,8 @@ import view.main.VIEW;
 final class MpSessionPanel extends Interrupter {
 
 	private static final int WIDTH = 380;
+	/** The status box's height: playing, the pace, the last save and the last deal answer take up to 5 lines, and a failed save's reason one more (SOS-84). */
+	private static final int STATUS_LINES = 6;
 
 	private final SetupSession setup;
 	private final WorldSetupAdapter game;
@@ -86,7 +88,7 @@ final class MpSessionPanel extends Interrupter {
 					rows[i].render(r, body.x1(), body.y1() + i * rowH);
 			}
 		});
-		inner.addDown(8, new RENDEROBJ.RenderImp(WIDTH, UI.FONT().M.height() * 3) {
+		inner.addDown(8, new RENDEROBJ.RenderImp(WIDTH, UI.FONT().M.height() * STATUS_LINES) {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				COLOR.WHITE100.bind();
