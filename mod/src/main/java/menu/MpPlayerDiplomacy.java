@@ -39,7 +39,7 @@ import view.main.VIEW;
 
 /**
  * SOSGSGMP: the faction window's Diplomacy tab for another player (spec §6; SOS-76), laid out as vanilla's: its terms
- * in its order, Offer and Demand with resources and money, the deal's summary, then Propose. The terms not built
+ * in its order, Offer and Demand with resources and money, and the deal's summary, with Propose under the title. The terms not built
  * between players are greyed out with the reason; Cancel All Agreements applies at once. A proposal from this player
  * shows above, with Accept and Decline, as vanilla shows an NPC's request. Never pauses the game (spec §4).
  */
@@ -83,8 +83,8 @@ final class MpPlayerDiplomacy extends GuiSection {
 		body().setWidth(width);
 
 		addRelBody(0, DIR.S, new GText(UI.FONT().M, TITLE).lablifySub());
-		addRelBody(4, DIR.S, incoming(width));
 
+		// Propose, or Cancel All in its place, centred under the title (owner, 2026-10-27; SOS-80)
 		GuiSection op = new GuiSection();
 		op.addRightC(0, new GButt.ButtPanel("Propose") {
 			@Override
@@ -130,7 +130,11 @@ final class MpPlayerDiplomacy extends GuiSection {
 					b.error(dealWhy);
 			}
 		}, 0, 0);
-		op.addRightC(16, new RENDEROBJ.RenderImp(LIST_W + BW, UI.FONT().M.height() * 2) {
+		addRelBody(4, DIR.S, op); // centred, as the title: the reason text no longer widens the row
+		addRelBody(4, DIR.S, incoming(width));
+
+		// why the deal can't be proposed, under the terms
+		RENDEROBJ why = new RENDEROBJ.RenderImp(LIST_W + BW, UI.FONT().M.height() * 2) {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				if (dealWhy == null)
@@ -139,9 +143,9 @@ final class MpPlayerDiplomacy extends GuiSection {
 				UI.FONT().M.render(r, dealWhy, body.x1(), body.y1(), body.width(), 1.0);
 				COLOR.unbind();
 			}
-		});
+		};
 
-		int h = height - body().height() - op.body().height() - 16;
+		int h = height - body().height() - why.body().height() - 16;
 		GuiSection s = new GuiSection();
 		s.add(config(h));
 		s.addRelBody(16, DIR.E, new SPRITE.Imp(1, h) {
@@ -152,7 +156,7 @@ final class MpPlayerDiplomacy extends GuiSection {
 		});
 		s.addRelBody(16, DIR.E, summary(h));
 		addRelBody(8, DIR.S, s);
-		addRelBody(8, DIR.S, op);
+		addRelBody(8, DIR.S, why);
 	}
 
 	@Override

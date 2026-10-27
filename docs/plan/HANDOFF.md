@@ -34,6 +34,7 @@ Written 2026-10-25, end of day, after SOS-64. It covers both repositories. SOSDE
 - **Customize Faction's** button reads "Pick Location".
 - **Player lists** wrap (`GText.setMaxWidth` + `setMultipleLines(true)`, then `adjustWidth()` after each rebuild) and take at most half the screen (`C.HEIGHT() / 2`); size them from the player count, not `LobbySettings.MAX_PLAYERS`. Rows past the cap are cut off; there is no scrolling.
 - **Status text boxes** are sized for their longest message plus a spare line (`Font.getHeight(text, width)`), so the panel grows downward instead of the text overlapping the buttons. A new long status message must go into that measure (`MpFactions.statusHeight`).
+- **Diplomacy tab:** Propose (or Cancel All Agreements in its place) sits centred under "What do you wish to offer?"; the reason a deal can't be proposed stays under the terms.
 - **Full-screen prompts with one button** go through `menu.MpPrompt.show(text, button)`: vanilla's `IPromtScreen` puts a lone button half a slot left of centre. Two or more buttons are centred already, so call `fullScreen.activate` directly.
 
 **Jira** (cleaned up 2026-10-25 at the owner's request; SOS-64 Done 2026-10-26). Every card with a merged PR is Done. Open:
