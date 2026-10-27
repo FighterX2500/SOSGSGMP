@@ -30,7 +30,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 12;
+    public static final int VERSION = 13;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -66,6 +66,7 @@ public final class Protocol {
                     out.writeInt(w.yourId());
                     out.writeUTF(w.settings().difficulty());
                     out.writeByte(w.settings().maxPlayers());
+                    out.writeBoolean(w.settings().fullTransferLog());
                     LobbySettings.Resume resume = w.settings().resume();
                     out.writeBoolean(resume != null);
                     if (resume != null) {
@@ -307,11 +308,12 @@ public final class Protocol {
     private static LobbySettings settings(DataInputStream in) throws IOException {
         String difficulty = in.readUTF();
         int max = in.readUnsignedByte();
+        boolean fullTransferLog = in.readBoolean();
         LobbySettings.Resume resume = null;
         try {
             if (in.readBoolean())
                 resume = new LobbySettings.Resume(campaign(in), in.readInt());
-            return new LobbySettings(difficulty, max, resume);
+            return new LobbySettings(difficulty, max, resume, fullTransferLog);
         } catch (IllegalArgumentException e) {
             throw new IOException(e.getMessage(), e);
         }

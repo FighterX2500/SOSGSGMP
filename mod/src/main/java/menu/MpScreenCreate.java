@@ -28,6 +28,8 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 	private final MpInput port;
 	private final IntImp players = new IntImp(LobbySettings.MIN_PLAYERS, LobbySettings.MAX_PLAYERS);
 	private int mode;
+	/** The playtest log lists every transfer, or only those between players (SOS-81). */
+	private boolean fullTransferLog = true;
 	private final GText error = new GText(UI.FONT().M, 160);
 
 	MpScreenCreate(MpMenu mp) {
@@ -75,6 +77,11 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 			}
 		});
 
+		GuiSection log = new GuiSection();
+		log.add(logButton("every transfer", true));
+		log.addRightC(16, logButton("between players", false));
+		form.addDown(16, MpMenu.row("transfer log", log));
+
 		error.color(COLORS.error);
 		form.addDown(24, new RENDEROBJ.RenderImp(600, UI.FONT().M.height() * 2) {
 			@Override
@@ -113,6 +120,21 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 			@Override
 			protected void renAction() {
 				activeSet(step < 0 ? players.get() > players.min() : players.get() < players.max());
+			}
+		};
+	}
+
+	/** One choice of the playtest log's switch: every transfer, NPC trade included, or only those between players. */
+	private CLICKABLE logButton(CharSequence label, boolean full) {
+		return new GUI.Button(GUI.getBigTexts(label)) {
+			@Override
+			protected void clickA() {
+				fullTransferLog = full;
+			}
+
+			@Override
+			protected void renAction() {
+				selectedSet(fullTransferLog == full);
 			}
 		};
 	}
@@ -159,7 +181,7 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 		mp.prefs.maxPlayers = players.get();
 		mp.prefs.difficulty = mp.modes.keys[mode];
 		mp.savePrefs();
-		LobbySettings settings = new LobbySettings(mp.modes.keys[mode], players.get());
+		LobbySettings settings = new LobbySettings(mp.modes.keys[mode], players.get()).withFullTransferLog(fullTransferLog);
 		if (steam) {
 			SteamNode node = SteamNode.host(SteamworksPort::new, players.get());
 			error.clear();

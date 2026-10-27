@@ -51,12 +51,14 @@ final class MpLog {
 	private long desyncStep = -1;
 	private long resyncedStep = -1;
 	private final MpDiplomacyLog diplomacy;
+	private final MpTransferLog transfers;
 
 	private MpLog(PlayLog log, SetupSession setup, EnginePlay engine) {
 		this.log = log;
 		this.setup = setup;
 		this.engine = engine;
 		this.diplomacy = new MpDiplomacyLog(setup);
+		this.transfers = new MpTransferLog(setup);
 	}
 
 	/** A new log for this PC's session, with the session's facts first. */
@@ -152,8 +154,10 @@ final class MpLog {
 		}
 		battle();
 		desync(desync);
-		if (frames % DIPLOMACY_FRAMES == 1)
+		if (frames % DIPLOMACY_FRAMES == 1) {
 			diplomacy.look(this);
+			transfers.look(this);
+		}
 		long at = engine.step() / EVERY * EVERY;
 		if (at > statusAt) {
 			statusAt = at;

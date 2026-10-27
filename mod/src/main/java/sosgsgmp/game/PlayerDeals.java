@@ -7,6 +7,7 @@ import game.faction.Faction;
 import game.faction.player.Player;
 import sosdet.Engine;
 import sosdet.game.deal.DealBook;
+import sosdet.txn.TransferLog;
 
 /**
  * SOSGSGMP: the engine's deals between players, and what this PC knows of another player (spec §6; SOS-72, SOS-76).
@@ -124,6 +125,19 @@ public final class PlayerDeals {
             if (p.id() == id)
                 return p;
         return null;
+    }
+
+    /**
+     * Adds to {@code out} every player's goods and money transfers made after the one numbered {@code afterSeq}, oldest
+     * first, and returns how many of those the engine's record no longer holds (SOS-81).
+     */
+    public static long transfers(long afterSeq, List<TransferLog.Transfer> out) {
+        return Engine.transfers(afterSeq, out);
+    }
+
+    /** The number of the latest transfer recorded; 0 before the first. */
+    public static long lastTransfer() {
+        return Engine.lastTransfer();
     }
 
     /** The goods with index {@code tradable} the player in {@code slot} last reported having; 0 before their first report. */
