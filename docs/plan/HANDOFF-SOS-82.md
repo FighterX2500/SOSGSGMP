@@ -13,7 +13,7 @@ Written 2026-10-28 by the session that worked SOS-82, for the session that carri
 
 Neither branch is pushed and no PR is open. Jira SOS-82 has not moved yet. The main checkouts (`C:\ClaudeFolder\SOS`, `C:\ClaudeFolder\SOSDET`) hold SOS-81's work; don't do SOS-82 work there.
 
-Read first: the card, spec §10 (0.26) and §15's view rows, [ADR 0006](../decisions/0006-lockstep-city-viewing-and-assaults.md) (the bullets dated 2026-10-27 and 2026-10-28), [city-viewing.md](city-viewing.md) (the mod's plan, M3 and M4), and SOSDET's `docs/plan/0012-city-viewing.md` (the engine's plan, M1 and M2).
+Read first: the card, spec §10 (0.26) and §15's view rows, [ADR 0006](../decisions/0006-lockstep-city-viewing-and-assaults.md) (the bullets dated 2026-10-27 and 2026-10-28), [city-viewing.md](city-viewing.md) (the mod's plan, M3 and M4), and SOSDET's `docs/plan/0013-city-viewing.md` (the engine's plan, M1 and M2).
 
 ## 2. The owner's decisions
 
@@ -34,7 +34,7 @@ Read first: the card, spec §10 (0.26) and §15's view rows, [ADR 0006](../decis
   - each NPC court's `addT`;
   - the slave recipes' `FBoost.mul`.
 
-  Every raid map is reset to a new game's (`AUp`, `dirty`). How each was found is in plan 0012 §3 (rig runs V82B to V82AA).
+  Every raid map is reset to a new game's (`AUp`, `dirty`). How each was found is in plan 0013 §3 (rig runs V82B to V82AA).
 
 **Evidence:** rig run V82AB (`--copies 3 --humans 3 --steps 3600 --view 2400:2:1:2900`) kept all copies identical to step 3600, with no engine desync.
 
@@ -49,7 +49,7 @@ The 3 copies shared one PC, so the times are upper bounds. `gradlew.bat test` pa
 ### Built since (2026-10-28, second session)
 
 - **The debugging tools** stay (main session's decision): `StateDump` and the rig's `--dump-at`/`--dump-reload` in the rig; `Engine.reloadOwnForDebug`, `Engine.debugAt`, `Engine.traceAllDraws` and the `Session` fields behind them are marked "test tooling" in their javadoc.
-- **M2, the engine** (plan 0012 §2 "The ends", `ViewTest`): `ViewLimit` (catch-up and keep-up limits on the viewer's clock), `Engine.viewLimit()`, `Engine.viewEnd(viewer, why)` with `View.why()`/`reason()` on every PC, a battle ending every view at its Engage, the thaw put off while a battle runs or a world prompt is open (decided at the end of the step before it, `Session.viewsEnd`), a view ended in its own freeze step loading nothing (`View.loaded()`), `Engine.viewRefusal` for the host. Room plans: a room the viewer was still drawing is lost at the view's load (documented; built plans are in the save). Engine.java's `§` signs, mangled by the M1 commit, are fixed.
+- **M2, the engine** (plan 0013 §2 "The ends", `ViewTest`): `ViewLimit` (catch-up and keep-up limits on the viewer's clock), `Engine.viewLimit()`, `Engine.viewEnd(viewer, why)` with `View.why()`/`reason()` on every PC, a battle ending every view at its Engage, the thaw put off while a battle runs or a world prompt is open (decided at the end of the step before it, `Session.viewsEnd`), a view ended in its own freeze step loading nothing (`View.loaded()`), `Engine.viewRefusal` for the host. Room plans: a room the viewer was still drawing is lost at the view's load (documented; built plans are in the save). Engine.java's `§` signs, mangled by the M1 commit, are fixed.
 - **M3, the mod**, protocol 14 ([city-viewing.md](city-viewing.md) §2): `ViewRequests` (the flow, plain Java), the five messages, `MpViews` (host checks and begins and ends, the owner's popup `MpViewAsk` and its city and hashes going out, the viewer's loading screen, load, hashes, limits and bar `MpViewBar`, the messages `MpViewNotice`, the playtest log), the faction window's **View city** button, a campaign save skipped on a PC that views, the autopilot's `view=`/`viewanswer=` and `tools/twopc.py --view`, `--host-view`, `--view-answer`.
 - Rig options for the limits: `--view-limits CATCHUP:KEEPUP:STEPS` (shorter limits, `Engine.viewLimits`), `--view-stall STEP:MS` (the viewer's frame stalls once); the viewer's copy asks copy 1 to end the view through `view.close`, as the mod's `VIEW_CLOSE` does.
 
@@ -67,7 +67,7 @@ The 3 copies shared one PC, so the times are upper bounds. `gradlew.bat test` pa
 - Only the 3-copy rig has run a view; two real PCs haven't yet. Nothing of M2 or M3 has run in a game yet: unit and loopback tests only.
 - The owner leaving while the viewer loads leaves the viewer's PC held (city-viewing.md §6).
 - A battle during a view: every PC loads the battle, the viewer's PC with the owner's city in it, and the view thaws after the battle. Covered by `ViewTest` only; no rig run had a battle in a view.
-- The spec text needed no change for the 2026-10-28 decision: §10 and the §15 rows already say "a world reload, about a second". ADR 0006 and plan 0012 have the new state and the numbers.
+- The spec text needed no change for the 2026-10-28 decision: §10 and the §15 rows already say "a world reload, about a second". ADR 0006 and plan 0013 have the new state and the numbers.
 
 ## 6. Running the rig for SOS-82
 

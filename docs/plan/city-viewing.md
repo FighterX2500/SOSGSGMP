@@ -1,6 +1,6 @@
 # City viewing (SOS-82)
 
-Card: [SOS-82](https://fighterx2500.atlassian.net/browse/SOS-82). Spec §10 (0.26) and [ADR 0006](../decisions/0006-lockstep-city-viewing-and-assaults.md). The engine's half is SOSDET plan 0012. Approved by the owner on 2026-10-27: option A for the host's own view, the view as a request, option C (moving the host's role) for later.
+Card: [SOS-82](https://fighterx2500.atlassian.net/browse/SOS-82). Spec §10 (0.26) and [ADR 0006](../decisions/0006-lockstep-city-viewing-and-assaults.md). The engine's half is SOSDET plan 0013. Approved by the owner on 2026-10-27: option A for the host's own view, the view as a request, option C (moving the host's role) for later.
 
 ## 1. What the player sees
 
@@ -45,7 +45,7 @@ On the viewer's PC, from the moment its copy runs (after the load):
 
 - **The owner's stutter.** The owner saves (about 1.2 s on Mogus-72, rig run V82B) and reloads its own city as the view opens (option E, ADR 0006): a few seconds, accepted by the owner. Playtests measure it.
 - **A room being drawn.** A room still being drawn in the placer is lost on a reload: on the owner when the view opens, and on every PC at a world reload. Not handled in v1.
-- **A prompt for the viewer.** Its actions are game objects the viewer's load would lose, so the view ends right after the prompt closes, not before it: the viewer can't answer it, and it takes its default after 30 seconds. Implemented this way; the owner can change it. A prompt in the view's own freeze step ends it before anything loads, so the viewer answers it in its own city (SOSDET plan 0012 §2, "The ends").
+- **A prompt for the viewer.** Its actions are game objects the viewer's load would lose, so the view ends right after the prompt closes, not before it: the viewer can't answer it, and it takes its default after 30 seconds. Implemented this way; the owner can change it. A prompt in the view's own freeze step ends it before anything loads, so the viewer answers it in its own city (SOSDET plan 0013 §2, "The ends").
 - **The View city button's way to the session.** The faction window is built from a game hook that has no reach to the session, so the button finds `menu.MpViews` through `MpViews.current()`, the mod's one mutable static: set while the session plays, cleared when it ends (AGENTS.md says no mutable statics; this is the exception, decided in M3, 2026-10-28, to keep hooks out of it).
 - **The owner leaves while the viewer loads.** The viewer holds at the freeze step for the owner's city, which can't come, so its end entry can't apply there either: the viewer's PC stays held. Not handled in v1.
 - **Messages don't use vanilla's full-screen prompt.** That prompt takes the game's time while it shows, so this PC would stop stepping and, through the host's pace, every PC with it. A view's messages are windows (`MpViewNotice`); only the viewer's loading screen is the full-screen prompt, while its PC holds anyway.
