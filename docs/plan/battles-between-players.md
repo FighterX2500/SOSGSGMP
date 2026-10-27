@@ -1,6 +1,6 @@
 # Battles between players (SOS-83)
 
-Spec §8 Military (battles between players), §4 (battles pause the world), §9 (a sally from a besieged region), §11 (the save before a battle). Card: [SOS-83](https://fighterx2500.atlassian.net/browse/SOS-83). Milestone 2 of [war.md](war.md) (SOS-74). It builds on SOSDET plan 0006 (own-city battles) and the two-PC commanders table proven in stage E, run V3. Status: **proposed**.
+Spec §8 Military (battles between players), §4 (battles pause the world), §9 (a sally from a besieged region), §11 (the save before a battle). Card: [SOS-83](https://fighterx2500.atlassian.net/browse/SOS-83). Milestone 2 of [war.md](war.md) (SOS-74). It builds on SOSDET plan 0006 (own-city battles) and the two-PC commanders table proven in stage E, run V3. Status: **approved (owner, 2026-10-27)**: every decision in section 3 as recommended (1a, 2a, 3a, 4a).
 
 Owner decisions already made (2026-10-27, war.md):
 - War is offered in the Diplomacy tab only when this card is merged.
