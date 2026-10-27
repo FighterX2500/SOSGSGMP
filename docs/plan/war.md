@@ -1,6 +1,6 @@
 # War between players (SOS-74)
 
-Spec §6 Diplomacy (declaring war, breaking treaties), §8 Military (battles between players), §9 (sieges of player cities). Card: [SOS-74](https://fighterx2500.atlassian.net/browse/SOS-74). Diplomacy milestone 3, after [diplomacy.md](diplomacy.md) (SOS-72) and [diplomacy-2.md](diplomacy-2.md) (SOS-73). Status: **proposed**.
+Spec §6 Diplomacy (declaring war, breaking treaties), §8 Military (battles between players), §9 (sieges of player cities). Card: [SOS-74](https://fighterx2500.atlassian.net/browse/SOS-74). Diplomacy milestone 3, after [diplomacy.md](diplomacy.md) (SOS-72) and [diplomacy-2.md](diplomacy-2.md) (SOS-73). Status: **approved (owner, 2026-10-27)**: every decision in section 3 as recommended (1a, 2a, 3a, 4a). M1 is this card; M2 is [SOS-83](https://fighterx2500.atlassian.net/browse/SOS-83).
 
 Game paths are relative to `<game>/info/SongsOfSyx-sources/`; line numbers are vanilla's, from the audit of 2026-10-27. SOSDET's patches already change some of these files, so each step starts from SOSDET's patched source.
 
@@ -70,7 +70,7 @@ War is offered in the Diplomacy tab only when milestone 2 is merged, so a war be
 4. **Sieges of a human's other regions:**
    - remove the refusal in `World.java:98` for regions that aren't capitals;
    - the besiege question's "Yes" path declares war through step 1's command (vanilla's is NPC-only and silently does nothing);
-   - the defender is asked to sally (decision 3);
+   - the defender's "sally out?" prompt comes with M2 (SOS-83), since a sally is a battle between players; in M1 the defender can attack the besiegers with the garrison's Attack tool (step 5);
    - a capital stays refused, with the reason "A player's capital can't be besieged yet" (spec §9 comes later).
 5. **Garrison attack on a human's army:** remove the refusal in `World.java:349` when the two are at war.
 6. **Field contact between two humans:** until M2, battles between two humans' armies **auto-resolve** (rig only, since the UI flag is off).
@@ -84,7 +84,7 @@ War is offered in the Diplomacy tab only when milestone 2 is merged, so a war be
      - every copy identical;
    - `twopc` with the flag on, a short run.
 
-### M2: real-time battles between players (engine plan 0006: M2 plus "human against human")
+### M2: real-time battles between players (SOS-83; engine plan 0006: M2 plus "human against human")
 
 1. **The prompt:** when both sides have a human, no Auto and no Retreat in the prompt. With no answer in 30 s the default is to fight (spec §8). Who is asked: decision 2.
 2. **Commanders:**
@@ -95,12 +95,13 @@ War is offered in the Diplomacy tab only when milestone 2 is merged, so a war be
    - **Boosts:** each PC's city report already carries values to the world part. It also carries its human's battle boosts, and army 1's faction is the other human, reading those reported values. Every PC then has the same numbers.
    - **Names, banners and formation:** the same report, or the world division's own data.
 4. **Retreat for army 1:** a new path with its own losses (vanilla has none).
-5. **The result for both humans:**
+5. **The defender's "sally out?" prompt** when another human besieges one of its regions (decision 3).
+6. **The result for both humans:**
    - each winner chooses their own captives and spoils, as spec §8 says;
    - mercy goes to the right faction;
    - losses are applied to each world army.
-6. **Turn on War in the Diplomacy tab** (remove the M1 flag), update spec §6 and §15, and the playtest pack.
-7. **Checks:**
+7. **Turn on War in the Diplomacy tab** (remove the M1 flag), update spec §6 and §15, and the playtest pack.
+8. **Checks:**
    - rig, 2 and 3 humans: a field battle between two humans' armies, each copy commanding only its own divisions, a retreat by each side in turn, and the result on both, with every copy identical;
    - then `twopc`, and the owner's playtest.
 
