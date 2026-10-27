@@ -3,6 +3,7 @@ package view.world.generator;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
+import init.constant.C;
 import init.sprite.UI.UI;
 import game.GAME;
 import menu.MpAutopilot;
@@ -120,20 +121,27 @@ public final class MpMapStage {
 		this.setup = setup;
 		this.mapTypes = mapTypes;
 		this.rebuild = rebuild;
-		for (int i = 0; i < rows.length; i++)
-			rows[i] = new GText(UI.FONT().M, 96);
+		for (int i = 0; i < rows.length; i++) {
+			rows[i] = new GText(UI.FONT().M, 96).setMaxWidth(LABEL_WIDTH + TEXT_WIDTH);
+			rows[i].setMultipleLines(true);
+		}
 		if (setup.isHost())
 			addHostControls();
 		else
 			addHostChoices();
 
 		int rowH = UI.FONT().M.height() + 2;
+		// Two lines for each player, so a long row can wrap, up to half the screen
+		int listH = Math.min(rowH * 2 * Math.min(setup.players().size(), rows.length), C.HEIGHT() / 2);
 		panel.addDown(16, new GHeader("players"));
-		panel.addDown(4, new RENDEROBJ.RenderImp(LABEL_WIDTH + TEXT_WIDTH, rowH * rows.length) {
+		panel.addDown(4, new RENDEROBJ.RenderImp(LABEL_WIDTH + TEXT_WIDTH, listH) {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
-				for (int i = 0; i < shownRows; i++)
-					rows[i].render(r, body.x1(), body.y1() + i * rowH);
+				int y = body.y1();
+				for (int i = 0; i < shownRows && y + rows[i].height() <= body.y2(); i++) {
+					rows[i].render(r, body.x1(), y);
+					y += rows[i].height() + 2;
+				}
 			}
 		});
 		panel.addDown(12, new RENDEROBJ.RenderImp(LABEL_WIDTH + TEXT_WIDTH, UI.FONT().M.height() * 3) {
@@ -156,8 +164,8 @@ public final class MpMapStage {
 				activeSet(canGoOn);
 			}
 		});
-		buttons.addRightC(16, MpSetupLeave.button(setup, () -> leaving = true));
 		panel.addDown(12, buttons);
+		MpSetupLeave.addBottomRight(panel, buttons, MpSetupLeave.button(setup, () -> leaving = true));
 		refresh();
 	}
 
@@ -371,6 +379,7 @@ public final class MpMapStage {
 			}
 			if (p.id() == setup.localPlayerId() && step.status() == MapStatus.OK)
 				row.add("  ").add(Long.toHexString(step.hash()));
+			row.adjustWidth(); // wraps the row at the list's width
 		}
 
 		status.clear();

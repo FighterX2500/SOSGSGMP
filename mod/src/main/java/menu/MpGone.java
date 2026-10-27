@@ -121,7 +121,7 @@ final class MpGone {
 			}
 		};
 		if (refusal(d) != null) {
-			VIEW.inters().fullScreen.activate(text, COLOR.WHITE100, null, back);
+			MpPrompt.show(text, back);
 			return;
 		}
 		VIEW.inters().fullScreen.activate(text, COLOR.WHITE100, null, new GButt.ButtPanel("Continue without them") {
@@ -156,7 +156,7 @@ final class MpGone {
 		game.endSession();
 		GAME.SPEED.speedSet(0);
 		LOG.ln("SOSGSGMP: the session ended: the host chose to return to the last save");
-		VIEW.inters().fullScreen.activate(setup.closedReason() + "\nThe session has ended.", COLOR.WHITE100, null,
+		MpPrompt.show(setup.closedReason() + "\nThe session has ended.",
 				new GButt.ButtPanel("Main menu") {
 					@Override
 					protected void clickA() {

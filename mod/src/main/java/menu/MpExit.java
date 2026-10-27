@@ -151,9 +151,9 @@ final class MpExit implements MpEscapeMenu.Actions {
 		}
 		String why = quitter == SaveOrder.NO_QUITTER ? "The host chose Save and exit after a world desync."
 				: mine ? "You quit the game." : name(quitter) + " quit the game.";
-		VIEW.inters().fullScreen.activate(why + "\n"
+		MpPrompt.show(why + "\n"
 				+ (outcome.isEmpty() ? "The campaign is saved; Load Saved Lobby resumes it." : "The campaign save: " + outcome)
-				+ "\nThe session has ended.", COLOR.WHITE100, null, new GButt.ButtPanel(mine && exitGame ? "Exit" : "Main menu") {
+				+ "\nThe session has ended.", new GButt.ButtPanel(mine && exitGame ? "Exit" : "Main menu") {
 					@Override
 					protected void clickA() {
 						go(mine && exitGame);

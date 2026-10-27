@@ -87,7 +87,7 @@ final class MpFactionStage {
 			protected void clickA() {
 				race(f);
 			}
-		}, new GButt.ButtPanel("location") {
+		}, new GButt.ButtPanel("Pick Location") {
 			@Override
 			protected void clickA() {
 				MpLocationStage.place(f);

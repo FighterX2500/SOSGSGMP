@@ -2,6 +2,7 @@ package view.world.generator;
 
 import java.util.List;
 
+import init.constant.C;
 import init.race.RACES;
 import init.race.Race;
 import init.sprite.UI.UI;
@@ -43,6 +44,9 @@ final class MpFactions {
 
 	private static final double PICK_CHECK_SECONDS = 0.5;
 	static final int SIDE_WIDTH = 420;
+	private static final int ROW_GAP = 2;
+	private static final String PICK_STATUS = "Pick your race, customize your faction and place your capital. You can change them until the host initializes the world.";
+	private static final String INITIALIZE_STATUS = "Every player has a location. Initialize World builds the world and starts every player's game; the picks can't change after it.";
 
 	final WorldViewGenerator g;
 	final SetupSession setup;
@@ -76,7 +80,8 @@ final class MpFactions {
 		this.setup = setup;
 		this.cursors = new MpCursors(setup);
 		for (int i = 0; i < rows.length; i++) {
-			rows[i] = new GText(UI.FONT().M, 128);
+			rows[i] = new GText(UI.FONT().M, 128).setMaxWidth(SIDE_WIDTH);
+			rows[i].setMultipleLines(true);
 			otherNames[i] = new GText(UI.FONT().S, FactionPick.MAX_NAME);
 		}
 	}
@@ -120,16 +125,18 @@ final class MpFactions {
 					cursors.render(r, g.window);
 			}
 		};
-		int rowH = UI.FONT().M.height() + 2;
 		s.add(new GHeader("players"), 0, 0);
-		s.addDown(4, new RENDEROBJ.RenderImp(SIDE_WIDTH, rowH * rows.length) {
+		s.addDown(4, new RENDEROBJ.RenderImp(SIDE_WIDTH, listHeight()) {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
-				for (int i = 0; i < shownRows; i++)
-					rows[i].render(r, body.x1(), body.y1() + i * rowH);
+				int y = body.y1();
+				for (int i = 0; i < shownRows && y + rows[i].height() <= body.y2(); i++) {
+					rows[i].render(r, body.x1(), y);
+					y += rows[i].height() + ROW_GAP;
+				}
 			}
 		});
-		s.addDown(12, new RENDEROBJ.RenderImp(SIDE_WIDTH, UI.FONT().M.height() * 3) {
+		s.addDown(12, new RENDEROBJ.RenderImp(SIDE_WIDTH, statusHeight()) {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				COLOR.WHITE100.bind();
@@ -142,7 +149,8 @@ final class MpFactions {
 			buttons.addRightC(0, back);
 		if (next != null)
 			buttons.addRightC(16, next);
-		if (setup.isHost()) {
+		else if (setup.isHost()) {
+			// Only on the last screen, once race, faction and location are picked
 			buttons.addRightC(buttons.elements().isEmpty() ? 0 : 16, new GButt.ButtPanel("initialize world") {
 				@Override
 				protected void clickA() {
@@ -155,13 +163,25 @@ final class MpFactions {
 				}
 			});
 		}
-		GuiSection row = new GuiSection();
-		if (!buttons.elements().isEmpty())
-			row.addRightC(0, locking(buttons));
-		// Leave stays: a transfer that never ends must not trap a player
-		row.addRightC(row.elements().isEmpty() ? 0 : 16, MpSetupLeave.button(setup, () -> leaving = true));
+		GuiSection row = locking(buttons);
 		s.addDown(12, row);
+		// Leave stays: a transfer that never ends must not trap a player
+		MpSetupLeave.addBottomRight(s, row, MpSetupLeave.button(setup, () -> leaving = true));
 		return s;
+	}
+
+	/** The players' rows as wrapped now, with a line to spare for each as picks lengthen them, up to half the screen. */
+	private int listHeight() {
+		int h = 0;
+		for (int i = 0; i < shownRows; i++)
+			h += rows[i].height() + UI.FONT().M.height() + ROW_GAP;
+		return Math.min(Math.max(h, UI.FONT().M.height()), C.HEIGHT() / 2);
+	}
+
+	/** Tall enough for the longest status line, with a line to spare for a reason sent by the host. */
+	private static int statusHeight() {
+		int h = Math.max(UI.FONT().M.getHeight(PICK_STATUS, SIDE_WIDTH), UI.FONT().M.getHeight(INITIALIZE_STATUS, SIDE_WIDTH));
+		return h + UI.FONT().M.height();
 	}
 
 	/** From Initialize World until this PC leaves for the load, the picks can't change: every button but Leave is locked. */
@@ -293,6 +313,8 @@ final class MpFactions {
 				row.add(", no location");
 			}
 		}
+		for (int i = 0; i < shownRows; i++)
+			rows[i].adjustWidth(); // wraps the row at SIDE_WIDTH
 
 		status.clear();
 		if (setup.closed())
@@ -304,9 +326,9 @@ final class MpFactions {
 		else if (mine != null && mine.refused() != null)
 			status.add("Your location was refused: ").add(mine.refused()).add(". Pick another.");
 		else if (mine == null || !mine.pick().hasLocation())
-			status.add("Pick your race, customize your faction and place your capital. You can change them until the host initializes the world.");
+			status.add(PICK_STATUS);
 		else if (setup.isHost() && f.canInitialize())
-			status.add("Every player has a location. Initialize World builds the world and starts every player's game; the picks can't change after it.");
+			status.add(INITIALIZE_STATUS);
 		else if (!setup.isHost() && allPlaced(table, players))
 			status.add("Every player has a location. Waiting for the host to initialize the world.");
 		else
