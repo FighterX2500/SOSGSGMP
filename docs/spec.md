@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.24 · 2026-10-27
+Version 0.25 · 2026-10-27
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -108,17 +108,17 @@ Players use the same agreements that exist between a player and an NPC faction i
 - **No answer needed.** Declaring war and cancelling all agreements apply at once, with no proposal and no answer.
 - **No uniting.** Vanilla's "Unite" agreement, where a whole faction joins another, isn't available between players.
 - **Regions** other than capitals can be given in an agreement, as in vanilla.
-- **Emissaries** work as in vanilla against NPC factions. Against another player only Gather support works, in that player's regions; the missions aimed at a court (Flatter, Sabotage, Assassinate) aren't available.
-- **Passage.** Players at peace can move armies through each other's territory freely, with no penalty.
+- **Emissaries** work as in vanilla against NPC factions. No emissary mission works against another player, Gather support in their regions included (owner, 2026-10-27).
+- **Passage.** Players at peace can move armies through each other's territory freely, with no penalty, and their trade crosses it too, with no transit treaty (owner, 2026-10-27; section 7).
 - **Breaking treaties.** A player can break a treaty with another player at any time, with no penalty: unlike vanilla, NPC factions' opinion of that player doesn't drop either. Treaties with NPC factions keep their vanilla penalties.
-- **Vassalage between players** follows vanilla: the vassal pays tribute, the two share wars, and the vassal has the right to rebel. The sovereign does not join a war its vassal starts.
+- **Vassalage between players** follows vanilla: the vassal pays tribute, the two share wars, and the vassal has the right to rebel. The sovereign does not join a war its vassal starts. The tribute is a yearly share of the vassal's worth set in the deal, 10% by default. The vassal rebels by cancelling all agreements, which applies at once and leaves the two at peace; war between players comes later (owner, 2026-10-27).
 
 ## 7. Trade
 
 Players trade through direct contracts and through a shared market.
 
 - **Direct contracts** are agreed between two players: a player who wants a specific deal with another player proposes it as a diplomatic request (section 6).
-- **Shared market.** Players' goods join the market, and prices form as in vanilla. The market is the same for everyone: apart from tariffs between players, no player gets special terms on it. Two players with a trade agreement (trade partners, colleagues, allies) trade in it with each other as a player and an NPC do: the buyer pays the seller's export price plus the toll, which uses the distance from capital to capital. As in vanilla, a trade partner must be reachable: across bordering land, or through a neighbour's land with transit, never across unclaimed land.
+- **Shared market.** Players' goods join the market, and prices form as in vanilla. The market is the same for everyone: apart from tariffs between players, no player gets special terms on it. Two players with a trade agreement (trade partners, colleagues, allies) trade in it with each other as a player and an NPC do: the buyer pays the seller's export price plus the toll, which uses the distance from capital to capital. As in vanilla, a trade partner must be reachable: across bordering land, or through a neighbour's land with transit, never across unclaimed land. A player's trade also crosses the land of any player it is at peace with, with no transit treaty (section 6, Passage).
 - **Tariffs between players.** Each player sets their own tariff on what another player sells them, from 0% to 80% in steps of 5%, with Set Tariff in that player's Diplomacy list. It needs a trade agreement and applies at once, with no answer. The tariff is cut from what the seller gets and paid to the buyer's treasury, shown as tariff revenue in Economy & Trade. A tariff nobody set is 20%, for every trade agreement: between players, Become Colleagues and Alliance don't lower it (owner, 2026-10-27).
 - **Caravans** work as in vanilla: they are visible on the map, travel to the other player, and cannot be raided.
 
@@ -307,7 +307,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - Cancelling all agreements with another player applies at once, on every PC, with no answer; so does declaring war once battles between players exist. [AT]
 - Another player's faction window has no Court and no ruler, opinion, trust or power, and says "Player" where vanilla shows the stance. [PT]
 - "Unite" can't be offered between players; regions other than capitals can be given. [AT]
-- Against another player, only the Gather support emissary mission is offered. [AT]
+- No emissary mission works against another player. [AT]
 - A player's army crosses another player's territory at peace with no penalty. [AT]
 
 ### Trade
@@ -393,7 +393,7 @@ Every card on the board, not only features, is done when:
 
 - [ ] **Viewing numbers:** the catch-up numbers in section 10 (a 5-second gap closed in about 2 seconds, and the 1-minute limit before a view that can't keep up ends) are first guesses. Confirm them in playtests (owner, 2026-10-24): city save size and time, loading a city into a running game, and a 10,000-person city.
 - [ ] **Order delay above 1×:** the engine applies an order a fixed number of steps after it is given. Just above 1× speed that comes to about 1 second, plus ping, which is over the 1-second limit (section 8). Measure it in playtests and decide whether the engine's delay should shrink there.
-- [ ] **Passage and trade reach:** players at peace move armies freely through each other's land (section 6), but trade between players reaches only as in vanilla, so crossing another player's land needs a transit treaty (section 7). Should free passage between players also let trade through? (Spec review, 2026-10-27.)
+- [x] **Passage and trade reach:** players at peace move armies freely through each other's land (section 6). Should free passage between players also let trade through? Yes: a player's trade crosses the land of any player it is at peace with, whatever the destination, NPC factions included (owner, 2026-10-27; sections 6 and 7).
 
 ## 17. Milestones
 

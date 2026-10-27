@@ -80,6 +80,19 @@ public final class PlayerDeals {
     }
 
     /**
+     * Why the player in {@code giver} can't give {@code region} (a region index) to the player in {@code receiver} along
+     * with {@code chosen}, or null (SOS-73).
+     */
+    public static String regionRefusal(int giver, int receiver, int region, int[] chosen) {
+        return Engine.dealRegionRefusal(giver, receiver, region, chosen);
+    }
+
+    /** The yearly tribute, in percent of its worth, the player in {@code vassal} pays the player in {@code overlord}. */
+    public static int tributePercent(int vassal, int overlord) {
+        return Engine.tributePercent(vassal, overlord);
+    }
+
+    /**
      * What the tariff of the player in {@code buyer} on the player in {@code seller} brought in this year, or last
      * year; with {@code seller} -1, all of {@code buyer}'s tariffs this year.
      */

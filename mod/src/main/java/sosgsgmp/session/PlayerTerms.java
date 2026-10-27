@@ -1,13 +1,16 @@
 package sosgsgmp.session;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import sosdet.game.deal.DealBook;
 
 /**
  * SOSGSGMP: the deal this PC's player sets up for another player in the faction window's Diplomacy tab (spec §6,
- * SOS-76): vanilla's terms in vanilla's order, how each works between players, the one term chosen, and the money and
- * goods each side gives. The engine judges whether the deal can be made; this class knows only what isn't built yet.
+ * SOS-76): vanilla's terms in vanilla's order, how each works between players, the one term chosen, the money, goods
+ * and regions each side gives, and a vassal's tribute rate (SOS-73). The engine judges whether the deal can be made;
+ * this class knows only what isn't built yet.
  */
 public final class PlayerTerms {
 
@@ -31,6 +34,9 @@ public final class PlayerTerms {
     private int giveCredits;
     private int askCredits;
     private Term chosen;
+    private final List<Integer> giveRegions = new ArrayList<>();
+    private final List<Integer> askRegions = new ArrayList<>();
+    private int tribute = DealBook.DEFAULT_TRIBUTE;
 
     /** {@code tradables}: how many kinds of goods there are; each side's goods are kept by their index. */
     public PlayerTerms(int tradables) {
@@ -42,9 +48,9 @@ public final class PlayerTerms {
 
     public static Kind kind(Term t) {
         return switch (t) {
-            case PEACE, TRADE, PACT, ALLY -> Kind.PROPOSE;
+            case PEACE, TRADE, PACT, ALLY, PROTECTOR, VASSAL -> Kind.PROPOSE;
             case CANCEL_ALL -> Kind.AT_ONCE;
-            case WAR, PROTECTOR, VASSAL, UNITE -> Kind.NOT_YET;
+            case WAR, UNITE -> Kind.NOT_YET;
         };
     }
 
@@ -52,7 +58,6 @@ public final class PlayerTerms {
     public static String notYet(Term t) {
         return switch (t) {
             case WAR -> "No battles between players yet.";
-            case PROTECTOR, VASSAL -> "Not between players yet.";
             case UNITE -> "Not between players.";
             default -> null;
         };
@@ -66,6 +71,8 @@ public final class PlayerTerms {
             case PACT -> DealBook.PACT;
             case ALLY -> DealBook.ALLY;
             case CANCEL_ALL -> DealBook.CANCEL_ALL;
+            case PROTECTOR -> DealBook.PROTECTOR;
+            case VASSAL -> DealBook.VASSAL;
             default -> DealBook.NO_TREATY;
         };
     }
@@ -112,6 +119,45 @@ public final class PlayerTerms {
             askCredits = amount;
     }
 
+    /** The regions this player gives ({@code mine}) or asks for, as region indices, in the order chosen. */
+    public int[] regions(boolean mine) {
+        List<Integer> l = mine ? giveRegions : askRegions;
+        int[] out = new int[l.size()];
+        for (int i = 0; i < out.length; i++)
+            out[i] = l.get(i);
+        return out;
+    }
+
+    /** True when the region with index {@code region} is in this player's offer ({@code mine}) or demand. */
+    public boolean hasRegion(boolean mine, int region) {
+        return (mine ? giveRegions : askRegions).contains(region);
+    }
+
+    /** Adds the region to the offer ({@code mine}) or demand, or takes it out when it is there already. */
+    public void toggleRegion(boolean mine, int region) {
+        if (region < 0)
+            throw new IllegalArgumentException("SOSGSGMP: a region of index " + region);
+        List<Integer> l = mine ? giveRegions : askRegions;
+        if (!l.remove(Integer.valueOf(region)))
+            l.add(region);
+    }
+
+    /** The vassal's yearly tribute in percent of its worth, for Protector and Vassal; 10% until set. */
+    public int tribute() {
+        return tribute;
+    }
+
+    public void tribute(int percent) {
+        if (percent < 0 || percent > 100)
+            throw new IllegalArgumentException("SOSGSGMP: a tribute of " + percent + "%");
+        tribute = percent;
+    }
+
+    /** True when the chosen term makes one player the other's vassal, so the tribute rate counts. */
+    public boolean vassalage() {
+        return chosen == Term.PROTECTOR || chosen == Term.VASSAL;
+    }
+
     /** Back to an empty deal, after it was proposed. */
     public void clear() {
         chosen = null;
@@ -119,24 +165,28 @@ public final class PlayerTerms {
         askCredits = 0;
         Arrays.fill(give, 0);
         Arrays.fill(ask, 0);
+        giveRegions.clear();
+        askRegions.clear();
+        tribute = DealBook.DEFAULT_TRIBUTE;
     }
 
-    /** True when either side gives money or goods. */
+    /** True when either side gives money, goods or regions. */
     public boolean hasGoodsOrMoney() {
-        return giveCredits > 0 || askCredits > 0 || any(give) || any(ask);
+        return giveCredits > 0 || askCredits > 0 || any(give) || any(ask) || !giveRegions.isEmpty() || !askRegions.isEmpty();
     }
 
     /** Why the deal can't go ahead for a reason of its own, before the engine's checks; null when it can. */
     public String refusal() {
         if (atOnce() && hasGoodsOrMoney())
-            return "Cancel All Agreements applies at once: it takes no money or goods.";
+            return "Cancel All Agreements applies at once: it takes no money, goods or regions.";
         return null;
     }
 
-    /** The deal as the engine's terms: this player is the proposer, and each side's goods as pairs. */
+    /** The deal as the engine's terms: this player is the proposer, each side's goods as pairs, its regions as indices. */
     public DealBook.Terms terms() {
         int treaty = chosen == null ? DealBook.NO_TREATY : treaty(chosen);
-        return new DealBook.Terms(treaty, giveCredits, askCredits, pairs(give), pairs(ask));
+        return new DealBook.Terms(treaty, giveCredits, askCredits, pairs(give), pairs(ask), regions(true), regions(false),
+                tribute);
     }
 
     private static boolean any(int[] goods) {
