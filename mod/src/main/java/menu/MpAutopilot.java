@@ -71,7 +71,8 @@ import world.WORLD;
  * and confirms: the campaign is saved on every PC, then the session ends: SOS-79). {@code save} goes through the escape
  * menu's Save Campaign. {@code rename} (at this step this PC's player renames the faction and the ruler and changes
  * the banner, as the profile window does: SOS-78); every PC reports each player's name, ruler and banner with each
- * hash.
+ * hash. {@code battles} ({@code auto}: fight every battle prompt, Start, fight on and accept the result: SOS-83). An
+ * outside player's actions come through {@link MpAutopilotCommands}.
  */
 public final class MpAutopilot {
 
@@ -134,6 +135,8 @@ public final class MpAutopilot {
 	private double statusTimedMs;
 	private static final long STATUS_NANOS = 10_000_000_000L;
 	private final Map<String, Boolean> once = new HashMap<>();
+	/** The outside player's actions and, with {@code battles=auto}, the battles fought on their own (SOS-83). */
+	private final MpAutopilotCommands commands;
 
 	/** The autopilot the variable asks for, or null (play): read once by each per-frame point that may use it. */
 	public static MpAutopilot fromEnv() {
@@ -200,6 +203,7 @@ public final class MpAutopilot {
 		events = Paths.get(System.getenv("APPDATA"), "songsofsyx", "sosgsgmp-autopilot", "events.jsonl");
 		if (!host && !steam && address.isEmpty())
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " role=join needs address=");
+		commands = new MpAutopilotCommands(events, host, m.getOrDefault("battles", "").equals("auto"), this::event);
 	}
 
 	/**
@@ -494,6 +498,7 @@ public final class MpAutopilot {
 			Runtime.getRuntime().halt(1); // no goodbye to the host: the connection just drops
 		}
 		deals(setup, step);
+		commands.frame(engine);
 		Departures d = setup.departures();
 		if (d.waiting() && d.holdStep() != seenGone) {
 			seenGone = d.holdStep();

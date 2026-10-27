@@ -189,6 +189,9 @@ def main():
     ap.add_argument("--save", type=int, default=-1, help="the host saves the campaign at this step; both PCs must save it")
     ap.add_argument("--resume", action="store_true",
                     help="keep both data folders and host their newest campaign save instead of a new game")
+    ap.add_argument("--battles", choices=("ask", "auto"), default="ask",
+                    help="auto: both PCs fight every battle prompt, press Start, fight on and accept the result (SOS-83);"
+                         " an outside player's actions go to command.txt beside each PC's autopilot events")
     ap.add_argument("--tag", default="twopc")
     ap.add_argument("--here", action="store_true",
                     help="no second PC: the joiner runs on this PC too (data folder inst\\2, over loopback)")
@@ -266,7 +269,7 @@ def main():
         local2 = remote_data
         log("data folders ready; sending the joiner's to the second PC")
         rdir = None if args.here else send_remote(remote_data.parent)
-    common = "port=%d,steps=%d,net=%s" % (args.port, args.steps, args.net)
+    common = "port=%d,steps=%d,net=%s,battles=%s" % (args.port, args.steps, args.net, args.battles)
     host_capital = ",capital=" + args.host_capital if args.host_capital else ""
     join_capital = ",capital=" + args.join_capital if args.join_capital else ""
     # Steam finds the App ID here when the game isn't started by Steam
