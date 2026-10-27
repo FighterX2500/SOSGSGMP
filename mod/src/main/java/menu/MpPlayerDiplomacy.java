@@ -36,11 +36,14 @@ import util.gui.table.GScrollRows;
 import util.info.GFORMAT;
 import util.text.Dic;
 import view.main.VIEW;
+import world.WORLD;
+import world.map.regions.Region;
 
 /**
  * SOSGSGMP: the faction window's Diplomacy tab for another player (spec §6; SOS-76), laid out as vanilla's: its terms
- * in its order, Offer and Demand with resources and money, the deal's summary, then Propose. The terms not built
- * between players are greyed out with the reason; Cancel All Agreements applies at once. A proposal from this player
+ * in its order, Offer and Demand with regions, resources and money, the deal's summary, then Propose. Protector and
+ * Vassal carry the tribute rate set below them (SOS-73). The terms not built between players are greyed out with the
+ * reason; Cancel All Agreements applies at once. A proposal from this player
  * shows above, with Accept and Decline, as vanilla shows an NPC's request. Never pauses the game (spec §4).
  */
 final class MpPlayerDiplomacy extends GuiSection {
@@ -52,7 +55,6 @@ final class MpPlayerDiplomacy extends GuiSection {
 	private static final int RECHECK_FRAMES = 30;
 	private static final int[] NONE = new int[0];
 	private static final String TITLE = "What do you wish to offer?";
-	private static final String NOT_YET = "Not between players yet.";
 	private static final String TARIFF_D = "Your tariff on what this player sells you. It's cut from what they get and paid into your treasury. From 0% to 80%; 20% until you set it. It applies at once.";
 	private static final String WAITING = "Your proposal waits for their answer; it expires unanswered after 30 days.";
 
@@ -67,6 +69,8 @@ final class MpPlayerDiplomacy extends GuiSection {
 	/** Why Set Tariff is greyed out now; null while it can be set (SOS-77). */
 	private String tariffWhy;
 	private int frames = RECHECK_FRAMES;
+	/** Counts the deal's changes: the region picker's rows ask the engine again after each. */
+	private int checks;
 
 	/** The oldest open proposal from this player to this PC's, or -1; and its terms as words. */
 	private int incoming = -1;
@@ -209,6 +213,7 @@ final class MpPlayerDiplomacy extends GuiSection {
 
 	private void changed() {
 		frames = RECHECK_FRAMES;
+		checks++;
 	}
 
 	private void clearDeal() {
@@ -221,9 +226,16 @@ final class MpPlayerDiplomacy extends GuiSection {
 	/** The other player's proposal, as words for this PC's player. */
 	private String describe(DealBook.Proposal p) {
 		DealBook.Terms t = p.terms();
-		return f.name + " proposes" + (t.treaty == DealBook.NO_TREATY ? "" : ": " + MpDeals.treatyName(t.treaty)) + ". "
-				+ f.name + " gives " + MpDeals.gives(t.fromCredits, t.fromGoods()) + "; you give "
-				+ MpDeals.gives(t.toCredits, t.toGoods()) + ". It expires unanswered after 30 days.";
+		String treaty = t.treaty == DealBook.PROTECTOR ? ": they become your overlord, with a tribute of " + t.tributePercent + "% a year"
+				: t.treaty == DealBook.VASSAL ? ": they become your vassal, with a tribute of " + t.tributePercent + "% a year"
+				: t.treaty == DealBook.NO_TREATY ? "" : ": " + MpDeals.treatyName(t.treaty);
+		return f.name + " proposes" + treaty + ". "
+				+ f.name + " gives " + MpDeals.gives(t.fromCredits, t.fromGoods()) + regionsText(t.fromRegions()) + "; you give "
+				+ MpDeals.gives(t.toCredits, t.toGoods()) + regionsText(t.toRegions()) + ". It expires unanswered after 30 days.";
+	}
+
+	private static String regionsText(int[] regions) {
+		return regions.length == 0 ? "" : ", and the regions " + MpDeals.regions(regions);
 	}
 
 	/** Above the terms: the other player's proposal with Accept and Decline, or that this player's own waits. */
@@ -290,9 +302,11 @@ final class MpPlayerDiplomacy extends GuiSection {
 			rows.add(new Bool(all[i], bools[i]));
 			if (all[i] == Term.TRADE)
 				rows.add(tariff()); // between Trade and Become Colleagues (owner, 2026-10-27)
+			if (all[i] == Term.VASSAL)
+				rows.add(tribute()); // under Protector and Vassal, which it belongs to (SOS-73)
 		}
 		rows.add(header("Offer"));
-		rows.add(regions());
+		rows.add(regions(true));
 		rows.add(resources(true));
 		rows.add(new GInputInt(give, true, true) {
 			{
@@ -302,7 +316,7 @@ final class MpPlayerDiplomacy extends GuiSection {
 			}
 		});
 		rows.add(header("Demand"));
-		rows.add(regions());
+		rows.add(regions(false));
 		rows.add(resources(false));
 		rows.add(new GInputInt(ask, true, true) {
 			{
@@ -436,20 +450,125 @@ final class MpPlayerDiplomacy extends GuiSection {
 		return b;
 	}
 
-	/** Regions can't change hands between players yet (SOS-73): greyed out, not removed. */
-	private static RENDEROBJ regions() {
+	/**
+	 * One side's regions (SOS-73): a popup listing the giver's regions other than the capital, each chosen or not. A
+	 * region the engine's rule refuses next is greyed out with the reason: as vanilla, each must border the receiver's
+	 * land or another region chosen with it.
+	 */
+	private RENDEROBJ regions(boolean mine) {
 		GButt.ButtPanel b = new GButt.ButtPanel(Dic.¤¤Regions) {
 			@Override
-			protected void renAction() {
-				activeSet(false);
+			protected void clickA() {
+				VIEW.inters().popup.show(regionPicker(mine), this);
+			}
+		};
+		b.icon(UI.icons().s.world);
+		b.body().setDim(BW, BH);
+		return b;
+	}
+
+	/** Built when opened: the giver's regions change as the game goes on. */
+	private GuiSection regionPicker(boolean mine) {
+		Faction giver = mine ? FACTIONS.player() : f;
+		int giverSlot = giver.index();
+		int receiverSlot = mine ? slot : FACTIONS.player().index();
+		LinkedList<RENDEROBJ> rows = new LinkedList<>();
+		for (int i = 0; i < giver.realm().regions(); i++) {
+			Region reg = giver.realm().region(i);
+			if (reg.capitol())
+				continue;
+			int ri = reg.index();
+			GButt.ButtPanel row = new GButt.ButtPanel(reg.info.name()) {
+				private String why;
+				// the rule walks the map: asked again after a change, or every RECHECK_FRAMES, not every frame
+				private int seen = -1;
+				private int age;
+
+				@Override
+				protected void renAction() {
+					boolean chosen = terms.hasRegion(mine, ri);
+					if (seen != checks || ++age >= RECHECK_FRAMES) {
+						seen = checks;
+						age = 0;
+						why = chosen ? null : PlayerDeals.regionRefusal(giverSlot, receiverSlot, ri, terms.regions(mine));
+					}
+					selectedSet(chosen);
+					activeSet(chosen || why == null);
+				}
+
+				@Override
+				protected void clickA() {
+					if (why != null && !terms.hasRegion(mine, ri))
+						return;
+					terms.toggleRegion(mine, ri);
+					changed();
+				}
+
+				@Override
+				public void hoverInfoGet(GUI_BOX text) {
+					if (why != null)
+						((GBox) text).error(why);
+				}
+			};
+			row.body().setDim(BW, BH);
+			rows.add(row);
+		}
+		GuiSection pop = new GuiSection();
+		if (rows.isEmpty()) {
+			pop.add(new GText(UI.FONT().M, giver.name + " has no regions to give but the capital.").normalify2(), 0, 0);
+			return pop;
+		}
+		pop.add(new GScrollRows(rows, Math.min(rows.size(), 10) * BH).view());
+		return pop;
+	}
+
+	/** The vassal's yearly tribute (SOS-73), set in the deal: 0% to 100% of its worth, 10% until set. Counts only with Protector or Vassal. */
+	private RENDEROBJ tribute() {
+		INT.IntImp rate = new INT.IntImp(0, 100) {
+			@Override
+			public int get() {
+				return terms.tribute();
+			}
+
+			@Override
+			public void set(int t) {
+				terms.tribute(Math.max(0, Math.min(100, t)));
+				changed();
+			}
+		};
+		GuiSection pop = new GuiSection();
+		pop.add(new GText(UI.FONT().H2, "The vassal's yearly tribute").lablify(), 0, 0);
+		pop.addDown(8, new GSliderInt(rate, 300, true, false));
+		pop.addRightC(16, new GStat() {
+			@Override
+			public void update(GText text) {
+				text.add(terms.tribute()).add('%');
+			}
+		});
+		GButt.ButtPanel b = new GButt.ButtPanel("Tribute") {
+			private final GText shown = new GText(UI.FONT().M, 8);
+
+			@Override
+			protected void render(SPRITE_RENDERER r, float ds, boolean isActive, boolean isSelected, boolean isHovered) {
+				super.render(r, ds, terms.vassalage(), false, isHovered);
+				shown.clear().add(terms.tribute()).add('%');
+				shown.renderCY(r, body().x2() - 48, body().cY());
+			}
+
+			@Override
+			protected void clickA() {
+				if (terms.vassalage())
+					VIEW.inters().popup.show(pop, this);
 			}
 
 			@Override
 			public void hoverInfoGet(GUI_BOX text) {
-				((GBox) text).error(NOT_YET);
+				GBox g = (GBox) text;
+				g.title("Tribute");
+				g.text("What the vassal pays its overlord each year, in percent of its worth. Choose Protector or Vassal first.");
 			}
 		};
-		b.icon(UI.icons().s.world);
+		b.icon(UI.icons().s.money);
 		b.body().setDim(BW, BH);
 		return b;
 	}
@@ -504,8 +623,15 @@ final class MpPlayerDiplomacy extends GuiSection {
 				Term t = terms.chosen();
 				if (t != null) {
 					COLOR.WHITE100.bind();
-					UI.FONT().M.render(r, t == Term.CANCEL_ALL ? "Cancel All Agreements" : MpDeals.treatyName(PlayerTerms.treaty(t)), x, y);
-					y += line * 2;
+					UI.FONT().M.render(r, t == Term.CANCEL_ALL ? "Cancel All Agreements" : t == Term.PROTECTOR ? "You become their overlord"
+							: t == Term.VASSAL ? "You become their vassal" : MpDeals.treatyName(PlayerTerms.treaty(t)), x, y);
+					y += line;
+					if (terms.vassalage()) {
+						GFORMAT.i(scratch.clear(), terms.tribute());
+						scratch.add('%').add(" tribute a year");
+						scratch.render(r, x, y);
+					}
+					y += line;
 				}
 				y = side(r, x, y, line, true, "You give");
 				side(r, x, y + line, line, false, theyGive);
@@ -534,6 +660,12 @@ final class MpPlayerDiplomacy extends GuiSection {
 			GFORMAT.i(scratch.clear(), n);
 			scratch.render(r, x + 28, y);
 			UI.FONT().M.render(r, t.name, x + 96, y);
+			y += line;
+		}
+		for (int ri : terms.regions(mine)) {
+			Region reg = WORLD.REGIONS().getByIndex(ri);
+			UI.icons().s.world.render(r, x, y);
+			UI.FONT().M.render(r, reg.info.name(), x + 28, y);
 			y += line;
 		}
 		return y;

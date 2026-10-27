@@ -11,6 +11,8 @@ import sosgsgmp.game.PlayerDeals;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.session.DealInbox;
 import sosgsgmp.session.SetupSession;
+import world.WORLD;
+import world.map.regions.Region;
 
 /**
  * SOSGSGMP: deals between players in the running game (spec §6 Diplomacy, §12 popups; SOS-72, SOS-76). The engine
@@ -91,8 +93,24 @@ final class MpDeals {
 			case DealBook.PACT -> "pact";
 			case DealBook.ALLY -> "alliance";
 			case DealBook.CANCEL_ALL -> "cancel all treaties";
+			case DealBook.PROTECTOR -> "the proposer becomes overlord";
+			case DealBook.VASSAL -> "the proposer becomes vassal";
 			default -> throw new IllegalArgumentException("SOSGSGMP: a treaty term of " + treaty);
 		};
+	}
+
+	/** The regions one side gives, as words: "Aria and Bel", or "no regions" (SOS-73). */
+	static String regions(int[] regions) {
+		if (regions.length == 0)
+			return "no regions";
+		StringBuilder b = new StringBuilder();
+		for (int i = 0; i < regions.length; i++) {
+			if (i > 0)
+				b.append(i == regions.length - 1 ? " and " : ", ");
+			Region r = WORLD.REGIONS().getByIndex(regions[i]);
+			b.append(r == null ? "region " + regions[i] : r.info.name());
+		}
+		return b.toString();
 	}
 
 	/** What one side gives, as words: "100 denari and 50 Stone", or "nothing". */

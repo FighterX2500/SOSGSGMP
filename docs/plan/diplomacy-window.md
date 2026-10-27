@@ -22,9 +22,9 @@ Card: [SOS-76](https://fighterx2500.atlassian.net/browse/SOS-76). Spec §6 Diplo
     - **Declare War:** greyed out, "No battles between players yet". Once war exists, it applies at once.
     - **Peace, Trade, Become Colleagues, Alliance:** proposals.
     - **Cancel All Agreements:** applies at once, with no proposal and no answer.
-    - **Become Protector, Become Vassal:** greyed out, "Not between players yet" (SOS-73).
+    - **Become Protector, Become Vassal:** greyed out, "Not between players yet". Since SOS-73 they can be proposed, with a Tribute row below them (0% to 100%, 10% until set).
     - **Unite:** greyed out, "Not between players" (spec §6).
-    - **Offer and Demand:** Regions are greyed out (SOS-73). Resources take several kinds, as vanilla's picker does; money is vanilla's input.
+    - **Offer and Demand:** Regions were greyed out; since SOS-73 they open a picker of the giver's regions other than the capital, where a region the rule refuses is greyed out with the reason. Resources take several kinds, as vanilla's picker does; money is vanilla's input.
     - **Gone:** Value, Opinion, Betrayal and Barter. Accept becomes "Propose", greyed out with the reason while your side can't be given.
 - **A proposal from another player** shows in this window's Diplomacy tab, as vanilla shows an NPC's request: a notice opens the window on the proposer, with their terms filled in and Accept and Decline. The 30-day expiry stays. SOS-72's popup, the multiplayer panel's "deal: name" buttons and its offer window go.
 

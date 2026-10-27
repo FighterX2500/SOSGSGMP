@@ -37,7 +37,7 @@ class PlayerTermsTest {
         assertEquals(Term.ALLY, p.chosen());
         p.toggle(Term.ALLY);
         assertNull(p.chosen());
-        assertThrows(IllegalArgumentException.class, () -> p.toggle(Term.VASSAL));
+        assertThrows(IllegalArgumentException.class, () -> p.toggle(Term.UNITE));
         assertNull(p.chosen());
     }
 
@@ -67,5 +67,28 @@ class PlayerTermsTest {
         p.goods(false, 0, 0);
         p.credits(true, 1);
         assertNotNull(p.refusal());
+        p.credits(true, 0);
+        p.toggleRegion(true, 12);
+        assertNotNull(p.refusal(), "nor regions");
+    }
+
+    @Test
+    void regionsAndTheTributeReachTheEnginesTerms() {
+        PlayerTerms p = new PlayerTerms(3);
+        p.toggle(Term.VASSAL);
+        assertTrue(p.vassalage());
+        p.tribute(25);
+        p.toggleRegion(true, 40);
+        p.toggleRegion(true, 12);
+        p.toggleRegion(false, 7);
+        p.toggleRegion(true, 40); // taken out again
+        assertEquals(new DealBook.Terms(DealBook.VASSAL, 0, 0, new int[0], new int[0], new int[] {12}, new int[] {7}, 25), p.terms());
+        assertTrue(p.hasGoodsOrMoney(), "a region counts");
+        assertThrows(IllegalArgumentException.class, () -> p.tribute(101));
+        p.clear();
+        assertTrue(p.terms().empty());
+        assertEquals(DealBook.DEFAULT_TRIBUTE, p.tribute());
+        p.toggle(Term.PROTECTOR);
+        assertEquals(DealBook.PROTECTOR, p.terms().treaty, "the proposer becomes the overlord");
     }
 }

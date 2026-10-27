@@ -97,3 +97,19 @@ The owner's rules apply: short smoke runs, a monitor every minute, no GUI tests,
 2. **Tribute between players:** **(a) recommended:** vanilla's own rate, 10% of the vassal's worth once a year, paid automatically to the overlord, with a notice to both. **(b)** No tribute between players. **(c)** A rate set in the deal.
 3. **Trade through land at peace, scope:** **(a) recommended:** any human's trade crosses the land of a human it isn't at war with, whatever the destination (an NPC included). **(b)** Only trade from one human to another.
 4. **Rebellion:** **(a) recommended:** the vassal leaves at once with Cancel all, ending at peace, until SOS-74 brings war between players. **(b)** Leaving waits for SOS-74 and is only possible by declaring war.
+
+## 5. Results (2026-10-27)
+
+- **Engine:** SOSDET plan 0011 records what was built.
+  - `DealBook` version 2 holds region terms, Protector and Vassal, the tribute rate and the tributes; version 1 still loads.
+  - Patches 15 and 98 carry the tribute, the overlord staying out of its vassal's wars, trade through land at peace and the emissary gate.
+- **Unit tests:** SOSDET `DealBookTest` (5 new tests); the mod's `PlayerTermsTest` (regions and the tribute reaching the engine's terms; Cancel All takes no regions).
+- **D73A, rig, 3 humans: PASS.** A region given and accepted, a vassalage at 15% accepted, then Cancel All by the vassal; every copy identical to step 9,000.
+- **D73B, rig: PASS.** Trade treaties 0–24 and 0–2; each lists slot 0 as a partner. Every copy identical to step 6,000.
+- **Not checked in a run:**
+  - a yearly tribute payment (a year is longer than a smoke run);
+  - trade crossing a third human's land;
+  - an overlord staying out of its vassal's war;
+  - the passage walk;
+  - a twopc run.
+- **For the owner by hand:** the Regions picker in Offer and Demand, the Protector and Vassal terms with the Tribute row, and the incoming proposal's text.
