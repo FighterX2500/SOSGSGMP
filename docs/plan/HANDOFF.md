@@ -26,7 +26,7 @@ Written 2026-10-25, end of day, after SOS-64. It covers both repositories. SOSDE
 - campaign saves and resume (SOS-64: SOSGSGMP #39 with the engine fix SOSDET #38). Plan and test results: [campaign-saves.md](campaign-saves.md).
 - disconnects (SOS-65, with the engine's removal SOS-66 and SOSDET #43): a player dropping holds every PC at one step; the host continues without them (they are removed and the campaign autosaves) or returns to the last save. A resume can start without a missing player, who is then removed. Plan and results: [disconnects.md](disconnects.md).
 
-**Open PRs** (2026-10-27): SOSGSGMP #54, SOS-80 (the owner's GUI fixes; see "GUI changelog" below). SOS-72 and SOS-75 to SOS-79 are merged, SOS-77 (goods and tariffs: SOSDET #50, SOSGSGMP #52, plan [goods-tariffs.md](goods-tariffs.md)) included.
+**Open PRs** (2026-10-27): SOS-81, every goods and money transfer in the playtest log, with a lobby switch (the SOSDET PR first, then the SOSGSGMP PR; plan [transfer-log.md](transfer-log.md)). The SOSGSGMP PR also carries the diplomacy log lines (SOS-73's last commit, written after #55). Merged: SOS-80 (#54, the owner's GUI fixes; see "GUI changelog" below), SOS-73 (SOSDET #51, SOSGSGMP #55: regions, vassalage, passage), SOS-72 and SOS-75 to SOS-79.
 
 **GUI changelog, SOS-80** (the owner checks GUI changes in-game; no tests for pure layout). Keep these conventions in new screens:
 - **Leave** goes in the bottom-right corner of every setup panel: add the panel's other buttons as its last row, then call `MpSetupLeave.addBottomRight(panel, buttonsRow, MpSetupLeave.button(...))`. Never add Leave inline with other buttons.
@@ -66,7 +66,7 @@ From now on, move a card to In Review when its PR opens. When the PR merges, com
 
 Every PC writes its own log of each multiplayer session, with no setup:
 - **Where:** `%APPDATA%\songsofsyx\sosgsgmp-logs\<date>-<time>-<host|join>-<name>.log`.
-- **What's in it:** the players and the network; every 600 steps a status line with the step, the world hash, speed, fps and each peer's step; desyncs with the engine's report; resyncs, battles, saves and loads; and any exception with its stack trace.
+- **What's in it:** the players and the network; every 600 steps a status line with the step, the world hash, speed, fps, treasury and each peer's step; proposals, treaties, tariffs and realms between players; every goods and money transfer of every player (`transfer step ...` lines; the host's lobby switch picks every transfer or only those between players; SOS-81); desyncs with the engine's report; resyncs, battles, saves and loads; and any exception with its stack trace.
 - **Comparing PCs:** the hashes in the status lines are at the same steps on every PC, so two logs side by side show where a desync began.
 
 **After a session:**

@@ -74,3 +74,14 @@ Order: the SOSDET PR first, then the SOSGSGMP PR. Both PCs need the new engine.
 
 1. **How much to log:** every transfer, NPC trade included, with a lobby switch to turn the full log on and off. With it off, only transfers between players are logged.
 2. **Whose transfers:** every player's, on every PC, so the logs match line for line.
+
+## 5. Results (2026-10-27)
+
+- **Unit:** `TransferLogTest` (SOSDET: order, wrap, lost count, reading after a sequence number); `LobbyTest` and `ProtocolTest` (the switch's default, `withFullTransferLog`, and the Welcome round trip with it off). `gradlew.bat build` passes in both repositories.
+- **Rig T81A** (3 humans, Mogus-72, `--make-humans 2,24`, 12,000 steps, a trade deal with 500 denari): every copy identical to step 12,000, hashes agree. The `transfers 6000` probe is the same on every copy: 19 transfers, checksum `b6896400d279ee0c`. Step time mean 4.5 to 4.6 ms, as before.
+- **twopc T81B, T81C (switch on) and T81D (switch off):** PASS, 0 hashes differ. Both PCs write the same "transfers logged" line, and the same transfer lines. A new city has no money and nothing in its warehouses at step 600, so the autopilot's deal carried nothing and no transfer line was written: the lines' wording has not yet run on a real transfer. The owner's playtest is the first.
+- **Simplified from the plan, to tell the owner:**
+  - the campaign save doesn't keep the switch: a resumed lobby starts with it on, and the host can't change it there;
+  - a load or resync doesn't clear the engine's record: the log reads on from the last transfer it wrote;
+  - the 45,000-step market run (a sale between players with a tariff) wasn't run; short smoke runs only (owner rule).
+- **Test aids:** the autopilot's `deal` now also offers 5 of the first good the joiner has; `fulllog=0` (twopc `--transfer-log players`) turns the switch off.
