@@ -1,6 +1,6 @@
 # Transfers in the playtest log (SOS-81)
 
-Card: [SOS-81](https://fighterx2500.atlassian.net/browse/SOS-81). Status: **proposed, waiting for the owner's approval.**
+Card: [SOS-81](https://fighterx2500.atlassian.net/browse/SOS-81). Status: **approved (owner, 2026-10-27)**: every transfer, with a lobby switch; every player's on every PC.
 
 Each PC's playtest log (SOS-63) should show every transfer of goods or money that involves a player: deals, market sales, tariffs, tribute, caravans. Today it shows only a count of transactions in the status line, plus (since SOS-73) the deals, treaties, tariffs and realms between players.
 
@@ -45,9 +45,14 @@ Each PC's playtest log (SOS-63) should show every transfer of goods or money tha
 ### 2.2 Mod (SOSGSGMP)
 
 - **`MpTransferLog`, read from `MpLog` twice a second, like `MpDiplomacyLog`:**
-  - It writes one line per transfer between players (decision 1): step, who, what, how much, the price, the reason and the other side. For example: `step 18,240 Host sold 40 Furniture to Joiner at 31 each (tariff 20%: 248 to Joiner's treasury)`.
-  - It writes everything else as a summary once a game day: NPC market sales and purchases, income and costs by reason.
+  - It writes one line per transfer, every player's, NPC trade included (decisions 1 and 2): step, who, what, how much, the price, the reason and the other side. For example: `step 18,240 Host sold 40 Furniture to Joiner at 31 each (tariff 20%: 248 to Joiner's treasury)`.
   - It writes a line when transfers were lost to the ring wrapping.
+- **The lobby switch "Full transfer log":**
+  - The host sets it in the lobby. It travels with the lobby's settings, so every PC logs alike, and the campaign save keeps it for a resume.
+  - **On (the default for playtests):** every transfer.
+  - **Off:** only transfers between two players: deal money and goods, sales between players with their tariff, and tribute. The diplomacy lines stay either way.
+  - The switch only filters what the mod writes; the engine records the same either way.
+  - The lobby settings' format and the protocol version go up by one, and older saved lobbies load with the switch on.
 - **Names:** player names by slot, as in `MpDiplomacyLog`; NPC factions by name; goods by name; reasons as words.
 
 ## 3. Checks
@@ -59,16 +64,13 @@ Each PC's playtest log (SOS-63) should show every transfer of goods or money tha
   - the `transfers` probe on every copy.
 
   Every copy identical, and every copy's record the same. The step time is compared with the C77K run.
-- **twopc:** a short run with `--deal`. Both PCs' logs show the same transfer lines.
+- **twopc:** a short run with `--deal`, once with the switch on and once off. Both PCs' logs show the same transfer lines.
+- **Unit:** the lobby settings round trip with the switch, and an older lobby settings save loading with the switch on.
 - **Owner:** a playtest with the logs collected.
 
 Order: the SOSDET PR first, then the SOSGSGMP PR. Both PCs need the new engine.
 
-## 4. Decisions for the owner
+## 4. Decisions (owner, 2026-10-27)
 
-1. **How much to log:**
-   - **(a) recommended:** one line for each transfer between players, and for each deal or tribute payment; everything else (trade with NPCs, other income and costs) as a summary per game day.
-   - **(b)** one line for every transfer, NPC trade included. This is complete, but a busy city writes hundreds of lines a day.
-2. **Whose transfers:**
-   - **(a) recommended:** every player's, on every PC. The two logs then match line for line, which helps when comparing them after a desync.
-   - **(b)** only this PC's own player's.
+1. **How much to log:** every transfer, NPC trade included, with a lobby switch to turn the full log on and off. With it off, only transfers between players are logged.
+2. **Whose transfers:** every player's, on every PC, so the logs match line for line.
