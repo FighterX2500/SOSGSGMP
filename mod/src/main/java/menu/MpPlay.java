@@ -29,6 +29,8 @@ final class MpPlay implements ACTION {
 	private final MpSaves saves;
 	/** The escape menu's save and quit, and every save that ends the session (SOS-79). */
 	private final MpExit exit;
+	/** City viewing: the requests, the owner's city going out, the viewer's load and limits (SOS-82). */
+	private final MpViews views;
 
 	MpPlay(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpLog log, MpSaves saves, MpExit exit) {
 		this.setup = setup;
@@ -38,6 +40,7 @@ final class MpPlay implements ACTION {
 		this.log = log;
 		this.saves = saves;
 		this.exit = exit;
+		this.views = new MpViews(setup, engine, log);
 	}
 
 	@Override
@@ -68,12 +71,13 @@ final class MpPlay implements ACTION {
 			gone.frame();
 			if (!gone.ended()) { // Return to the last save ended the engine
 				desync.frame();
+				views.frame();
 				saves.frame();
 				exit.frame(); // after the saves: a save that ends the session ends it in the frame it is done
 			}
 		}
 		if (autopilot != null)
-			autopilot.game(setup, engine, desync, saves, gone, exit);
+			autopilot.game(setup, engine, desync, saves, gone, exit, views);
 	}
 
 	/** The other players' PC numbers: their slots. */

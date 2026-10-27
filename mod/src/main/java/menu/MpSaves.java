@@ -180,6 +180,9 @@ final class MpSaves {
 			problem = "a battle started before the save step";
 		} else if (engine.step() != order.step() && engine.battleAhead() < 0) {
 			problem = "this PC was at step " + engine.step() + ", past the save step " + order.step();
+		} else if (engine.viewingHere()) {
+			// its own city isn't loaded: it runs the viewed one (spec §10, SOS-82)
+			problem = "this PC was viewing another player's city";
 		} else {
 			try {
 				String file = game.saveGame(label(order));

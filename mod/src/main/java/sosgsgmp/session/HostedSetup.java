@@ -68,6 +68,8 @@ public final class HostedSetup implements SetupSession {
     private String doneOutcome;
     /** The engine's streams once this PC plays; null before. */
     private EngineLink link;
+    /** City viewing's requests once this PC plays; null before (SOS-82). */
+    private ViewRequests views;
     /** The latest world resync's transfer number; 0 before the first. */
     private int resyncTransfer;
     /** The world resync this PC sent, until it takes it to load; null otherwise. */
@@ -148,6 +150,11 @@ public final class HostedSetup implements SetupSession {
                 }
             }
             case Message.Stream s when id != null && link != null -> stream(peer, id, s);
+            case Message.ViewAsk v when id != null && views != null -> view(id, v);
+            case Message.ViewAnswer v when id != null && views != null -> view(id, v);
+            case Message.ViewClose v when id != null && views != null -> view(id, v);
+            case Message.ViewCity v when id != null && views != null -> view(id, v);
+            case Message.ViewHashes v when id != null && views != null -> view(id, v);
             case Message.Cursor c when id != null -> {
                 cursors.set(id, c.onMap(), c.x(), c.y());
                 Message relayed = new Message.Cursor(id, c.onMap(), c.x(), c.y());
@@ -195,6 +202,23 @@ public final class HostedSetup implements SetupSession {
                 node.send(other, s);
     }
 
+    /** A peer's view message: routed by the host; one that breaks the protocol is noted and dropped. */
+    private void view(int id, Message m) {
+        String problem = views.received(factions.slotOf(id), m);
+        if (problem != null)
+            notes.add(name(id) + " sent a view message that doesn't fit, dropped: " + problem);
+    }
+
+    /** Sends to the PC in {@code slot}: the peer whose player has it. */
+    private void sendToSlot(int slot, Message m) {
+        for (Map.Entry<Integer, Integer> p : joined.entrySet())
+            if (factions.slotOf(p.getValue()) == slot) {
+                node.send(p.getKey(), m);
+                return;
+            }
+        notes.add("a view message for slot " + slot + ", whose PC is gone: dropped");
+    }
+
     private void removeJoined(int peer) {
         Integer id = joined.remove(peer);
         if (id == null)
@@ -227,6 +251,7 @@ public final class HostedSetup implements SetupSession {
         players.removeIf(p -> p.id() == id);
         cursors.removePlayer(id);
         long hold = departures.left(g, link.step());
+        views.gone(g.slot()); // an ask or a view they are in ends (SOS-82)
         notes.add(g.name() + " left at step " + link.step() + "; every PC holds at " + hold);
         sendAll(new Message.PlayerGone(id, hold));
         if (saveRound != null && saveRound.report(id, 0, "left the game")) // the open save waits for them no more
@@ -338,11 +363,17 @@ public final class HostedSetup implements SetupSession {
             throw new IllegalStateException("SOSGSGMP: play before the start, or twice");
         int pc = factions.slotOf(localPlayerId());
         link = new EngineLink(true, pc, pc, port);
+        views = new ViewRequests(true, pc, pc, this::sendToSlot, System::nanoTime);
     }
 
     @Override
     public boolean playing() {
         return link != null;
+    }
+
+    @Override
+    public ViewRequests views() {
+        return views;
     }
 
     @Override
