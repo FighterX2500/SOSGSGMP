@@ -66,13 +66,13 @@ War is offered in the Diplomacy tab only when milestone 2 is merged, so a war be
    - NPC allies and vassals join as in vanilla (`DIP.ally`), and a human overlord stays out of its vassal's war (SOS-73);
    - from any stance, treaties included; a vassal declaring on its overlord ends the vassalage first.
 2. **Peace:** the Peace treaty, already proposable at war, with money, goods and regions as any deal. No minimum war length.
-3. **The `signPeace` hook:** skip human enemies in its loop. One line in a patch, with a `docs/hooks.md` row.
+3. **The `signPeace` hook:** already in place (SOSDET guards the cast since ADR 0004); nothing to do. Instead, **allies**: `DIP.ally` never sets a stance between two humans, into war or out of it, unless the follower is the instigator's vassal (patch 15, `HumanDeals.allyFollows`), as plan 0004 decided.
 4. **Sieges of a human's other regions:**
    - remove the refusal in `World.java:98` for regions that aren't capitals;
-   - the besiege question's "Yes" path declares war through step 1's command (vanilla's is NPC-only and silently does nothing);
+   - a besiege of a human's region needs the two at war already, so the siege question never declares war between humans: the war command is the only way, and the Diplomacy tab doesn't offer it until M2;
    - the defender's "sally out?" prompt comes with M2 (SOS-83), since a sally is a battle between players; in M1 the defender can attack the besiegers with the garrison's Attack tool (step 5);
    - a capital stays refused, with the reason "A player's capital can't be besieged yet" (spec §9 comes later).
-5. **Garrison attack on a human's army:** remove the refusal in `World.java:349` when the two are at war.
+5. **Garrison attack on a human's army:** allowed in `World.java:349` when the two are at war already; it never declares war between humans.
 6. **Field contact between two humans:** until M2, battles between two humans' armies **auto-resolve** (rig only, since the UI flag is off).
 7. **Checks:**
    - a unit test of the war command in the deal book (refusals, the save round trip, the hash);

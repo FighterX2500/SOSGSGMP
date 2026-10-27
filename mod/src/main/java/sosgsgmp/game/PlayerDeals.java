@@ -65,6 +65,16 @@ public final class PlayerDeals {
         Engine.dealCancel(slot);
     }
 
+    /** Why this PC's player can't declare war on the player in {@code slot} now; null when they can (SOS-74). */
+    public static String warRefusal(int slot) {
+        return Engine.warRefusal(slot);
+    }
+
+    /** This PC's player declares war on the player in {@code slot}, at once. Check {@link #warRefusal} first. */
+    public static void declareWar(int slot) {
+        Engine.declareWar(slot);
+    }
+
     /** Why this PC's player can't set a tariff of {@code percent} on the player in {@code slot} now, or null. */
     public static String tariffRefusal(int slot, int percent) {
         return Engine.tariffRefusal(slot, percent);
