@@ -24,7 +24,8 @@ import view.main.VIEW;
  */
 final class MpViewBar extends Interrupter {
 
-	private static final int WIDTH = 320;
+	private static final String WATCHING = "Only watching: orders are dropped.";
+	private static final String CLOSING = "Closing the view; your city loads back...";
 
 	private final GuiSection section = new GuiSection();
 	private boolean closing;
@@ -32,11 +33,13 @@ final class MpViewBar extends Interrupter {
 	MpViewBar(MpViews views, String title) {
 		super(true, true, false);
 		GuiSection inner = new GuiSection();
-		inner.add(new RENDEROBJ.RenderImp(WIDTH, UI.FONT().M.height() + 4) {
+		// one line, as wide as the longer text: at a fixed 320 px the line wrapped below the bar (G82F)
+		int width = Math.max(UI.FONT().M.width(WATCHING), UI.FONT().M.width(CLOSING)) + 4;
+		inner.add(new RENDEROBJ.RenderImp(width, UI.FONT().M.height() + 4) {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				COLOR.WHITE100.bind();
-				UI.FONT().M.render(r, closing ? "Closing the view; your city loads back..." : "Only watching: orders are dropped.",
+				UI.FONT().M.render(r, closing ? CLOSING : WATCHING,
 						body.x1(), body.y1(), body.width(), 1.0);
 				COLOR.unbind();
 			}
