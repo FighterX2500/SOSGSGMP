@@ -18,7 +18,7 @@ final class MpViewNotice extends MpWindow {
 	/** A notice; with {@code ok} the player closes it, without it the caller does. */
 	MpViewNotice(String text, boolean ok) {
 		super("City view");
-		inner.add(new RENDEROBJ.RenderImp(WIDTH, UI.FONT().M.height() * 3) {
+		inner.add(new RENDEROBJ.RenderImp(WIDTH, UI.FONT().M.getHeight(text, WIDTH)) { // as high as the text wraps: 3 lines left the buttons over it (G82A)
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				COLOR.WHITE100.bind();

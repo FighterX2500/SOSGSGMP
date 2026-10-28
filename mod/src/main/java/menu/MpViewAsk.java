@@ -22,7 +22,7 @@ final class MpViewAsk extends MpWindow {
 		this.viewer = viewer;
 		String text = name + " asks to view your city. They would see it live until they close the view; nothing in it"
 				+ " can be changed. No answer in 30 seconds refuses.";
-		inner.add(new RENDEROBJ.RenderImp(WIDTH, UI.FONT().M.height() * 3) {
+		inner.add(new RENDEROBJ.RenderImp(WIDTH, UI.FONT().M.getHeight(text, WIDTH)) { // as high as the text wraps: 3 lines left the buttons over it (G82A)
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				COLOR.WHITE100.bind();
