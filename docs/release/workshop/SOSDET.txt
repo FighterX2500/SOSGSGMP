@@ -1,0 +1,29 @@
+[h1]SOSDET: the deterministic engine for Songs of Syx[/h1]
+
+A deterministic simulation engine for Songs of Syx V71 (build 71.44). The same save, orders and players' actions give a bit-identical game on every PC, so several PCs can run one game in lockstep.
+
+[b]You need it for SoS GSG MP[/b], the multiplayer mod. On its own it does nothing you can see: until a multiplayer session starts, the game plays as vanilla.
+
+[h2]Installing[/h2]
+[list]
+[*][b]Songs of Syx V71, build 71.44[/b], on Windows. Other builds aren't supported.
+[*]Subscribe, then enable [b]SOSDET above SOS GSG MP[/b] in the launcher's mod list.
+[*]Every player needs the same version.
+[*][b]Other mods:[/b] SOSDET replaces some of the game's own classes with patched copies. Mods that change the same game code may not work with it; compatibility with other mods isn't supported.
+[/list]
+
+[h2]What it does[/h2]
+[list]
+[*][b]Fixed steps and random streams:[/b] the simulation advances in fixed steps, and every random draw comes from streams seeded alike on every PC.
+[*][b]Lockstep cities, world map and battles:[/b] players' actions become commands applied at the same step on every PC; the battle AI runs on the host and its decisions go to the others.
+[*][b]Several players in one world:[/b] up to 16 players share one world map, each PC running only its own city. The world never reads a live city, and changes one only through transactions applied exactly once.
+[*][b]State hash and recovery:[/b] every PC compares a state hash every few steps. At a difference every PC holds at the same step, and the world can be reloaded from the host while each player keeps their own city.
+[*][b]Battles and city views:[/b] a battle, or another player's city, loads on the PCs that need it at the same step and runs in lockstep there.
+[/list]
+
+[h2]For modders[/h2]
+Open source under the MIT license (its own code), with the docs for building on it: how a session runs, every known source of desyncs and where it is fixed, and the patch set against the game's source:
+[url=https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine]github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine[/url]
+
+[h2]About[/h2]
+By FighterX2500, with the Songs of Syx developer's permission. The game's own source lines in the patch set remain the developer's. Free; it must not be sold. Disable it in the launcher and the game is vanilla again.
