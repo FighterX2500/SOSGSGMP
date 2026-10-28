@@ -43,6 +43,8 @@ public final class JoinedSetup implements SetupSession {
     private final Departures departures = new Departures();
     /** The engine's streams once this PC plays; null before. */
     private EngineLink link;
+    /** City viewing's requests once this PC plays; null before (SOS-82). */
+    private ViewRequests views;
     private final Pieces.Receiver resyncParts = new Pieces.Receiver();
     /** The host's latest world resync once all of it is here, until this PC takes it to load; null otherwise. */
     private WorldResync resync;
@@ -83,8 +85,9 @@ public final class JoinedSetup implements SetupSession {
                 }
                 case Node.Event.Received r -> {
                     received(r.message());
-                    // a piece of the engine's streams or a cursor changes nothing the panel shows
-                    if (!(r.message() instanceof Message.Stream) && !(r.message() instanceof Message.Cursor))
+                    // a piece of the engine's streams, a cursor or a view's city or hashes changes nothing the panel shows
+                    if (!(r.message() instanceof Message.Stream) && !(r.message() instanceof Message.Cursor)
+                            && !(r.message() instanceof Message.ViewCity) && !(r.message() instanceof Message.ViewHashes))
                         changes++;
                 }
                 case Node.Event.Disconnected d -> {
@@ -151,6 +154,10 @@ public final class JoinedSetup implements SetupSession {
                     close("The host sent a broken world resync: " + e.getMessage());
                 }
             }
+            case Message.ViewAsk v when views != null -> view(v);
+            case Message.ViewAnswer v when views != null -> view(v);
+            case Message.ViewCity v when views != null -> view(v);
+            case Message.ViewHashes v when views != null -> view(v);
             case Message.SaveAt s when link != null -> {
                 saveOrder = s.order();
                 campaign = s.order().campaign();
@@ -173,6 +180,13 @@ public final class JoinedSetup implements SetupSession {
             case Message.Unsupported u -> close("The host runs another version of the mod (protocol " + u.version() + ").");
             default -> close("The host sent a message that doesn't belong in the setup.");
         }
+    }
+
+    /** A view message from the host (SOS-82). */
+    private void view(Message m) {
+        String problem = views.received(factions.slotOf(hostId()), m);
+        if (problem != null)
+            close("The host sent a view message that doesn't fit: " + problem);
     }
 
     /** The host says player {@code id}'s PC left: this PC holds at {@code hold} until the host chooses (spec §11). */
@@ -235,11 +249,18 @@ public final class JoinedSetup implements SetupSession {
         if (factions == null || !factions.started() || link != null)
             throw new IllegalStateException("SOSGSGMP: play before the start, or twice");
         link = new EngineLink(false, factions.slotOf(localPlayerId()), factions.slotOf(hostId()), port);
+        views = new ViewRequests(false, factions.slotOf(localPlayerId()), factions.slotOf(hostId()),
+                (slot, m) -> node.send(Node.HOST, m), System::nanoTime);
     }
 
     @Override
     public boolean playing() {
         return link != null;
+    }
+
+    @Override
+    public ViewRequests views() {
+        return views;
     }
 
     @Override

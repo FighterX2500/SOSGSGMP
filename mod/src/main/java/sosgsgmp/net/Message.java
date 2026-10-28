@@ -265,6 +265,93 @@ public sealed interface Message {
      */
     record QuitAsk() implements Message {}
 
+    /**
+     * City viewing (spec §10, SOS-82), the viewer's PC to the host: its player, in slot {@code viewer}, asks to view the
+     * city of the player in slot {@code owner}. The host refuses at once when the view couldn't begin, or passes the
+     * ask to the owner's PC. Slots are the PCs' numbers.
+     */
+    record ViewAsk(int viewer, int owner) implements Message {}
+
+    /**
+     * The owner's PC to the host, then the host to the viewer's PC: the owner allowed the view or refused it
+     * ({@code reason} says why; empty when allowed). The host refuses this way too, at once.
+     */
+    record ViewAnswer(int viewer, int owner, boolean allowed, String reason) implements Message {}
+
+    /**
+     * The viewer's PC to the host: its view ends, for {@code why} (the engine's {@code View.CLOSED} to
+     * {@code View.DESYNC}: closed, not caught up, fell behind, lost step). The host logs the end in the engine.
+     */
+    record ViewClose(int viewer, int why) implements Message {}
+
+    /**
+     * The owner's PC to the host, then the host to the viewer's PC only: {@code bytes} at {@code offset} of the owner's
+     * city for the view freezing at {@code step} ({@code Engine.viewOut}), {@code total} bytes in all, in order.
+     */
+    record ViewCity(int viewer, long step, int total, int offset, byte[] bytes) implements Message {
+        public ViewCity {
+            if (step < 0 || total < 0 || offset < 0 || offset + bytes.length > total)
+                throw new IllegalArgumentException("SOSGSGMP: a view's city piece at " + offset + " of " + total + " bytes, step " + step);
+            bytes = bytes.clone();
+        }
+
+        @Override
+        public byte[] bytes() {
+            return bytes.clone();
+        }
+
+        /** The byte count without a copy. */
+        public int length() {
+            return bytes.length;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof ViewCity c && viewer == c.viewer && step == c.step && total == c.total && offset == c.offset
+                    && Arrays.equals(bytes, c.bytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(viewer, step, total, offset, Arrays.hashCode(bytes));
+        }
+
+        @Override
+        public String toString() {
+            return "ViewCity[viewer=" + viewer + ", step=" + step + ", " + offset + "+" + bytes.length + " of " + total + " bytes]";
+        }
+    }
+
+    /**
+     * The owner's PC to the host, then the host to the viewer's PC only: more of the owner's view hashes for the viewer
+     * in slot {@code viewer} ({@code Engine.viewHashOut}), in order.
+     */
+    record ViewHashes(int viewer, byte[] bytes) implements Message {
+        public ViewHashes {
+            bytes = bytes.clone();
+        }
+
+        @Override
+        public byte[] bytes() {
+            return bytes.clone();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof ViewHashes h && viewer == h.viewer && Arrays.equals(bytes, h.bytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(viewer, Arrays.hashCode(bytes));
+        }
+
+        @Override
+        public String toString() {
+            return "ViewHashes[viewer=" + viewer + ", " + bytes.length + " bytes]";
+        }
+    }
+
     /** A message from another protocol version; only its version is read. */
     record Unsupported(int version) implements Message {}
 }

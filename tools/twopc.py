@@ -221,6 +221,12 @@ def main():
                     help="every PC must end seeing the joiner's renamed faction and banner (with --resume after a --rename run)")
     ap.add_argument("--host-capital", default="", help="X:Y: the host places its capital at that world tile (SOS-75)")
     ap.add_argument("--join-capital", default="", help="X:Y: the joiner places its capital at that world tile (SOS-75)")
+    ap.add_argument("--view", default="", help="STEP:CLOSE: the joiner asks to view the host's city at STEP and closes the"
+                    " view at CLOSE (-1: never); both PCs must end the view at one step, with no view desync (SOS-82)")
+    ap.add_argument("--host-view", default="", help="STEP:CLOSE: the host asks to view the joiner's city (option A: every"
+                    " PC holds while the host's view opens) (SOS-82)")
+    ap.add_argument("--view-answer", choices=("allow", "refuse", "none"), default="allow",
+                    help="how the owner answers a view request; none: no answer, refused after 30 s (SOS-82)")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
     if not args.here and (not REMOTE or not HOST_ADDRESS):
@@ -269,14 +275,19 @@ def main():
         local2 = remote_data
         log("data folders ready; sending the joiner's to the second PC")
         rdir = None if args.here else send_remote(remote_data.parent)
-    common = "port=%d,steps=%d,net=%s,battles=%s" % (args.port, args.steps, args.net, args.battles)
+    for v in (args.view, args.host_view):
+        if v and (len(v.split(":")) != 2 or not v.split(":")[0].isdigit()):
+            fail("--view and --host-view are STEP:CLOSE")
+    common = "port=%d,steps=%d,net=%s,viewanswer=%s,battles=%s" % (args.port, args.steps, args.net, args.view_answer, args.battles)
+    host_view = ",view=" + args.host_view if args.host_view else ""
+    join_view = ",view=" + args.view if args.view else ""
     host_capital = ",capital=" + args.host_capital if args.host_capital else ""
     join_capital = ",capital=" + args.join_capital if args.join_capital else ""
     # Steam finds the App ID here when the game isn't started by Steam
     host_env = dict(os.environ, APPDATA=str(local.parent), SteamAppId=STEAM_APP_ID,
                     SOSGSGMP_AUTOPILOT="role=host,name=Host,players=%d,seed=%d,speed=%g,ondesync=%s,save=%d,resume=%d,ongone=%s,startafter=%d,fulllog=%d,%s"
                     % (players, args.seed, args.speed, args.on_desync, args.save, 1 if args.resume else 0, args.on_gone, args.start_after,
-                       1 if args.transfer_log == "full" else 0, common + host_capital))
+                       1 if args.transfer_log == "full" else 0, common + host_capital + host_view))
     java = GAME / "jre" / "bin" / "java.exe"
     host = subprocess.Popen([str(java), "-cp", str(GAME / "SongsOfSyx.jar"), "init.Main"], cwd=str(GAME), env=host_env,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -284,7 +295,7 @@ def main():
     log("host started here (pid %d)" % game_pid)
     joiner = "role=join,name=Joiner,address=%s,corrupt=%d,crash=%s,deal=%d,dealcancel=%d,war=%d,tariff=%d,quit=%d,rename=%d,%s" % (
         "127.0.0.1" if args.here else HOST_ADDRESS, args.corrupt, crash_at if crash_who == "remote" else "-1", args.deal,
-        args.deal_cancel, args.war, args.tariff, args.quit, args.rename, common + join_capital)
+        args.deal_cancel, args.war, args.tariff, args.quit, args.rename, common + join_capital + join_view)
     if not args.no_joiner and args.here:
         time.sleep(15)  # the host's lobby is open before the joiner here starts looking for it
         start_here(local2, joiner)
@@ -393,6 +404,8 @@ def main():
         for e in [e for e in evs[w] if e["event"] == "roads"][:1]:
             log("%s: own city %d entry points active" % (w, e["active"]))
             ok = ok and e["active"] > 0
+    if args.view or args.host_view:
+        ok = ok and view_verdict(args, evs)
     if args.save >= 0:
         saved = {w: [e for e in evs[w] if e["event"] == "save" and e["status"].startswith("Campaign saved")] for w in evs}
         log("campaign saved on: %s" % ", ".join(w for w in saved if saved[w]))
@@ -400,6 +413,32 @@ def main():
     log("RESULT: %s: %d common hash steps, %d differ%s" % ("PASS" if ok else "FAIL", len(common_steps), len(differ),
                                                           (", first at step %d" % differ[0]) if differ else ""))
     sys.exit(0 if ok else 1)
+
+
+def view_verdict(args, evs):
+    """SOS-82: each PC saw the same view states at the same steps; an allowed view opened, ran without a view desync and
+    ended on both PCs at one thaw step; a refused one never began."""
+    ok = True
+    for w in evs:
+        asks = [e for e in evs[w] if e["event"] == "viewask"]
+        if asks:
+            log("%s asked: %s" % (w, [(e["step"], e["owner"], e["refused"]) for e in asks]))
+            ok = ok and all(e["refused"] == "" for e in asks)
+        for e in [e for e in evs[w] if e["event"] in ("viewanswered", "viewclose", "viewcaughtup", "viewdesync")]:
+            log("%s %s" % (w, json.dumps(e)))
+    states = {w: [(e["viewer"], e["state"], e["freeze"], e["thaw"], e["why"]) for e in evs[w] if e["event"] == "viewstate"]
+              for w in evs}
+    for w in evs:
+        log("%s view states: %s" % (w, states[w]))
+    if any(e["event"] == "viewdesync" for w in evs for e in evs[w]):
+        log("a view desync")
+        ok = False
+    if args.view_answer != "allow":
+        return ok and not any(states.values())
+    ended = {w: [s for s in states[w] if s[1] == 4] for w in evs}
+    same = all(ended[w] and [s[2:] for s in ended[w]] == [s[2:] for s in ended["host"]] for w in evs)
+    log("views ended on every PC at the same steps: %s" % same)
+    return ok and same
 
 
 def hashes_after(evs, w, before=None):

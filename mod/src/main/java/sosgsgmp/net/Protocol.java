@@ -30,7 +30,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 13;
+    public static final int VERSION = 14;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -42,6 +42,11 @@ public final class Protocol {
     private static final int CURSOR = 22, STREAM = 23, RESYNC = 24; // 25 was Save and exit's own message, until SOS-68
     private static final int SAVE_AT = 26, SAVED = 27, SAVE_DONE = 28;
     private static final int PLAYER_GONE = 29, GONE_CHOICE = 30, QUIT_ASK = 31;
+    private static final int VIEW_ASK = 32, VIEW_ANSWER = 33, VIEW_CLOSE = 34, VIEW_CITY = 35, VIEW_HASHES = 36;
+    /** The largest city a view carries, in bytes ({@link Message.ViewCity}). */
+    public static final int MAX_VIEW_CITY = 512 * 1024 * 1024;
+    /** The largest reason a viewer's PC ends its view for ({@link Message.ViewClose}): the engine's closed to lost step. */
+    public static final int MAX_VIEW_CLOSE = 3;
     /** Largest piece of an engine stream in one message, in bytes: well under {@link #MAX_MESSAGE}. */
     public static final int MAX_STREAM_PIECE = 48 * 1024;
     /** Longest reason a location was cleared, in characters. */
@@ -233,6 +238,40 @@ public final class Protocol {
                     out.writeLong(c.holdStep());
                     out.writeBoolean(c.continued());
                 }
+                case Message.ViewAsk a -> {
+                    out.writeByte(VIEW_ASK);
+                    out.writeByte(a.viewer());
+                    out.writeByte(a.owner());
+                }
+                case Message.ViewAnswer a -> {
+                    out.writeByte(VIEW_ANSWER);
+                    out.writeByte(a.viewer());
+                    out.writeByte(a.owner());
+                    out.writeBoolean(a.allowed());
+                    out.writeUTF(a.reason());
+                }
+                case Message.ViewClose c -> {
+                    out.writeByte(VIEW_CLOSE);
+                    out.writeByte(c.viewer());
+                    out.writeByte(c.why());
+                }
+                case Message.ViewCity c -> {
+                    out.writeByte(VIEW_CITY);
+                    out.writeByte(c.viewer());
+                    out.writeLong(c.step());
+                    out.writeInt(c.total());
+                    out.writeInt(c.offset());
+                    byte[] data = c.bytes();
+                    out.writeInt(data.length);
+                    out.write(data);
+                }
+                case Message.ViewHashes h -> {
+                    out.writeByte(VIEW_HASHES);
+                    out.writeByte(h.viewer());
+                    byte[] data = h.bytes();
+                    out.writeInt(data.length);
+                    out.write(data);
+                }
                 case Message.Unsupported u -> throw new IllegalArgumentException("SOSGSGMP: can't send a message of protocol version " + u.version());
             }
         } catch (IOException e) {
@@ -291,6 +330,20 @@ public final class Protocol {
             case PLAYER_GONE -> new Message.PlayerGone(playerId(in), step(in, "player gone hold"));
             case GONE_CHOICE -> new Message.GoneChoice(step(in, "gone choice hold"), in.readBoolean());
             case QUIT_ASK -> new Message.QuitAsk();
+            case VIEW_ASK -> new Message.ViewAsk(slot(in), slot(in));
+            case VIEW_ANSWER -> new Message.ViewAnswer(slot(in), slot(in), in.readBoolean(), text(in, MAX_REASON, "view answer"));
+            case VIEW_CLOSE -> {
+                int viewer = slot(in);
+                int why = in.readUnsignedByte();
+                if (why > MAX_VIEW_CLOSE)
+                    throw new IOException("SOSGSGMP: a view closed for reason " + why);
+                yield new Message.ViewClose(viewer, why);
+            }
+            case VIEW_CITY -> viewCity(in);
+            case VIEW_HASHES -> {
+                int viewer = slot(in);
+                yield new Message.ViewHashes(viewer, data(in, MAX_STREAM_PIECE, "view hashes"));
+            }
             default -> throw new IOException("SOSGSGMP: unknown message type " + type);
         };
         if (in.available() > 0)
@@ -525,6 +578,34 @@ public final class Protocol {
         byte[] bytes = new byte[n];
         in.readFully(bytes);
         return new Message.Stream(StreamKind.values()[kind], pc, offset, step, bytes);
+    }
+
+    /** A player's slot: their PC's number. */
+    private static int slot(DataInputStream in) throws IOException {
+        int slot = in.readUnsignedByte();
+        if (slot >= LobbySettings.MAX_PLAYERS)
+            throw new IOException("SOSGSGMP: slot " + slot);
+        return slot;
+    }
+
+    private static byte[] data(DataInputStream in, int max, String what) throws IOException {
+        int n = in.readInt();
+        if (n < 0 || n > max)
+            throw new IOException("SOSGSGMP: " + what + " of " + n + " bytes");
+        byte[] bytes = new byte[n];
+        in.readFully(bytes);
+        return bytes;
+    }
+
+    private static Message.ViewCity viewCity(DataInputStream in) throws IOException {
+        int viewer = slot(in);
+        long step = step(in, "view city");
+        int total = in.readInt();
+        int offset = in.readInt();
+        if (total < 0 || total > MAX_VIEW_CITY || offset < 0 || offset > total)
+            throw new IOException("SOSGSGMP: a view's city piece at " + offset + " of " + total + " bytes");
+        byte[] bytes = data(in, Math.min(MAX_STREAM_PIECE, total - offset), "view city piece");
+        return new Message.ViewCity(viewer, step, total, offset, bytes);
     }
 
     private static int playerId(DataInputStream in) throws IOException {

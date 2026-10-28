@@ -73,6 +73,16 @@ class ProtocolTest {
             new Message.SaveAt(new SaveOrder(7, 120, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, true, 5)),
             new Message.SaveAt(new SaveOrder(8, 120, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, true, 0)),
             new Message.QuitAsk(),
+            new Message.ViewAsk(0, 15),
+            new Message.ViewAnswer(15, 0, true, ""),
+            new Message.ViewAnswer(3, 1, false, "Its player is viewing another city."),
+            new Message.ViewClose(3, 0),
+            new Message.ViewClose(15, Protocol.MAX_VIEW_CLOSE),
+            new Message.ViewCity(3, 0, 0, 0, new byte[0]),
+            new Message.ViewCity(3, Long.MAX_VALUE, Protocol.MAX_VIEW_CITY, Protocol.MAX_VIEW_CITY - Protocol.MAX_STREAM_PIECE,
+                    new byte[Protocol.MAX_STREAM_PIECE]),
+            new Message.ViewHashes(1, new byte[] {1, -2, 3}),
+            new Message.ViewHashes(15, new byte[Protocol.MAX_STREAM_PIECE]),
             new Message.SaveDone(5, "Bob couldn't save: disk full\nCid's world differs from the host's"),
             new Message.MapResult(3, -1L, MapStatus.OK),
             new Message.MapResult(4, 0L, MapStatus.WRONG_BUILD),
@@ -166,6 +176,23 @@ class ProtocolTest {
 
         byte[] build = Protocol.encode(new Message.MapBuild(1, 256));
         assertThrows(IOException.class, () -> Protocol.decode(Arrays.copyOf(build, build.length - 1)));
+    }
+
+    /** City viewing's messages (SOS-82): a slot, a reason, a piece or a city out of range is refused. */
+    @Test
+    void viewMessagesWithBadValuesThrow() {
+        assertRefused(new Message.ViewAsk(LobbySettings.MAX_PLAYERS, 0));
+        assertRefused(new Message.ViewAsk(0, LobbySettings.MAX_PLAYERS));
+        assertRefused(new Message.ViewAnswer(1, 2, false, "x".repeat(257)));
+        assertRefused(new Message.ViewClose(1, Protocol.MAX_VIEW_CLOSE + 1));
+        assertRefused(new Message.ViewHashes(1, new byte[Protocol.MAX_STREAM_PIECE + 1]));
+        assertRefused(new Message.ViewCity(1, 5, Protocol.MAX_STREAM_PIECE * 2, 0, new byte[Protocol.MAX_STREAM_PIECE + 1]));
+        assertThrows(IllegalArgumentException.class, () -> new Message.ViewCity(1, 5, 3, 2, new byte[2]), "past its total");
+        assertThrows(IllegalArgumentException.class, () -> new Message.ViewCity(1, -1, 0, 0, new byte[0]));
+        byte[] city = Protocol.encode(new Message.ViewCity(1, 5, 10, 0, new byte[] {1}));
+        byte[] tooBig = city.clone();
+        tooBig[12] = (byte) 0x7F; // the total's top byte, after the version, the type, the slot and the step
+        assertThrows(IOException.class, () -> Protocol.decode(tooBig));
     }
 
     /** Encoding doesn't check values (only decoding does), so a bad value reaches the decoder as it would from a bad peer. */

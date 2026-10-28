@@ -105,6 +105,7 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 		MpSessionPanel.show(setup, game, engine, saves, exit);
 		engine.afterEachLoad(() -> { // a battle's loads build a new game and view (SOSDET plan 0006)
 			GAME.addAfterUpdate(play);
+			engine.resumeAfterLoad();
 			MpSessionPanel.show(setup, game, engine, saves, exit);
 			log.line("whole game loaded at step " + engine.step() + "; the mod is back in it");
 		});

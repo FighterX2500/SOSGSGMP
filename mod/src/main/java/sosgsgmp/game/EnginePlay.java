@@ -14,6 +14,7 @@ import sosdet.Engine;
 import sosdet.BattleOutcome;
 import sosdet.OwnBattle;
 import sosdet.Stats;
+import sosdet.View;
 import sosdet.hash.Desync;
 import sosgsgmp.net.StreamKind;
 import sosgsgmp.session.BattleSaves;
@@ -182,6 +183,16 @@ public final class EnginePlay implements EnginePort {
         return Engine.active();
     }
 
+    /**
+     * After a whole-game load outside a battle (a city view's, SOS-82): the load leaves the game paused, and this PC's
+     * game speed sets its pace, so it unpauses at the agreed speed, as at {@link #start}. A battle's load stays paused
+     * for its deployment.
+     */
+    public void resumeAfterLoad() {
+        if (Engine.battle() == null)
+            GAME.SPEED.speedSet(agreedSpeed());
+    }
+
     /** The speed every PC runs at now. Builds the engine's stats: for the panel's refresh, not every frame. */
     public double agreedSpeed() {
         return Engine.stats().agreedSpeed;
@@ -282,6 +293,78 @@ public final class EnginePlay implements EnginePort {
 
     public double longestHoldSeconds() {
         return Engine.longestHoldSeconds();
+    }
+
+    // ---------------------------------------------------------------- city views (spec §10, SOS-82)
+
+    /** Host: why a view of {@code owner}'s city by the player in {@code viewer} would be cancelled now; null if it can begin. */
+    public String viewRefusal(int viewer, int owner) {
+        return Engine.viewRefusal(viewer, owner);
+    }
+
+    /** Host, between steps: the view begins on every PC at a step ahead (the owner allowed it). */
+    public void viewBegin(int viewer, int owner) {
+        Engine.viewBegin(viewer, owner);
+    }
+
+    /** Host, between steps: the view of the player in {@code viewer} ends, for {@code why} ({@code View.CLOSED} to {@code View.DESYNC}). */
+    public void viewEnd(int viewer, int why) {
+        Engine.viewEnd(viewer, why);
+    }
+
+    /** The view of the player in slot {@code viewer}, the same on every PC, or null. */
+    public View view(int viewer) {
+        return Engine.view(viewer);
+    }
+
+    /** The owner's PC, at a view's freeze step: its city for the viewer, once; this PC then reloads it. Else null. */
+    public byte[] viewOut() {
+        return Engine.viewOut();
+    }
+
+    /** The viewer's PC, at its view's freeze step: loads the owner's city. */
+    public void viewIn(byte[] city) {
+        Engine.viewIn(city);
+    }
+
+    /** The owner's PC: its view hashes for the viewer in {@code viewer} since the last call. */
+    public byte[] viewHashOut(int viewer) {
+        return Engine.viewHashOut(viewer);
+    }
+
+    /** The viewer's PC: more of the owner's view hashes. */
+    public void viewHashIn(byte[] bytes) {
+        Engine.viewHashIn(bytes);
+    }
+
+    /** The viewer's PC: whether its copy of the city lost step with the owner's. */
+    public boolean viewDesync() {
+        return Engine.viewDesync() != null;
+    }
+
+    /** The viewer's PC: the limit it hit ({@code View.NOT_CAUGHT_UP}, {@code View.FELL_BEHIND}), or {@code View.OPEN}. */
+    public int viewLimit() {
+        return Engine.viewLimit();
+    }
+
+    /** The viewer's PC: seconds from its view load to catching up, or -1 before. */
+    public double viewCaughtUpSeconds() {
+        return Engine.viewCaughtUpSeconds();
+    }
+
+    /** Whether this PC runs another player's city now: it views it, so its own isn't loaded. */
+    public boolean viewingHere() {
+        return Engine.viewing() != null;
+    }
+
+    /** How long this PC's last view load took, in ms. */
+    public double lastViewLoadMs() {
+        return Engine.lastViewLoadMs();
+    }
+
+    /** How many steps this PC is behind the host's confirmed step: a viewer catching up. */
+    public long behindHost() {
+        return Engine.behindHost();
     }
 
     /** The first step whose hashes differed between two PCs, or -1 while they all match. */

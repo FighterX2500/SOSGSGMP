@@ -412,6 +412,58 @@ class LoopbackSetupTest {
         assertArrayEquals(save, at.take(900), "relayed by the host, whole and in order");
     }
 
+    /**
+     * City viewing over the network (SOS-82): Bob asks to view Cid's city, the host checks and passes the ask on, Cid
+     * allows, the host begins the view; Cid's city (several pieces) and hashes reach Bob only, and Bob's close reaches the
+     * host. Then the host views Bob's city, which Bob refuses.
+     */
+    @Test
+    void aViewsAskAnswerCityHashesAndCloseTravelThroughTheHost() throws Exception {
+        playing(new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        int b = host.factions().slotOf(bob.localPlayerId());
+        int c = host.factions().slotOf(cid.localPlayerId());
+        int a = host.factions().slotOf(host.localPlayerId());
+        bob.views().ask(c);
+        ViewRequests.Pair[] check = new ViewRequests.Pair[1];
+        playUntil("Bob's ask at the host", () -> (check[0] = host.views().takeCheck()) != null);
+        assertEquals(new ViewRequests.Pair(b, c), check[0]);
+        host.views().checked(check[0], null);
+        playUntil("the ask at Cid", () -> cid.views().ask() != null);
+        assertEquals(b, cid.views().ask().viewer());
+        cid.views().answer(b, true);
+        ViewRequests.Pair[] begin = new ViewRequests.Pair[1];
+        playUntil("Cid's Allow at the host", () -> (begin[0] = host.views().takeBegin()) != null);
+        host.views().begun(begin[0], null);
+        sosgsgmp.net.Message.ViewAnswer[] answer = new sosgsgmp.net.Message.ViewAnswer[1];
+        playUntil("the Allow at Bob", () -> (answer[0] = bob.views().takeAnswer()) != null);
+        assertTrue(answer[0].allowed());
+
+        byte[] city = new byte[Protocol.MAX_STREAM_PIECE * 3 + 11];
+        for (int i = 0; i < city.length; i++)
+            city[i] = (byte) (i * 5);
+        cid.views().city(b, 1200, city);
+        cid.views().hashes(b, new byte[] {4, 5, 6});
+        byte[][] got = new byte[1][];
+        playUntil("the city at Bob", () -> (got[0] = bob.views().takeCity(1200)) != null);
+        assertArrayEquals(city, got[0]);
+        playUntil("the hashes at Bob", () -> bob.views().takeHashes().length == 3);
+        assertEquals(0, host.views().takeHashes().length, "the host only passes them on");
+        bob.views().close(ViewRequests.CLOSED);
+        ViewRequests.End[] end = new ViewRequests.End[1];
+        playUntil("Bob's close at the host", () -> (end[0] = host.views().takeEnd()) != null);
+        assertEquals(new ViewRequests.End(b, ViewRequests.CLOSED), end[0]);
+
+        host.views().ask(b);
+        host.views().checked(host.views().takeCheck(), null);
+        playUntil("the host's ask at Bob", () -> bob.views().ask() != null);
+        assertEquals(a, bob.views().ask().viewer());
+        bob.views().answer(a, false);
+        playUntil("Bob's refusal at the host", () -> (answer[0] = host.views().takeAnswer()) != null);
+        assertFalse(answer[0].allowed());
+        assertEquals(ViewRequests.REFUSED, answer[0].reason());
+        assertFalse(host.closed() || bob.closed() || cid.closed());
+    }
+
     /** Every PC loaded the world, landed and plays with these engines. */
     private void playing(EnginePort hp, EnginePort bp, EnginePort cp) throws Exception {
         initialize();

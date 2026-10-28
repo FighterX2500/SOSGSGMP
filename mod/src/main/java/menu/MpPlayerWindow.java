@@ -17,6 +17,7 @@ import snake2d.util.gui.GUI_BOX;
 import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
+import snake2d.util.sprite.SPRITE;
 import sosgsgmp.game.PlayerDeals;
 import util.colors.GCOLOR;
 import util.data.GETTER.GETTER_IMP;
@@ -65,6 +66,7 @@ final class MpPlayerWindow extends ISidePanel {
 		};
 		section.body().setWidth(WIDTH).setHeight(1);
 		section.addRelBody(0, DIR.S, header(f));
+		section.addRelBody(8, DIR.S, viewButton(f.index()));
 
 		int tabH = new GButt.ButtPanel(Dic.¤¤Realm).body().height();
 		int hi = HEIGHT - section.body().height() - tabH - 8 - 16 - 24;
@@ -96,6 +98,44 @@ final class MpPlayerWindow extends ISidePanel {
 		});
 		section.addRelBody(0, DIR.S, sw);
 		section.body().setWidth(WIDTH).setHeight(HEIGHT);
+	}
+
+	/**
+	 * View city (spec §10, SOS-82): asks the player to let this one view their city live. Greyed, with the reason, when
+	 * a view can't be asked for now; "Asked..." until the answer comes.
+	 */
+	private static CLICKABLE viewButton(int slot) {
+		SPRITE view = UI.FONT().H2.getText("View city");
+		SPRITE asked = UI.FONT().H2.getText("Asked...");
+		return new GButt.ButtPanel(view) {
+			@Override
+			protected void clickA() {
+				MpViews v = MpViews.current();
+				if (v != null)
+					v.ask(slot);
+			}
+
+			@Override
+			protected void renAction() {
+				MpViews v = MpViews.current();
+				activeSet(v != null && v.canAsk(slot));
+				replaceLabel(v != null && v.asked(slot) ? asked : view, DIR.C);
+			}
+
+			@Override
+			public void hoverInfoGet(GUI_BOX text) {
+				MpViews v = MpViews.current();
+				String refusal = v == null ? "The game isn't running." : v.askRefusal(slot);
+				GBox b = (GBox) text;
+				b.title("View city");
+				b.text("Ask to watch this player's city live. They allow or refuse; while you watch, your own city waits"
+						+ " where it stopped.");
+				if (refusal != null) {
+					b.NL(4);
+					b.error(refusal);
+				}
+			}
+		}.setDim(TAB_WIDTH);
 	}
 
 	/** Shows the Diplomacy tab, where another player's proposal is answered. */

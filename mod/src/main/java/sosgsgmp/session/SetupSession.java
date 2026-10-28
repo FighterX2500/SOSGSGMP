@@ -100,6 +100,9 @@ public interface SetupSession {
     /** Whether {@link #play} was called. */
     boolean playing();
 
+    /** City viewing's requests and transfers on this PC (spec §10, SOS-82), from {@link #play} on; null before. */
+    ViewRequests views();
+
     /** Sends what this PC's engine made since the last call. Once per frame, after {@link #play}. */
     void exchange();
 

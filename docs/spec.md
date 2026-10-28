@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.26 · 2026-10-28
+Version 0.27 · 2026-10-28
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -188,11 +188,13 @@ Any player can view any other player's city, enemies included. This is intended.
 - **Live view:** the viewer's PC loads the city and runs it in step with its owner's city, so it stays the same city, live ([ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md)). Nothing in a viewed city can be changed.
 - **The viewer's own city is frozen** while they view another city: it is unloaded from their PC, so it doesn't run and costs nothing, and they can't act in it. It resumes where it stopped when the view closes. The world runs on meanwhile: it sees the frozen city as its last city report showed it, and whatever the world sends that city (deliveries, immigrants, raids) waits and is applied when the view closes.
 - **Watch only.** While viewing, the viewer can only watch and chat. Their armies and regions keep running on their last orders. A battle, or a prompt that needs the viewer's answer, ends the view.
-- **Only the viewer and the owner.** A view is between those two players: the host and the other players take no part, and a view never changes the game speed for anyone.
+- **Only the viewer and the owner.** A view is between those two players, and a view never changes the game speed for anyone. The one part the others play: when a view opens and when it closes, every other player's game pauses briefly (about a second) while it reloads its own world, keeping its city, as a world resync does. A load resets some world state that no save holds, so every PC reloads at the same moment and the world stays the same everywhere.
+- **When the host views.** Every PC follows the host's PC, so while the host's own view opens (the owner's save, the download and the load, a few seconds), the game holds for every player, with the reason shown. Once it is open, nobody waits. Later, the host's role may move to another PC for the view, so nobody waits at all.
+- **Asking.** A view is a request: the viewer asks, and the owner sees the request and allows or refuses it. The view opens only if the owner allows it.
 - **Opening a view.** The owner saves their city and sends it straight to the viewer; the viewer's PC loads it and runs it fast until it catches up with the owner's city. Target: a 5-second gap closes in about 2 seconds.
 - **Too slow.** If the viewer hasn't caught up 1 minute after catching up started (the owner's save, the download and the load don't count), or their PC can't keep up with the city at the current speed, the view ends with a message to the viewer. Only that view ends; nobody else is affected.
 - **Keeping up.** The same applies after catching up: a view that falls behind its owner's city and doesn't catch up again within 1 minute ends.
-- **The owner is not slowed.** The owner keeps playing their city with zero latency while it is viewed.
+- **The owner is barely slowed.** When the view opens, the owner's game pauses for a few seconds while it saves and reloads its own city, so that both PCs run the same loaded city (a game that reloads a save doesn't run exactly like one that didn't). After that the owner keeps playing their city with zero latency while it is viewed. The owner accepted this pause by allowing the view.
 - **During a siege assault:** every player watches the city in real time (section 9).
 
 ## 11. Saves, disconnects and elimination
@@ -351,12 +353,14 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 ### City viewing
 
 - Any player can open any other player's city and see it live at full detail within 1 minute of catching up starting (save, download and load not counted), and nothing in it can be changed. [PT]
+- A view opens only when the owner allows it; a refused request changes nothing. [AT]
 - A viewed city's state matches its owner's city at every check while it is viewed. [AT]
 - While a player views another city, their own city doesn't run, and it resumes exactly where it stopped when the view closes. [AT]
 - While viewing, a player can't give orders; a battle or a prompt for them ends the view. [AT]
-- A view never changes the game speed, and the host and other players take no part in it. [AT]
+- A view never changes the game speed, and the host and other players take no part in it, apart from their world's reload as the view opens and closes; the only other exception is the hold while the host's own view opens. [AT]
+- When a view opens and closes, every other player's game pauses for its world reload only, for no more than about 1 second each time. [PT]
 - If the viewer hasn't caught up 1 minute after catching up started, falls behind for more than 1 minute later, or can't keep up at the current speed, only that view ends, with a message to the viewer. [AT]
-- Viewing a city causes no stutter longer than 1 second for its owner. [PT]
+- Viewing a city stutters its owner's game only once, while the view opens, for a few seconds at most (the save and reload); no stutter longer than 1 second after that. [PT]
 
 ### Saves and resume
 
@@ -401,6 +405,12 @@ Every card on the board, not only features, is done when:
 - [ ] **Viewing numbers:** the catch-up numbers in section 10 (a 5-second gap closed in about 2 seconds, and the 1-minute limit before a view that can't keep up ends) are first guesses. Confirm them in playtests (owner, 2026-10-24): city save size and time, loading a city into a running game, and a 10,000-person city.
 - [ ] **Order delay above 1×:** the engine applies an order a fixed number of steps after it is given. Just above 1× speed that comes to about 1 second, plus ping, which is over the 1-second limit (section 8). Measure it in playtests and decide whether the engine's delay should shrink there.
 - [x] **Passage and trade reach:** players at peace move armies freely through each other's land (section 6). Should free passage between players also let trade through? Yes: a player's trade crosses the land of any player it is at peace with, whatever the destination, NPC factions included (owner, 2026-10-27; sections 6 and 7).
+
+### Things to optimize (optional)
+
+Accepted as they are for v1 (owner, 2026-10-28); worth improving when there is time. None of these blocks a release.
+
+- **The owner's pause when a view opens:** the owner's save and reload took 6.6 s on two PCs in the 2026-10-28 GUI runs, more than section 10's "a few seconds". Accepted; a faster save or reload would shorten it.
 
 ## 17. Milestones
 

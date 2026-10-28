@@ -37,6 +37,7 @@ import sosgsgmp.session.JoinedLobby;
 import sosgsgmp.session.LobbySession;
 import sosgsgmp.session.Departures;
 import sosgsgmp.session.SetupSession;
+import sosgsgmp.session.ViewRequests;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStep;
 import sosdet.DesyncHold;
@@ -71,7 +72,10 @@ import world.WORLD;
  * and confirms: the campaign is saved on every PC, then the session ends: SOS-79). {@code save} goes through the escape
  * menu's Save Campaign. {@code rename} (at this step this PC's player renames the faction and the ruler and changes
  * the banner, as the profile window does: SOS-78); every PC reports each player's name, ruler and banner with each
- * hash. {@code battles} ({@code auto}: fight every battle prompt, Start, fight on and accept the result: SOS-83). An
+ * hash. {@code view} ({@code STEP:CLOSE}: at STEP this PC's player asks to view the other player's city, the host's or,
+ * on the host, the first joined player's, and closes the view at CLOSE, -1 for never: SOS-82), {@code viewanswer}
+ * ({@code allow}, {@code refuse} or {@code none}: how this PC's player answers an ask; {@code none} lets it time out).
+ * {@code battles} ({@code auto}: fight every battle prompt, Start, fight on and accept the result: SOS-83). An
  * outside player's actions come through {@link MpAutopilotCommands}.
  */
 public final class MpAutopilot {
@@ -107,6 +111,12 @@ public final class MpAutopilot {
 	private final long quit;
 	/** The step this PC's player renames the faction and changes the banner at (SOS-78); -1 for never. */
 	private final long rename;
+	/** The step this PC's player asks to view the other player's city at, and closes the view at (SOS-82); -1 for never. */
+	private final long viewAt, viewClose;
+	/** How this PC's player answers an ask to view its city: allow, refuse or none. */
+	private final String viewAnswer;
+	/** Each view's state as last reported, by viewer slot. */
+	private final Map<Integer, String> viewSeen = new HashMap<>();
 	/** This PC's capital's world tile from {@code capital=X:Y} (SOS-75); -1 to search for one. */
 	private final int capitalX, capitalY;
 	/** The location rules refused {@link #capitalX}, {@link #capitalY}: search for one instead. */
@@ -185,6 +195,14 @@ public final class MpAutopilot {
 		tariff = Long.parseLong(m.getOrDefault("tariff", "-1"));
 		quit = Long.parseLong(m.getOrDefault("quit", "-1"));
 		rename = Long.parseLong(m.getOrDefault("rename", "-1"));
+		String[] view = m.getOrDefault("view", "-1:-1").split(":");
+		if (view.length != 2)
+			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " view '" + m.get("view") + "', not STEP:CLOSE");
+		viewAt = Long.parseLong(view[0]);
+		viewClose = Long.parseLong(view[1]);
+		viewAnswer = m.getOrDefault("viewanswer", "allow");
+		if (!viewAnswer.equals("allow") && !viewAnswer.equals("refuse") && !viewAnswer.equals("none"))
+			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " viewanswer '" + viewAnswer + "', not allow, refuse or none");
 		String[] capital = m.getOrDefault("capital", "-1:-1").split(":");
 		if (capital.length != 2)
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " capital '" + m.get("capital") + "', not X:Y");
@@ -269,6 +287,58 @@ public final class MpAutopilot {
 						+ "\",\"step\":" + step);
 			}
 		}
+	}
+
+	/**
+	 * City viewing (SOS-82): this PC's player asks to view the other player's city and closes the view, as the faction
+	 * window's View city and the bar's Close view do; the owner answers as {@code viewanswer} says; every PC reports each
+	 * view's state as it changes, and the viewer its catching up and a lost step.
+	 */
+	private void views(SetupSession setup, EnginePlay engine, MpViews views, long step) {
+		ViewRequests r = setup.views();
+		if (r == null)
+			return;
+		int me = r.local();
+		if (viewAt >= 0 && step >= viewAt && first("viewask")) {
+			int owner = -1;
+			for (LobbyPlayer p : setup.players()) {
+				int slot = setup.factions().slotOf(p.id());
+				if (slot != me && (host || p.host())) {
+					owner = slot;
+					break;
+				}
+			}
+			String why = owner < 0 ? "no other player" : views.askRefusal(owner);
+			if (why == null)
+				views.ask(owner);
+			event("viewask", "\"step\":" + step + ",\"owner\":" + owner + ",\"refused\":\"" + clean(why == null ? "" : why) + "\"");
+		}
+		ViewRequests.Ask a = r.ask();
+		if (a != null && !viewAnswer.equals("none") && first("viewanswered" + a.viewer() + ":" + a.at())) {
+			views.answer(a.viewer(), viewAnswer.equals("allow"));
+			event("viewanswered", "\"viewer\":" + a.viewer() + ",\"allowed\":" + viewAnswer.equals("allow") + ",\"step\":" + step);
+		}
+		if (viewClose >= 0 && step >= viewClose && engine.viewingHere() && first("viewclose")) {
+			views.close(sosdet.View.CLOSED);
+			event("viewclose", "\"step\":" + step);
+		}
+		for (LobbyPlayer p : setup.players()) {
+			int slot = setup.factions().slotOf(p.id());
+			sosdet.View v = engine.view(slot);
+			if (v == null)
+				continue;
+			String state = v.state() + ":" + v.thaw();
+			if (state.equals(viewSeen.get(slot)))
+				continue;
+			viewSeen.put(slot, state);
+			event("viewstate", String.format(Locale.ROOT, "\"viewer\":%d,\"owner\":%d,\"state\":%d,\"freeze\":%d,\"thaw\":%d,"
+					+ "\"why\":%d,\"reason\":\"%s\",\"loaded\":%b,\"step\":%d,\"loadMs\":%.0f", v.viewer, v.owner, v.state(),
+					v.freeze, v.thaw(), v.why(), clean(v.reason() == null ? "" : v.reason()), v.loaded(), step, engine.lastViewLoadMs()));
+		}
+		if (engine.viewingHere() && engine.viewCaughtUpSeconds() >= 0 && first("viewcaughtup" + viewSeen.get(me)))
+			event("viewcaughtup", String.format(Locale.ROOT, "\"step\":%d,\"s\":%.1f", step, engine.viewCaughtUpSeconds()));
+		if (engine.viewingHere() && engine.viewDesync() && first("viewdesync"))
+			event("viewdesync", "\"step\":" + step);
 	}
 
 	/** The main menu, every frame until the lobby opens: create or join it, as Create Lobby and Join do. */
@@ -423,7 +493,7 @@ public final class MpAutopilot {
 	 * The loaded game, every frame after the update: the landing party; while playing, hashes, the test desync and the
 	 * host's choice in the desync window; at the end, quit.
 	 */
-	void game(SetupSession setup, EnginePlay engine, MpDesync desync, MpSaves saves, MpGone gone, MpExit exit) {
+	void game(SetupSession setup, EnginePlay engine, MpDesync desync, MpSaves saves, MpGone gone, MpExit exit, MpViews views) {
 		if (exit.outcome() != null && first("exit")) {
 			// the engine has ended: a desync's Save and exit, or a player's quit (SOS-79)
 			if (saves.exitedQuitter() == SaveOrder.NO_QUITTER)
@@ -498,6 +568,7 @@ public final class MpAutopilot {
 			Runtime.getRuntime().halt(1); // no goodbye to the host: the connection just drops
 		}
 		deals(setup, step);
+		views(setup, engine, views, step);
 		commands.frame(engine);
 		Departures d = setup.departures();
 		if (d.waiting() && d.holdStep() != seenGone) {
