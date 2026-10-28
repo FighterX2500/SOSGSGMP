@@ -49,3 +49,21 @@ On the viewer's PC, from the moment its copy runs (after the load):
 - **The View city button's way to the session.** The faction window is built from a game hook that has no reach to the session, so the button finds `menu.MpViews` through `MpViews.current()`, the mod's one mutable static: set while the session plays, cleared when it ends (AGENTS.md says no mutable statics; this is the exception, decided in M3, 2026-10-28, to keep hooks out of it).
 - **The owner leaves while the viewer loads.** The viewer holds at the freeze step for the owner's city, which can't come, so its end entry can't apply there either: the viewer's PC stays held. Not handled in v1.
 - **Messages don't use vanilla's full-screen prompt.** That prompt takes the game's time while it shows, so this PC would stop stepping and, through the host's pace, every PC with it. A view's messages are windows (`MpViewNotice`); only the viewer's loading screen is the full-screen prompt, while its PC holds anyway.
+
+## 7. Results of M4 (2026-10-28)
+
+Two PCs (this PC as host, the laptop as joiner, direct IP over Radmin):
+
+| Run | What | Result |
+|---|---|---|
+| V82T1 | the joiner views the host's city, 1800 to 3600 | **FAIL, fixed**: both PCs held at step 1860 for 20 minutes. The view's whole-game loads left the game paused (the rig sets its own speed, so the rig runs passed). After every whole-game load outside a battle the game now unpauses at the agreed speed |
+| V82T1B | the same, with the fix | PASS: caught up in 0.6 s, thaw at 3720, 9 hash steps, 0 differ |
+| V82T2 | the host views the joiner's city | PASS |
+| V82T3 | refused | PASS: no view began |
+| V82T4 | no answer | PASS: refused after 30 s (`viewanswer: no answer ... refused`) |
+
+GUI, with screenshots (runs G82A to G82G, a build with SOS-83's screenshot command):
+- **Fixed:** the View request text wraps to 5 lines in a 3-line box, so Allow and Refuse were drawn over its end. The view's notices had the same box. Both now take the text's height.
+- **Fixed:** the view bar's "Only watching: orders are dropped." wrapped below the bar. The line is now as wide as its text.
+- **Open:** in G82C the joiner stopped for good at the view's load after an autopilot screenshot was asked for during it. The same run without screenshots during the load passed (G82D, G82E with the faction window open, G82F, G82G): [SOS-85](https://fighterx2500.atlassian.net/browse/SOS-85).
+- **For the owner:** the owner's screen shows nothing while their city is viewed, and the spec asks for nothing. After the view, the viewer is on the world map, not in their own city.
