@@ -30,9 +30,10 @@ import view.main.VIEW;
  * the landing party, ready, a world that differs), the status line and Leave. It tells the host when this PC's landing
  * party is placed (vanilla's landing view, while the engine holds at step 0). It stays on top of every view (persistent, pinned, never hiding
  * others) and pumps the session from its render, once per frame. The game can't be saved while it shows: the setup
- * isn't a game yet. Leaving ends the engine session.
+ * isn't a game yet. Leaving ends the engine session. The top bar's button hides and shows it (SOS-91); hidden, it draws
+ * nothing and takes no mouse, but still pumps the session and draws the other players' cursors.
  */
-final class MpSessionPanel extends Interrupter {
+final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 
 	private static final int WIDTH = 380;
 	/** The status box's height: playing, the pace, the last save and the last deal answer take up to 5 lines, and a failed save's reason one more (SOS-84). */
@@ -62,10 +63,14 @@ final class MpSessionPanel extends Interrupter {
 	/** While the title bar is held: where the mouse grabbed it, from the panel's corner. */
 	private boolean dragging;
 	private int grabX, grabY;
+	/** Hidden by the top bar's button (SOS-91). */
+	private boolean hidden;
 
 	/** Shows the panel in this view, and the escape menu's multiplayer column (SOS-79). */
 	static void show(SetupSession setup, WorldSetupAdapter game, EnginePlay engine, MpSaves saves, MpExit exit) {
-		new MpSessionPanel(setup, game, engine, saves).show(VIEW.inters().manager);
+		MpSessionPanel panel = new MpSessionPanel(setup, game, engine, saves);
+		panel.show(VIEW.inters().manager);
+		MpPanelButton.install(panel);
 		MpEscapeMenu.install(exit);
 	}
 
@@ -109,7 +114,20 @@ final class MpSessionPanel extends Interrupter {
 	}
 
 	@Override
+	public boolean shown() {
+		return !hidden;
+	}
+
+	@Override
+	public void toggle() {
+		hidden = !hidden;
+		dragging = false;
+	}
+
+	@Override
 	protected boolean hover(COORDINATE mCoo, boolean mouseHasMoved) {
+		if (hidden)
+			return false;
 		// the whole panel, its title bar too, takes the mouse: a press there drags it
 		return section.hover(mCoo) || section.body().holdsPoint(mCoo.x(), mCoo.y());
 	}
@@ -151,6 +169,8 @@ final class MpSessionPanel extends Interrupter {
 		pump(ds);
 		if (!leaving && VIEW.world().isActive())
 			cursors.render(r, VIEW.world().window);
+		if (hidden)
+			return true;
 		drag();
 		section.render(r, ds);
 		return true;
