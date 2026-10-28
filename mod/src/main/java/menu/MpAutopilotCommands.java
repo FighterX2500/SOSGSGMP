@@ -44,7 +44,8 @@ import world.entity.army.WArmy;
  * {@code war}; {@code peace <denari>}; {@code trade}; {@code accept} (every proposal to this player); {@code army} (a new
  * army at the capital); {@code mercs} (the mercenary bands for hire); {@code merc <index>} (hire one into the first army);
  * {@code attack} (the first army intercepts the other player's nearest army); {@code fight}, {@code start}, {@code retreat}
- * (the open battle prompt or battle); {@code speed <x>} (host).
+ * (the open battle prompt or battle); {@code speed <x>} (host); {@code view} (ask to view the other player's city) and
+ * {@code closeview} (SOS-82).
  */
 final class MpAutopilotCommands {
 
@@ -181,6 +182,19 @@ final class MpAutopilotCommands {
 			return MapBattles.deploy() ? "Start" : "no session";
 		case "retreat":
 			return MapBattles.retreat() ? "Retreat" : "no session";
+		case "view": {
+			MpViews views = MpViews.current();
+			String why = views == null ? "no session" : views.askRefusal(slot);
+			if (why != null)
+				return "refused: " + why;
+			views.ask(slot);
+			return "asked to view " + other().name + "'s city";
+		}
+		case "closeview":
+			if (MpViews.current() == null)
+				return "no session";
+			MpViews.current().close(sosdet.View.CLOSED);
+			return "closing the view";
 		case "speed":
 			if (!host)
 				return "refused: the host sets the speed";
