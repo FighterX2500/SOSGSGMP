@@ -49,15 +49,14 @@ public final class PlayerTerms {
     public static Kind kind(Term t) {
         return switch (t) {
             case PEACE, TRADE, PACT, ALLY, PROTECTOR, VASSAL -> Kind.PROPOSE;
-            case CANCEL_ALL -> Kind.AT_ONCE;
-            case WAR, UNITE -> Kind.NOT_YET;
+            case WAR, CANCEL_ALL -> Kind.AT_ONCE; // War since battles between players are fought (SOS-83)
+            case UNITE -> Kind.NOT_YET;
         };
     }
 
     /** Why the term is greyed out between players, as a sentence; null for a term that works. */
     public static String notYet(Term t) {
         return switch (t) {
-            case WAR -> "No battles between players yet.";
             case UNITE -> "Not between players.";
             default -> null;
         };
@@ -178,7 +177,7 @@ public final class PlayerTerms {
     /** Why the deal can't go ahead for a reason of its own, before the engine's checks; null when it can. */
     public String refusal() {
         if (atOnce() && hasGoodsOrMoney())
-            return "Cancel All Agreements applies at once: it takes no money, goods or regions.";
+            return (chosen == Term.WAR ? "Declare War" : "Cancel All Agreements") + " applies at once: it takes no money, goods or regions.";
         return null;
     }
 

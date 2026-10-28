@@ -111,7 +111,8 @@ Players use the same agreements that exist between a player and an NPC faction i
 - **Emissaries** work as in vanilla against NPC factions. No emissary mission works against another player, Gather support in their regions included (owner, 2026-10-27).
 - **Passage.** Players at peace can move armies through each other's territory freely, with no penalty, and their trade crosses it too, with no transit treaty (owner, 2026-10-27; section 7).
 - **Breaking treaties.** A player can break a treaty with another player at any time, with no penalty: unlike vanilla, NPC factions' opinion of that player doesn't drop either. Treaties with NPC factions keep their vanilla penalties.
-- **Vassalage between players** follows vanilla: the vassal pays tribute, the two share wars, and the vassal has the right to rebel. The sovereign does not join a war its vassal starts. The tribute is a yearly share of the vassal's worth set in the deal, 10% by default. The vassal rebels by cancelling all agreements, which applies at once and leaves the two at peace; war between players comes later (owner, 2026-10-27).
+- **Vassalage between players** follows vanilla: the vassal pays tribute, the two share wars, and the vassal has the right to rebel. The sovereign does not join a war its vassal starts. The tribute is a yearly share of the vassal's worth set in the deal, 10% by default. The vassal rebels by cancelling all agreements, which applies at once and leaves the two at peace, or by declaring war (owner, 2026-10-27).
+- **War between players** is declared in the faction window's Diplomacy tab and applies at once. It never comes through an ally or an NPC: allies don't drag two players into a war with each other, and besieging or attacking another player's land needs the war already. Peace is a treaty like any other, with money, goods and regions (SOS-74, SOS-83).
 
 ## 7. Trade
 
@@ -131,6 +132,9 @@ When two players' armies meet, a real-time battle is mandatory. Battles against 
 - **Desyncs.** If one PC's battle ever differs from the host's, the battle pauses briefly, every PC reloads the host's current battle state, and the battle continues.
 - **Latency.** Up to 1 second between giving an order and seeing it carried out is acceptable.
 - **World battle prompts.** When a battle on the world map needs a player's answer, such as fighting it in real time or auto-resolving it, only the armies in that battle wait in place while the prompt is open; the rest of the world runs on. If nobody answers within 30 seconds of real time, every PC gives the default answer at the same moment: auto-resolve, wait for a siege, accept a result with no captives or spoils, occupy a captured settlement.
+- **When two players' armies meet**, both players get the prompt with Fight only: no auto-resolve and no retreat. The battle starts when both press Fight, or after 30 seconds. The PC of the player whose army moved into the other builds it (owner, 2026-10-27; SOS-83).
+- **Each side's commanders.** In a battle between players each player commands their own army; the host's AI commands only NPC divisions. Each player deploys in their own area, the second army's mirrored from the first's, and the battle starts when both press Start, or after 2 minutes. The second army fights with its own player's technology, levels and other bonuses (SOS-83).
+- **The result** of a battle between players goes to the winner, who chooses captives and spoils; the loser gets a window with the losses, for information. Each side's losses reach its own city once (SOS-83). When the second army retreats, it pays vanilla's retreat penalty, as the first army does.
 - **Battles against NPC armies** can be fought in real time, as in vanilla. Like any real-time battle, they pause the world and every player watches (section 4).
 - **Allies** can join a battle or siege when they are within range, as in vanilla.
 - **Captives** after a battle between players are handled as in vanilla (capture, execute or release, each changing mercy). Each winning player decides for their own share.
@@ -148,7 +152,7 @@ Real-time sieges of player cities are part of v1. A siege runs in three phases:
 2. **Waiting period.** The attacker cannot assault until 1 in-game season has passed for every started 1,000 people in the city, up to a maximum of 4 seasons.
 3. **Assault.** The city is simulated in real time while the attacker storms it. Every PC runs the assault in lockstep, like a field battle ([ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md)): the defender's PC sends its city at the start, every PC loads it, and only orders, the host's AI orders and state checks cross the network. Desyncs are recovered from the host's assault state, as in section 8. The world is paused and every player watches.
 
-**A player's other regions** (not the capital) are attacked and taken by vanilla rules, including vanilla's choices after a capture.
+**A player's other regions** (not the capital) are attacked and taken by vanilla rules, including vanilla's choices after a capture. When another player besieges one with soldiers in it, the defender is first asked to sally out: Fight starts a battle between the two players (section 8), built by the defender's PC, and Fall Back, or no answer in 30 seconds, lets the siege go on to the besieger's prompt. A sally against a player can't be auto-resolved (SOS-83).
 
 **Invasions by NPC armies.** When an NPC army attacks a player's capital, the assault runs like a siege assault between players: every PC loads the city, the world pauses and every player watches. The outcome is vanilla's.
 
@@ -306,7 +310,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A player can break a treaty with another player at any time, with no penalty, and NPC factions' opinion of them doesn't drop. [AT]
 - A vassal pays tribute and shares wars, and the sovereign is not pulled into the vassal's offensive wars. [AT]
 - A proposal unanswered for 30 in-game days expires as declined. [AT]
-- Cancelling all agreements with another player applies at once, on every PC, with no answer; so does declaring war once battles between players exist. [AT]
+- Cancelling all agreements with another player applies at once, on every PC, with no answer; so does declaring war. [AT]
 - Another player's faction window has no Court and no ruler, opinion, trust or power, and says "Player" where vanilla shows the stance. [PT]
 - "Unite" can't be offered between players; regions other than capitals can be given. [AT]
 - No emissary mission works against another player. [AT]
@@ -329,6 +333,9 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - The same battle save, seed and orders give an identical battle state on two runs, compared every step. [AT]
 - When any PC in the game is slow, the battle slows for everyone. [AT]
 - Only a side's commanders can order its retreat, and a battle between players can't be restarted. [AT]
+- When two players' armies meet, both are asked with Fight only, and the battle starts when both press it or after 30 seconds; each player's PC commands only their own army, and the result goes to the winner. [AT]
+- A player's army in a battle between players fights with that player's own bonuses, the same on every PC. [AT]
+- A player whose region another player besieges is asked to sally out, and a sally between players can't be auto-resolved. [AT]
 - While a world-battle prompt is open, only that battle's armies wait; with no answer within 30 seconds, every PC applies the default answer at the same step. [AT]
 - A forced battle desync is detected within 2 seconds, recovered from the host's battle state within 10 seconds, and writes a report. [AT]
 
@@ -422,9 +429,9 @@ What was built and when, from the merged pull requests of both repositories, and
 | --- | --- | --- |
 | Groundwork: the lockstep engine, lobby, setup, network, Steam, saves, disconnects, desyncs | About 90% | The 2-hour world check and the tests at 300 ms ping |
 | A shared NPC world | About 90% | Covered by the groundwork's long tests |
-| Diplomacy (section 6) | About 45% | Milestone 2: regions, vassalage, emissaries, passage (SOS-73). Milestone 3: war between players (SOS-74) |
+| Diplomacy (section 6) | About 90% | Done: treaties, money and goods, regions, vassalage, passage, war (SOS-72 to SOS-74, SOS-83). Left: notifications of a war in the chat |
 | Trade (section 7) | About 85% | No trade into a besieged city; caravans on a disconnect, checked in a playtest |
-| Field battles (section 8) | About 50% | Player against player: deployment, the commanders, the speed vote, retreat, no restart, captives, spectators (engine plan 0006 M2, M3) |
+| Field battles (section 8) | About 75% | Done: battles between players with each side's commanders, deployment, retreat, the result for the winner, the sally (SOS-83). Left: the speed vote, allies joining, the winner's captives when the second army wins, spectators' view, resync in a battle (engine plan 0006 M3) |
 | Sieges of player cities (section 9) | About 15% | The waiting period, the lockstep assault on a player's city, the outcomes and the removed people, allied attackers, NPC invasions of a capital |
 | City viewing (section 10) | About 10% | Everything: the live view, catching up, the frozen own city |
 | Chat, notifications, pause, spectators (sections 4, 11, 12) | About 25% | Chat, notifications, cursors in cities (SOS-58), who paused, debug mode off, elimination and spectating |
