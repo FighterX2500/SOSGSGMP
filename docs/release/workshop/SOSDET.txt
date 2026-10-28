@@ -26,4 +26,4 @@ Open source under the MIT license (its own code), with the docs for building on 
 [url=https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine]github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine[/url]
 
 [h2]About[/h2]
-By FighterX2500, with the Songs of Syx developer's permission. The game's own source lines in the patch set remain the developer's. Free; it must not be sold. Disable it in the launcher and the game is vanilla again.
+By FighterX2500, with the Songs of Syx developer's permission. The game's own source lines in the patch set remain the developer's. Disable it in the launcher and the game is vanilla again.
