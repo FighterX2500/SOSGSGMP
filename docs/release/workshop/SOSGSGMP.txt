@@ -69,4 +69,4 @@ Every PC writes a log of each session. After a crash, a desync window or anythin
 Every desync is a bug we want to see.
 
 [h2]About[/h2]
-By FighterX2500, with the Songs of Syx developer's permission. Free; it must not be sold. Disable both mods in the launcher and the game is vanilla again.
+By FighterX2500, with the Songs of Syx developer's permission. Open source under the MIT license (its own code). Free; it must not be sold. Disable both mods in the launcher and the game is vanilla again.

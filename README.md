@@ -105,4 +105,4 @@ No game files or game source are ever committed. The game jar is a compile-only 
 
 By FighterX2500. Songs of Syx is by Gamatron AB. The mod stays a mod that the game's own launcher loads, with the developer's permission; it is free and must not be sold.
 
-A license for this repository's own code hasn't been chosen yet. SOSDET's own code is MIT.
+License: MIT for this repository's own code ([LICENSE](LICENSE)). The game source lines in `mod/patches/` stay the game developer's, published with their permission. SOSDET has its own license (also MIT).
