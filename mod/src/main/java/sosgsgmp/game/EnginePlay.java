@@ -26,8 +26,8 @@ import sosgsgmp.session.WorldResync;
  */
 public final class EnginePlay implements EnginePort {
 
-    /** The host runs at most this many steps past the slowest PC (1 s at 60 steps a second; SOSDET rig's default). */
-    private static final long PACE_LEAD = 60;
+    /** The host runs at most this many steps past the slowest PC (about 17 s at 1x; SOS-86, was 60). */
+    private static final long PACE_LEAD = 1000;
     /** The speed every PC starts at: the engine's agreed speed at step 0, 1x by default. */
     private static final double AGREED_START = 1;
     private static final byte[] NONE = new byte[0];
