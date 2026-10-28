@@ -40,7 +40,7 @@ import world.entity.army.WArmy;
  * {@code cmd} event. Battles are fought on their own with {@code battles=auto}: Fight, Start, fight on, and accept the
  * result, so a battle never waits for the agent.
  *
- * <p>Actions: {@code status}; {@code shot} (an in-game screenshot, as the screenshot key); {@code ui diplomacy|world|city};
+ * <p>Actions: {@code status}; {@code shot} (an in-game screenshot, as the screenshot key); {@code ui diplomacy|world|city|profile};
  * {@code war}; {@code peace <denari>}; {@code trade}; {@code accept} (every proposal to this player); {@code army} (a new
  * army at the capital); {@code mercs} (the mercenary bands for hire); {@code merc <index>} (hire one into the first army);
  * {@code attack} (the first army intercepts the other player's nearest army); {@code fight}, {@code start}, {@code retreat}
@@ -117,6 +117,10 @@ final class MpAutopilotCommands {
 			if (a[1].equals("city")) {
 				VIEW.s().activate();
 				return "city view";
+			}
+			if (a[1].equals("profile")) {
+				VIEW.UI().profile.activate();
+				return "profile window";
 			}
 			return "unknown view " + a[1];
 		case "war": {
