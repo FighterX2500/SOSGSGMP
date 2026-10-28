@@ -406,6 +406,12 @@ Every card on the board, not only features, is done when:
 - [ ] **Order delay above 1×:** the engine applies an order a fixed number of steps after it is given. Just above 1× speed that comes to about 1 second, plus ping, which is over the 1-second limit (section 8). Measure it in playtests and decide whether the engine's delay should shrink there.
 - [x] **Passage and trade reach:** players at peace move armies freely through each other's land (section 6). Should free passage between players also let trade through? Yes: a player's trade crosses the land of any player it is at peace with, whatever the destination, NPC factions included (owner, 2026-10-27; sections 6 and 7).
 
+### Things to optimize (optional)
+
+Accepted as they are for v1 (owner, 2026-10-28); worth improving when there is time. None of these blocks a release.
+
+- **The owner's pause when a view opens:** the owner's save and reload took 6.6 s on two PCs in the 2026-10-28 GUI runs, more than section 10's "a few seconds". Accepted; a faster save or reload would shorten it.
+
 ## 17. Milestones
 
 What was built and when, from the merged pull requests of both repositories, and an estimate of when v1 is done. This section records progress; it sets no rules.

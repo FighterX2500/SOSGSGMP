@@ -66,4 +66,10 @@ GUI, with screenshots (runs G82A to G82G, a build with SOS-83's screenshot comma
 - **Fixed:** the View request text wraps to 5 lines in a 3-line box, so Allow and Refuse were drawn over its end. The view's notices had the same box. Both now take the text's height.
 - **Fixed:** the view bar's "Only watching: orders are dropped." wrapped below the bar. The line is now as wide as its text.
 - **Open:** in G82C the joiner stopped for good at the view's load after an autopilot screenshot was asked for during it. The same run without screenshots during the load passed (G82D, G82E with the faction window open, G82F, G82G): [SOS-85](https://fighterx2500.atlassian.net/browse/SOS-85).
-- **For the owner:** the owner's screen shows nothing while their city is viewed, and the spec asks for nothing. After the view, the viewer is on the world map, not in their own city.
+- **Owner's decisions (2026-10-28)** on the points raised for them:
+  - Both players' realms can have the same name (both "Mogus"): accepted.
+  - The owner's screen shows nothing while their city is viewed: to come with SOS-58's cursors in cities, where the owner sees the viewer's cursor.
+  - After the view, can the viewer get back into their own city? Yes, checked in run D3B (the host views the joiner's city from step 3060 to 9060, then opens its city view): the host's own city was back where it stopped and ran on, 30 hash steps, 0 differ. Accepted.
+  - The owner's pause as the view opens (6.6 s on two PCs, more than section 10's "a few seconds"): accepted; listed in the spec's new "Things to optimize (optional)".
+  - Battles between two players need soldiers on both sides, and a fresh game has none: left to the playtests, where players build armies.
+  - SOS-85 stays open and tracked.
