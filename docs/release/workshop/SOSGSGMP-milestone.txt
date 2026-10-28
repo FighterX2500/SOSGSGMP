@@ -1,0 +1,25 @@
+[h1]Playtest build 0.1 (2026-10-29)[/h1]
+
+The first public build. Ten days of work, playtested by two players over Steam.
+
+[h2]Done[/h2]
+[list]
+[*][b]The engine (SOSDET):[/b] cities, the world map and battles run in lockstep; several players in one world, each running their own city; a state hash on every PC, and a world resync that keeps every player's city.
+[*][b]Lobby and setup:[/b] a Multiplayer menu, Steam lobbies and direct IP, the map with vanilla's options, races, factions and capital locations picked by each player, NPC realms generated around them, the landing party.
+[*][b]Saves:[/b] campaign saves and resume, Save Campaign in the escape menu, the host's autosave, a save before every battle, Quit and Exit saving first.
+[*][b]Drop-outs and desyncs:[/b] the host goes on without a player who left or returns to the last save; at a desync, Resync or Save and exit.
+[*][b]Diplomacy between players:[/b] peace, trade, colleagues, alliance; money, goods and regions in a deal; vassals with a tribute rate, and protectors; passage at peace; another player's window wherever you'd click an NPC.
+[*][b]Trade between players:[/b] the market between players, trade across any land at peace, each player's own tariff, players in Economy & Trade.
+[*][b]War and battles:[/b] war between players; real-time battles where each player commands their own army, with deployment, retreat, captives and spoils, and the Defeat window; the sally from a besieged region.
+[*][b]Viewing a city:[/b] watch another player's city live, with their permission; your own city freezes and loads back after.
+[*][b]Names and banners[/b] reach every PC, and the campaign save keeps them.
+[*][b]A session log on every PC[/b], with every transfer of goods and money, for bug reports.
+[/list]
+
+[h2]Planned for version 1[/h2]
+[list]
+[*][b]Sieges of player cities:[/b] the waiting period, the real-time assault on a capital, its outcomes, allied attackers, NPC invasions of a capital.
+[*][b]Battles:[/b] the speed vote, allies joining, a spectator view, recovery from a desync inside a battle.
+[*][b]Chat and notifications:[/b] chat, notifications such as a war declared, who paused, cursors in cities, spectating after elimination.
+[*][b]Performance:[/b] full speed at 5x and above, a 10,000-person city at 1x, a 30-minute battle with 2,000 soldiers a side.
+[/list]
