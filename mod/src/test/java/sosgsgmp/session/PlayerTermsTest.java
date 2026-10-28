@@ -22,9 +22,10 @@ class PlayerTermsTest {
         for (Term t : Term.values()) {
             boolean notYet = PlayerTerms.kind(t) == Kind.NOT_YET;
             assertEquals(notYet, PlayerTerms.notYet(t) != null, t + ": a reason exactly when greyed out");
-            assertEquals(notYet, PlayerTerms.treaty(t) == DealBook.NO_TREATY, t + ": a treaty exactly when it works");
+            assertEquals(notYet || t == Term.WAR, PlayerTerms.treaty(t) == DealBook.NO_TREATY,
+                    t + ": a treaty exactly when it works, but War, which is the engine's own command");
         }
-        assertEquals(Kind.NOT_YET, PlayerTerms.kind(Term.WAR), "no battles between players yet");
+        assertEquals(Kind.AT_ONCE, PlayerTerms.kind(Term.WAR), "SOS-83: battles between players are fought, so War is offered");
         assertEquals(Kind.AT_ONCE, PlayerTerms.kind(Term.CANCEL_ALL), "the owner: no accept or decline");
         assertEquals(Kind.PROPOSE, PlayerTerms.kind(Term.PACT));
     }
@@ -54,6 +55,16 @@ class PlayerTermsTest {
         p.clear();
         assertTrue(p.terms().empty());
         assertFalse(p.hasGoodsOrMoney());
+    }
+
+    @Test
+    void warAppliesAtOnceAndTakesNoMoneyOrGoods() {
+        PlayerTerms p = new PlayerTerms(3);
+        p.toggle(Term.WAR);
+        assertTrue(p.atOnce());
+        assertNull(p.refusal());
+        p.credits(false, 10);
+        assertTrue(p.refusal().startsWith("Declare War"), p.refusal());
     }
 
     @Test

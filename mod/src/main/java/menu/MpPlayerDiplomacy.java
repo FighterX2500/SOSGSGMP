@@ -114,7 +114,7 @@ final class MpPlayerDiplomacy extends GuiSection {
 		op.add(new GButt.ButtPanel("Cancel All Agreements") { // in Propose's place, while Cancel All is chosen
 			@Override
 			protected void clickA() {
-				if (dealWhy != null || !terms.atOnce())
+				if (dealWhy != null || terms.chosen() != Term.CANCEL_ALL)
 					return;
 				PlayerDeals.cancel(slot);
 				clearDeal();
@@ -122,7 +122,7 @@ final class MpPlayerDiplomacy extends GuiSection {
 
 			@Override
 			protected void renAction() {
-				visableSet(terms.atOnce());
+				visableSet(terms.chosen() == Term.CANCEL_ALL);
 				activeSet(dealWhy == null);
 			}
 
@@ -130,6 +130,29 @@ final class MpPlayerDiplomacy extends GuiSection {
 			public void hoverInfoGet(GUI_BOX text) {
 				GBox b = (GBox) text;
 				b.text("Applies at once: " + f.name + " doesn't answer it.");
+				if (dealWhy != null)
+					b.error(dealWhy);
+			}
+		}, 0, 0);
+		op.add(new GButt.ButtPanel("Declare War") { // in Propose's place, while War is chosen (SOS-83)
+			@Override
+			protected void clickA() {
+				if (dealWhy != null || terms.chosen() != Term.WAR)
+					return;
+				PlayerDeals.declareWar(slot);
+				clearDeal();
+			}
+
+			@Override
+			protected void renAction() {
+				visableSet(terms.chosen() == Term.WAR);
+				activeSet(dealWhy == null);
+			}
+
+			@Override
+			public void hoverInfoGet(GUI_BOX text) {
+				GBox b = (GBox) text;
+				b.text("Applies at once: " + f.name + " doesn't answer it. When your armies meet, both of you fight the battle in real time.");
 				if (dealWhy != null)
 					b.error(dealWhy);
 			}
@@ -181,6 +204,8 @@ final class MpPlayerDiplomacy extends GuiSection {
 		String own = terms.refusal();
 		if (own != null)
 			dealWhy = own;
+		else if (terms.chosen() == Term.WAR)
+			dealWhy = PlayerDeals.warRefusal(slot);
 		else if (terms.atOnce())
 			dealWhy = PlayerDeals.cancelRefusal(slot);
 		else
@@ -206,6 +231,8 @@ final class MpPlayerDiplomacy extends GuiSection {
 	private String why(Term t) {
 		if (PlayerTerms.kind(t) == Kind.NOT_YET)
 			return PlayerTerms.notYet(t);
+		if (t == Term.WAR)
+			return PlayerDeals.warRefusal(slot);
 		if (PlayerTerms.kind(t) == Kind.AT_ONCE)
 			return PlayerDeals.cancelRefusal(slot);
 		return PlayerDeals.refusal(slot, new DealBook.Terms(PlayerTerms.treaty(t), 0, 0, NONE, NONE));
@@ -373,7 +400,7 @@ final class MpPlayerDiplomacy extends GuiSection {
 		public void hoverInfoGet(GUI_BOX text) {
 			GBox b = (GBox) text;
 			vanilla.hover(b);
-			if (term == Term.CANCEL_ALL)
+			if (term == Term.CANCEL_ALL || term == Term.WAR)
 				b.text("Between players it applies at once, without an answer.");
 			String why = termWhy[term.ordinal()];
 			if (why != null)
@@ -623,7 +650,7 @@ final class MpPlayerDiplomacy extends GuiSection {
 				Term t = terms.chosen();
 				if (t != null) {
 					COLOR.WHITE100.bind();
-					UI.FONT().M.render(r, t == Term.CANCEL_ALL ? "Cancel All Agreements" : t == Term.PROTECTOR ? "You become their overlord"
+					UI.FONT().M.render(r, t == Term.CANCEL_ALL ? "Cancel All Agreements" : t == Term.WAR ? "Declare War" : t == Term.PROTECTOR ? "You become their overlord"
 							: t == Term.VASSAL ? "You become their vassal" : MpDeals.treatyName(PlayerTerms.treaty(t)), x, y);
 					y += line;
 					if (terms.vassalage()) {

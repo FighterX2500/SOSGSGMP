@@ -65,12 +65,14 @@ import world.WORLD;
  * {@code deal} (join: at this step propose trade, up to 100 denari and 5 of a good it has to the host, who accepts every
  * proposal: SOS-72), {@code fulllog} (host, {@code 0}: the lobby's transfer log lists only transfers between players: SOS-81),
  * {@code dealcancel} (join: from this step, cancel every treaty with the host at once, once there is one: SOS-76),
+ * {@code war} (join: at this step declare war on the host, at once: SOS-74; the Diplomacy tab doesn't offer it yet),
  * {@code capital} ({@code X:Y}: place this PC's capital at that world tile instead of searching for one, or search when
  * the location rules refuse it: SOS-75), {@code quit} (at this step this PC's player chooses Exit in the escape menu
  * and confirms: the campaign is saved on every PC, then the session ends: SOS-79). {@code save} goes through the escape
  * menu's Save Campaign. {@code rename} (at this step this PC's player renames the faction and the ruler and changes
  * the banner, as the profile window does: SOS-78); every PC reports each player's name, ruler and banner with each
- * hash.
+ * hash. {@code battles} ({@code auto}: fight every battle prompt, Start, fight on and accept the result: SOS-83). An
+ * outside player's actions come through {@link MpAutopilotCommands}.
  */
 public final class MpAutopilot {
 
@@ -95,6 +97,8 @@ public final class MpAutopilot {
 	private final long deal;
 	/** Join: the step from which to cancel every treaty with the host at once (SOS-76); -1 for none. */
 	private final long dealCancel;
+	/** Join: the step to declare war on the host at (SOS-74); -1 for never. */
+	private final long war;
 	/** Host: the lobby's switch for the playtest log (SOS-81). */
 	private final boolean fullLog;
 	/** Join: the step to set a 50% tariff on what the host sells this player at (SOS-77); -1 for none. */
@@ -131,6 +135,8 @@ public final class MpAutopilot {
 	private double statusTimedMs;
 	private static final long STATUS_NANOS = 10_000_000_000L;
 	private final Map<String, Boolean> once = new HashMap<>();
+	/** The outside player's actions and, with {@code battles=auto}, the battles fought on their own (SOS-83). */
+	private final MpAutopilotCommands commands;
 
 	/** The autopilot the variable asks for, or null (play): read once by each per-frame point that may use it. */
 	public static MpAutopilot fromEnv() {
@@ -174,6 +180,7 @@ public final class MpAutopilot {
 		crash = Long.parseLong(m.getOrDefault("crash", "-1"));
 		deal = Long.parseLong(m.getOrDefault("deal", "-1"));
 		dealCancel = Long.parseLong(m.getOrDefault("dealcancel", "-1"));
+		war = Long.parseLong(m.getOrDefault("war", "-1"));
 		fullLog = !"0".equals(m.getOrDefault("fulllog", "1"));
 		tariff = Long.parseLong(m.getOrDefault("tariff", "-1"));
 		quit = Long.parseLong(m.getOrDefault("quit", "-1"));
@@ -196,6 +203,7 @@ public final class MpAutopilot {
 		events = Paths.get(System.getenv("APPDATA"), "songsofsyx", "sosgsgmp-autopilot", "events.jsonl");
 		if (!host && !steam && address.isEmpty())
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " role=join needs address=");
+		commands = new MpAutopilotCommands(events, host, m.getOrDefault("battles", "").equals("auto"), this::event);
 	}
 
 	/**
@@ -224,6 +232,14 @@ public final class MpAutopilot {
 				PlayerDeals.propose(0, t);
 			event("dealproposed", "\"step\":" + step + ",\"refused\":\"" + clean(why == null ? "" : why) + "\"");
 		}
+		if (!host && war >= 0 && step >= war && first("war")) {
+			String why = PlayerDeals.warRefusal(0);
+			if (why == null)
+				PlayerDeals.declareWar(0);
+			event("war", "\"step\":" + step + ",\"refused\":\"" + clean(why == null ? "" : why) + "\"");
+		}
+		if (DIP.WAR().is(FACTIONS.player(), FACTIONS.getByIndex(host ? 1 : 0)) && first("atwar")) // on both PCs, at the step it applied
+			event("atwar", "\"step\":" + step);
 		if (!host && dealCancel >= 0 && step >= dealCancel && PlayerDeals.cancelRefusal(0) == null && first("dealcancel")) {
 			PlayerDeals.cancel(0);
 			event("dealcancel", "\"step\":" + step);
@@ -482,6 +498,7 @@ public final class MpAutopilot {
 			Runtime.getRuntime().halt(1); // no goodbye to the host: the connection just drops
 		}
 		deals(setup, step);
+		commands.frame(engine);
 		Departures d = setup.departures();
 		if (d.waiting() && d.holdStep() != seenGone) {
 			seenGone = d.holdStep();

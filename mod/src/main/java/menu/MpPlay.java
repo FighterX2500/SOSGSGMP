@@ -3,6 +3,7 @@ package menu;
 import java.util.List;
 
 import snake2d.util.misc.ACTION;
+import sosdet.BattleOutcome;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbyPlayer;
@@ -62,6 +63,7 @@ final class MpPlay implements ACTION {
 			if (setup.playing()) {
 				setup.exchange();
 				engine.battleFrame();
+				outcome();
 			}
 		}
 		if (setup.playing()) {
@@ -74,6 +76,16 @@ final class MpPlay implements ACTION {
 		}
 		if (autopilot != null)
 			autopilot.game(setup, engine, desync, saves, gone, exit);
+	}
+
+	/** A battle between two players ended (SOS-83): the playtest log notes it, and the loser gets its window. */
+	private void outcome() {
+		BattleOutcome o = engine.battleOutcomeTake();
+		if (o == null)
+			return;
+		log.line("battle between players over: " + o);
+		if (o.loser == setup.factions().slotOf(setup.localPlayerId()))
+			new MpBattleOutcome(o).open();
 	}
 
 	/** The other players' PC numbers: their slots. */

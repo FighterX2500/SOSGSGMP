@@ -11,6 +11,7 @@ import game.GAME;
 import snake2d.LOG;
 import sosdet.DesyncHold;
 import sosdet.Engine;
+import sosdet.BattleOutcome;
 import sosdet.OwnBattle;
 import sosdet.Stats;
 import sosdet.hash.Desync;
@@ -100,6 +101,11 @@ public final class EnginePlay implements EnginePort {
     /** The battle on the battle map, or null (SOSDET plan 0006). */
     public OwnBattle battle() {
         return Engine.battle();
+    }
+
+    /** Once, as a battle between two players ends: who won and lost, and each side's losses; else null (SOS-83). */
+    public BattleOutcome battleOutcomeTake() {
+        return Engine.battleOutcomeTake();
     }
 
     /** The size of the last battle save this PC sent or loaded; 0 before the first. */
