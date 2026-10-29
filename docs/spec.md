@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.29 · 2026-10-29
+Version 0.30 · 2026-10-29
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -58,7 +58,7 @@ Version 1 includes six features:
 All players are online at the same time. A campaign is saved and resumed later, and one campaign can run over several days.
 
 - **Pausing.** Any player can pause and any player can unpause a normal pause. While paused, every player sees who paused the game. A priority pause can only be unpaused by the host; the game enters one when a player disconnects (section 11).
-- **Game speed.** The host sets the speed. It is capped by the slowest PC: if one player's game falls behind, the speed drops for everyone, as in Paradox grand strategy games.
+- **Game speed.** The host sets the speed. It is capped by the slowest PC: if one player's game falls behind, the speed drops for everyone, as in Paradox grand strategy games. A PC that only waits for the connection isn't slow: the connection lowers the speed only when it holds the game up for over a third of the time for 5 seconds, one step at a time, and the speed goes back up 10 seconds after the waits end. The top bar says whether a PC or the connection holds the speed down (owner, 2026-10-29; SOS-94).
 - **Speeds.** The host can choose 1×, 5×, 25× or 250×. Vanilla's 0.25× isn't offered in multiplayer, in battles either.
 - **Lowest speed.** A slow PC can lower the speed to 0.5× and no further. If a PC can't hold even 0.5×, the game stops for everyone until it catches up, then resumes.
 - **Menus, notifications and prompts don't pause.** Opening a menu or window, getting a notification popup, or a prompt that needs an answer (such as a world battle or a declaration of war) never pauses, holds or slows the game in multiplayer, unlike vanilla. The player's city and the world keep running; while a world-battle prompt is open, only the armies in that battle wait (section 8). Only the pauses in this section stop time. Single-player keeps vanilla's behaviour.
