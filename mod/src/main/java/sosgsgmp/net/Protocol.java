@@ -30,7 +30,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 15;
+    public static final int VERSION = 16;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -528,6 +528,7 @@ public final class Protocol {
     private static void writePick(DataOutputStream out, FactionPick p) throws IOException {
         out.writeUTF(p.race());
         out.writeUTF(p.name());
+        out.writeUTF(p.ruler()); // SOS-98
         byte[] banner = p.banner();
         out.writeShort(banner.length);
         out.write(banner);
@@ -538,6 +539,7 @@ public final class Protocol {
     private static FactionPick pick(DataInputStream in) throws IOException {
         String race = in.readUTF();
         String name = in.readUTF();
+        String ruler = in.readUTF(); // SOS-98
         int length = in.readUnsignedShort();
         if (length > FactionPick.MAX_BANNER)
             throw new IOException("SOSGSGMP: banner of " + length + " bytes");
@@ -548,7 +550,7 @@ public final class Protocol {
         if (x >= MapOptions.MAX_SIZE || y >= MapOptions.MAX_SIZE)
             throw new IOException("SOSGSGMP: location " + x + "," + y);
         try {
-            return new FactionPick(race, name, banner, x, y);
+            return new FactionPick(race, name, ruler, banner, x, y);
         } catch (IllegalArgumentException e) {
             throw new IOException(e.getMessage(), e);
         }

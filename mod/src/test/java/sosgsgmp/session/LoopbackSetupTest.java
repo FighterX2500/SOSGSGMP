@@ -247,7 +247,7 @@ class LoopbackSetupTest {
     }
 
     private static FactionPick pick(String name, int x, int y) {
-        return new FactionPick("HUMAN", name, new byte[] {1, 2, 3}, x, y);
+        return new FactionPick("HUMAN", name, "Ruler", new byte[] {1, 2, 3}, x, y);
     }
 
     private static List<String> names(SetupSession s) {

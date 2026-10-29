@@ -13,7 +13,7 @@ import java.util.Objects;
  * @param x the location's world tile, or {@link #NONE} while none is picked
  * @param y the location's world tile, or {@link #NONE} while none is picked
  */
-public record FactionPick(String race, String name, byte[] banner, int x, int y) {
+public record FactionPick(String race, String name, String ruler, byte[] banner, int x, int y) {
 
     /** No location picked yet. */
     public static final int NONE = -1;
@@ -29,6 +29,8 @@ public record FactionPick(String race, String name, byte[] banner, int x, int y)
             throw new IllegalArgumentException("SOSGSGMP: race key '" + race + "'");
         if (name == null || name.isBlank() || name.length() > MAX_NAME)
             throw new IllegalArgumentException("SOSGSGMP: faction name '" + name + "'");
+        if (ruler == null || ruler.length() > MAX_NAME)
+            throw new IllegalArgumentException("SOSGSGMP: ruler name '" + ruler + "'");
         if (banner.length > MAX_BANNER)
             throw new IllegalArgumentException("SOSGSGMP: banner of " + banner.length + " bytes");
         if ((x == NONE) != (y == NONE) || x < NONE || y < NONE)
@@ -47,22 +49,22 @@ public record FactionPick(String race, String name, byte[] banner, int x, int y)
 
     /** The same picks with another location ({@link #NONE}, {@link #NONE}: none). */
     public FactionPick at(int x, int y) {
-        return new FactionPick(race, name, banner, x, y);
+        return new FactionPick(race, name, ruler, banner, x, y);
     }
 
     @Override
     public boolean equals(Object o) {
-        return o instanceof FactionPick p && x == p.x && y == p.y && race.equals(p.race) && name.equals(p.name)
+        return o instanceof FactionPick p && x == p.x && y == p.y && race.equals(p.race) && name.equals(p.name) && ruler.equals(p.ruler)
                 && Arrays.equals(banner, p.banner);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(race, name, Arrays.hashCode(banner), x, y);
+        return Objects.hash(race, name, ruler, Arrays.hashCode(banner), x, y);
     }
 
     @Override
     public String toString() {
-        return "FactionPick[" + race + ", " + name + ", banner " + banner.length + " bytes, at " + x + "," + y + "]";
+        return "FactionPick[" + race + ", " + name + ", ruler " + ruler + ", banner " + banner.length + " bytes, at " + x + "," + y + "]";
     }
 }

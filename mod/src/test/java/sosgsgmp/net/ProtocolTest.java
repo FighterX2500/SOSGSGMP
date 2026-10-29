@@ -41,10 +41,10 @@ class ProtocolTest {
             new Message.MapTerrain(3, 0, 1, new byte[0]),
             new Message.MapTerrain(3, 2, 3, new byte[] {1, -2, 3}),
             new Message.MapTerrain(Integer.MAX_VALUE, Pieces.MAX_PIECES - 1, Pieces.MAX_PIECES, new byte[Pieces.PIECE_BYTES]),
-            new Message.Pick(new FactionPick("HUMAN", "Ånn's Realm", new byte[] {7, 8}, 511, 0)),
-            new Message.Pick(new FactionPick("CANTOR", "B", new byte[0], FactionPick.NONE, FactionPick.NONE)),
-            new Message.Picks(List.of(new FactionStep.PlayerPick(0, new FactionPick("HUMAN", "A", new byte[] {1}, 3, 4), null),
-                new FactionStep.PlayerPick(7, new FactionPick("HUMAN", "B", new byte[] {2}, FactionPick.NONE, FactionPick.NONE), "too close"))),
+            new Message.Pick(new FactionPick("HUMAN", "Ånn's Realm", "Ruler", new byte[] {7, 8}, 511, 0)),
+            new Message.Pick(new FactionPick("CANTOR", "B", "Ruler", new byte[0], FactionPick.NONE, FactionPick.NONE)),
+            new Message.Picks(List.of(new FactionStep.PlayerPick(0, new FactionPick("HUMAN", "A", "Ruler", new byte[] {1}, 3, 4), null),
+                new FactionStep.PlayerPick(7, new FactionPick("HUMAN", "B", "Ruler", new byte[] {2}, FactionPick.NONE, FactionPick.NONE), "too close"))),
             new Message.SlotMap(1, List.of(new FactionStep.PlayerSlot(0, 0), new FactionStep.PlayerSlot(7, 15))),
             new Message.WorldPart(1, 0, 2, new byte[] {9, 8, 7}),
             new Message.Loaded(1, Long.MIN_VALUE),
@@ -126,10 +126,10 @@ class ProtocolTest {
         assertRefused(new Message.MapGenerate(1, 1, "", 50, -1));
         assertRefused(new Message.MapConfirm(0, 5));
         assertRefused(new Message.MapTerrain(0, 0, 1, new byte[1]));
-        assertRefused(new Message.Pick(new FactionPick("HUMAN", "A", new byte[0], 512, 3)));
+        assertRefused(new Message.Pick(new FactionPick("HUMAN", "A", "Ruler", new byte[0], 512, 3)));
         assertRefused(new Message.Picks(List.of()));
-        assertRefused(new Message.Picks(List.of(new FactionStep.PlayerPick(-1, new FactionPick("HUMAN", "A", new byte[0], 1, 1), null))));
-        assertRefused(new Message.Picks(List.of(new FactionStep.PlayerPick(1, new FactionPick("HUMAN", "A", new byte[0], 1, 1), "x".repeat(257)))));
+        assertRefused(new Message.Picks(List.of(new FactionStep.PlayerPick(-1, new FactionPick("HUMAN", "A", "Ruler", new byte[0], 1, 1), null))));
+        assertRefused(new Message.Picks(List.of(new FactionStep.PlayerPick(1, new FactionPick("HUMAN", "A", "Ruler", new byte[0], 1, 1), "x".repeat(257)))));
         assertRefused(new Message.SlotMap(0, List.of(new FactionStep.PlayerSlot(0, 0))));
         assertRefused(new Message.SlotMap(1, List.of(new FactionStep.PlayerSlot(0, 16))));
         assertRefused(new Message.WorldPart(0, 0, 1, new byte[1]));
