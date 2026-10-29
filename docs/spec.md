@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.30 · 2026-10-29
+Version 0.31 · 2026-10-30
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
