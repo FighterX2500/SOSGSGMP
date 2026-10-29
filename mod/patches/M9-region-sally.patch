@@ -1,0 +1,12 @@
+diff --git a/view/world/ui/region/Play.java b/view/world/ui/region/Play.java
+index b3840aa..be052d8 100644
+--- a/view/world/ui/region/Play.java
++++ b/view/world/ui/region/Play.java
+@@ -49,6 +49,7 @@ final class Play implements RV{
+ 		s.addRelBody(0, DIR.S, GFrame.separator(sep));
+ 		mi = new PlayMilitary(g, w);
+ 		s.addRelBody(0, DIR.S, mi);
++		s.addRelBody(0, DIR.S, new menu.MpSiegeRow(g, sep)); // SOSGSGMP hook M9 (docs/hooks.md)
+ 		s.addRelBody(0, DIR.S, GFrame.separator(sep));
+ 		
+ 		s.addRelBody(0, DIR.S, new PlayReligion(g, w));
