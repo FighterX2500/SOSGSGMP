@@ -168,7 +168,7 @@ public final class JoinedSetup implements SetupSession {
             }
             case Message.Cursor c -> {
                 if (c.playerId() != localPlayerId())
-                    cursors.set(c.playerId(), c.onMap(), c.x(), c.y());
+                    cursors.set(c.playerId(), c.place(), c.x(), c.y());
             }
             case Message.PlayerGone g when link != null -> gone(g.playerId(), g.holdStep());
             case Message.GoneChoice c when link != null -> {
@@ -284,9 +284,9 @@ public final class JoinedSetup implements SetupSession {
     }
 
     @Override
-    public void cursor(boolean onMap, int x, int y) {
-        if (!closed && cursors.own(onMap, x, y, System.nanoTime()))
-            node.send(Node.HOST, new Message.Cursor(localPlayerId(), onMap, x, y));
+    public void cursor(int place, int x, int y) {
+        if (!closed && cursors.own(place, x, y, System.nanoTime()))
+            node.send(Node.HOST, new Message.Cursor(localPlayerId(), place, x, y));
     }
 
     @Override

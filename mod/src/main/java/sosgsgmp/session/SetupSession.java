@@ -107,12 +107,12 @@ public interface SetupSession {
     void exchange();
 
     /**
-     * This PC's cursor: on the world map at world pixel {@code x, y}, or off it. Call every frame; it goes out only when
-     * it changed, at most 10 times a second ({@link Cursors}).
+     * This PC's cursor: at pixel {@code x, y} of {@code place} (the world map or a city, {@link Cursors}), or
+     * {@link Cursors#OFF}. Call every frame; it goes out only when it changed, at most 10 times a second.
      */
-    void cursor(boolean onMap, int x, int y);
+    void cursor(int place, int x, int y);
 
-    /** The other players' cursors on the world map, for reading. */
+    /** The other players' cursors, each on its place, for reading. */
     Cursors cursors();
 
     /**

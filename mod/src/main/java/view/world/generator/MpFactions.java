@@ -122,7 +122,7 @@ final class MpFactions {
 				pump(ds);
 				super.render(r, ds);
 				if (onLocation && !leaving)
-					cursors.render(r, g.window);
+					cursors.render(r, g.window, sosgsgmp.session.Cursors.WORLD);
 			}
 		};
 		s.add(new GHeader("players"), 0, 0);
@@ -245,7 +245,7 @@ final class MpFactions {
 			CORE.setCurrentState(new MpWorldLoad(setup, world));
 			return;
 		}
-		cursors.send(g.window, onLocation);
+		cursors.send(g.window, onLocation ? sosgsgmp.session.Cursors.WORLD : sosgsgmp.session.Cursors.OFF);
 		sincePickCheck += ds;
 		if (sincePickCheck >= PICK_CHECK_SECONDS) {
 			sincePickCheck = 0;

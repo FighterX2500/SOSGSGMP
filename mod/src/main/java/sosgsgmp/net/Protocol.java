@@ -197,7 +197,7 @@ public final class Protocol {
                 case Message.Cursor c -> {
                     out.writeByte(CURSOR);
                     out.writeInt(c.playerId());
-                    out.writeBoolean(c.onMap());
+                    out.writeShort(c.place()); // Cursors.OFF, WORLD or a city (SOS-58)
                     out.writeInt(c.x());
                     out.writeInt(c.y());
                 }
@@ -318,7 +318,7 @@ public final class Protocol {
             case WORLD_PLAYERS -> worldPlayers(in);
             case GO -> new Message.Go(number(in, "transfer"));
             case STREAM -> stream(in);
-            case CURSOR -> new Message.Cursor(playerId(in), in.readBoolean(), in.readInt(), in.readInt());
+            case CURSOR -> new Message.Cursor(playerId(in), cursorPlace(in.readShort()), in.readInt(), in.readInt());
             case RESYNC -> {
                 long step = step(in, "resync");
                 Piece p = piece(in, "transfer", "resync");
@@ -608,6 +608,12 @@ public final class Protocol {
             throw new IOException("SOSGSGMP: a view's city piece at " + offset + " of " + total + " bytes");
         byte[] bytes = data(in, Math.min(MAX_STREAM_PIECE, total - offset), "view city piece");
         return new Message.ViewCity(viewer, step, total, offset, bytes);
+    }
+
+    private static int cursorPlace(int place) throws IOException {
+        if (place < sosgsgmp.session.Cursors.OFF || place > LobbySettings.MAX_PLAYERS)
+            throw new IOException("SOSGSGMP: cursor place " + place);
+        return place;
     }
 
     private static int playerId(DataInputStream in) throws IOException {

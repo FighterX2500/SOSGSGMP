@@ -156,8 +156,8 @@ public final class HostedSetup implements SetupSession {
             case Message.ViewCity v when id != null && views != null -> view(id, v);
             case Message.ViewHashes v when id != null && views != null -> view(id, v);
             case Message.Cursor c when id != null -> {
-                cursors.set(id, c.onMap(), c.x(), c.y());
-                Message relayed = new Message.Cursor(id, c.onMap(), c.x(), c.y());
+                cursors.set(id, c.place(), c.x(), c.y());
+                Message relayed = new Message.Cursor(id, c.place(), c.x(), c.y());
                 for (Map.Entry<Integer, Integer> p : joined.entrySet())
                     if (p.getKey() != peer)
                         node.send(p.getKey(), relayed);
@@ -472,9 +472,9 @@ public final class HostedSetup implements SetupSession {
     }
 
     @Override
-    public void cursor(boolean onMap, int x, int y) {
-        if (!closed && cursors.own(onMap, x, y, System.nanoTime()))
-            sendAll(new Message.Cursor(localPlayerId(), onMap, x, y));
+    public void cursor(int place, int x, int y) {
+        if (!closed && cursors.own(place, x, y, System.nanoTime()))
+            sendAll(new Message.Cursor(localPlayerId(), place, x, y));
     }
 
     @Override
