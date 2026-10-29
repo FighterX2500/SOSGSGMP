@@ -12,6 +12,7 @@ import game.GAME;
 import game.VERSION;
 import game.faction.FACTIONS;
 import snake2d.LOG;
+import sosdet.Assault;
 import sosdet.DesyncHold;
 import sosdet.OwnBattle;
 import sosdet.Stats;
@@ -46,6 +47,9 @@ final class MpLog {
 	private long frames, statusFrames;
 	private long statusNanos = System.nanoTime();
 	private OwnBattle battle;
+	/** The assault last seen, and whether its invasion had started then (SOS-92 B). */
+	private Assault assault;
+	private boolean assaultStarted;
 	private boolean battleAwaiting;
 	private DesyncHold hold;
 	private long desyncStep = -1;
@@ -155,6 +159,7 @@ final class MpLog {
 			line("Go: the game runs from step " + engine.step() + String.format(Locale.ROOT, ", game speed %.2f", GAME.SPEED.speed()));
 		}
 		battle();
+		assault();
 		desync(desync);
 		if (frames % DIPLOMACY_FRAMES == 1) {
 			diplomacy.look(this);
@@ -201,6 +206,23 @@ final class MpLog {
 		if (b != null && battleAwaiting && !b.awaiting()) {
 			battleAwaiting = false;
 			line("battle loaded at step " + engine.step() + ": its save was " + engine.battleBytes() + " bytes");
+		}
+	}
+
+	/** The assault on a player's capital: Storm, the invasion's start, its end and the outcome (SOS-92 B). */
+	private void assault() {
+		Assault a = engine.assault();
+		if (a != assault) {
+			if (assault != null)
+				line("assault over at step " + engine.step() + ": " + assault);
+			assault = a;
+			assaultStarted = false;
+			if (a != null)
+				line("Storm: " + a);
+		}
+		if (a != null && !assaultStarted && a.started()) {
+			assaultStarted = true;
+			line("assault: the invasion starts at step " + engine.step());
 		}
 	}
 

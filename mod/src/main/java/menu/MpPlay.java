@@ -67,6 +67,7 @@ final class MpPlay implements ACTION {
 				setup.exchange();
 				engine.battleFrame();
 				outcome();
+				invasions();
 			}
 		}
 		if (setup.playing()) {
@@ -90,6 +91,18 @@ final class MpPlay implements ACTION {
 		log.line("battle between players over: " + o);
 		if (o.loser == setup.factions().slotOf(setup.localPlayerId()))
 			new MpBattleOutcome(o).open();
+	}
+
+	/** An NPC army invades a player's capital (SOS-92 F): every other player is told, and the playtest log notes it. */
+	private void invasions() {
+		long[] n;
+		while ((n = engine.invasionNoticeTake()) != null) {
+			int slot = (int) n[1];
+			String text = views.name(slot) + "'s capital is invaded by " + engine.factionName((int) n[2]) + ".";
+			log.line("invasion at step " + n[0] + ": " + text);
+			if (slot != setup.factions().slotOf(setup.localPlayerId()))
+				new MpViewNotice(text + " You can ask to view the city from their window.", true).open();
+		}
 	}
 
 	/** The other players' PC numbers: their slots. */
