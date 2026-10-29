@@ -1,6 +1,6 @@
 # Sieges of player cities (SOS-92)
 
-Spec §9 Sieges of player cities, §15 Sieges, §4 (an assault pauses the world), §11 (the save before an assault; a disconnect in an assault), §7 (no trade into a besieged city). Card: [SOS-92](https://fighterx2500.atlassian.net/browse/SOS-92). It builds on [ADR 0006](../decisions/0006-lockstep-city-viewing-and-assaults.md) (assaults in lockstep), city viewing ([city-viewing.md](city-viewing.md), SOSDET plan 0013, SOS-82), battles between players ([battles-between-players.md](battles-between-players.md), SOSDET plan 0012 M2, SOS-83), the save before a battle ([battle-saves.md](battle-saves.md), SOS-67) and the SOS-23 spike ([city-determinism.md](spikes/city-determinism.md)). Status: **draft, for the owner's approval**.
+Spec §9 Sieges of player cities, §15 Sieges, §4 (an assault pauses the world), §11 (the save before an assault; a disconnect in an assault), §7 (no trade into a besieged city). Card: [SOS-92](https://fighterx2500.atlassian.net/browse/SOS-92). It builds on [ADR 0006](../decisions/0006-lockstep-city-viewing-and-assaults.md) (assaults in lockstep), city viewing ([city-viewing.md](city-viewing.md), SOSDET plan 0013, SOS-82), battles between players ([battles-between-players.md](battles-between-players.md), SOSDET plan 0012 M2, SOS-83), the save before a battle ([battle-saves.md](battle-saves.md), SOS-67) and the SOS-23 spike ([city-determinism.md](spikes/city-determinism.md)). Status: **approved (owner, 2026-10-29)**: decisions 1a, 3a and 6a as recommended; 2, 4 and 5 as the owner set them (section 3). Spec 0.29 and ADR 0006 record decisions 2 and 5.
 
 Game paths are relative to `<game>/info/SongsOfSyx-sources/`. Engine paths are SOSDET's (`src/main/java/sosdet/...`, `build/patched-src/...`). Line numbers are from the audits of 2026-10-29.
 
@@ -96,6 +96,8 @@ Each step is one PR in SOSDET, plus one in this repository where marked. Each en
 - The siege works as vanilla's for both sides:
   - `PSiege` counts the time;
   - the defender's sally prompt comes first (SOS-83's sally, now for the capital);
+  - **the sally at any time** (decision 2): while their capital is besieged, the defender can sally out in every phase before the assault. A "Sally out" button on the besieged capital's region panel starts the sally battle as an engine command at a step, through SOS-83's sally path. This works for a besieger that is a player or an NPC;
+  - **the popup at the siege's start** (mod): "Your capital is besieged by X. You can sally out at any time before the assault: Sally out on the region panel." It only informs; it has no timer;
   - the defender's city closes its entry: `EntryUpdater` watches this PC's human's capital, which is `FACTIONS.player()` in own-city mode (checked in the step's audit).
 - **The waiting period:**
   - The engine keeps each besieged human capital's **siege start step** and the defender's **population at the start**, from the defender's city report. This is world state: in the world save and in the hash.
@@ -194,14 +196,22 @@ The attacker's outcome window has three choices. Each is a command at a step, wh
 - The human with the most soldiers at Engage chooses the outcome. Money, goods and removed people are split by the soldiers each human brought at Engage, rounded down, with the remainder going to the chooser.
 - **Tests:** a rig run with 3 humans, two attackers and a defender.
 
-### F. NPC invasions of a player's capital (engine)
+### F. NPC invasions of a player's capital stay local, and can be viewed (engine and mod)
 
-- An NPC or rebel army that would call `invadeCapitol` on a human's capital starts the same lockstep assault (step B) instead of `TxnKind.INVADE`:
-  - every PC loads the city, the world pauses and every player watches;
-  - the host's AI log commands the attacker;
-  - the outcome is vanilla's `Invasion.loose` or win, applied in the defender's city.
-- **Raiders' direct invasions** (`RaiderArmy.invade`, with no world army) are decision 5.
-- **Tests:** a rig run of an NPC army against a human capital, with every copy identical.
+Decision 5: they keep today's path. An NPC faction's or a rebel army's `invadeCapitol` becomes a `TxnKind.INVADE`, and a raider's `RaiderArmy.invade` runs in the defender's city. The invasion runs in that city's own time, on the defender's PC only, and the world doesn't pause.
+
+- **Check today's path with several humans.** No rig run of it is recorded. The checks:
+  - the invasion's outcome reaches the world exactly once (`INVASION_TELL` and `VASSAL` inputs);
+  - the world army is gone on every PC at the same step;
+  - nothing in it reads another human's state.
+- **Notification:** every PC learns that the city is invaded from a lockstep event: the `INVADE` transaction's step, or the raider's attack in the defender's report. The mod shows "X's capital is invaded by Y" on every PC: a popup now, and a chat line once chat exists.
+- **Viewing an invaded city:** a view request during an invasion works as at any other time, and needs the owner's Allow.
+  - Today `Session.viewRefusal` cancels a view while a battle or a prompt is open. The audit checks that an invasion in the owner's city counts as neither.
+  - It also checks that the invasion runs the same on the viewer's PC: its enemies, the entry point and its AI read only lockstep state, as the view's hash already checks.
+- **Not in this step:** the owner's answer to the view request pops up in the middle of their fight. That stays as it is.
+- **Tests:**
+  - a rig run of an NPC army against a human capital: every copy's world identical, the outcome applied once;
+  - a rig view of the invaded city: the view hash holds.
 
 ### G. Resync during an assault (engine)
 
@@ -210,29 +220,24 @@ The attacker's outcome window has three choices. Each is a command at a step, wh
 - One mechanism serves battles and assaults, and it closes the field-battle gap too.
 - **Tests:** rig `--corrupt` during an assault and during a battle.
 
-## 3. Decisions for the owner
+## 3. Decisions (owner, 2026-10-29)
 
-1. **The population for the waiting period.**
-   - **(a) recommended:** the population at the siege's start, so the attacker knows the wait from the start and the defender can't stretch it by moving people in.
-   - **(b):** the current population, read from each report, so the wait can grow or shrink during the siege.
-2. **Vanilla's WARNING phase and its "Attack first" field battle.**
-   - **(a) recommended:** skip both, and start at BOMBARD. The sally and attacking the besiegers already give the defender a field battle (§9).
-   - **(b):** keep the WARNING prompt for the defender, with a 30-second limit.
-3. **The attacker's survivors.**
-   - **(a) recommended:**
-     - **after a win:** they return to the world at the siege tile;
-     - **after a loss:** they are lost, as in vanilla;
-     - **after the 5-day retreat:** they return, and the siege goes on with a new wait.
-   - **(b):** vanilla's in every case: the armies are disbanded at the start, so nothing returns.
-4. **Who owns an eliminated city.**
-   - **(a) recommended:** a new NPC faction, the way vanilla's Puppet makes one (`FACTIONS.activateNext`): its own realm, at peace with everyone.
-   - **(b):** rebels, the way vanilla's Abandon does it (`Util.conquer` with `null`).
-5. **Raiders' direct invasions of a player's capital** (a raider's demand refused, with no world army).
-   - **(a) recommended:** also in lockstep, so every player watches (§9 says every NPC army).
-   - **(b):** they stay local to the defender's PC, as today.
-6. **Order of the work.**
-   - **(a) recommended:** A, B, C, D first, which is a playable siege between two players. Then F, then G and E. G also serves field battles.
-   - **(b):** as written, A to G.
+1. **The population for the waiting period:** the population at the siege's start, so the attacker knows the wait from the start and the defender can't stretch it by moving people in. Rejected: the current population, read from each report.
+2. **The sally, and vanilla's WARNING phase:** the defender can sally out at any time during the siege, in every phase before the assault, and a popup at the siege's start reminds them. Vanilla's WARNING phase and its "Attack first" field battle are skipped, and the assault starts at BOMBARD (step A, step B).
+3. **The attacker's survivors:**
+   - **after a win:** they return to the world at the siege tile;
+   - **after a loss:** they are lost, as in vanilla;
+   - **after the 5-day retreat:** they return, and the siege goes on with a new wait.
+
+   Rejected: vanilla's disbanding at the start in every case.
+4. **Who owns an eliminated city:** a neutral city. It goes to rebels, the way vanilla's Abandon does it (`Util.conquer` with `null`), with the player's other regions. Rejected: a new NPC faction made the way vanilla's Puppet makes one.
+5. **NPC invasions of a player's capital** (an NPC faction's, rebels' or raiders'): no lockstep and no pause. The invasion stays in the defender's city, every player gets a notification, and any player can ask to view the city, which its owner allows or refuses (step F; spec §9, §10, §15; ADR 0006). Rejected: the lockstep assault with the world paused.
+6. **Order and tests:** three rounds, each tested before the next:
+   1. A to D, a playable siege between two players, then tests;
+   2. F, then tests;
+   3. G and E, then tests.
+
+   Each step keeps its own unit tests and its short rig run. Each round ends with a combined run of at most 10 minutes (rig and twopc), and the laptop joins when it's reachable.
 
 ## 4. Risks
 
@@ -243,4 +248,4 @@ The attacker's outcome window has three choices. Each is a command at a step, wh
 
 ## 5. Estimate
 
-About 3 days at the current pace: A 0.5, B 1, C 0.5, D 0.5, E 0.25, F 0.25, plus G (resync) about 0.5, which also closes plan 0006 M3 for battles.
+About 3 days at the current pace: A 0.5, B 1, C 0.5, D 0.5, E 0.25, F 0.25, plus G (resync) about 0.5, which also closes plan 0006 M3 for battles. Decision 5 moved F's lockstep work out and left an audit and a notification.
