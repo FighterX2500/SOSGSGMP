@@ -100,6 +100,9 @@ public interface SetupSession {
     /** Whether {@link #play} was called. */
     boolean playing();
 
+    /** The game streams' bytes so far, before and after compression; all 0 before {@link #play} (SOS-96). */
+    EngineLink.Traffic traffic();
+
     /** City viewing's requests and transfers on this PC (spec §10, SOS-82), from {@link #play} on; null before. */
     ViewRequests views();
 

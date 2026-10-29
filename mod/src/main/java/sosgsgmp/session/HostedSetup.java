@@ -367,6 +367,11 @@ public final class HostedSetup implements SetupSession {
     }
 
     @Override
+    public EngineLink.Traffic traffic() {
+        return link == null ? new EngineLink.Traffic(0, 0, 0, 0) : link.traffic();
+    }
+
+    @Override
     public boolean playing() {
         return link != null;
     }

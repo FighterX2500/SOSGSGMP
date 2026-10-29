@@ -22,6 +22,7 @@ The connection is a star: a peer's reports and hashes go to the host, which feed
 - **Exactly once.** The engine reads each stream as one byte sequence "in any pieces", so a piece seen twice would corrupt it. A receiver keeps each stream's length so far and drops bytes it already has; a gap (an offset past what it has) is a protocol error and drops the connection. A repeated message changes nothing (the card's unit test).
 - **Size.** Pieces of at most 48 KB, under the 64 KB message cap.
 - The routing and the offsets are plain Java (`EngineLink`, tested without the game); the engine calls go through an adapter.
+- **Compressed where made** (SOS-96, protocol 16). Each stream a PC makes runs through its own Deflater, flushed after every send, so the bytes and offsets on the network are compressed bytes. The host relays a peer's pieces as they came; each receiver keeps one Inflater per stream and maker and inflates only the bytes the exactly-once check lets through. City reports, nearly the same from one to the next, shrink 13-16 times in Deflate's window. The playtest log's status line carries the rates and totals, compressed and raw.
 
 ## 3. The start (at `Go`)
 
