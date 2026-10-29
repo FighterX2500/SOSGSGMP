@@ -295,6 +295,21 @@ public final class EnginePlay implements EnginePort {
         return Engine.longestHoldSeconds();
     }
 
+    /** The steps a second this PC could run, or -1 before the first measure (SOS-94). */
+    public int capacity() {
+        return Engine.capacity();
+    }
+
+    /** Another PC's capacity from its last hash, or -1 before the first (SOS-94). */
+    public int capacity(int pc) {
+        return Engine.capacity(pc);
+    }
+
+    /** The top bar's speed line while a PC or the link holds the speed down, or null. */
+    public String speedNotice() {
+        return Engine.speedNotice();
+    }
+
     // ---------------------------------------------------------------- city views (spec §10, SOS-82)
 
     /** Host: why a view of {@code owner}'s city by the player in {@code viewer} would be cancelled now; null if it can begin. */

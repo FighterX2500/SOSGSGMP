@@ -49,6 +49,8 @@ final class MpLog {
 	private boolean battleAwaiting;
 	private DesyncHold hold;
 	private long desyncStep = -1;
+	/** The engine's last speed line logged (SOS-94): each change of the agreed speed's reason is logged once. */
+	private String speedNotice;
 	private long resyncedStep = -1;
 	private final MpDiplomacyLog diplomacy;
 	private final MpTransferLog transfers;
@@ -157,12 +159,21 @@ final class MpLog {
 		if (frames % DIPLOMACY_FRAMES == 1) {
 			diplomacy.look(this);
 			transfers.look(this);
+			speedNotice();
 		}
 		long at = engine.step() / EVERY * EVERY;
 		if (at > statusAt) {
 			statusAt = at;
 			status(at);
 		}
+	}
+
+	/** Why the agreed speed is below the host player's, each time the reason changes (SOS-94). */
+	private void speedNotice() {
+		String n = engine.speedNotice();
+		if (n != null && !n.equals(speedNotice))
+			line("speed: " + n.replace("SOSDET: ", "") + " (step " + engine.step() + ")");
+		speedNotice = n;
 	}
 
 	private void players() {
@@ -219,14 +230,15 @@ final class MpLog {
 		for (LobbyPlayer p : setup.players()) {
 			int pc = setup.factions().slotOf(p.id());
 			if (p.id() != setup.localPlayerId())
-				peers.append(peers.length() == 0 ? "" : ", ").append(p.name()).append(' ').append(engine.peerStep(pc));
+				peers.append(peers.length() == 0 ? "" : ", ").append(p.name()).append(' ').append(engine.peerStep(pc))
+						.append(" (capacity ").append(engine.capacity(pc)).append(')');
 		}
 		line(String.format(Locale.ROOT,
 				"step %d hash %s | speed agreed %.2f, game %.2f, paused %b | %.1f fps, step ms mean %.2f p99 %.2f max %.1f,"
-						+ " over 100 ms %d | peers at %s | held %.1f s, longest %.2f s | hashes compared %d, missed %d | orders %d,"
+						+ " over 100 ms %d, capacity %d steps/s | peers at %s | held %.1f s, longest %.2f s | hashes compared %d, missed %d | orders %d,"
 						+ " commands %d, txns %d, reports %d, AI %d | treasury %d",
 				at, hash(at), s.agreedSpeed, GAME.SPEED.speed(), GAME.SPEED.isPaused(), (frames - statusFrames) / seconds,
-				s.meanMs, s.p99Ms, s.maxMs, s.stepsOver100Ms, peers, engine.heldSeconds(), engine.longestHoldSeconds(),
+				s.meanMs, s.p99Ms, s.maxMs, s.stepsOver100Ms, engine.capacity(), peers, engine.heldSeconds(), engine.longestHoldSeconds(),
 				s.hashesCompared, s.hashesMissed, s.ordersApplied, s.commandsApplied, s.txnsApplied, s.reportsReceived,
 				s.aiApplied, (long) FACTIONS.player().credits().credits()));
 		statusNanos = now;
