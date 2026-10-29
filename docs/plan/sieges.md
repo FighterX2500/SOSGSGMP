@@ -96,7 +96,7 @@ Each step is one PR in SOSDET, plus one in this repository where marked. Each en
 - The siege works as vanilla's for both sides:
   - `PSiege` counts the time;
   - the defender's sally prompt comes first (SOS-83's sally, now for the capital);
-  - **the sally at any time** (decision 2): while their capital is besieged, the defender can sally out in every phase before the assault. A "Sally out" button on the besieged capital's region panel starts the sally battle as an engine command at a step, through SOS-83's sally path. This works for a besieger that is a player or an NPC;
+  - **the sally at any time** (decision 2): while their capital is besieged, the defender can sally out in every phase before the assault. A "Sally out" button on the besieged capital's region panel (hook M9; also in the multiplayer panel and the popup, owner 2026-10-29) starts the sally battle as an engine command at a step, through SOS-83's sally path. This works for a besieger that is a player or an NPC;
   - **the popup at the siege's start** (mod): "Your capital is besieged by X. You can sally out at any time before the assault: Sally out on the region panel." It only informs; it has no timer;
   - the defender's city closes its entry: `EntryUpdater` watches this PC's human's capital, which is `FACTIONS.player()` in own-city mode (checked in the step's audit).
 - **The waiting period:**
