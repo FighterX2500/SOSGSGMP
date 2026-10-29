@@ -12,6 +12,7 @@ import snake2d.util.datatypes.COORDINATE;
 import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.renderable.RENDEROBJ;
 import sosgsgmp.game.EnginePlay;
+import sosgsgmp.game.PlayerSieges;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
@@ -19,6 +20,7 @@ import sosgsgmp.session.SetupSession;
 import sosgsgmp.setup.FactionStep;
 import util.colors.GCOLOR;
 import util.gui.misc.GBox;
+import util.gui.misc.GButt;
 import util.gui.misc.GHeader;
 import util.gui.misc.GText;
 import util.gui.panel.GPanel;
@@ -51,6 +53,10 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 	private final MpCursors cursors;
 	/** Deals with the other players (spec §6; SOS-72, SOS-76): their notices and the latest answer. */
 	private final MpDeals deals;
+	/** The siege of this PC's player's capital (spec §9; SOS-92): its notice, and Sally out beside Leave while it lasts. */
+	private final MpSieges sieges = new MpSieges();
+	private final GButt.ButtPanel sally = MpSiegeNotice.sallyButton(() -> {
+	});
 	private final GText[] rows = new GText[LobbySettings.MAX_PLAYERS];
 	private int shownRows;
 	private final GText status = new GText(UI.FONT().M, 512);
@@ -105,6 +111,8 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 			leaving = true;
 			game.endSession();
 		}));
+		inner.addRightC(8, sally);
+		sally.visableSet(false);
 		GPanel panel = new GPanel(inner.body().width(), inner.body().height());
 		panel.setTitle("Multiplayer setup");
 		panel.inner().set(inner);
@@ -254,8 +262,13 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 				status.add(" ").add(saves.status());
 			if (engine.active()) {
 				deals.refresh();
+				sieges.refresh();
+				sally.visableSet(sieges.besieged());
 				if (!deals.lastAnswer().isEmpty())
 					status.add(" ").add(deals.lastAnswer());
+				int days = PlayerSieges.assaultInDays();
+				if (days >= 0)
+					status.add(" Your capital is besieged: the assault can start in ").add(days).add(days == 1 ? " day." : " days.");
 			}
 		}
 		else if (f.started())

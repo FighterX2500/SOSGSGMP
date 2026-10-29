@@ -63,7 +63,7 @@ All players are online at the same time. A campaign is saved and resumed later, 
 - **Lowest speed.** A slow PC can lower the speed to 0.5× and no further. If a PC can't hold even 0.5×, the game stops for everyone until it catches up, then resumes.
 - **Menus, notifications and prompts don't pause.** Opening a menu or window, getting a notification popup, or a prompt that needs an answer (such as a world battle or a declaration of war) never pauses, holds or slows the game in multiplayer, unlike vanilla. The player's city and the world keep running; while a world-battle prompt is open, only the armies in that battle wait (section 8). Only the pauses in this section stop time. Single-player keeps vanilla's behaviour.
 - **No debug mode or cheats** in multiplayer: the game's debug mode and cheat tools are turned off.
-- **Manual battles pause the world.** While a real-time battle or siege assault runs, the world map and every city are paused, and every player watches it. Otherwise a single battle could let years pass outside, because real-time battles are slow compared to city time.
+- **Manual battles pause the world.** While a real-time battle or siege assault runs, the world map and every city are paused, and every player watches it. Otherwise a single battle could let years pass outside, because real-time battles are slow compared to city time. An NPC army's invasion of a player's city is city time, not a manual battle: it doesn't pause the world (section 9).
 
 ## 5. Lobby and world setup
 
@@ -154,9 +154,9 @@ Real-time sieges of player cities are part of v1. A siege runs in three phases:
 
 **A player's other regions** (not the capital) are attacked and taken by vanilla rules, including vanilla's choices after a capture. When another player besieges one with soldiers in it, the defender is first asked to sally out: Fight starts a battle between the two players (section 8), built by the defender's PC, and Fall Back, or no answer in 30 seconds, lets the siege go on to the besieger's prompt. A sally against a player can't be auto-resolved (SOS-83).
 
-**Invasions by NPC armies.** When an NPC army attacks a player's capital, the assault runs like a siege assault between players: every PC loads the city, the world pauses and every player watches. The outcome is vanilla's.
+**Invasions by NPC armies.** When an NPC army (an NPC faction's, rebels' or raiders') invades a player's capital, the invasion runs as in vanilla, inside that player's city and in its own time, on that player's PC only. The world doesn't pause and nobody else has to watch (owner, 2026-10-29). Every player gets a notification that the city is invaded, and any player can ask to view it (section 10); the owner allows or refuses the view as usual. The outcome is vanilla's.
 
-During the siege, the defender can attack the besieging army. That creates a real-time field battle under the rules in section 8. Allies can lift the siege only by defeating the besieging army.
+During the siege, the defender can attack the besieging army (sally out) at any time, in every phase before the assault. That creates a real-time field battle under the rules in section 8. When a siege of their capital starts, the defender gets a popup that says the siege has started and that they can sally out at any time. Vanilla's warning when the assault begins, and its offer of one more battle before the city, are left out (owner, 2026-10-29). Allies can lift the siege only by defeating the besieging army.
 
 | City population | Waiting period before assault |
 | --- | --- |
@@ -196,6 +196,7 @@ Any player can view any other player's city, enemies included. This is intended.
 - **Keeping up.** The same applies after catching up: a view that falls behind its owner's city and doesn't catch up again within 1 minute ends.
 - **The owner is barely slowed.** When the view opens, the owner's game pauses for a few seconds while it saves and reloads its own city, so that both PCs run the same loaded city (a game that reloads a save doesn't run exactly like one that didn't). After that the owner keeps playing their city with zero latency while it is viewed. The owner accepted this pause by allowing the view.
 - **During a siege assault:** every player watches the city in real time (section 9).
+- **During an NPC invasion** of the owner's city: a view works as at any other time, and needs the owner's Allow (section 9).
 
 ## 11. Saves, disconnects and elimination
 
@@ -346,7 +347,8 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A defender's attack on the besiegers starts a real-time field battle. [PT]
 - The assault shows the defender's city in real time to every player, and the attacker's orders work. [PT]
 - A forced assault desync is detected within 2 seconds, recovered from the host's assault state within 10 seconds, and writes a report. [AT]
-- An NPC invasion of a player's capital pauses the world and every player watches it. [PT]
+- An NPC invasion of a player's capital doesn't pause the world; every player gets a notification of it, and another player can view the invaded city when its owner allows it. [PT]
+- The defender can sally out against the besiegers at any time during a siege of their capital, and the popup at the siege's start says so. [PT]
 - With allied attackers, the player with the most soldiers chooses the outcome, and the spoils are split by soldiers brought. [AT]
 - Each outcome works. Sack takes the chosen resources and up to 80% of the population. Eliminate takes 90% of the resources, the money and the population, turns the city into a neutral NPC city and makes its player a spectator. Removed people are moved, killed or freed as chosen, and each fate changes the attacker's mercy as in vanilla. Vassalage applies the vassal rules. [AT + PT]
 
