@@ -25,7 +25,7 @@ import util.info.INFO;
 /**
  * SOSGSGMP: the multiplayer screens of the main menu (SOS-49). Hook M1 in ScMain adds the button
  * {@link #button(Menu)} returns; everything else lives here, in the game's package because the menu's screen
- * interface SC is package-private. One instance per Menu, made on the first click, so no state outlives the menu.
+ * interface SC is package-private. One instance per Menu, made on the first click (or a Steam invite, SOS-103), so no state outlives the menu.
  */
 final class MpMenu {
 
@@ -38,42 +38,55 @@ final class MpMenu {
 	final MpScreenSteamJoin steamJoin;
 	final MpScreenResume resume;
 	final MpScreenLobby lobby;
+	/** The main menu's watch for a friend's accepted Steam invite (SOS-103). */
+	final MpInviteWatch invites;
 	/** Test tooling: the autopilot, or null in play. */
 	final MpAutopilot autopilot = MpAutopilot.fromEnv();
 	private final Path prefsFile;
 
-	/** The Multiplayer button of the main menu (hook M1). */
+	/**
+	 * The Multiplayer button of the main menu (hook M1). It is rendered every frame the main menu shows, so it also
+	 * keeps the Steam invite watch going there (SOS-103); the test autopilot drives the menu from it instead.
+	 */
 	static CLICKABLE button(Menu menu) {
 		CLICKABLE b = GUI.getNavButt("multiplayer");
+		MpInviteWatch invites = new MpInviteWatch();
+		MpMenu[] mp = new MpMenu[1];
 		b.clickActionSet(new ACTION() {
-			private MpMenu mp;
 
 			@Override
 			public void exe() {
-				if (mp == null)
-					mp = new MpMenu(menu);
-				menu.switchScreen(mp.main);
+				if (mp[0] == null)
+					mp[0] = new MpMenu(menu, invites);
+				menu.switchScreen(mp[0].main);
 			}
 		});
 		MpAutopilot autopilot = MpAutopilot.fromEnv();
-		if (autopilot == null)
-			return b;
-		// Test tooling (MpAutopilot): the button, rendered every frame on the main menu, opens the lobby by itself.
 		return new GuiSection(b) {
-			private MpMenu mp;
 
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				super.render(r, ds);
-				if (mp == null)
-					mp = new MpMenu(menu);
-				mp.autopilot.menu(mp); // the menu's own autopilot, which the lobby screen also drives
+				if (mp[0] == null && autopilot != null)
+					mp[0] = new MpMenu(menu, invites);
+				if (autopilot != null) {
+					// Test tooling (MpAutopilot): the button opens the lobby by itself, and the autopilot runs its own Steam
+					mp[0].autopilot.menu(mp[0]); // the menu's own autopilot, which the lobby screen also drives
+					return;
+				}
+				long lobby = invites.frame();
+				if (lobby == 0)
+					return;
+				if (mp[0] == null)
+					mp[0] = new MpMenu(menu, invites);
+				mp[0].steamJoin.joinInvite(invites.take(), lobby);
 			}
 		};
 	}
 
-	private MpMenu(Menu menu) {
+	private MpMenu(Menu menu, MpInviteWatch invites) {
 		this.menu = menu;
+		this.invites = invites;
 		prefsFile = PATHS.local().PROFILE.get().resolve("SOSGSGMP-lobby.properties");
 		prefs = loadPrefs(prefsFile);
 		if (prefs.keyIsNew)
@@ -132,7 +145,7 @@ final class MpMenu {
 	}
 
 	void openSteamJoin() {
-		steamJoin.open();
+		steamJoin.open(invites.take());
 		menu.switchScreen(steamJoin);
 	}
 

@@ -71,7 +71,7 @@ Every player starts with the same starting resources and difficulty, set by the 
 
 **Lobby**
 
-1. In the main menu, a player opens Multiplayer and chooses Create Lobby, Load Saved Lobby or Join Lobby. A player joins by the host's IP address or through Steam (section 3).
+1. In the main menu, a player opens Multiplayer and chooses Create Lobby, Load Saved Lobby or Join Lobby. A player joins by the host's IP address or through Steam (section 3). A friend's Steam invite accepted anywhere in the main menu joins that lobby too.
 2. With Create Lobby, the host chooses the difficulty and number of players.
 3. The lobby waits for players to join and shows a list of everyone in it.
 4. The host clicks Start Lobby.
