@@ -332,6 +332,36 @@ public sealed interface Message {
     }
 
     /**
+     * The battle's PC to the host, then the host to the watcher's PC only: one piece of the battle's tape for the player
+     * in slot {@code viewer} ({@code Engine.viewTapeOut}), in order (SOS-109).
+     */
+    record ViewTape(int viewer, byte[] bytes) implements Message {
+        public ViewTape {
+            bytes = bytes.clone();
+        }
+
+        @Override
+        public byte[] bytes() {
+            return bytes.clone();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof ViewTape t && viewer == t.viewer && Arrays.equals(bytes, t.bytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(viewer, Arrays.hashCode(bytes));
+        }
+
+        @Override
+        public String toString() {
+            return "ViewTape[viewer=" + viewer + ", " + bytes.length + " bytes]";
+        }
+    }
+
+    /**
      * The owner's PC to the host, then the host to the viewer's PC only: more of the owner's view hashes for the viewer
      * in slot {@code viewer} ({@code Engine.viewHashOut}), in order.
      */

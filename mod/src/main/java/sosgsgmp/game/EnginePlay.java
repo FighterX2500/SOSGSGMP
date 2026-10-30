@@ -106,6 +106,11 @@ public final class EnginePlay implements EnginePort {
         return Engine.localBattleRunning();
     }
 
+    /** True while the player in {@code slot} fights a battle against NPCs. */
+    public boolean localBattle(int slot) {
+        return Engine.localBattle(slot) != null;
+    }
+
     /** True during any battle: one on every PC, or one on its player's PC alone. */
     public boolean anyBattle() {
         return Engine.battle() != null || localBattle();
@@ -395,6 +400,16 @@ public final class EnginePlay implements EnginePort {
     /** The owner's PC: its view hashes for the viewer in {@code viewer} since the last call. */
     public byte[] viewHashOut(int viewer) {
         return Engine.viewHashOut(viewer);
+    }
+
+    /** The battle's PC: its tape for the watcher in {@code viewer} since the last call (SOS-109). */
+    public byte[] viewTapeOut(int viewer) {
+        return Engine.viewTapeOut(viewer);
+    }
+
+    /** The watcher's PC: more of the battle's tape, whole pieces in order. */
+    public void viewTapeIn(byte[] bytes) {
+        Engine.viewTapeIn(bytes);
     }
 
     /** The viewer's PC: more of the owner's view hashes. */

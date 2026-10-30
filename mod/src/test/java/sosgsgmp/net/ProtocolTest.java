@@ -86,6 +86,7 @@ class ProtocolTest {
             new Message.ViewCity(3, Long.MAX_VALUE, Protocol.MAX_VIEW_CITY, Protocol.MAX_VIEW_CITY - Protocol.MAX_STREAM_PIECE,
                     new byte[Protocol.MAX_STREAM_PIECE]),
             new Message.ViewHashes(1, new byte[] {1, -2, 3}),
+            new Message.ViewTape(1, new byte[] {4, -5, 6}),
             new Message.ViewHashes(15, new byte[Protocol.MAX_STREAM_PIECE]),
             new Message.SaveDone(5, "Bob couldn't save: disk full\nCid's world differs from the host's"),
             new Message.MapResult(3, -1L, MapStatus.OK),

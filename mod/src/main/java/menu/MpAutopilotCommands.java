@@ -13,12 +13,14 @@ import game.battle.state.BattleState;
 import game.faction.FACTIONS;
 import game.faction.Faction;
 import game.faction.diplomacy.DIP;
+import game.faction.npc.FactionNPC;
 import init.race.RACES;
 import init.resources.RESOURCES;
 import snake2d.CORE;
 import sosdet.Engine;
 import sosdet.Hooks;
 import sosdet.game.cmd.MapBattles;
+import sosdet.game.cmd.StepPrompts;
 import sosdet.game.cmd.World;
 import sosdet.game.cmd.WorldBattles;
 import sosdet.game.deal.DealBook;
@@ -33,6 +35,7 @@ import world.battle.spec.WBattleResult;
 import world.battle.spec.WBattleSiege;
 import world.battle.spec.WBattleSpec;
 import world.entity.army.WArmy;
+import world.map.regions.Region;
 
 /**
  * SOSGSGMP test tooling, never active in play: the autopilot's hands for a long playtest (SOS-83). An outside player,
@@ -53,6 +56,8 @@ final class MpAutopilotCommands {
 	private final Path file;
 	private final boolean host;
 	private final boolean autoBattles;
+	/** The last simulation question answered, by its key. */
+	private long answeredQuestion = -1;
 	private final BiConsumer<String, String> event;
 	private Object answeredPrompt;
 	private boolean started;
@@ -181,6 +186,16 @@ final class MpAutopilotCommands {
 			World.mercHire(w, Integer.parseInt(a[1]));
 			return "hiring into army " + w.armyIndex();
 		}
+		case "besiegenpc": {
+			WArmy w = firstArmy();
+			if (w == null)
+				return "refused: no army";
+			Region target = nearestNpc(w);
+			if (target == null)
+				return "refused: no NPC settlement";
+			w.besiege(target);
+			return "besieging region " + target.index() + " of " + target.faction().name;
+		}
 		case "attack": {
 			WArmy w = firstArmy();
 			if (w == null)
@@ -225,6 +240,8 @@ final class MpAutopilotCommands {
 	/** The battles on their own (battles=auto): Fight, Start, fight on, Close, and accept the result. */
 	private void battles() {
 		BattleState b = VIEW.b().state();
+		if (Engine.viewing() != null)
+			return; // a watcher only watches
 		if (b != null) {
 			if (Engine.battle() != null && Engine.battle().awaiting())
 				return;
@@ -241,6 +258,15 @@ final class MpAutopilotCommands {
 			return;
 		}
 		started = concluded = false;
+		long question = Hooks.stepPromptOldest();
+		if (question >= 0 && question != answeredQuestion) {
+			answeredQuestion = question;
+			if (Hooks.stepPromptShown() == question && VIEW.inters().yesNo.isActivated())
+				VIEW.inters().yesNo.deactivate(); // the button hides the dialog as it is clicked; nobody clicks here
+			StepPrompts.answer(question, true);
+			event.accept("battle", "\"what\":\"question yes\",\"step\":" + Engine.step());
+			return;
+		}
 		Object open = Hooks.worldPromptHere() ? Hooks.worldPrompt() : null;
 		if (open == null) {
 			answeredPrompt = null;
@@ -264,6 +290,22 @@ final class MpAutopilotCommands {
 			return; // a captured settlement's choice: left to its time-out
 		}
 		event.accept("battle", "\"what\":\"" + what + "\",\"step\":" + Engine.step());
+	}
+
+	/** The nearest settlement of an NPC faction: a test's way to a battle against NPCs. */
+	private static Region nearestNpc(WArmy from) {
+		Region best = null;
+		long bestD = Long.MAX_VALUE;
+		for (Region r : WORLD.REGIONS().active()) {
+			if (!(r.faction() instanceof FactionNPC))
+				continue;
+			long dx = r.cx() - from.ctx(), dy = r.cy() - from.cty();
+			if (dx * dx + dy * dy < bestD) {
+				bestD = dx * dx + dy * dy;
+				best = r;
+			}
+		}
+		return best;
 	}
 
 	private static WArmy firstArmy() {

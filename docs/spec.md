@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.35 · 2026-10-30
+Version 0.36 · 2026-10-30
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -149,7 +149,9 @@ When two players' armies meet, a real-time battle is mandatory. Battles against 
   - **Prompts during the battle.** A prompt that needs the fighting player's answer waits until the battle ends, then appears with the usual 30-second rule. This covers a world battle of another of their armies, another player's army meeting theirs (that battle starts only after the NPC battle ends), a sally request and a siege's popups; the armies involved wait meanwhile. Deal proposals, declarations of war and other notifications arrive as notifications without popups.
   - **Saves during the battle.** Campaign saves (Save and exit, autosaves) wait until the battle ends, as during an assault. NPC battles don't get the save before battles (section 11).
   - **Storm during the battle.** Every player watches an assault, and a fighting player can't, so an assault can't start until the last NPC battle has ended (owner, 2026-10-30; SOS-92).
-- **Watching an NPC battle** is optional. Any other player can join it while it runs, enemies included, without asking: their PC loads the battle from the fighting player's PC and runs it in step, as a city view does (section 10). Their own city is frozen while they watch. Leaving ends their view only. (Built after the battle itself.)
+- **Watching an NPC battle** is optional. Any other player can join it while it runs, enemies included, without asking: their PC loads the battle from the fighting player's PC and runs it from that player's orders and speed, at its own pace. Their own city is frozen while they watch. Leaving ends their view only.
+  - **Joining** reloads the battle on both PCs, so the fighting player's game stops for a few seconds (owner, 2026-10-30).
+  - **A slow watcher.** A watcher's PC that can't keep up runs behind the battle and catches up when it can; the fighting player doesn't wait for it. The watch ends with a message only once it is 3 minutes behind (owner, 2026-10-30).
 - **Allies** can join a battle or siege when they are within range, as in vanilla.
 - **Captives** after a battle between players are handled as in vanilla (capture, execute or release, each changing mercy). Each winning player decides for their own share.
 - **Deployment.** Each player's army spawns as a separate army. Allied armies stand side by side on the same side of the field, 20 tiles apart, and the enemy's armies are placed the same way. Every player can rearrange their own army before the battle, as in vanilla, and commands only their own divisions during it.
@@ -364,6 +366,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - After an NPC battle, the fighting player's city resumes as it was when the battle began, and receives the deliveries and other changes the world sent it during the battle. [AT]
 - A prompt for the fighting player during an NPC battle appears only after the battle ends, with the 30-second rule from then. [AT]
 - Another player can join a running NPC battle, sees the same battle as the fighting player (battle hash), and returns to their own city when they leave. [AT]
+- A watcher's PC that falls behind an NPC battle doesn't slow the fighting player, and its copy stays the same battle. [AT]
 - A forced battle desync is detected within 2 seconds, recovered from the host's battle state within 10 seconds, and writes a report. [AT]
 
 ### Sieges
@@ -466,6 +469,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-10-29 | **City viewing:** a live view of another player's city, on request; playtest fixes: the host's lead up to 1000 steps, each player's own banner, slider buttons, messages on their own player's PC only, lockstep windows of half a second at every speed, a button that hides the panel; the README, the mod's MIT license and the Steam Workshop texts | SOS-82, SOS-86 to SOS-91 |
 | 2026-10-30 | **Sieges of a player's capital, step A:** the siege's popup, the days to the assault, Sally out at any time, no trade into or out of a besieged capital; the governor tells a slow PC from a slow link; playtest fixes: cursors in cities, the ruler name, the top bar's banner, world news on every player, Production Rate, a view's held transactions, compressed network streams, a Steam invite from the main menu | SOS-58, SOS-92, SOS-94, SOS-96 to SOS-99, SOS-102, SOS-103 |
 | 2026-10-30 | **Sieges and NPC battles:** no assault while a player fights an NPC battle. **A sack's people:** the 80% counts the citizens and slaves in the city, in total; nobles are never removed; with no choice in time, no one is removed (spec 0.35) | SOS-92 |
+| 2026-10-30 | **Watching an NPC battle:** any other player joins without asking; a watcher's PC runs the battle at its own pace from the fighting player's orders and speed, and the watch ends only 3 minutes behind. Joining reloads the battle on both PCs | SOS-109 |
 
 ### Where each v1 feature stands (2026-10-30; percentages from 2026-10-29)
 
@@ -475,7 +479,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | A shared NPC world | About 90% | Covered by the groundwork's long tests |
 | Diplomacy (section 6) | About 90% | Done: treaties, money and goods, regions, vassalage, passage, war (SOS-72 to SOS-74, SOS-83). Notifications of a war in the chat: built (SOS-110) |
 | Trade (section 7) | About 85% | Done: no trade into or out of a besieged capital (SOS-92). Left: caravans on a disconnect, checked in a playtest |
-| Field battles (section 8) | About 75% | Done: battles between players with each side's commanders, deployment, retreat, the result for the winner, the sally (SOS-83). Left: the speed vote, allies joining, the winner's captives when the second army wins, spectators' view, resync in a battle (engine plan 0006 M3) |
+| Field battles (section 8) | About 75% | Done: battles between players with each side's commanders, deployment, retreat, the result for the winner, the sally (SOS-83); watching an NPC battle (SOS-109). Left: the speed vote, allies joining, the winner's captives when the second army wins, spectators' view, resync in a battle (engine plan 0006 M3) |
 | Sieges of player cities (section 9) | About 15% | Done: sieges by another player arrive, the sally from a region, the save before an assault (SOS-67, SOS-71, SOS-83); the siege of a capital with its waiting period, the popup and Sally out at any time (SOS-92 step A). Left: the lockstep assault on a player's city (steps B and C in review), the outcomes and the removed people, allied attackers, the notification of an NPC invasion of a capital |
 | City viewing (section 10) | About 90% | Done: the live view on request, catching up, the frozen own city, the other PCs' world reload (SOS-82). Left: a viewer's PC that stopped at a view's load (SOS-85), the catch-up numbers confirmed in playtests (section 16) |
 | Chat, notifications, pause, spectators (sections 4, 11, 12) | About 25% | Done: cursors on the world map and in cities (SOS-58); chat, notifications, who paused, any player unpausing (SOS-110). Left: debug mode off, elimination and spectating |

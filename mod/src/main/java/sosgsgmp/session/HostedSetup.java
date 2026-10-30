@@ -192,6 +192,7 @@ public final class HostedSetup implements SetupSession {
             case Message.ViewAnswer v when id != null && views != null -> view(id, v);
             case Message.ViewClose v when id != null && views != null -> view(id, v);
             case Message.ViewCity v when id != null && views != null -> view(id, v);
+            case Message.ViewTape v when id != null && views != null -> view(id, v);
             case Message.ViewHashes v when id != null && views != null -> view(id, v);
             case Message.Cursor c when id != null -> {
                 cursors.set(id, c.place(), c.x(), c.y());

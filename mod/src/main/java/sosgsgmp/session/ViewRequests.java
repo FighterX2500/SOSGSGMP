@@ -73,6 +73,8 @@ public final class ViewRequests {
     private long doneStep = -1;
     private byte[] done;
     private final ByteArrayOutputStream hashes = new ByteArrayOutputStream();
+    /** The battle's tape, in the pieces it came in: each is whole for the engine (SOS-109). */
+    private final ArrayDeque<byte[]> tape = new ArrayDeque<>();
 
     // ---------------------------------------------------------------- this PC as the owner
 
@@ -154,6 +156,16 @@ public final class ViewRequests {
         return h;
     }
 
+    /** The next piece of the battle's tape, or null. It waits here while this PC loads the battle. */
+    public byte[] takeTape() {
+        return tape.poll();
+    }
+
+    /** A new view starts: what is left of an older watch's tape goes. */
+    public void dropTape() {
+        tape.clear();
+    }
+
     // ---------------------------------------------------------------- the owner's side
 
     /** The oldest ask this PC's player hasn't answered, or null. */
@@ -204,6 +216,13 @@ public final class ViewRequests {
             toHost(new Message.ViewHashes(viewer, Arrays.copyOfRange(bytes, from, Math.min(bytes.length, from + Protocol.MAX_STREAM_PIECE))));
     }
 
+    /** Owner: one piece of its battle's tape for the player in slot {@code viewer}. */
+    public void tape(int viewer, byte[] bytes) {
+        if (bytes.length > Protocol.MAX_STREAM_PIECE)
+            throw new IllegalArgumentException("SOSGSGMP: a battle's tape of " + bytes.length + " bytes in one piece");
+        toHost(new Message.ViewTape(viewer, bytes));
+    }
+
     // ---------------------------------------------------------------- the host's side
 
     /** Host: an ask to check against the engine, once; then {@link #checked}. Null when none waits. */
@@ -219,6 +238,11 @@ public final class ViewRequests {
             return;
         }
         deliver(p.owner(), new Message.ViewAsk(p.viewer(), p.owner()));
+    }
+
+    /** Host: the ask checked, and it needs no answer: a running NPC battle is watched without asking (spec §8). */
+    public void checkedNoAsk(Pair p) {
+        begins.add(p);
     }
 
     /** Host: a view its owner allowed, to begin in the engine, once; then {@link #begun}. Null when none waits. */
@@ -332,6 +356,12 @@ public final class ViewRequests {
                     return "slot " + from + " sent view hashes for slot " + h.viewer() + ", which doesn't view it";
                 deliver(h.viewer(), h);
             }
+            case Message.ViewTape t -> {
+                Integer owner = open.get(t.viewer());
+                if (owner == null || owner != from)
+                    return "slot " + from + " sent a tape for slot " + t.viewer() + ", which doesn't watch it";
+                deliver(t.viewer(), t);
+            }
             default -> throw new IllegalArgumentException("SOSGSGMP: not a view message: " + m);
         }
         return null;
@@ -363,6 +393,11 @@ public final class ViewRequests {
                 if (h.viewer() != local)
                     return "view hashes for slot " + h.viewer() + " reached slot " + local;
                 hashes.writeBytes(h.bytes());
+            }
+            case Message.ViewTape t -> {
+                if (t.viewer() != local)
+                    return "a battle's tape for slot " + t.viewer() + " reached slot " + local;
+                tape.add(t.bytes());
             }
             default -> {
                 return m.getClass().getSimpleName() + " doesn't go to a viewer or an owner";
