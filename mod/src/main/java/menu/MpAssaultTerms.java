@@ -10,7 +10,6 @@ import sosdet.game.siege.AssaultTerms;
 import sosgsgmp.game.PlayerSieges;
 import util.data.INT;
 import util.gui.misc.GButt;
-import util.gui.misc.GStat;
 import util.gui.misc.GText;
 import util.gui.slider.GSliderInt;
 
@@ -52,11 +51,16 @@ final class MpAssaultTerms extends MpWindow {
 		inner.addRightC(8, choose("Vassal", AssaultTerms.VASSALAGE, tribute));
 	}
 
-	private static GStat percent(INT.IntImp value) {
-		return new GStat() {
+	/** The slider's value, in a fixed width so that "100%" fits before the button. */
+	private static RENDEROBJ percent(INT.IntImp value) {
+		GText text = new GText(UI.FONT().M, 8);
+		return new RENDEROBJ.RenderImp(48, UI.FONT().M.height()) {
 			@Override
-			public void update(GText text) {
-				text.add(value.get()).add('%');
+			public void render(SPRITE_RENDERER r, float ds) {
+				text.clear().add(value.get()).add('%');
+				COLOR.WHITE100.bind();
+				text.renderCY(r, body.x1(), body.cY());
+				COLOR.unbind();
 			}
 		};
 	}
