@@ -132,6 +132,7 @@ public final class WorldSetupAdapter implements FactionWorld {
             Engine.aiPeer(startId);
         Engine.localPc(pc);
         Engine.ownCity();
+        Engine.localBattles(true); // a battle against NPCs runs on its player's PC, the world running on (spec §8)
         Engine.armLoadSeed(loadSeed(seed));
     }
 

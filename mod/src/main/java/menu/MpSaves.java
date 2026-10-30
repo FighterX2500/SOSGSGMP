@@ -112,7 +112,7 @@ final class MpSaves {
 			return "The game hasn't started yet.";
 		if (order != null)
 			return "A campaign save is under way.";
-		if (engine.battle() != null)
+		if (engine.anyBattle())
 			return "No saves during a battle.";
 		if (engine.assault() != null)
 			return "No saves during an assault.";
@@ -180,7 +180,7 @@ final class MpSaves {
 		savedHere = true;
 		long hash = 0;
 		String problem = null;
-		if (engine.battle() != null) {
+		if (engine.anyBattle()) {
 			problem = "a battle started before the save step";
 		} else if (engine.step() != order.step() && engine.battleAhead() < 0) {
 			problem = "this PC was at step " + engine.step() + ", past the save step " + order.step();

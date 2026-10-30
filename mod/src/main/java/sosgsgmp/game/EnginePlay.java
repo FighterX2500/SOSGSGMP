@@ -101,6 +101,16 @@ public final class EnginePlay implements EnginePort {
         Engine.battleIn(save);
     }
 
+    /** True while any player fights a battle against NPCs on their own PC (spec §8, SOS-93). */
+    public boolean localBattle() {
+        return Engine.localBattleRunning();
+    }
+
+    /** True during any battle: one on every PC, or one on its player's PC alone. */
+    public boolean anyBattle() {
+        return Engine.battle() != null || localBattle();
+    }
+
     /** The battle on the battle map, or null (SOSDET plan 0006). */
     public OwnBattle battle() {
         return Engine.battle();
