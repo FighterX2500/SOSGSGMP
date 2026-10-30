@@ -30,6 +30,7 @@ Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-
 - goods and tariffs between players (SOS-77, [goods-tariffs.md](goods-tariffs.md)); names and banners on every PC (SOS-78, [names-banners.md](names-banners.md)); every transfer in the playtest log (SOS-81, [transfer-log.md](transfer-log.md));
 - war between players and real-time battles between two players' armies, with the sally from a besieged region (SOS-74, SOS-83, [war.md](war.md), [battles-between-players.md](battles-between-players.md));
 - city viewing (SOS-82, [city-viewing.md](city-viewing.md));
+- watching another player's NPC battle, without asking: the watcher's PC runs the battle at its own pace from the fighter's tape, and each join reloads the battle on both PCs (SOS-109, SOSDET plan 0017);
 - sieges of a player's capital, step A: the siege's popup, the days to the assault and Sally out (SOS-92, hook M9, [sieges.md](sieges.md));
 - playtest fixes: no capital without roads (SOS-75), the panel's status text and hide button (SOS-84, SOS-91), the host's lead of 1000 steps (SOS-86), the governor's reasons in the log (SOS-94), and batch 1 (PR #66): the ruler name (SOS-98), cursors in cities (SOS-58), a Steam invite from the main menu (SOS-103) and compressed streams with network figures in the log (SOS-96). Protocol 16.
 
