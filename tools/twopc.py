@@ -163,7 +163,7 @@ def game_running_here():
 
 
 def running(pid):
-    out = subprocess.run(["tasklist", "/FI", "PID eq %d" % pid, "/NH"], capture_output=True, text=True).stdout
+    out = subprocess.run(["tasklist", "/FI", "PID eq %d" % pid, "/NH"], capture_output=True, text=True, errors="replace").stdout
     return str(pid) in out
 
 
