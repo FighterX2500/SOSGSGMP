@@ -1,6 +1,7 @@
 package sosgsgmp.game;
 
 import game.faction.FACTIONS;
+import sosdet.Assault;
 import sosdet.Engine;
 import world.map.regions.Region;
 
@@ -26,6 +27,21 @@ public final class PlayerSieges {
     /** True when {@code reg} is this PC's player's capital and it is besieged. */
     public static boolean besiegedCapital(Region reg) {
         return reg != null && reg == FACTIONS.player().capitolRegion() && besiegedSince() >= 0;
+    }
+
+    /** A taken throne whose attacker hasn't chosen what to take yet, or null (SOS-92 D). */
+    public static Assault taken() {
+        return Engine.active() ? Engine.assaultTaken() : null;
+    }
+
+    /** Why this PC's player can't take {@code kind} ({@code AssaultTerms}) at {@code percent} now, or null. */
+    public static String termsRefusal(int kind, int percent) {
+        return Engine.active() ? Engine.assaultTermsRefusal(kind, percent) : "No multiplayer game runs.";
+    }
+
+    /** This PC's player, the attacker, takes {@code kind} at {@code percent}. Check {@link #termsRefusal} first. */
+    public static void terms(int kind, int percent) {
+        Engine.assaultTerms(kind, percent);
     }
 
     /** Why this PC's player can't sally out of their capital now, as a sentence, or null. */

@@ -8,7 +8,9 @@ import java.util.EnumMap;
 import java.util.Map;
 
 import game.GAME;
+import game.faction.FACTIONS;
 import snake2d.LOG;
+import sosdet.Assault;
 import sosdet.DesyncHold;
 import sosdet.Engine;
 import sosdet.BattleOutcome;
@@ -102,6 +104,39 @@ public final class EnginePlay implements EnginePort {
     /** The battle on the battle map, or null (SOSDET plan 0006). */
     public OwnBattle battle() {
         return Engine.battle();
+    }
+
+    /** The assault on a human's capital running, or null (SOS-92 B). */
+    public Assault assault() {
+        return Engine.assault();
+    }
+
+    /** A taken throne whose attacker hasn't chosen what to take yet, or null (SOS-92 D). */
+    public Assault assaultTaken() {
+        return Engine.assaultTaken();
+    }
+
+    /** Once, as the world applies the attacker's terms: that assault, with what was taken; else null (SOS-92 D). */
+    public Assault assaultTermsTake() {
+        return Engine.assaultTermsTake();
+    }
+
+    /** Once, as the world takes an assault's outcome: that assault; else null (SOS-92 C). */
+    public Assault assaultOutcomeTake() {
+        return Engine.assaultOutcomeTake();
+    }
+
+    /**
+     * The next NPC invasion of a player's capital, as {step, slot, invading faction or -1}, or null (SOS-92 F): the
+     * same on every PC, each handed out once.
+     */
+    public long[] invasionNoticeTake() {
+        return Engine.invasionNoticeTake();
+    }
+
+    /** The realm name of the faction at {@code index}; "Rebels" for -1, the invaders with no faction. */
+    public String factionName(int index) {
+        return index < 0 ? "Rebels" : FACTIONS.getByIndex(index).name.toString();
     }
 
     /** Once, as a battle between two players ends: who won and lost, and each side's losses; else null (SOS-83). */
