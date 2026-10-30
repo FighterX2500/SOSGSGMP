@@ -1,6 +1,6 @@
 # Walking skeleton
 
-Card: [SOS-20](https://fighterx2500.atlassian.net/browse/SOS-20) · Date: 2026-10-25 · Status: done: steps 1 to 5 merged (2026-10-25); step 6, the owner's playtest, is next · Spec: §3, §5
+Card: [SOS-20](https://fighterx2500.atlassian.net/browse/SOS-20) · Date: 2026-10-25 · Status: done: steps 1 to 5 merged (2026-10-25); step 6, the owner's playtests, under way since 2026-10-28 · Spec: §3, §5
 
 ## 1. Goal
 
