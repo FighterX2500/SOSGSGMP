@@ -72,6 +72,7 @@ public final class SteamworksPort implements SteamPort {
         friends = new SteamFriends(new FriendsCallbacks());
         networking.allowP2PPacketRelay(true);
         messages = MESSAGES.equals(System.getenv(NET_VARIABLE)) ? new SteamMessages(() -> listener) : null;
+        LOG.ln("SOSGSGMP: Steam transport: " + (messages != null ? "ISteamNetworkingMessages (SOS-105)" : "ISteamNetworking P2P packets"));
     }
 
 
