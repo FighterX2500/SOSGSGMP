@@ -69,9 +69,7 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 	private boolean landed;
 	/** The panel's content, below its title bar: a press above it, on the title bar, drags the panel (owner, 2026-10-25). */
 	private final GuiSection inner = new GuiSection();
-	/** While the title bar is held: where the mouse grabbed it, from the panel's corner. */
-	private boolean dragging;
-	private int grabX, grabY;
+	private final MpDrag drag = new MpDrag();
 	/** Hidden by the top bar's button (SOS-91). */
 	private boolean hidden;
 
@@ -80,6 +78,7 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 		MpSessionPanel panel = new MpSessionPanel(setup, game, engine, saves);
 		panel.show(VIEW.inters().manager);
 		MpPanelButton.install(panel);
+		MpChat.show(setup);
 		MpEscapeMenu.install(exit);
 	}
 
@@ -132,7 +131,7 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 	@Override
 	public void toggle() {
 		hidden = !hidden;
-		dragging = false;
+		drag.drop();
 	}
 
 	@Override
@@ -147,27 +146,8 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 	protected void mouseClick(MButt button) {
 		if (button != MButt.LEFT)
 			return;
-		int mx = VIEW.mouse().x(), my = VIEW.mouse().y();
-		if (my < inner.body().y1() && section.body().holdsPoint(mx, my)) {
-			dragging = true;
-			grabX = mx - section.body().x1();
-			grabY = my - section.body().y1();
-			return;
-		}
-		section.click();
-	}
-
-	/** Follows the mouse while the title bar is held, keeping the whole panel on the screen. */
-	private void drag() {
-		if (!dragging)
-			return;
-		if (!MButt.LEFT.isDown()) {
-			dragging = false;
-			return;
-		}
-		int x = Math.max(0, Math.min(C.WIDTH() - section.body().width(), VIEW.mouse().x() - grabX));
-		int y = Math.max(0, Math.min(C.HEIGHT() - section.body().height(), VIEW.mouse().y() - grabY));
-		section.body().moveX1Y1(x, y);
+		if (!drag.grab(section, inner, VIEW.mouse().x(), VIEW.mouse().y()))
+			section.click();
 	}
 
 	@Override
@@ -182,7 +162,7 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 			cursors.render(r, cursorWindow(), cursorPlace());
 		if (hidden)
 			return true;
-		drag();
+		drag.follow(section, VIEW.mouse().x(), VIEW.mouse().y());
 		section.render(r, ds);
 		return true;
 	}
