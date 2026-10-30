@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.33 · 2026-10-30
+Version 0.34 · 2026-10-30
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -148,6 +148,7 @@ When two players' armies meet, a real-time battle is mandatory. Battles against 
   - Several players can fight NPC battles at the same time. The world stays at 1× until the last one ends.
   - **Prompts during the battle.** A prompt that needs the fighting player's answer waits until the battle ends, then appears with the usual 30-second rule. This covers a world battle of another of their armies, another player's army meeting theirs (that battle starts only after the NPC battle ends), a sally request and a siege's popups; the armies involved wait meanwhile. Deal proposals, declarations of war and other notifications arrive as notifications without popups.
   - **Saves during the battle.** Campaign saves (Save and exit, autosaves) wait until the battle ends, as during an assault. NPC battles don't get the save before battles (section 11).
+  - **Storm during the battle.** Every player watches an assault, and a fighting player can't, so an assault can't start until the last NPC battle has ended (owner, 2026-10-30; SOS-92).
 - **Watching an NPC battle** is optional. Any other player can join it while it runs, enemies included, without asking: their PC loads the battle from the fighting player's PC and runs it in step, as a city view does (section 10). Their own city is frozen while they watch. Leaving ends their view only. (Built after the battle itself.)
 - **Allies** can join a battle or siege when they are within range, as in vanilla.
 - **Captives** after a battle between players are handled as in vanilla (capture, execute or release, each changing mercy). Each winning player decides for their own share.
@@ -363,6 +364,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 ### Sieges
 
 - The attacker can't assault before the waiting period for the city's population band ends. [AT]
+- The attacker can't assault while any player is fighting an NPC battle. [AT]
 - The besieged city receives no trade, from NPCs or from other players. [AT]
 - A defender's attack on the besiegers starts a real-time field battle. [PT]
 - The assault shows the defender's city in real time to every player, and the attacker's orders work. [PT]
