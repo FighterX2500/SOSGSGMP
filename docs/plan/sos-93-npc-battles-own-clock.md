@@ -309,6 +309,22 @@ Order: after SOS-92 (as the card says). Each step is an engine step in SOSDET wi
 - **Q8.** A battle between players starting while an NPC battle runs: hold it until the NPC battle ends, or end the NPC battle as a retreat first?
 - **Q9.** Does an NPC battle need a time limit? With the world at 1x a long battle costs everyone speed (1x instead of 25x). Vanilla's battles have no limit.
 
+### The owner's answers (2026-10-30)
+
+The spec drafts in section 4 are approved and applied (spec 0.33), with these answers:
+
+- **Q1.** Yes: battle ticks inside the world step.
+- **Q2.** Anyone may watch, enemies included, without asking. Watching is a follow-up card; step E moves there.
+- **Q3.** A slow battle PC slows its battle, not the world.
+- **Q4.** Every prompt that needs the fighting player's answer waits until the battle ends, then appears with the 30-second rule from then. This covers a world battle of another of their armies, another player's army meeting theirs, a sally request and the capital siege's popups. Deal proposals, declarations of war and other notifications arrive as notifications without popups.
+- **Q5.** Campaign saves wait until the battle ends. NPC battles don't get the SOS-70 save before battles.
+- **Q6.** Survivors come back as a count with mean experience (`resolve(int, double)`).
+- **Q7.** Several NPC battles at once are allowed; 1× until the last ends.
+- **Q8.** A battle between players waits until the NPC battle ends.
+- **Q9.** No time limit.
+
+The engine plan for steps A to C is SOSDET plan 0016.
+
 ### Not checked (and what would settle it)
 
 - Whether `BattleState.setGenerate` / `SETT.CreateFromWorldMap` change world state: the spike's world hash right after F.

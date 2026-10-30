@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.32 · 2026-10-30
+Version 0.33 · 2026-10-30
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -63,7 +63,9 @@ All players are online at the same time. A campaign is saved and resumed later, 
 - **Lowest speed.** A slow PC can lower the speed to 0.5× and no further. If a PC can't hold even 0.5×, the game stops for everyone until it catches up, then resumes.
 - **Menus, notifications and prompts don't pause.** Opening a menu or window, getting a notification popup, or a prompt that needs an answer (such as a world battle or a declaration of war) never pauses, holds or slows the game in multiplayer, unlike vanilla. The player's city and the world keep running; while a world-battle prompt is open, only the armies in that battle wait (section 8). Only the pauses in this section stop time. Single-player keeps vanilla's behaviour.
 - **No debug mode or cheats** in multiplayer: the game's debug mode and cheat tools are turned off.
-- **Manual battles pause the world.** While a real-time battle or siege assault runs, the world map and every city are paused, and every player watches it. Otherwise a single battle could let years pass outside, because real-time battles are slow compared to city time. An NPC army's invasion of a player's city is city time, not a manual battle: it doesn't pause the world (section 9).
+- **Battles between players pause the world.** While a real-time battle between players' armies or a siege assault on a player's capital runs, the world map and every city are paused, and every player watches it. Otherwise a single battle could let years pass outside, because real-time battles are slow compared to city time.
+- **Battles against NPC armies slow the world.** While any player fights a real-time battle against an NPC army, the world runs on at 1× for everyone (slowed, not paused), and the host can't raise the speed until the last such battle ends. The fighting player's city is frozen meanwhile, as a viewer's is (section 10). The other players keep playing their cities. Watching that battle is optional (section 8) (owner, 2026-10-30; SOS-93).
+- An NPC army's invasion of a player's city is city time, not a manual battle: it doesn't pause or slow the world (section 9).
 
 ## 5. Lobby and world setup
 
@@ -127,22 +129,33 @@ Players trade through direct contracts and through a shared market.
 
 When two players' armies meet, a real-time battle is mandatory. Battles against NPC armies and attacks on NPC towns can be auto-resolved, as in vanilla.
 
-- **Battle size** has no limit beyond vanilla's. Every PC simulates every field battle, and only orders, the host's AI orders and state checks cross the network ([ADR 0003](decisions/0003-battle-lockstep.md)). The battle AI runs on the host, and every PC applies its orders at the same moment. If any PC cannot keep up, the battle slows down for everyone, spectators included, as with the world speed (section 4).
-- **Battle start.** The PC of the player whose army starts the battle generates the battlefield and sends it to every PC, and every PC loads it at the same step, so every PC starts from the same battle state. Every PC runs its own city, so no other PC holds what the battle is built from ([ADR 0003](decisions/0003-battle-lockstep.md) second amendment, owner 2026-10-25).
+- **Battle size** has no limit beyond vanilla's. Every PC simulates every battle between players' armies, and only orders, the host's AI orders and state checks cross the network ([ADR 0003](decisions/0003-battle-lockstep.md)). The battle AI runs on the host, and every PC applies its orders at the same moment. If any PC cannot keep up, the battle slows down for everyone, spectators included, as with the world speed (section 4). A battle against NPC armies runs only on the fighting player's PC and on the PCs of players who watch it.
+- **Battle start.** The PC of the player whose army starts the battle generates the battlefield and sends it to every PC, and every PC loads it at the same step, so every PC starts from the same battle state. Every PC runs its own city, so no other PC holds what the battle is built from ([ADR 0003](decisions/0003-battle-lockstep.md) second amendment, owner 2026-10-25). Against NPC armies, the fighting player's PC generates the battlefield and runs it alone; nothing is sent unless another player watches.
 - **Desyncs.** If one PC's battle ever differs from the host's, the battle pauses briefly, every PC reloads the host's current battle state, and the battle continues.
 - **Latency.** Up to 1 second between giving an order and seeing it carried out is acceptable.
 - **World battle prompts.** When a battle on the world map needs a player's answer, such as fighting it in real time or auto-resolving it, only the armies in that battle wait in place while the prompt is open; the rest of the world runs on. If nobody answers within 30 seconds of real time, every PC gives the default answer at the same moment: auto-resolve, wait for a siege, accept a result with no captives or spoils, occupy a captured settlement.
 - **When two players' armies meet**, both players get the prompt with Fight only: no auto-resolve and no retreat. The battle starts when both press Fight, or after 30 seconds. The PC of the player whose army moved into the other builds it (owner, 2026-10-27; SOS-83).
 - **Each side's commanders.** In a battle between players each player commands their own army; the host's AI commands only NPC divisions. Each player deploys in their own area, the second army's mirrored from the first's, and the battle starts when both press Start, or after 2 minutes. The second army fights with its own player's technology, levels and other bonuses (SOS-83).
 - **The result** of a battle between players goes to the winner, who chooses captives and spoils; the loser gets a window with the losses, for information. Each side's losses reach its own city once (SOS-83). When the second army retreats, it pays vanilla's retreat penalty, as the first army does.
-- **Battles against NPC armies** can be fought in real time, as in vanilla. Like any real-time battle, they pause the world and every player watches (section 4).
+- **Battles against NPC armies** can be fought in real time, as in vanilla (owner, 2026-10-30; SOS-93):
+  - Only the fighting player's PC runs the battle, with vanilla's battle AI, battle speeds and pause, on the battle's own clock. The fighting player alone sets the speed and pauses.
+  - The world doesn't pause: it runs at 1× for everyone while the battle lasts (section 4).
+  - Both armies stand still on the world map, and nothing else can attack them, until the result applies.
+  - The result applies to the world at one moment on every PC, exactly once. Survivors of a player's stored divisions come back as a count with their mean experience, as in vanilla's auto-resolve.
+  - The fighting player's city is frozen until the battle ends, then resumes where it stopped and receives what the world sent it meanwhile.
+  - If the fighting player's PC can't keep up, its battle slows; the world speed doesn't drop for it.
+  - There is no time limit, as in vanilla.
+  - Several players can fight NPC battles at the same time. The world stays at 1× until the last one ends.
+  - **Prompts during the battle.** A prompt that needs the fighting player's answer waits until the battle ends, then appears with the usual 30-second rule. This covers a world battle of another of their armies, another player's army meeting theirs (that battle starts only after the NPC battle ends), a sally request and a siege's popups; the armies involved wait meanwhile. Deal proposals, declarations of war and other notifications arrive as notifications without popups.
+  - **Saves during the battle.** Campaign saves (Save and exit, autosaves) wait until the battle ends, as during an assault. NPC battles don't get the save before battles (section 11).
+- **Watching an NPC battle** is optional. Any other player can join it while it runs, enemies included, without asking: their PC loads the battle from the fighting player's PC and runs it in step, as a city view does (section 10). Their own city is frozen while they watch. Leaving ends their view only. (Built after the battle itself.)
 - **Allies** can join a battle or siege when they are within range, as in vanilla.
 - **Captives** after a battle between players are handled as in vanilla (capture, execute or release, each changing mercy). Each winning player decides for their own share.
 - **Deployment.** Each player's army spawns as a separate army. Allied armies stand side by side on the same side of the field, 20 tiles apart, and the enemy's armies are placed the same way. Every player can rearrange their own army before the battle, as in vanilla, and commands only their own divisions during it.
-- **Battle speed** is chosen by the commanders in the battle, by majority vote. On a tie, the speed stays as it is.
+- **Battle speed** in a battle between players is chosen by its commanders, by majority vote. On a tie, the speed stays as it is.
 - **Retreat.** Only a side's commanders can order that side's retreat.
-- **No restart.** Vanilla's battle restart is turned off in battles between players.
-- **Spectating.** All other players watch the battle while the world is paused (section 4).
+- **No restart.** Vanilla's battle restart is turned off in every battle, those against NPC armies included (owner, 2026-10-30; SOS-93).
+- **Spectating.** In a battle between players, all other players watch while the world is paused (section 4). An NPC battle can be watched by choice (above).
 
 ## 9. Sieges of player cities
 
@@ -204,7 +217,7 @@ Any player can view any other player's city, enemies included. This is intended.
 
 **Saving by hand.** In a multiplayer game the escape menu has Save Campaign, which saves the campaign the same way. Only the host can use it; the other players see it greyed out, with the reason. The game's own Quick-save, Save and Load, and the Quick Load key, are gone in a multiplayer game, since their saves can't be resumed. Quit to menu and Exit save the campaign first, on every PC, and then end the session for every player; a joining player's quit asks the host's PC for the save. During a battle no save can start, so a player who quits then leaves without one.
 
-**Save before battles.** Before every real-time battle or siege assault starts, the campaign is saved the same way. If the connection is lost during the battle, the players can resume from that save.
+**Save before battles.** Before every real-time battle between players or siege assault starts, the campaign is saved the same way. If the connection is lost during the battle, the players can resume from that save.
 
 **Resuming.** Any player can host when a saved campaign is resumed. If a player is missing, the host can wait for them or start without them; a player left out is removed (see Removing a player).
 
@@ -332,12 +345,19 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A majority vote of commanders changes battle speed; a tie keeps the current speed. [AT]
 - A battle with 2,000 units per side runs 30 minutes with every PC's battle state identical to the host's. [AT + PT]
 - The same battle save, seed and orders give an identical battle state on two runs, compared every step. [AT]
-- When any PC in the game is slow, the battle slows for everyone. [AT]
-- Only a side's commanders can order its retreat, and a battle between players can't be restarted. [AT]
+- When any PC in a battle between players is slow, the battle slows for everyone. In an NPC battle, a slow fighting PC slows its battle, not the world. [AT]
+- Only a side's commanders can order its retreat, and no battle can be restarted. [AT]
 - When two players' armies meet, both are asked with Fight only, and the battle starts when both press it or after 30 seconds; each player's PC commands only their own army, and the result goes to the winner. [AT]
 - A player's army in a battle between players fights with that player's own bonuses, the same on every PC. [AT]
 - A player whose region another player besieges is asked to sally out, and a sally between players can't be auto-resolved. [AT]
 - While a world-battle prompt is open, only that battle's armies wait; with no answer within 30 seconds, every PC applies the default answer at the same step. [AT]
+- While a player fights an NPC army in real time, every other player's city and the world keep running at 1×, and every PC's world hash matches the host's throughout the battle and after it. [AT]
+- During an NPC battle, both armies stay in place on the world map and no other battle involves them. [AT]
+- The result of an NPC battle applies on every PC at the same step, exactly once; a repeated result changes nothing. [AT]
+- The fighting player can pause and change the battle's speed as in vanilla without changing anyone else's game speed. [PT]
+- After an NPC battle, the fighting player's city resumes as it was when the battle began, and receives the deliveries and other changes the world sent it during the battle. [AT]
+- A prompt for the fighting player during an NPC battle appears only after the battle ends, with the 30-second rule from then. [AT]
+- Another player can join a running NPC battle, sees the same battle as the fighting player (battle hash), and returns to their own city when they leave. [AT]
 - A forced battle desync is detected within 2 seconds, recovered from the host's battle state within 10 seconds, and writes a report. [AT]
 
 ### Sieges
@@ -367,7 +387,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 ### Saves and resume
 
 - A host autosave makes every player save at the same world tick, and the game resumes only when all saves are confirmed. [AT]
-- Before a battle or siege assault starts, every player has a confirmed campaign save from that moment. [AT]
+- Before a battle between players or a siege assault starts, every player has a confirmed campaign save from that moment. [AT]
 - A campaign saved under one host can be resumed with a different host. [PT]
 - The host can start a resume without a missing player, who is then removed. [AT]
 - A campaign saved from the escape menu's Save Campaign resumes. A joining player's Exit makes every PC save the campaign before the session ends, and that save resumes too. [AT]
