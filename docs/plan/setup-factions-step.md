@@ -56,7 +56,7 @@ No titles stage (spec §5.1): the map step already sets `hasSelectedTitles = tru
 
 | Type | Message | Direction | Layout after version and type |
 | --- | --- | --- | --- |
-| 14 | `Pick` | joiner → host | race key UTF, name UTF, banner bytes (short length + bytes), location x, y shorts (−1 = none) |
+| 14 | `Pick` | joiner → host | race key UTF, name UTF, ruler name UTF (protocol 16, SOS-98), banner bytes (short length + bytes), location x, y shorts (−1 = none) |
 | 15 | `Picks` | host → all | count byte, then per player: id int, a `Pick`'s fields, the reason the location was cleared (UTF, empty = none) |
 | 16 | `SlotMap` | host → all | transfer id int, count byte, then per player: id int, slot byte |
 | 17 | `WorldPart` | host → all | transfer id int, index short, count short, bytes (int length + bytes) |
@@ -73,7 +73,7 @@ Every decode checks its ranges (count 1–16, index < count, location in the map
 
 | Class | Responsibility |
 | --- | --- |
-| `sosgsgmp.setup.FactionPick` | Record: race key, name, banner bytes, location or none. |
+| `sosgsgmp.setup.FactionPick` | Record: race key, name, ruler name (SOS-98), banner bytes, location or none. |
 | `sosgsgmp.setup.FactionStep` | The state machine:<br>• **Host:** every player's latest pick; the 6-tile rule on receipt; `canInitialize()`; slot order; the transfer id; who has loaded with which hash; who has picked a start spot; `canGo()`.<br>• **Joiner:** the latest table, its own pick, the slot map and the save's pieces as they arrive.<br>A player who leaves is dropped before the world is built. After the build, a player leaving stops the setup, since their slot exists. |
 | `sosgsgmp.net.Message`, `Protocol` | The seven messages, version 4. The save's pieces go through `sosgsgmp.net.Pieces`, made for the map step's terrain (SOS-54). |
 | `HostedSetup`, `JoinedSetup` | Feed `FactionStep` after `MapConfirm`, as they feed `MapStep` before it. |

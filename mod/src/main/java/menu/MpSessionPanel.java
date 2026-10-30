@@ -2,6 +2,7 @@ package menu;
 
 import java.util.List;
 
+import game.faction.FACTIONS;
 import init.constant.C;
 import init.sprite.UI.UI;
 import snake2d.MButt;
@@ -16,6 +17,7 @@ import sosgsgmp.game.PlayerSieges;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
+import sosgsgmp.session.Cursors;
 import sosgsgmp.session.SetupSession;
 import sosgsgmp.setup.FactionStep;
 import util.colors.GCOLOR;
@@ -26,6 +28,7 @@ import util.gui.misc.GText;
 import util.gui.panel.GPanel;
 import view.interrupter.Interrupter;
 import view.main.VIEW;
+import view.subview.GameWindow;
 
 /**
  * SOSGSGMP: the setup's panel in the loaded game (setup-factions-step.md §5): every player's progress (loading, placing
@@ -175,8 +178,8 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 	@Override
 	protected boolean render(Renderer r, float ds) {
 		pump(ds);
-		if (!leaving && VIEW.world().isActive())
-			cursors.render(r, VIEW.world().window);
+		if (!leaving && cursorPlace() != Cursors.OFF)
+			cursors.render(r, cursorWindow(), cursorPlace());
 		if (hidden)
 			return true;
 		drag();
@@ -194,10 +197,26 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 		return false;
 	}
 
+	/**
+	 * Where this PC's player looks (SOS-58): the world map, a city (the owner's or, while viewing, the viewed one:
+	 * {@code FACTIONS.player()} between steps is that city's player), or neither.
+	 */
+	private static int cursorPlace() {
+		if (VIEW.world().isActive())
+			return Cursors.WORLD;
+		if (VIEW.s().isActive())
+			return Cursors.city(FACTIONS.player().index());
+		return Cursors.OFF;
+	}
+
+	private static GameWindow cursorWindow() {
+		return VIEW.world().isActive() ? VIEW.world().window : VIEW.s().getWindow();
+	}
+
 	private void pump(float ds) {
 		if (leaving)
 			return;
-		cursors.send(VIEW.world().window, VIEW.world().isActive());
+		cursors.send(cursorWindow(), cursorPlace());
 		if (!landed && !setup.closed() && game.landed()) {
 			landed = true;
 			setup.startSpot();

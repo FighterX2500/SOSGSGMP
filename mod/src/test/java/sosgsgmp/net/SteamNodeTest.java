@@ -1,6 +1,7 @@
 package sosgsgmp.net;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -144,5 +145,20 @@ class SteamNodeTest {
         waitFor("Steam started", () -> cidPort[0] != null);
         cidPort[0].acceptInvite(h.lobby());
         waitFor("the invite", () -> cid.invited() == h.lobby());
+    }
+
+    /** SOS-103: the main menu's watch node closes itself, Steam with it, once the menu stops wanting it. */
+    @Test
+    void aNodeNoLongerWantedClosesItselfAndSteam() throws Exception {
+        FakeSteam.Port[] port = new FakeSteam.Port[1];
+        boolean[] wanted = {true};
+        SteamNode watch = SteamNode.browse(() -> port[0] = steam.port(5));
+        nodes.add(watch);
+        watch.closeWhenUnwanted(() -> wanted[0]);
+        waitFor("Steam started", () -> port[0] != null);
+        Thread.sleep(50);
+        assertFalse(port[0].closed, "open while wanted");
+        wanted[0] = false;
+        waitFor("Steam closed", () -> port[0].closed);
     }
 }

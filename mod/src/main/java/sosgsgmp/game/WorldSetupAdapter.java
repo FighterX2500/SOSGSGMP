@@ -34,7 +34,7 @@ public final class WorldSetupAdapter implements FactionWorld {
     private static final String SAVE_NAME = "world";
 
     /**
-     * This PC's picks as the game holds them: race, faction name and banner, at world tile {@code x, y} (or
+     * This PC's picks as the game holds them: race, faction name, ruler name (SOS-98) and banner, at world tile {@code x, y} (or
      * {@link FactionPick#NONE} twice). Null while the faction has no name: a pick needs one.
      */
     public FactionPick pick(int x, int y) {
@@ -42,7 +42,7 @@ public final class WorldSetupAdapter implements FactionWorld {
         String name = p.name.toString();
         if (name.isBlank())
             return null;
-        return new FactionPick(p.race().key, name, Engine.bannerBytes(), x, y);
+        return new FactionPick(p.race().key, name, p.rulerName.toString(), Engine.bannerBytes(), x, y);
     }
 
     @Override
@@ -65,7 +65,7 @@ public final class WorldSetupAdapter implements FactionWorld {
         HumanStart[] starts = new HumanStart[humans.size()];
         for (int i = 0; i < starts.length; i++) {
             FactionPick p = humans.get(i);
-            starts[i] = new HumanStart(p.race(), p.name(), p.banner(), p.x(), p.y());
+            starts[i] = new HumanStart(p.race(), p.name(), p.ruler(), p.banner(), p.x(), p.y());
         }
         // The generator, to come back to: the build opens the host's city (its finish stage generates it), and the
         // save below needs the world view; the generator's factions screen pumps the session (two-PC tests T2, T3).

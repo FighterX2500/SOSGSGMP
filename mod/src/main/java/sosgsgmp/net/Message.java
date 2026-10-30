@@ -161,10 +161,10 @@ public sealed interface Message {
     record Go(int transfer) implements Message {}
 
     /**
-     * A player's cursor on the world map, at world pixel {@code x, y}, or off it. Joining PC to host (its own id), and
-     * host to every other PC. Only shown, never an action, so it carries no tick (spec §5 "Other players' cursors").
+     * A player's cursor at pixel {@code x, y} of its place: the world map or a city ({@link sosgsgmp.session.Cursors}),
+     * or off every map. Joining PC to host (its own id), and host to every other PC. Only shown, never an action, so it carries no tick (spec §5 "Other players' cursors").
      */
-    record Cursor(int playerId, boolean onMap, int x, int y) implements Message {}
+    record Cursor(int playerId, int place, int x, int y) implements Message {}
 
     /**
      * Bytes {@code offset} on of PC {@code pc}'s engine stream {@code kind}, sent at the sender's step {@code step}

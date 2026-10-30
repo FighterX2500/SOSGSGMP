@@ -20,8 +20,9 @@ import view.menu.MenuScreen;
 
 /**
  * SOSGSGMP: Join through Steam (SOS-60, spec §5 lobby step 3): friends playing Songs of Syx in a lobby, each a
- * button; accepting a friend's invite in Steam's overlay (Shift+Tab) joins that lobby too. Steam starts when the
- * screen opens and stops when the player goes back; joining keeps it for the lobby.
+ * button; accepting a friend's invite in Steam's overlay (Shift+Tab) joins that lobby too. The screen takes the main
+ * menu's browsing node ({@link MpInviteWatch}, SOS-103), or starts Steam, and stops it when the player goes back;
+ * joining keeps it for the lobby.
  */
 final class MpScreenSteamJoin extends GUI.Shadower implements SC {
 
@@ -89,9 +90,10 @@ final class MpScreenSteamJoin extends GUI.Shadower implements SC {
 		};
 	}
 
-	void open() {
+	/** Opens the screen with the main menu's browsing node when there is one (SOS-103), or starts Steam. */
+	void open(SteamNode browsing) {
 		close();
-		node = SteamNode.browse(SteamworksPort::new);
+		node = browsing != null ? browsing : SteamNode.browse(SteamworksPort::new);
 		shown = List.of();
 		shownFailure = null;
 		status.clear().add("Starting Steam...");
@@ -125,6 +127,12 @@ final class MpScreenSteamJoin extends GUI.Shadower implements SC {
 		for (int i = 0; i < ROWS && i < shown.size(); i++)
 			rows[i].clear().add(shown.get(i).friend()).add("'s lobby");
 		status.clear().add(shown.isEmpty() ? "No friend is in a multiplayer lobby yet." : "Click a lobby to join it.");
+	}
+
+	/** An invite accepted on the main menu (SOS-103): joins it through this screen's join, with the menu's node. */
+	void joinInvite(SteamNode browsing, long lobby) {
+		open(browsing);
+		join(lobby);
 	}
 
 	private void join(long lobby) {
