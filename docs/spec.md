@@ -405,7 +405,7 @@ Every card on the board, not only features, is done when:
 ## 16. Open questions
 
 - [ ] **Viewing numbers:** the catch-up numbers in section 10 (a 5-second gap closed in about 2 seconds, and the 1-minute limit before a view that can't keep up ends) are first guesses. Confirm them in playtests (owner, 2026-10-24): city save size and time, loading a city into a running game, and a 10,000-person city.
-- [ ] **Order delay above 1×:** the engine applies an order a fixed number of steps after it is given. Just above 1× speed that comes to about 1 second, plus ping, which is over the 1-second limit (section 8). Measure it in playtests and decide whether the engine's delay should shrink there.
+- [ ] **Order delay above 1×:** since SOS-90 the engine applies an order at least 30 steps after it is given (half a second at 1×), and at higher speeds half a second of real time, up to 400 steps. With ping added, that should stay inside the 1-second limit (section 8). Measure the delay in playtests at several speeds and pings, and decide whether it needs to change.
 - [x] **Passage and trade reach:** players at peace move armies freely through each other's land (section 6). Should free passage between players also let trade through? Yes: a player's trade crosses the land of any player it is at peace with, whatever the destination, NPC factions included (owner, 2026-10-27; sections 6 and 7).
 
 ### Things to optimize (optional)
