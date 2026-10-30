@@ -14,6 +14,7 @@ import snake2d.util.color.COLOR;
 import snake2d.util.datatypes.DIR;
 import snake2d.util.gui.GUI_BOX;
 import snake2d.util.gui.GuiSection;
+import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
 import snake2d.util.sprite.SPRITE;
 import sosdet.game.deal.DealBook;
@@ -41,10 +42,10 @@ import world.map.regions.Region;
 
 /**
  * SOSGSGMP: the faction window's Diplomacy tab for another player (spec §6; SOS-76), laid out as vanilla's: its terms
- * in its order, Offer and Demand with regions, resources and money, the deal's summary, then Propose. Protector and
- * Vassal carry the tribute rate set below them (SOS-73). The terms not built between players are greyed out with the
- * reason; Cancel All Agreements applies at once. A proposal from this player
- * shows above, with Accept and Decline, as vanilla shows an NPC's request. Never pauses the game (spec §4).
+ * in its order, Offer and Demand with regions, resources and money (and how much each side has), vanilla's list of the
+ * deal's parts beside them, then why it can't go yet and Propose (SOS-100). Protector and Vassal carry the tribute rate
+ * set below them (SOS-73). The terms not built between players are greyed out with the reason; Cancel All Agreements
+ * applies at once. A proposal from this player shows below, with Accept and Decline. Never pauses the game (spec §4).
  */
 final class MpPlayerDiplomacy extends GuiSection {
 
@@ -55,6 +56,12 @@ final class MpPlayerDiplomacy extends GuiSection {
 	private static final int RECHECK_FRAMES = 30;
 	private static final int[] NONE = new int[0];
 	private static final String TITLE = "What do you wish to offer?";
+	private static final String YOU_GET = "You get";
+	private static final String TAKE_OUT = "Click to take it out of the deal.";
+	/** The deal list's rows, as vanilla's: their height, and the most there can be. */
+	private static final int ROW_H = 32;
+	private static final int ENTRIES = 256;
+	private static final int E_HEADER = 0, E_TERM = 1, E_CREDITS = 2, E_GOOD = 3, E_REGION = 4;
 	private static final String TARIFF_D = "Your tariff on what this player sells you. It's cut from what they get and paid into your treasury. From 0% to 80%; 20% until you set it. It applies at once.";
 	private static final String WAITING = "Your proposal waits for their answer; it expires unanswered after 30 days.";
 
@@ -77,20 +84,37 @@ final class MpPlayerDiplomacy extends GuiSection {
 	private final GText incomingText = new GText(UI.FONT().M, 512);
 	private String acceptWhy;
 	private boolean waiting;
-	private final GText scratch = new GText(UI.FONT().M, 32);
-	private final String theyGive;
+	private final String theyGet;
+	/** Vanilla's terms by {@link Term} ordinal: their names, descriptions and icons for the deal's list. */
+	private final DealBool[] vanillaBools = new DealBool[Term.values().length];
+	/** The deal's list as drafted now (see {@link #fill}): each row's kind, its argument, and whose part it is. */
+	private final int[] eKind = new int[ENTRIES];
+	private final int[] eArg = new int[ENTRIES];
+	private final boolean[] eMine = new boolean[ENTRIES];
+	private int entries;
 
 	MpPlayerDiplomacy(Faction f, int width, int height) {
 		this.f = f;
 		this.slot = f.index();
-		this.theyGive = f.name + " gives";
+		this.theyGet = f.name + " gets";
 		body().setWidth(width);
 
 		addRelBody(0, DIR.S, new GText(UI.FONT().M, TITLE).lablifySub());
-		addRelBody(4, DIR.S, incoming(width));
 
+		// vanilla's bottom row: why the deal can't go yet on the left, its button on the right (SOS-100)
 		GuiSection op = new GuiSection();
-		op.addRightC(0, new GButt.ButtPanel("Propose") {
+		op.add(new RENDEROBJ.RenderImp(LIST_W + BW, UI.FONT().M.height() * 2) {
+			@Override
+			public void render(SPRITE_RENDERER r, float ds) {
+				if (dealWhy == null)
+					return;
+				GCOLOR.T().IBAD.bind();
+				UI.FONT().M.render(r, dealWhy, body.x1(), body.y1(), body.width(), 1.0);
+				COLOR.unbind();
+			}
+		}, 0, 0);
+		GuiSection buttons = new GuiSection();
+		buttons.addRightC(0, new GButt.ButtPanel("Propose") {
 			@Override
 			protected void clickA() {
 				if (dealWhy != null || terms.atOnce())
@@ -111,7 +135,7 @@ final class MpPlayerDiplomacy extends GuiSection {
 					((GBox) text).error(dealWhy);
 			}
 		});
-		op.add(new GButt.ButtPanel("Cancel All Agreements") { // in Propose's place, while Cancel All is chosen
+		buttons.add(new GButt.ButtPanel("Cancel All Agreements") { // in Propose's place, while Cancel All is chosen
 			@Override
 			protected void clickA() {
 				if (dealWhy != null || terms.chosen() != Term.CANCEL_ALL)
@@ -134,7 +158,7 @@ final class MpPlayerDiplomacy extends GuiSection {
 					b.error(dealWhy);
 			}
 		}, 0, 0);
-		op.add(new GButt.ButtPanel("Declare War") { // in Propose's place, while War is chosen (SOS-83)
+		buttons.add(new GButt.ButtPanel("Declare War") { // in Propose's place, while War is chosen (SOS-83)
 			@Override
 			protected void clickA() {
 				if (dealWhy != null || terms.chosen() != Term.WAR)
@@ -157,18 +181,10 @@ final class MpPlayerDiplomacy extends GuiSection {
 					b.error(dealWhy);
 			}
 		}, 0, 0);
-		op.addRightC(16, new RENDEROBJ.RenderImp(LIST_W + BW, UI.FONT().M.height() * 2) {
-			@Override
-			public void render(SPRITE_RENDERER r, float ds) {
-				if (dealWhy == null)
-					return;
-				GCOLOR.T().IBAD.bind();
-				UI.FONT().M.render(r, dealWhy, body.x1(), body.y1(), body.width(), 1.0);
-				COLOR.unbind();
-			}
-		});
+		op.addRightC(16, buttons);
+		GuiSection in = incoming(width); // below, so the terms start under the title as vanilla's do
 
-		int h = height - body().height() - op.body().height() - 16;
+		int h = height - body().height() - op.body().height() - in.body().height() - 24;
 		GuiSection s = new GuiSection();
 		s.add(config(h));
 		s.addRelBody(16, DIR.E, new SPRITE.Imp(1, h) {
@@ -180,6 +196,7 @@ final class MpPlayerDiplomacy extends GuiSection {
 		s.addRelBody(16, DIR.E, summary(h));
 		addRelBody(8, DIR.S, s);
 		addRelBody(8, DIR.S, op);
+		addRelBody(8, DIR.S, in);
 	}
 
 	@Override
@@ -236,6 +253,17 @@ final class MpPlayerDiplomacy extends GuiSection {
 		if (PlayerTerms.kind(t) == Kind.AT_ONCE)
 			return PlayerDeals.cancelRefusal(slot);
 		return PlayerDeals.refusal(slot, new DealBook.Terms(PlayerTerms.treaty(t), 0, 0, NONE, NONE));
+	}
+
+	/** A Trade with money and a good each way, for the autopilot's GUI preview to show the deal's list (SOS-100). */
+	void draftForPreview() {
+		clearDeal();
+		terms.toggle(Term.TRADE);
+		give.set(1000);
+		ask.set(500);
+		terms.goods(true, 0, 20);
+		terms.goods(false, 1, 10);
+		changed();
 	}
 
 	private void changed() {
@@ -326,6 +354,7 @@ final class MpPlayerDiplomacy extends GuiSection {
 				names.bools.PACT, names.bools.ALLY, names.bools.VASSAL, names.bools.OVERLORD, names.bools.ABSORB};
 		Term[] all = Term.values();
 		for (int i = 0; i < all.length; i++) {
+			vanillaBools[i] = bools[i];
 			rows.add(new Bool(all[i], bools[i]));
 			if (all[i] == Term.TRADE)
 				rows.add(tariff()); // between Trade and Become Colleagues (owner, 2026-10-27)
@@ -339,6 +368,7 @@ final class MpPlayerDiplomacy extends GuiSection {
 			{
 				body().setHeight(BH);
 				addRelBody(4, DIR.W, UI.icons().s.money);
+				addRelBody(8, DIR.E, available(true));
 				body().setWidth(BW);
 			}
 		});
@@ -349,10 +379,23 @@ final class MpPlayerDiplomacy extends GuiSection {
 			{
 				body().setHeight(BH);
 				addRelBody(4, DIR.W, UI.icons().s.money);
+				addRelBody(8, DIR.E, available(false));
 				body().setWidth(BW);
 			}
 		});
 		return new GScrollRows(rows, height).view();
+	}
+
+	/** The money this PC's player ({@code mine}) or the other one has, as vanilla shows next to the amount (SOS-100). */
+	private GStat available(boolean mine) {
+		return new GStat() {
+			@Override
+			public void update(GText text) {
+				text.add('(');
+				GFORMAT.iBig(text, (long) (mine ? FACTIONS.player() : f).credits().credits());
+				text.add(')');
+			}
+		};
 	}
 
 	private static RENDEROBJ header(CharSequence t) {
@@ -640,61 +683,155 @@ final class MpPlayerDiplomacy extends GuiSection {
 	}
 
 	/** The deal as it stands, as vanilla's list beside the config: the term, what each side gives. */
+	/** Vanilla's list of the deal's parts (UIDealList): the term, then what you get, then what they get; a click takes one out. */
 	private RENDEROBJ summary(int height) {
-		return new RENDEROBJ.RenderImp(LIST_W, height) {
+		GuiSection s = new GuiSection() {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
-				int x = body.x1();
-				int y = body.y1();
-				int line = UI.FONT().M.height() + 4;
-				Term t = terms.chosen();
-				if (t != null) {
-					COLOR.WHITE100.bind();
-					UI.FONT().M.render(r, t == Term.CANCEL_ALL ? "Cancel All Agreements" : t == Term.WAR ? "Declare War" : t == Term.PROTECTOR ? "You become their overlord"
-							: t == Term.VASSAL ? "You become their vassal" : MpDeals.treatyName(PlayerTerms.treaty(t)), x, y);
-					y += line;
-					if (terms.vassalage()) {
-						GFORMAT.i(scratch.clear(), terms.tribute());
-						scratch.add('%').add(" tribute a year");
-						scratch.render(r, x, y);
-					}
-					y += line;
-				}
-				y = side(r, x, y, line, true, "You give");
-				side(r, x, y + line, line, false, theyGive);
-				COLOR.unbind();
+				fill();
+				super.render(r, ds);
 			}
 		};
+		int n = Math.min(ENTRIES, height / ROW_H);
+		for (int i = 0; i < n; i++)
+			s.addDown(0, new Row(i));
+		return s;
 	}
 
-	private int side(SPRITE_RENDERER r, int x, int y, int line, boolean mine, CharSequence title) {
-		GCOLOR.T().H1.bind();
-		UI.FONT().H2.render(r, title, x, y);
-		y += UI.FONT().H2.height() + 4;
-		COLOR.WHITE100.bind();
-		if (terms.credits(mine) > 0) {
-			UI.icons().s.money.render(r, x, y);
-			GFORMAT.i(scratch.clear(), terms.credits(mine));
-			scratch.render(r, x + 28, y);
-			y += line;
+	/** The list's rows for the deal as drafted now. Each frame, with no allocation. */
+	private void fill() {
+		entries = 0;
+		Term t = terms.chosen();
+		if (t != null)
+			entry(E_TERM, t.ordinal(), false);
+		party(false);
+		party(true);
+	}
+
+	/** What the other player gives (not {@code mine}: "You get") or this PC's player gives, under its header if any. */
+	private void party(boolean mine) {
+		int start = entries;
+		entry(E_HEADER, 0, mine);
+		if (terms.credits(mine) > 0)
+			entry(E_CREDITS, 0, mine);
+		for (int i = 0; i < terms.regionCount(mine); i++)
+			entry(E_REGION, terms.region(mine, i), mine);
+		for (int i = 0; i < TR.ALL().size(); i++)
+			if (terms.goods(mine, i) > 0)
+				entry(E_GOOD, i, mine);
+		if (entries == start + 1)
+			entries = start;
+	}
+
+	private void entry(int kind, int arg, boolean mine) {
+		if (entries >= ENTRIES)
+			return;
+		eKind[entries] = kind;
+		eArg[entries] = arg;
+		eMine[entries] = mine;
+		entries++;
+	}
+
+	/** One row of the deal's list, drawn as vanilla's. */
+	private final class Row extends CLICKABLE.ClickableAbs {
+
+		private final int index;
+		private final GText header = new GText(UI.FONT().H2, 48).lablify();
+		private final GText name = new GText(UI.FONT().H2, 48).normalify();
+
+		Row(int index) {
+			super(LIST_W, ROW_H);
+			this.index = index;
 		}
-		for (int i = 0; i < TR.ALL().size(); i++) {
-			TRADABLE t = TR.ALL().get(i);
-			int n = terms.goods(mine, i);
-			if (n <= 0)
-				continue;
-			t.icon().render(r, x, y);
-			GFORMAT.i(scratch.clear(), n);
-			scratch.render(r, x + 28, y);
-			UI.FONT().M.render(r, t.name, x + 96, y);
-			y += line;
+
+		@Override
+		protected void render(SPRITE_RENDERER r, float ds, boolean isActive, boolean isSelected, boolean isHovered) {
+			if (index >= entries)
+				return;
+			int arg = eArg[index];
+			boolean mine = eMine[index];
+			if (eKind[index] == E_HEADER) {
+				header.clear().add(mine ? theyGet : YOU_GET);
+				header.adjustWidth();
+				header.renderCXY2(r, body.cX(), body.y2() - 4);
+				return;
+			}
+			GButt.ButtPanel.renderBG(r, isActive, isSelected, isHovered, body);
+			GButt.ButtPanel.renderFrame(r, body);
+			name.clear();
+			SPRITE icon;
+			switch (eKind[index]) {
+			case E_TERM:
+				icon = vanillaBools[arg].icon;
+				name.add(vanillaBools[arg].info.name);
+				if (terms.vassalage())
+					name.s().add(terms.tribute()).add('%');
+				break;
+			case E_CREDITS:
+				icon = UI.icons().s.money;
+				name.add(terms.credits(mine));
+				break;
+			case E_GOOD:
+				icon = TR.ALL().get(arg).icon();
+				name.add(terms.goods(mine, arg));
+				break;
+			default:
+				Region reg = WORLD.REGIONS().getByIndex(arg);
+				icon = reg.faction() != null ? reg.faction().banner().MEDIUM : UI.icons().s.world;
+				name.add(reg.info.name());
+			}
+			icon.renderCY(r, body.x1() + 8, body.cY());
+			name.renderCY(r, body.x1() + 40, body.cY());
 		}
-		for (int ri : terms.regions(mine)) {
-			Region reg = WORLD.REGIONS().getByIndex(ri);
-			UI.icons().s.world.render(r, x, y);
-			UI.FONT().M.render(r, reg.info.name(), x + 28, y);
-			y += line;
+
+		@Override
+		protected void clickA() {
+			if (index >= entries)
+				return;
+			int arg = eArg[index];
+			boolean mine = eMine[index];
+			switch (eKind[index]) {
+			case E_TERM:
+				terms.toggle(terms.chosen());
+				break;
+			case E_CREDITS:
+				(mine ? give : ask).set(0);
+				break;
+			case E_GOOD:
+				terms.goods(mine, arg, 0);
+				break;
+			case E_REGION:
+				terms.toggleRegion(mine, arg);
+				break;
+			default:
+				return;
+			}
+			changed();
+			super.clickA();
 		}
-		return y;
+
+		@Override
+		public void hoverInfoGet(GUI_BOX text) {
+			if (index >= entries || eKind[index] == E_HEADER)
+				return;
+			GBox b = (GBox) text;
+			int arg = eArg[index];
+			switch (eKind[index]) {
+			case E_TERM:
+				b.title(vanillaBools[arg].info.name);
+				b.text(vanillaBools[arg].info.desc);
+				break;
+			case E_CREDITS:
+				b.title(Dic.¤¤Currs);
+				break;
+			case E_GOOD:
+				b.title(TR.ALL().get(arg).names);
+				break;
+			default:
+				VIEW.world().UI.regions.hover(WORLD.REGIONS().getByIndex(arg), b);
+			}
+			b.NL();
+			b.text(TAKE_OUT);
+		}
 	}
 }
