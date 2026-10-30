@@ -197,7 +197,7 @@ final class MpViews {
 		}
 		int local = r.local();
 		View v = engine.view(local);
-		byte[] hashes = r.takeHashes();
+		byte[] hashes = r.takeHashes(v != null, engine.viewingHere());
 		if (v == null)
 			return;
 		if (v != seen) {
