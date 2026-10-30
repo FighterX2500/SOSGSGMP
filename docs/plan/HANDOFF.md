@@ -1,6 +1,6 @@
 # Handoff: the next session starts here
 
-Written 2026-10-25, end of day, after SOS-64. It covers both repositories. SOSDET's own `docs/plan/HANDOFF.md` keeps the engine-only notes (rig, patches, the engine's open items).
+Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-10-30 (docs audit). It covers both repositories. SOSDET's own `docs/plan/HANDOFF.md` keeps the engine-only notes (rig, patches, the engine's open items).
 
 ## 1. Read first
 
@@ -25,8 +25,20 @@ Written 2026-10-25, end of day, after SOS-64. It covers both repositories. SOSDE
 - a playtest log on every PC (SOS-63);
 - campaign saves and resume (SOS-64: SOSGSGMP #39 with the engine fix SOSDET #38). Plan and test results: [campaign-saves.md](campaign-saves.md).
 - disconnects (SOS-65, with the engine's removal SOS-66 and SOSDET #43): a player dropping holds every PC at one step; the host continues without them (they are removed and the campaign autosaves) or returns to the last save. A resume can start without a missing player, who is then removed. Plan and results: [disconnects.md](disconnects.md).
+- a campaign save before every battle, and a desync's Save and exit as a real campaign save (SOS-67, SOS-68); Save Campaign in the escape menu, with Quit and Exit saving first (SOS-79, [escape-save.md](escape-save.md));
+- diplomacy between players: treaties, money and goods (SOS-72, [diplomacy.md](diplomacy.md)), another player in vanilla's faction window (SOS-76, [diplomacy-window.md](diplomacy-window.md)), regions, vassalage and passage (SOS-73, [diplomacy-2.md](diplomacy-2.md));
+- goods and tariffs between players (SOS-77, [goods-tariffs.md](goods-tariffs.md)); names and banners on every PC (SOS-78, [names-banners.md](names-banners.md)); every transfer in the playtest log (SOS-81, [transfer-log.md](transfer-log.md));
+- war between players and real-time battles between two players' armies, with the sally from a besieged region (SOS-74, SOS-83, [war.md](war.md), [battles-between-players.md](battles-between-players.md));
+- city viewing (SOS-82, [city-viewing.md](city-viewing.md));
+- sieges of a player's capital, step A: the siege's popup, the days to the assault and Sally out (SOS-92, hook M9, [sieges.md](sieges.md));
+- playtest fixes: no capital without roads (SOS-75), the panel's status text and hide button (SOS-84, SOS-91), the host's lead of 1000 steps (SOS-86), the governor's reasons in the log (SOS-94), and batch 1 (PR #66): the ruler name (SOS-98), cursors in cities (SOS-58), a Steam invite from the main menu (SOS-103) and compressed streams with network figures in the log (SOS-96). Protocol 16.
 
-**Open PRs** (2026-10-27): SOS-81, every goods and money transfer in the playtest log, with a lobby switch (the SOSDET PR first, then the SOSGSGMP PR; plan [transfer-log.md](transfer-log.md)). The SOSGSGMP PR also carries the diplomacy log lines (SOS-73's last commit, written after #55). Merged: SOS-80 (#54, the owner's GUI fixes; see "GUI changelog" below), SOS-73 (SOSDET #51, SOSGSGMP #55: regions, vassalage, passage), SOS-72 and SOS-75 to SOS-79.
+**Open PRs** (2026-10-30):
+- SOSGSGMP #67 and SOSDET #63: SOS-92 steps B and C in part, the assault on a player's capital.
+- SOSGSGMP #68: SOS-93, the plan, spike design and draft spec changes for NPC battles on their own clock.
+- SOSGSGMP #69: SOS-100, the player Diplomacy tab laid out as vanilla's NPC deal.
+- SOSGSGMP #70: SOS-105, Steam's newer messages through JNA, behind `SteamPort` (opt-in).
+- SOSDET #64: SOS-102, the unit tests run again.
 
 **GUI changelog, SOS-80** (the owner checks GUI changes in-game; no tests for pure layout). Keep these conventions in new screens:
 - **Leave** goes in the bottom-right corner of every setup panel: add the panel's other buttons as its last row, then call `MpSetupLeave.addBottomRight(panel, buttonsRow, MpSetupLeave.button(...))`. Never add Leave inline with other buttons.
@@ -36,8 +48,9 @@ Written 2026-10-25, end of day, after SOS-64. It covers both repositories. SOSDE
 - **Status text boxes** are sized for their longest message plus a spare line (`Font.getHeight(text, width)`), so the panel grows downward instead of the text overlapping the buttons. A new long status message must go into that measure (`MpFactions.statusHeight`).
 - **Full-screen prompts with one button** go through `menu.MpPrompt.show(text, button)`: vanilla's `IPromtScreen` puts a lone button half a slot left of centre. Two or more buttons are centred already, so call `fullScreen.activate` directly.
 
-**Jira** (cleaned up 2026-10-25 at the owner's request; SOS-64 Done 2026-10-26). Every card with a merged PR is Done. Open:
-- SOS-58: In Progress. Cursors are built on the setup map and the world map, not yet in cities.
+**Jira** (read 2026-10-30). Every card with a merged PR is Done, SOS-58 (cursors) included. Open:
+- In progress: SOS-92 (sieges), SOS-93 (NPC battles on their own clock), SOS-100 (the Diplomacy tab).
+- Also open: SOS-85 (a viewer's PC stopped at a view's load), SOS-95 (a report desync after a view ends), and the 2026-10-30 cards SOS-101, SOS-104 and SOS-105.
 - The epics SOS-22 (engine) and SOS-47 (mod).
 - The planning cards SOS-18, SOS-19 and SOS-21.
 
@@ -47,20 +60,20 @@ From now on, move a card to In Review when its PR opens. When the PR merges, com
 
 ## 3. Next
 
-1. **SOS-72, diplomacy milestone 1** (owner, 2026-10-26: priority): treaties, money and goods between players. Built and tested, in review: the SOSDET PR first, then the SOSGSGMP PR. Plan and results: [diplomacy.md](diplomacy.md). Milestones 2 (regions, vassalage, emissaries, passage: SOS-73) and 3 (war between players: SOS-74) follow. SOS-71 (a siege by a human other than slot 0) was not a bug: Done.
-2. **The owner's playtests**, with a friend over Steam or the laptop, using saves and resume. Collect the logs (section 5) and turn findings into cards.
-3. **Spec §11 gaps:** done (the save before every battle, and a desync's Save and exit as a campaign save: SOS-67, SOS-68).
-4. **Battles, engine plan 0006:** M2 (the commanders table, spectators) and M3 (resync in a battle). Player against player and the speed vote come after.
-5. **Other spec sections not started:** trade (§7), sieges of player cities (§9), city viewing (§10), chat and notifications (§12, apart from cursors).
-6. **Planning cards still open:** SOS-18 (distribution), SOS-19 (test plan), SOS-21 (the board).
+1. **Sieges of player cities, SOS-92** ([sieges.md](sieges.md)): step A is merged; steps B and C (the assault) are in review; the outcomes, the removed people and allied attackers follow.
+2. **The open PRs above**, then the cards from the 2026-10-29 playtest (SOS-85, SOS-95, SOS-101, SOS-104, SOS-105).
+3. **Battles:** resync in a battle (engine plan 0006 M3), the speed vote, allies joining, spectators' view; SOS-93 (NPC battles on their own clock) waits for the owner's answers in PR #68.
+4. **Chat and notifications** (§12, apart from cursors), who paused, debug mode off, elimination and spectating.
+5. **Planning cards still open:** SOS-18 (distribution), SOS-19 (test plan), SOS-21 (the board).
+6. Spec §17 keeps the feature-by-feature status and the estimate for v1.
 
 ## 4. Known issues
 
 - **Market runs in the rig:** a human trades only with capitals it reaches, never across unclaimed land. In Mogus-72 use `--make-humans 2,24`. A game day is 1,152 s and trade runs once a day, so a sale needs about 45,000 steps.
-- **Speed cap at 5x and above:** the lockstep cadence keeps high speeds from reaching their full rate.
+- **High speeds:** SOS-90 keeps the lockstep windows at half a second of real time at every speed; whether 5x and above now reach their full rate is still to check in a playtest.
 - **"No active entry points" warning:** found and fixed in SOS-75 (SOSDET #46 and the SOSGSGMP PR). Islet capitals with no land beyond their square could get no roads; the location rules now refuse them. Plan and results: [joiner-roads.md](joiner-roads.md).
 - **City↔world items at a resume:** anything crossing in the last ~0.5 s before a campaign save is lost on resume. A battle's return has the same gap.
-- **Engine open items** (SOSDET HANDOFF): SOS-32's owner checks (camera and clicks, older-save followers, draw tracing), the V01B rig split at step 154,365, and the resync with an open prompt.
+- **Engine open items** (SOSDET HANDOFF): SOS-32's owner checks (camera and clicks, older-save followers, draw tracing), the V01B rig split at step 154,365, the resync with an open prompt, and the scenario suite's recordings, all older than the AI log's and hash's format 8.
 
 ## 5. Playtesting with logs
 
@@ -76,7 +89,7 @@ Every PC writes its own log of each multiplayer session, with no setup:
 
 ## 6. Tests
 
-- **Build:** `gradlew.bat build installMod` in each repository, run through PowerShell with `SOS_GAME_DIR` set. Mod: 122 unit and loopback tests.
+- **Build:** `gradlew.bat build installMod` in each repository, run through PowerShell with `SOS_GAME_DIR` set. Mod: 158 unit and loopback tests (PR #66).
 - **Two PCs, mod:** `tools\twopc.py`. Set `SOSGSGMP_REMOTE=Qarasiq@26.161.86.190` and `SOSGSGMP_HOST_ADDRESS=26.215.11.176`.
   - Options: `--steps N`, `--speed X`, `--seed N`, `--corrupt STEP --on-desync resync|exit`, `--net steam`, `--save STEP` and `--resume`.
   - `--resume` keeps both data folders from the last run and copies the installed mods into them.
