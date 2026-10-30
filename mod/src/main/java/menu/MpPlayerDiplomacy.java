@@ -104,7 +104,7 @@ final class MpPlayerDiplomacy extends GuiSection {
 
 		// vanilla's bottom row: why the deal can't go yet on the left, its button on the right (SOS-100)
 		GuiSection op = new GuiSection();
-		op.add(new RENDEROBJ.RenderImp(LIST_W + BW, UI.FONT().M.height() * 2) {
+		op.add(new RENDEROBJ.RenderImp(LIST_W + BW - 128, UI.FONT().M.height() * 2) { // room for the widest button, inside the tab
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				if (dealWhy == null)
