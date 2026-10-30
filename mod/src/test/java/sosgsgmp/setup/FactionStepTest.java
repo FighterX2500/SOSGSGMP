@@ -28,7 +28,7 @@ class FactionStepTest {
     };
 
     private static FactionPick pick(String name, int x, int y) {
-        return new FactionPick("HUMAN", name, new byte[] {1, 2}, x, y);
+        return new FactionPick("HUMAN", name, "Ruler", new byte[] {1, 2}, x, y);
     }
 
     /** Ann (0) hosts; Bob (5) and Cid (9) joined in that order. */

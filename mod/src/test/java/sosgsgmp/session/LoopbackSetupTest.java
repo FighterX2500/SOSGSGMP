@@ -247,7 +247,7 @@ class LoopbackSetupTest {
     }
 
     private static FactionPick pick(String name, int x, int y) {
-        return new FactionPick("HUMAN", name, new byte[] {1, 2, 3}, x, y);
+        return new FactionPick("HUMAN", name, "Ruler", new byte[] {1, 2, 3}, x, y);
     }
 
     private static List<String> names(SetupSession s) {
@@ -705,8 +705,8 @@ class LoopbackSetupTest {
         playUntil("Bob's ask at the host", () -> (asked[0] = host.takeQuitAsk()) >= 0);
         assertEquals(bobId, asked[0]);
         cid.askQuit();
-        bob.cursor(true, 1, 2); // each PC's messages arrive in order: once their cursors are here, so are their asks
-        cid.cursor(true, 3, 4);
+        bob.cursor(Cursors.WORLD, 1, 2); // each PC's messages arrive in order: once their cursors are here, so are their asks
+        cid.cursor(Cursors.WORLD, 3, 4);
         playUntil("both cursors at the host", () -> at(host, bobId, 1, 2) && at(host, cidId, 3, 4));
         assertEquals(-1, host.takeQuitAsk(), "the session ends with Bob's ask: later asks change nothing");
         assertEquals(-1, bob.takeQuitAsk(), "only the host takes asks");
@@ -850,14 +850,14 @@ class LoopbackSetupTest {
     @Test
     void aCursorReachesEveryOtherPcAndGoesWhenItsPlayerLeaves() throws Exception {
         confirmMap();
-        bob.cursor(true, 120, 340);
+        bob.cursor(Cursors.WORLD, 120, 340);
         until("Bob's cursor on the host and on Cid's PC", () -> at(host, 1, 120, 340) && at(cid, 1, 120, 340));
         assertEquals(0, bob.cursors().count(), "a PC doesn't see its own");
-        host.cursor(true, 5, 6);
+        host.cursor(Cursors.WORLD, 5, 6);
         until("Ann's cursor on Bob's PC", () -> at(bob, 0, 5, 6));
-        bob.cursor(false, 0, 0);
+        bob.cursor(Cursors.OFF, 0, 0);
         until("Bob's cursor off the map on Cid's PC", () -> cid.cursors().count() == 1);
-        cid.cursor(true, 1, 1);
+        cid.cursor(Cursors.WORLD, 1, 1);
         until("Cid's cursor on the host", () -> at(host, 2, 1, 1));
         cid.leave();
         until("Cid's cursor gone with Cid", () -> host.cursors().count() == 0 && bob.players().size() == 2 && !at(bob, 2, 1, 1));

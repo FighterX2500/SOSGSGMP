@@ -183,6 +183,7 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 		mp.savePrefs();
 		LobbySettings settings = new LobbySettings(mp.modes.keys[mode], players.get()).withFullTransferLog(fullTransferLog);
 		if (steam) {
+			mp.invites.stop(); // Steam runs once in the process (SOS-103)
 			SteamNode node = SteamNode.host(SteamworksPort::new, players.get());
 			error.clear();
 			mp.openLobby(new HostedLobby(settings, n, mp.prefs.playerKey, node), node);

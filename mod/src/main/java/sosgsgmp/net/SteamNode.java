@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /**
@@ -47,6 +48,8 @@ public final class SteamNode implements Node {
     private volatile List<SteamPort.FriendLobby> friendLobbies = List.of();
     /** While browsing: a lobby whose invite the user accepted in Steam's overlay; 0 if none. */
     private volatile long invited;
+    /** While set and false, the node closes itself (SOS-103: the main menu's invite watch, once the menu is gone). */
+    private volatile BooleanSupplier wanted;
 
     // Owned by the I/O thread.
     private SteamPort port;
@@ -97,6 +100,14 @@ public final class SteamNode implements Node {
     /** While browsing: the lobby of an invite the user accepted in Steam's overlay, or 0. */
     public long invited() {
         return invited;
+    }
+
+    /**
+     * The node closes itself, on its I/O thread, as soon as {@code wanted} is false; null keeps it open (SOS-103). For
+     * a node the game thread may stop calling, such as the main menu's invite watch once a game starts.
+     */
+    public void closeWhenUnwanted(BooleanSupplier wanted) {
+        this.wanted = wanted;
     }
 
     /** A browsing node enters {@code lobby}; the outcome arrives as for {@link #join(Supplier, long)}. Once only. */
@@ -157,7 +168,7 @@ public final class SteamNode implements Node {
             else if (joinLobby != 0)
                 enter(joinLobby);
             long friendsAt = 0;
-            while (!closing) {
+            while (!closing && unwantedNot()) {
                 runCommands();
                 port.runCallbacks();
                 readPackets();
@@ -181,6 +192,11 @@ public final class SteamNode implements Node {
                 port.leaveLobby(lobby);
             port.close();
         }
+    }
+
+    private boolean unwantedNot() {
+        BooleanSupplier w = wanted;
+        return w == null || w.getAsBoolean();
     }
 
     private void enter(long id) {

@@ -20,6 +20,7 @@ import sosgsgmp.game.EnginePlay;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.log.PlayLog;
 import sosgsgmp.net.Protocol;
+import sosgsgmp.session.EngineLink;
 import sosgsgmp.session.SetupSession;
 
 /**
@@ -45,6 +46,8 @@ final class MpLog {
 	private boolean go, closed, ended, failureReported;
 	private long statusAt;
 	private long frames, statusFrames;
+	/** The streams' compressed bytes at the last status line: the rate since (SOS-96). */
+	private long statusWireOut, statusWireIn;
 	private long statusNanos = System.nanoTime();
 	private OwnBattle battle;
 	/** The assault last seen, and whether its invasion had started then (SOS-92 B). */
@@ -255,14 +258,18 @@ final class MpLog {
 				peers.append(peers.length() == 0 ? "" : ", ").append(p.name()).append(' ').append(engine.peerStep(pc))
 						.append(" (capacity ").append(engine.capacity(pc)).append(')');
 		}
+		EngineLink.Traffic n = setup.traffic();
 		line(String.format(Locale.ROOT,
 				"step %d hash %s | speed agreed %.2f, game %.2f, paused %b | %.1f fps, step ms mean %.2f p99 %.2f max %.1f,"
 						+ " over 100 ms %d, capacity %d steps/s | peers at %s | held %.1f s, longest %.2f s | hashes compared %d, missed %d | orders %d,"
-						+ " commands %d, txns %d, reports %d, AI %d | treasury %d",
+						+ " commands %d, txns %d, reports %d, AI %d | treasury %d | network out %.1f KB/s (%d KB, raw %d KB), in %.1f KB/s (%d KB, raw %d KB)",
 				at, hash(at), s.agreedSpeed, GAME.SPEED.speed(), GAME.SPEED.isPaused(), (frames - statusFrames) / seconds,
 				s.meanMs, s.p99Ms, s.maxMs, s.stepsOver100Ms, engine.capacity(), peers, engine.heldSeconds(), engine.longestHoldSeconds(),
 				s.hashesCompared, s.hashesMissed, s.ordersApplied, s.commandsApplied, s.txnsApplied, s.reportsReceived,
-				s.aiApplied, (long) FACTIONS.player().credits().credits()));
+				s.aiApplied, (long) FACTIONS.player().credits().credits(), (n.wireOut() - statusWireOut) / 1024.0 / seconds,
+				n.wireOut() >> 10, n.rawOut() >> 10, (n.wireIn() - statusWireIn) / 1024.0 / seconds, n.wireIn() >> 10, n.rawIn() >> 10));
+		statusWireOut = n.wireOut();
+		statusWireIn = n.wireIn();
 		statusNanos = now;
 		statusFrames = frames;
 	}

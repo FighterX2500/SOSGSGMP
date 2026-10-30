@@ -30,7 +30,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 15;
+    public static final int VERSION = 16;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -197,7 +197,7 @@ public final class Protocol {
                 case Message.Cursor c -> {
                     out.writeByte(CURSOR);
                     out.writeInt(c.playerId());
-                    out.writeBoolean(c.onMap());
+                    out.writeShort(c.place()); // Cursors.OFF, WORLD or a city (SOS-58)
                     out.writeInt(c.x());
                     out.writeInt(c.y());
                 }
@@ -318,7 +318,7 @@ public final class Protocol {
             case WORLD_PLAYERS -> worldPlayers(in);
             case GO -> new Message.Go(number(in, "transfer"));
             case STREAM -> stream(in);
-            case CURSOR -> new Message.Cursor(playerId(in), in.readBoolean(), in.readInt(), in.readInt());
+            case CURSOR -> new Message.Cursor(playerId(in), cursorPlace(in.readShort()), in.readInt(), in.readInt());
             case RESYNC -> {
                 long step = step(in, "resync");
                 Piece p = piece(in, "transfer", "resync");
@@ -528,6 +528,7 @@ public final class Protocol {
     private static void writePick(DataOutputStream out, FactionPick p) throws IOException {
         out.writeUTF(p.race());
         out.writeUTF(p.name());
+        out.writeUTF(p.ruler()); // SOS-98
         byte[] banner = p.banner();
         out.writeShort(banner.length);
         out.write(banner);
@@ -538,6 +539,7 @@ public final class Protocol {
     private static FactionPick pick(DataInputStream in) throws IOException {
         String race = in.readUTF();
         String name = in.readUTF();
+        String ruler = in.readUTF(); // SOS-98
         int length = in.readUnsignedShort();
         if (length > FactionPick.MAX_BANNER)
             throw new IOException("SOSGSGMP: banner of " + length + " bytes");
@@ -548,7 +550,7 @@ public final class Protocol {
         if (x >= MapOptions.MAX_SIZE || y >= MapOptions.MAX_SIZE)
             throw new IOException("SOSGSGMP: location " + x + "," + y);
         try {
-            return new FactionPick(race, name, banner, x, y);
+            return new FactionPick(race, name, ruler, banner, x, y);
         } catch (IllegalArgumentException e) {
             throw new IOException(e.getMessage(), e);
         }
@@ -606,6 +608,12 @@ public final class Protocol {
             throw new IOException("SOSGSGMP: a view's city piece at " + offset + " of " + total + " bytes");
         byte[] bytes = data(in, Math.min(MAX_STREAM_PIECE, total - offset), "view city piece");
         return new Message.ViewCity(viewer, step, total, offset, bytes);
+    }
+
+    private static int cursorPlace(int place) throws IOException {
+        if (place < sosgsgmp.session.Cursors.OFF || place > LobbySettings.MAX_PLAYERS)
+            throw new IOException("SOSGSGMP: cursor place " + place);
+        return place;
     }
 
     private static int playerId(DataInputStream in) throws IOException {

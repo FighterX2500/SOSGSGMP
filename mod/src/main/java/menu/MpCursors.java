@@ -15,9 +15,10 @@ import view.main.VIEW;
 import view.subview.GameWindow;
 
 /**
- * SOSGSGMP: the other players' cursors on a world map (spec §5 "Other players' cursors"): the setup's location screen
- * and the game's world view. Each frame it sends this PC's cursor (on the map when the mouse is over the map's window)
- * and draws every other player's with their name, in the player's colour: the n-th player of the lobby has the n-th
+ * SOSGSGMP: the other players' cursors (spec §5 "Other players' cursors", §12): on the setup's location screen, the
+ * game's world view and a city, the owner's and its viewers' alike (SOS-58). Each frame it sends this PC's cursor (on
+ * its place when the mouse is over that map's window) and draws every other player's on the same place with their
+ * name, in the player's colour: the n-th player of the lobby has the n-th
  * colour, the same on every PC. Per frame it allocates nothing; the names are rebuilt when the session changes.
  */
 public final class MpCursors {
@@ -42,21 +43,26 @@ public final class MpCursors {
 			names[i] = new GText(UI.FONT().S, 32);
 	}
 
-	/** Sends this PC's cursor: on the map when {@code onMap} and the mouse is inside {@code window}'s view. */
-	public void send(GameWindow window, boolean onMap) {
+	/**
+	 * Sends this PC's cursor: on {@code place} ({@link Cursors}) when the mouse is inside {@code window}'s view, else
+	 * off. {@code window} may be null with {@link Cursors#OFF}.
+	 */
+	public void send(GameWindow window, int place) {
 		if (setup.closed())
 			return;
-		boolean in = onMap && window.view().holdsPoint(VIEW.mouse().x(), VIEW.mouse().y());
-		setup.cursor(in, in ? window.pixel().x() : 0, in ? window.pixel().y() : 0);
+		boolean in = place != Cursors.OFF && window.view().holdsPoint(VIEW.mouse().x(), VIEW.mouse().y());
+		setup.cursor(in ? place : Cursors.OFF, in ? window.pixel().x() : 0, in ? window.pixel().y() : 0);
 	}
 
-	/** Draws every other player's cursor that is inside {@code window}'s view, on screen. */
-	public void render(SPRITE_RENDERER r, GameWindow window) {
+	/** Draws every other player's cursor on {@code place} that is inside {@code window}'s view, on screen. */
+	public void render(SPRITE_RENDERER r, GameWindow window, int place) {
 		if (setup.changes() != namedChanges)
 			names();
 		Cursors c = setup.cursors();
 		int zoom = window.zoomout();
 		for (int i = 0; i < c.count(); i++) {
+			if (c.place(i) != place)
+				continue;
 			int x = window.view().x1() + ((c.x(i) - window.pixels().x1()) >> zoom);
 			int y = window.view().y1() + ((c.y(i) - window.pixels().y1()) >> zoom);
 			if (!window.view().holdsPoint(x, y))
