@@ -46,7 +46,7 @@ import world.entity.army.WArmy;
  * army at the capital); {@code mercs} (the mercenary bands for hire); {@code merc <index>} (hire one into the first army);
  * {@code attack} (the first army intercepts the other player's nearest army); {@code fight}, {@code start}, {@code retreat}
  * (the open battle prompt or battle); {@code speed <x>} (host); {@code view} (ask to view the other player's city) and
- * {@code closeview} (SOS-82); {@code say <text>} (the chat, SOS-110).
+ * {@code closeview} (SOS-82); {@code say <text>} (the chat, SOS-110); {@code pause} (as the pause key).
  */
 final class MpAutopilotCommands {
 
@@ -57,6 +57,7 @@ final class MpAutopilotCommands {
 	private Object answeredPrompt;
 	private boolean started;
 	private boolean concluded;
+	private int chatSeen;
 
 	MpAutopilotCommands(Path events, boolean host, boolean autoBattles, BiConsumer<String, String> event) {
 		this.file = events.resolveSibling("command.txt");
@@ -69,6 +70,11 @@ final class MpAutopilotCommands {
 	void frame(EnginePlay engine, SetupSession setup) {
 		if (autoBattles)
 			battles();
+		if (setup.chat().added() != chatSeen) {
+			chatSeen = setup.chat().added();
+			event.accept("chatline", "\"added\":" + chatSeen + ",\"step\":" + engine.step() + ",\"text\":\""
+					+ clean(setup.chat().line(setup.chat().size() - 1).text()) + "\"");
+		}
 		if (!Files.exists(file))
 			return;
 		List<String> lines;
@@ -102,6 +108,9 @@ final class MpAutopilotCommands {
 		case "say":
 			setup.say(String.join(" ", java.util.Arrays.copyOfRange(a, 1, a.length)));
 			return "said";
+		case "pause":
+			GAME.SPEED.togglePause();
+			return "pause toggled";
 		case "status":
 			return status(engine);
 		case "shot":

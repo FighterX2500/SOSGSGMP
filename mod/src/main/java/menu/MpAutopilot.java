@@ -122,6 +122,9 @@ public final class MpAutopilot {
 	private long previewNanos;
 	/** The game's own screenshot of the preview window was taken (it reads the frame buffer, so a locked screen still works). */
 	private boolean previewShot;
+	/** When {@link #stageChat} said its line, and whether it took its screenshot. */
+	private long stageAt;
+	private boolean stageShot;
 	/** The step this PC's player asks to view the other player's city at, and closes the view at (SOS-82); -1 for never. */
 	private final long viewAt, viewClose;
 	/** How this PC's player answers an ask to view its city: allow, refuse or none. */
@@ -436,6 +439,8 @@ public final class MpAutopilot {
 			}
 			return;
 		}
+		if (s.players().size() > 1 && stageChat("lobby", s::say))
+			return;
 		if (host && s.canStart() && s.players().size() >= players && System.nanoTime() - lobbyAt >= startAfterNanos
 				&& first("started")) {
 			s.start();
@@ -443,10 +448,30 @@ public final class MpAutopilot {
 		}
 	}
 
+	/**
+	 * With a GUI preview, on reaching a screen before the game: a chat line, a screenshot of the box, and this stage
+	 * waits a moment for them (SOS-110). True while it waits.
+	 */
+	private boolean stageChat(String stage, java.util.function.Consumer<String> say) {
+		if (guiPreview < 0)
+			return false;
+		if (first("stagechat" + stage)) {
+			say.accept("Hello from the " + stage + " screen, " + name);
+			stageAt = System.nanoTime();
+			stageShot = false;
+		}
+		double seconds = (System.nanoTime() - stageAt) / 1e9;
+		if (seconds >= 2 && !stageShot) {
+			stageShot = true;
+			CORE.getGraphics().makeScreenShot();
+		}
+		return seconds < 3;
+	}
+
 	/** The map step, every frame: the host generates once and confirms; every PC goes on to the factions. */
 	public void map(SetupSession setup, boolean canGoOn, Runnable next) {
 		MapStep step = setup.step();
-		if (setup.closed())
+		if (setup.closed() || stageChat("map", setup::say))
 			return;
 		if (host && step.genId() == 0 && step.canGenerate()) {
 			setup.generate(new MapOptions(step.size(), "", MapOptions.DEFAULT_LATITUDE, seed));
@@ -465,7 +490,7 @@ public final class MpAutopilot {
 	 * through {@code placeAt} (returns the location's x, or NONE when none was placed); the host initializes.
 	 */
 	public void factions(SetupSession setup, boolean hasLocation, IntBinaryOperator placeAt) {
-		if (setup.closed() || setup.factions().initialized())
+		if (setup.closed() || setup.factions().initialized() || stageChat("factions", setup::say))
 			return;
 		if (FACTIONS.player().name.toString().isBlank())
 			FACTIONS.player().name.clear().add(name);

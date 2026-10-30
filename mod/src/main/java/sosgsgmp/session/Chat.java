@@ -90,12 +90,12 @@ public final class Chat {
         add(new Line(NOTICE, "", 0, text));
     }
 
-    /** The lobby's players now, at each refresh: who joined or left since the last call; the first only remembers. */
+    /** The lobby's players now, at each refresh: who joined or left since the last call; the first with anyone in only remembers. */
     public void roster(List<LobbyPlayer> players) {
         List<String> now = new ArrayList<>();
         for (LobbyPlayer p : players)
             now.add(p.name());
-        if (roster != null) {
+        if (roster != null && !roster.isEmpty()) {
             for (String name : now)
                 if (!roster.contains(name))
                     notice(name + " joined.");

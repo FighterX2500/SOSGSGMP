@@ -114,7 +114,7 @@ final class MpPlay implements ACTION {
 		if (a == null)
 			return;
 		log.line("assault outcome applied at step " + engine.step() + ": " + a);
-		setup.chat().notice(MpAssaultOutcome.othersText(engine.factionName(a.attacker), engine.factionName(a.defender), a.outcome()));
+		setup.chat().notice(MpAssaultOutcome.othersText(notices.name(a.attacker), notices.name(a.defender), a.outcome()));
 		int slot = setup.factions().slotOf(setup.localPlayerId());
 		if (slot == a.attacker && a.outcome() == Assault.TAKEN) {
 			new MpAssaultTerms(a.defender).open();
@@ -133,7 +133,8 @@ final class MpPlay implements ACTION {
 		String what = MpAssaultOutcome.termsText(engine.factionName(a.attacker), engine.factionName(a.defender), a.termsKind(), a.termsPercent(),
 				a.termsCredits());
 		log.line("assault terms applied at step " + engine.step() + ": " + what);
-		setup.chat().notice(what);
+		setup.chat().notice(MpAssaultOutcome.termsText(notices.name(a.attacker), notices.name(a.defender), a.termsKind(), a.termsPercent(),
+				a.termsCredits()));
 		if (setup.factions().slotOf(setup.localPlayerId()) == a.defender)
 			new MpViewNotice("Assault", what, true).open();
 	}
@@ -145,8 +146,9 @@ final class MpPlay implements ACTION {
 			int slot = (int) n[1];
 			String text = MpAssaultOutcome.invasionText(engine.factionName(slot), engine.factionName((int) n[2]));
 			log.line("invasion at step " + n[0] + ": " + text);
-			setup.chat().notice(slot == setup.factions().slotOf(setup.localPlayerId()) ? text
-					: text + " You can ask to view the city from their window.");
+			String line = MpAssaultOutcome.invasionText(notices.name(slot), engine.factionName((int) n[2]));
+			setup.chat().notice(slot == setup.factions().slotOf(setup.localPlayerId()) ? line
+					: line + " You can ask to view the city from their window.");
 		}
 	}
 

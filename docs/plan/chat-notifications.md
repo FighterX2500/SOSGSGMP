@@ -44,11 +44,11 @@ Each step is one commit in this repository's PR, except step D's engine PR.
 Waits until SOS-93 merges: it changes `Session` and `Hooks`.
 
 - SOSDET: a notice queue, `Engine.noticeTake()`, filled at lockstep steps, so every PC has the same events in the same order. Each carries the kind, the factions and the step, never positions or numbers of armies. It reads nothing per-PC into the simulation and feeds no hash.
-- Kinds: war declared, peace, vassalage, siege start, assault start, a battle between players starting and ending, pause and unpause with the player who did it.
+- Kinds: war declared, peace, vassalage, siege start, assault start, a battle between players starting, a tariff. A battle's end comes from the existing `battleOutcomeTake`.
 - The mod's `Notifications` turns them into English lines in the `Chat`, and adds the ones it already gets: assault outcome, terms, invasions, a player leaving or returning. Elimination joins when it's built.
 - Only on the PCs involved: deals, gifts, tariffs, view requests.
 - The playtest log gets every notification.
-- **Who paused (§4):** the engine has to learn who set a pause. The first task of this step is to read how a pause travels in a session. The status text and a chat line show the name.
+- **Who paused (§4):** built outside the engine. A paused PC runs no steps, so a pause can't be a lockstep event: `Message.Pause` goes through the host like a chat line, and every PC sets its own game speed from it. That also gives §4's rule that any player can unpause. The status text and a chat line show the name.
 
 **Tests:** engine unit tests for the queue; a rig run with 2 humans, war then peace, identical copies and the same notices on both; a repeat of a taken notice changes nothing.
 
@@ -92,5 +92,5 @@ Applied in this card's PR once approved.
 
 ## 4. Open
 
-- The 2 seconds during a large transfer: if a message waits behind a save, §15 needs an exception for those moments. Measured in step F.
+- The 2 seconds during a large transfer: measured in step F over localhost. A line reached the other PC in about 10 ms, while paused too, and took 10.3 s to a viewer whose PC was loading the view (8.5 s load). §15 has no exception for a PC that is loading; the owner decides.
 - `MpBattleOutcome` and `MpAssaultOutcome`, the windows for the two sides, have only an OK button but are the main report of a lost battle. They stay windows; other players get a chat line. The owner can reverse this.

@@ -3,6 +3,7 @@ package menu;
 import sosdet.BattleOutcome;
 import sosdet.Notice;
 import sosgsgmp.game.EnginePlay;
+import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.session.SetupSession;
 
 /**
@@ -29,16 +30,24 @@ final class MpNotices {
 	}
 
 	void battleOver(BattleOutcome o) {
-		String winner = engine.factionName(o.winner);
-		String loser = engine.factionName(o.loser);
+		String winner = name(o.winner);
+		String loser = name(o.loser);
 		setup.chat().notice(o.retreat ? loser + " retreated from the battle with " + winner + "."
 				: winner + " won the battle with " + loser + ".");
 	}
 
+	/** The player in {@code slot}, by the name the chat shows them with: two realms can share a name. */
+	String name(int slot) {
+		for (LobbyPlayer p : setup.players())
+			if (setup.factions().slotOf(p.id()) == slot)
+				return p.name();
+		return engine.factionName(slot);
+	}
+
 	/** What {@code n} says on this PC; null when it isn't for this player. */
 	private String text(Notice n) {
-		String a = engine.factionName(n.first());
-		String b = engine.factionName(n.second());
+		String a = name(n.first());
+		String b = name(n.second());
 		return switch (n.kind()) {
 			case Notice.WAR -> a + " declared war on " + b + ".";
 			case Notice.PEACE -> a + " and " + b + " made peace.";
