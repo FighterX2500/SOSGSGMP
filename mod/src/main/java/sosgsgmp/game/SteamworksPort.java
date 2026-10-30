@@ -20,6 +20,7 @@ import com.codedisaster.steamworks.SteamUserCallback;
 import com.codedisaster.steamworks.SteamAuth;
 import com.codedisaster.steamworks.SteamAuthTicket;
 
+import snake2d.LOG;
 import sosgsgmp.net.Protocol;
 import sosgsgmp.net.SteamPort;
 
