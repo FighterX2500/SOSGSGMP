@@ -115,7 +115,7 @@ def refresh_mods(data, rdir):
         fail("sending the mods: %s" % unpack.stderr.strip())
 
 
-# SOSGSGMP_STEAM_NET for both games: "messages" with --steam-messages (SOS-105), else empty (the old P2P packets)
+# SOSGSGMP_STEAM_NET for both games: "p2p" with --steam-p2p (the old P2P packets), else empty (Steam's messages, SOS-105)
 STEAM_NET = [""]
 
 
@@ -233,13 +233,13 @@ def main():
                     " PC holds while the host's view opens) (SOS-82)")
     ap.add_argument("--view-answer", choices=("allow", "refuse", "none"), default="allow",
                     help="how the owner answers a view request; none: no answer, refused after 30 s (SOS-82)")
-    ap.add_argument("--steam-messages", action="store_true",
-                    help="with --net steam: both games use Steam's newer messages (SOSGSGMP_STEAM_NET=messages, SOS-105)")
+    ap.add_argument("--steam-p2p", action="store_true",
+                    help="with --net steam: both games use the old P2P packets (SOSGSGMP_STEAM_NET=p2p, SOS-105)")
     ap.add_argument("--gui-preview", type=int, default=-1,
                     help="the host opens each siege window in turn from this step, 6 s each, for screenshots (SOS-92)")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
-    STEAM_NET[0] = "messages" if args.steam_messages else ""
+    STEAM_NET[0] = "p2p" if args.steam_p2p else ""
     if not args.here and (not REMOTE or not HOST_ADDRESS):
         fail("set SOSGSGMP_REMOTE and SOSGSGMP_HOST_ADDRESS")
     crash_who, _, crash_at = args.crash.partition(":")
