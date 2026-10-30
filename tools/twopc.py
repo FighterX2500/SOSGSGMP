@@ -271,7 +271,7 @@ def main():
             refresh_mods(local, rdir)
         log("resuming in the last run's data folders")
     else:
-        local = data_folder(INST / "1", (1280, 720))
+        local = data_folder(INST / "1", (1920, 1080) if args.gui_preview >= 0 else (1280, 720))  # screenshots at full size
         local3 = data_folder(INST / "3", (1024, 640)) if args.local_joiner else INST / "3" / "songsofsyx"
         remote_data = data_folder(INST / str(REMOTE_K), (1024, 640) if args.here else (1600, 900))
         local2 = remote_data

@@ -120,6 +120,8 @@ public final class MpAutopilot {
 	private MpWindow previewWindow;
 	private int previewIndex = -1;
 	private long previewNanos;
+	/** The game's own screenshot of the preview window was taken (it reads the frame buffer, so a locked screen still works). */
+	private boolean previewShot;
 	/** The step this PC's player asks to view the other player's city at, and closes the view at (SOS-82); -1 for never. */
 	private final long viewAt, viewClose;
 	/** How this PC's player answers an ask to view its city: allow, refuse or none. */
@@ -751,12 +753,19 @@ public final class MpAutopilot {
 
 	/** Seconds each preview window stays open. */
 	private static final long PREVIEW_NANOS = 6_000_000_000L;
+	/** Seconds before the game's screenshot of each preview window: it has drawn by then. */
+	private static final long PREVIEW_SHOT_NANOS = 2_000_000_000L;
 
 	/**
 	 * The siege windows one after another, as this PC's player (slot 0, the defender) and as slot 1 (the attacker) would
 	 * see them, with preview numbers: a {@code guipreview} event as each opens, for the screenshot tool (SOS-92).
 	 */
 	private void preview(EnginePlay engine) {
+		if (previewIndex >= 0 && !previewShot && System.nanoTime() - previewNanos >= PREVIEW_SHOT_NANOS) {
+			previewShot = true;
+			CORE.getGraphics().makeScreenShot(); // into the data folder's screenshots, named by time
+			event("guishot", "\"index\":" + previewIndex);
+		}
 		if (previewIndex >= 0 && System.nanoTime() - previewNanos < PREVIEW_NANOS)
 			return;
 		if (previewWindow != null)
@@ -789,6 +798,7 @@ public final class MpAutopilot {
 		if (previewWindow != null)
 			previewWindow.open();
 		previewNanos = System.nanoTime();
+		previewShot = false;
 		event("guipreview", "\"name\":\"" + name + "\",\"step\":" + engine.step());
 	}
 

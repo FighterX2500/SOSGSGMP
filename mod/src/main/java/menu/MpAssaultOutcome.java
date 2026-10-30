@@ -1,5 +1,7 @@
 package menu;
 
+import java.util.Locale;
+
 import game.faction.FACTIONS;
 import init.sprite.UI.UI;
 import snake2d.SPRITE_RENDERER;
@@ -57,7 +59,7 @@ final class MpAssaultOutcome extends MpWindow {
 	/** The defender's and every other player's notice of what the attacker took (SOS-92 D). */
 	static String termsText(CharSequence attacker, CharSequence defender, int kind, int percent, int credits) {
 		return kind == AssaultTerms.SACK
-				? attacker + " sacked " + defender + "'s capital: " + percent + "% of its money (" + credits + ") and goods, and made peace."
+				? attacker + " sacked " + defender + "'s capital: " + percent + "% of its money (" + String.format(Locale.ENGLISH, "%,d", credits) + ") and goods, and made peace."
 				: defender + " is now " + attacker + "'s vassal, with a tribute of " + percent + "%.";
 	}
 

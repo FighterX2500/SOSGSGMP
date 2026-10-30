@@ -25,6 +25,8 @@ final class MpAssaultTerms extends MpWindow {
 
 	private final INT.IntImp sack = new INT.IntImp(0, AssaultTerms.MAX_SACK);
 	private final INT.IntImp tribute = new INT.IntImp(0, 100);
+	/** The choice was seen open: the window closes once it isn't (a window opened without one, as the GUI preview's, stays). */
+	private boolean open;
 
 	/** The window for the attacker of {@code defender}'s capital. */
 	MpAssaultTerms(int defender) {
@@ -76,7 +78,9 @@ final class MpAssaultTerms extends MpWindow {
 
 	@Override
 	void frame() {
-		if (PlayerSieges.taken() == null)
+		if (PlayerSieges.taken() != null)
+			open = true;
+		else if (open)
 			close(); // the choice applied, or its time ran out
 	}
 }
