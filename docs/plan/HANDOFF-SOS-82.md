@@ -1,6 +1,6 @@
 # Handoff: SOS-82, city viewing
 
-Written 2026-10-28 by the session that worked SOS-82, for the session that carries it on. The general handoff is [HANDOFF.md](HANDOFF.md); this file covers only SOS-82. Fold it into HANDOFF.md once the card's PRs are open.
+Written 2026-10-28 by the session that worked SOS-82, for the session that carries it on. The general handoff is [HANDOFF.md](HANDOFF.md); this file covers only SOS-82. Fold it into HANDOFF.md once the card's PRs are open. *Since merged* (SOSGSGMP #59, SOSDET #54, 2026-10-29); kept as the card's record.
 
 ## 1. Where the work is
 

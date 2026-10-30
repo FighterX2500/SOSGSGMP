@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.31 · 2026-10-30
+Version 0.32 · 2026-10-30
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -432,19 +432,20 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-10-27 | Another player's faction window; Save Campaign in the escape menu; names and banners on every PC; **goods and tariffs between players**; **diplomacy milestone 2** (regions, vassals and protectors, trade at peace); the setup's GUI fixes; every transfer in the playtest log | SOS-73, SOS-76 to SOS-81 |
 | 2026-10-28 | **War between players, and real-time battles between two players' armies**, with each side's commanders, deployment, retreat, spoils and the sally; the panel's status text | SOS-74, SOS-83, SOS-84 |
 | 2026-10-29 | **City viewing:** a live view of another player's city, on request; playtest fixes: the host's lead up to 1000 steps, each player's own banner, slider buttons, messages on their own player's PC only, lockstep windows of half a second at every speed, a button that hides the panel; the README, the mod's MIT license and the Steam Workshop texts | SOS-82, SOS-86 to SOS-91 |
+| 2026-10-30 | **Sieges of a player's capital, step A:** the siege's popup, the days to the assault, Sally out at any time, no trade into or out of a besieged capital; the governor tells a slow PC from a slow link; playtest fixes: cursors in cities, the ruler name, the top bar's banner, world news on every player, Production Rate, a view's held transactions, compressed network streams, a Steam invite from the main menu | SOS-58, SOS-92, SOS-94, SOS-96 to SOS-99, SOS-102, SOS-103 |
 
-### Where each v1 feature stands (2026-10-29)
+### Where each v1 feature stands (2026-10-30; percentages from 2026-10-29)
 
 | Feature (section 2) | Done | Still to build |
 | --- | --- | --- |
 | Groundwork: the lockstep engine, lobby, setup, network, Steam, saves, disconnects, desyncs | About 90% | The 2-hour world check, the tests at 300 ms ping, the order delay above 1× (section 16), high speeds in a playtest (SOS-90) |
 | A shared NPC world | About 90% | Covered by the groundwork's long tests |
 | Diplomacy (section 6) | About 90% | Done: treaties, money and goods, regions, vassalage, passage, war (SOS-72 to SOS-74, SOS-83). Left: notifications of a war in the chat |
-| Trade (section 7) | About 85% | No trade into a besieged city; caravans on a disconnect, checked in a playtest |
+| Trade (section 7) | About 85% | Done: no trade into or out of a besieged capital (SOS-92). Left: caravans on a disconnect, checked in a playtest |
 | Field battles (section 8) | About 75% | Done: battles between players with each side's commanders, deployment, retreat, the result for the winner, the sally (SOS-83). Left: the speed vote, allies joining, the winner's captives when the second army wins, spectators' view, resync in a battle (engine plan 0006 M3) |
-| Sieges of player cities (section 9) | About 15% | Done: sieges by another player arrive, the sally from a region, the save before an assault (SOS-67, SOS-71, SOS-83). Left: the waiting period, the lockstep assault on a player's city, the outcomes and the removed people, allied attackers, NPC invasions of a capital |
+| Sieges of player cities (section 9) | About 15% | Done: sieges by another player arrive, the sally from a region, the save before an assault (SOS-67, SOS-71, SOS-83); the siege of a capital with its waiting period, the popup and Sally out at any time (SOS-92 step A). Left: the lockstep assault on a player's city (steps B and C in review), the outcomes and the removed people, allied attackers, the notification of an NPC invasion of a capital |
 | City viewing (section 10) | About 90% | Done: the live view on request, catching up, the frozen own city, the other PCs' world reload (SOS-82). Left: a viewer's PC that stopped at a view's load (SOS-85), the catch-up numbers confirmed in playtests (section 16) |
-| Chat, notifications, pause, spectators (sections 4, 11, 12) | About 25% | Chat, notifications, cursors on the world map and in cities (SOS-58), who paused, debug mode off, elimination and spectating |
+| Chat, notifications, pause, spectators (sections 4, 11, 12) | About 25% | Done: cursors on the world map and in cities (SOS-58). Left: chat, notifications, who paused, debug mode off, elimination and spectating |
 | Release: performance and distribution (sections 13, 14) | About 15% | Done: the README, the license and the Steam Workshop texts. Left: the 10,000-person city at 1×, the 30-minute battle with 2,000 units per side, a player's install (SOS-18), the test plan (SOS-19) |
 
 Weighted by the effort each took or is expected to take, about 70% of v1 is built after 8.5 days.
