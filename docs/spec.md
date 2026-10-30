@@ -154,7 +154,7 @@ When two players' armies meet, a real-time battle is mandatory. Battles against 
 - **Deployment.** Each player's army spawns as a separate army. Allied armies stand side by side on the same side of the field, 20 tiles apart, and the enemy's armies are placed the same way. Every player can rearrange their own army before the battle, as in vanilla, and commands only their own divisions during it.
 - **Battle speed** in a battle between players is chosen by its commanders, by majority vote. On a tie, the speed stays as it is.
 - **Retreat.** Only a side's commanders can order that side's retreat.
-- **No restart.** Vanilla's battle restart is turned off in battles between players.
+- **No restart.** Vanilla's battle restart is turned off in every battle, those against NPC armies included (owner, 2026-10-30; SOS-93).
 - **Spectating.** In a battle between players, all other players watch while the world is paused (section 4). An NPC battle can be watched by choice (above).
 
 ## 9. Sieges of player cities
@@ -346,7 +346,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A battle with 2,000 units per side runs 30 minutes with every PC's battle state identical to the host's. [AT + PT]
 - The same battle save, seed and orders give an identical battle state on two runs, compared every step. [AT]
 - When any PC in a battle between players is slow, the battle slows for everyone. In an NPC battle, a slow fighting PC slows its battle, not the world. [AT]
-- Only a side's commanders can order its retreat, and a battle between players can't be restarted. [AT]
+- Only a side's commanders can order its retreat, and no battle can be restarted. [AT]
 - When two players' armies meet, both are asked with Fight only, and the battle starts when both press it or after 30 seconds; each player's PC commands only their own army, and the result goes to the winner. [AT]
 - A player's army in a battle between players fights with that player's own bonuses, the same on every PC. [AT]
 - A player whose region another player besieges is asked to sally out, and a sally between players can't be auto-resolved. [AT]
