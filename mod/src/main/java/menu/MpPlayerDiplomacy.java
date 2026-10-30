@@ -58,6 +58,7 @@ final class MpPlayerDiplomacy extends GuiSection {
 	private static final String TITLE = "What do you wish to offer?";
 	private static final String YOU_GET = "You get";
 	private static final String TAKE_OUT = "Click to take it out of the deal.";
+	private static final String THEIR_MONEY = "Their treasury is on their PC: whether they have the money is checked when the deal applies.";
 	/** The deal list's rows, as vanilla's: their height, and the most there can be. */
 	private static final int ROW_H = 32;
 	private static final int ENTRIES = 256;
@@ -386,14 +387,26 @@ final class MpPlayerDiplomacy extends GuiSection {
 		return new GScrollRows(rows, height).view();
 	}
 
-	/** The money this PC's player ({@code mine}) or the other one has, as vanilla shows next to the amount (SOS-100). */
+	/**
+	 * The money this PC's player has, next to the amount as vanilla shows an NPC's (SOS-100). The other player's money is
+	 * on their PC, not known here: "?", checked when the deal applies.
+	 */
 	private GStat available(boolean mine) {
 		return new GStat() {
 			@Override
 			public void update(GText text) {
 				text.add('(');
-				GFORMAT.iBig(text, (long) (mine ? FACTIONS.player() : f).credits().credits());
+				if (mine)
+					GFORMAT.iBig(text, (long) FACTIONS.player().credits().credits());
+				else
+					text.add('?');
 				text.add(')');
+			}
+
+			@Override
+			public void hoverInfoGet(GBox b) {
+				if (!mine)
+					b.text(THEIR_MONEY);
 			}
 		};
 	}
