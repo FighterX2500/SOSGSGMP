@@ -39,11 +39,11 @@ public final class SteamworksPort implements SteamPort {
 
     private static final int CHANNEL = 0;
 
-    /** {@code SOSGSGMP_STEAM_NET=messages}: Steam's newer messages instead of the deprecated P2P packets (SOS-105). */
-    private static final String NET_VARIABLE = "SOSGSGMP_STEAM_NET", MESSAGES = "messages";
+    /** {@code SOSGSGMP_STEAM_NET=p2p}: the deprecated P2P packets instead of Steam's newer messages (SOS-105). */
+    private static final String NET_VARIABLE = "SOSGSGMP_STEAM_NET", P2P = "p2p";
 
     private Listener listener;
-    /** Steam's newer messages, when chosen; null for the old P2P packets. */
+    /** Steam's newer messages; null when the old P2P packets are chosen. */
     private final SteamMessages messages;
     private final SteamUser user;
     private final SteamMatchmaking matchmaking;
@@ -72,7 +72,7 @@ public final class SteamworksPort implements SteamPort {
         networking = new SteamNetworking(new NetworkingCallbacks());
         friends = new SteamFriends(new FriendsCallbacks());
         networking.allowP2PPacketRelay(true);
-        messages = MESSAGES.equals(System.getenv(NET_VARIABLE)) ? new SteamMessages(() -> listener) : null;
+        messages = P2P.equals(System.getenv(NET_VARIABLE)) ? null : new SteamMessages(() -> listener);
         LOG.ln("SOSGSGMP: Steam transport: " + (messages != null ? "ISteamNetworkingMessages (SOS-105)" : "ISteamNetworking P2P packets"));
     }
 

@@ -33,6 +33,12 @@ final class SteamMessages {
     private static final int MESSAGE_DATA = 0, MESSAGE_SIZE = 8, MESSAGE_PEER = 16;
     /** {@code k_EResultOK}. */
     private static final int RESULT_OK = 1;
+    /** {@code ESteamNetworkingConfigValue}: {@code k_ESteamNetworkingConfig_SendBufferSize}, {@code _SendRateMin}, {@code _SendRateMax}. */
+    private static final int CONFIG_SEND_BUFFER = 9, CONFIG_RATE_MIN = 10, CONFIG_RATE_MAX = 11;
+    /** Steam's 512 KB refuses a message once that much waits, which would drop a player in a world or view stream. */
+    private static final int SEND_BUFFER_BYTES = 256 * 1024 * 1024;
+    /** Steam's send rate is fixed, 256 KB/s unless set; min and max stay equal, as its header says. */
+    private static final int SEND_RATE_BYTES = 1024 * 1024;
     private static final String DLL = "steam_api64.dll";
 
     /** The session callbacks' shape: one pointer to a struct that begins with the remote identity. */
@@ -65,11 +71,21 @@ final class SteamMessages {
         setSteamId = function(module, "SteamAPI_SteamNetworkingIdentity_SetSteamID64");
         getSteamId = function(module, "SteamAPI_SteamNetworkingIdentity_GetSteamID64");
         release = function(module, "SteamAPI_SteamNetworkingMessage_t_Release");
+        // global defaults: they apply to sessions made after this, so before the first message
+        Function config = function(module, "SteamAPI_ISteamNetworkingUtils_SetGlobalConfigValueInt32");
+        configure(config, utils, CONFIG_SEND_BUFFER, SEND_BUFFER_BYTES);
+        configure(config, utils, CONFIG_RATE_MIN, SEND_RATE_BYTES);
+        configure(config, utils, CONFIG_RATE_MAX, SEND_RATE_BYTES);
         requested = event -> listener.get().sessionRequested(steamId(event));
         failed = event -> listener.get().sessionFailed(steamId(event), "Steam's session failed"); // SteamNetConnectionInfo_t begins with the identity
         function(module, "SteamAPI_ISteamNetworkingUtils_SetGlobalCallback_MessagesSessionRequest").invokeInt(new Object[] {utils, requested});
         function(module, "SteamAPI_ISteamNetworkingUtils_SetGlobalCallback_MessagesSessionFailed").invokeInt(new Object[] {utils, failed});
         function(module, "SteamAPI_ISteamNetworkingUtils_InitRelayNetworkAccess").invokeVoid(new Object[] {utils}); // the relay's routes, ahead of the first message
+    }
+
+    private static void configure(Function config, Pointer utils, int value, int setting) {
+        if ((config.invokeInt(new Object[] {utils, value, setting}) & 0xFF) == 0)
+            throw new IllegalStateException("SOSGSGMP: Steam refused networking setting " + value + " = " + setting);
     }
 
     private static Function function(Pointer module, String name) {

@@ -15,10 +15,11 @@ Status: Proposed (decided as recommended overnight, 2026-10-30; the owner asked 
 - `sosgsgmp.game.SteamMessages` calls `ISteamNetworkingMessages` through JNA, on the very `steam_api64.dll` steamworks4j loaded: it finds the module with `GetModuleHandleA` and each function with `GetProcAddress`, once.
 - A missing function fails with its name.
 - It reads only the first three fields of `SteamNetworkingMessage_t` (data at 0, size at 8, the sender's identity at 16), stable since the API began; identities go through the DLL's own helpers.
-- `SteamworksPort` keeps steamworks4j for lobbies, friends and the overlay, and sends and receives through `SteamMessages` when `SOSGSGMP_STEAM_NET=messages` is set; otherwise it uses the old P2P packets as before.
+- `SteamworksPort` keeps steamworks4j for lobbies, friends and the overlay, and sends and receives through `SteamMessages` unless `SOSGSGMP_STEAM_NET=p2p` is set, which chooses the old P2P packets.
 - Session requests and failures come from the DLL's global callbacks, inside `SteamAPI_RunCallbacks` on the node's I/O thread, so the threading rule (AGENTS.md) holds.
 - No new library: JNA and the DLL are the game's own, compiled against as `compileOnly`, never shipped.
-- The old packets stay the default until a twopc run over Steam passes with the new messages; then the owner chooses the default, and a setting replaces the variable.
+- `SteamMessages` sets Steam's global defaults before the first session: a send buffer of 256 MB and a send rate of 1 MB/s. The DLL's own are 512 KB, past which it refuses a message and `SteamNode` drops the player, and a fixed 256 KB/s (both read from the DLL, 2026-10-30).
+- The owner made the new messages the default for the playtest build 2026-10-30d, before a twopc run over Steam, so that playtest is their first test between two PCs. A setting replaces the variable once it passes.
 
 ## Options rejected
 
