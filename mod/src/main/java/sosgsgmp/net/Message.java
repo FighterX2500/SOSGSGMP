@@ -167,6 +167,15 @@ public sealed interface Message {
     record Cursor(int playerId, int place, int x, int y) implements Message {}
 
     /**
+     * A chat message (spec §12, SOS-110). Joining PC to host, and host to every joined PC, the sender too: the host's
+     * order is every PC's, and it stamps the sender. Only shown, never an action, so it carries no tick.
+     */
+    record Chat(int playerId, String text) implements Message {}
+
+    /** Player {@code playerId} paused or unpaused the game (spec §4): the host orders these like chat lines. */
+    record Pause(int playerId, boolean paused) implements Message {}
+
+    /**
      * Bytes {@code offset} on of PC {@code pc}'s engine stream {@code kind}, sent at the sender's step {@code step}
      * (game-over-network.md §2). The steps changes apply at are inside the engine's bytes. A receiver drops bytes it
      * already has, so a repeated message changes nothing.

@@ -69,6 +69,7 @@ final class MpDeals {
 				case DROPPED -> "Your deal to " + who + " was dropped: they left the game.";
 			};
 			LOG.ln("SOSGSGMP: deal " + id + ": " + lastAnswer);
+			setup.chat().notice(lastAnswer);
 		}
 	}
 

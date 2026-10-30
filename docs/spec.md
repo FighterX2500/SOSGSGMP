@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.33 · 2026-10-30
+Version 0.34 · 2026-10-30
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -245,9 +245,14 @@ A disconnected player never rejoins a running session; they come back only throu
 
 ## 12. Chat and notifications
 
-Players talk through an in-game chat.
+Players talk through one in-game chat. Every player and spectator reads the same chat, in the same order. There are no private messages.
 
-- **Event notifications** appear in the chat, for example when war is declared or a siege starts.
+- **Where it works.** In the lobby and the setup, on the world map and in cities, during views, battles and assaults, and while the game is paused or held.
+- **The chat box.** It starts in the bottom-left corner and can be moved, like the multiplayer panel. A button next to the multiplayer panel's on the top bar collapses and expands it. Players click the box to type; no key opens it. There is no sound and no unread count.
+- **Messages.** A message is at most 200 characters. Each player's name shows in their cursor color. Text uses the game's own font, so a character that a player's language font lacks shows as `?`.
+- **History.** The chat keeps its last 200 lines for the session. It isn't part of the campaign save, so a resumed campaign starts with an empty chat.
+- **Event notifications** appear in the chat. Every player sees a war declared, a peace, a vassalage, a siege's start, an assault's start and outcome, an NPC invasion of a capital, a battle between players starting and ending, a player leaving, returning or being eliminated, and a pause with who paused. Deals, gifts, tariffs and view requests appear only for the players involved. Notifications never give army positions or numbers.
+- **Information without a choice** appears as a notification, not a popup.
 - **Prompts that need an answer**, such as a battle invite, appear as popups in the vanilla style.
 - **Other players' cursors.** Every player sees the other players' mouse cursors, each marked with that player's name and color: on the world map, every other player's cursor that is on the world map too; in a city, the cursor of every other player looking at the same city (its owner and its viewers, section 10). A cursor is only shown, never an action.
 
@@ -406,6 +411,10 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 
 - Chat messages reach every player, spectators included, within 2 seconds. [PT]
 - War declarations and siege starts appear as notifications for every player. [PT]
+- Every player sees the same chat lines in the same order. [AT]
+- A message over 200 characters, or with characters the game can't draw, never stops a PC. [AT]
+- The chat works during a battle, an assault and a pause. [PT]
+- Notifications for the players involved don't reach other players. [AT]
 - Battle invites appear as vanilla-style popups. [PT]
 - On the world map every player sees the other players' cursors, with their names, where they point. In a viewed city, the owner and the viewer see each other's cursors. [PT]
 
@@ -432,6 +441,7 @@ Every card on the board, not only features, is done when:
 
 Accepted as they are for v1 (owner, 2026-10-28); worth improving when there is time. None of these blocks a release.
 
+- **Chat in every language:** the game's fonts hold one language group each, so a message in another group shows as `?`. Wider support is for after v1.
 - **The owner's pause when a view opens:** the owner's save and reload took 6.6 s on two PCs in the 2026-10-28 GUI runs, more than section 10's "a few seconds". Accepted; a faster save or reload would shorten it.
 
 ## 17. Milestones
@@ -460,12 +470,12 @@ What was built and when, from the merged pull requests of both repositories, and
 | --- | --- | --- |
 | Groundwork: the lockstep engine, lobby, setup, network, Steam, saves, disconnects, desyncs | About 90% | The 2-hour world check, the tests at 300 ms ping, the order delay above 1× (section 16), high speeds in a playtest (SOS-90) |
 | A shared NPC world | About 90% | Covered by the groundwork's long tests |
-| Diplomacy (section 6) | About 90% | Done: treaties, money and goods, regions, vassalage, passage, war (SOS-72 to SOS-74, SOS-83). Left: notifications of a war in the chat |
+| Diplomacy (section 6) | About 90% | Done: treaties, money and goods, regions, vassalage, passage, war (SOS-72 to SOS-74, SOS-83). Notifications of a war in the chat: built (SOS-110) |
 | Trade (section 7) | About 85% | Done: no trade into or out of a besieged capital (SOS-92). Left: caravans on a disconnect, checked in a playtest |
 | Field battles (section 8) | About 75% | Done: battles between players with each side's commanders, deployment, retreat, the result for the winner, the sally (SOS-83). Left: the speed vote, allies joining, the winner's captives when the second army wins, spectators' view, resync in a battle (engine plan 0006 M3) |
 | Sieges of player cities (section 9) | About 15% | Done: sieges by another player arrive, the sally from a region, the save before an assault (SOS-67, SOS-71, SOS-83); the siege of a capital with its waiting period, the popup and Sally out at any time (SOS-92 step A). Left: the lockstep assault on a player's city (steps B and C in review), the outcomes and the removed people, allied attackers, the notification of an NPC invasion of a capital |
 | City viewing (section 10) | About 90% | Done: the live view on request, catching up, the frozen own city, the other PCs' world reload (SOS-82). Left: a viewer's PC that stopped at a view's load (SOS-85), the catch-up numbers confirmed in playtests (section 16) |
-| Chat, notifications, pause, spectators (sections 4, 11, 12) | About 25% | Done: cursors on the world map and in cities (SOS-58). Left: chat, notifications, who paused, debug mode off, elimination and spectating |
+| Chat, notifications, pause, spectators (sections 4, 11, 12) | About 25% | Done: cursors on the world map and in cities (SOS-58); chat, notifications, who paused, any player unpausing (SOS-110). Left: debug mode off, elimination and spectating |
 | Release: performance and distribution (sections 13, 14) | About 15% | Done: the README, the license and the Steam Workshop texts. Left: the 10,000-person city at 1×, the 30-minute battle with 2,000 units per side, a player's install (SOS-18), the test plan (SOS-19) |
 
 Weighted by the effort each took or is expected to take, about 70% of v1 is built after 8.5 days.

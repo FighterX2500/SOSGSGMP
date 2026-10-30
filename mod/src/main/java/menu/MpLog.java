@@ -20,6 +20,7 @@ import sosgsgmp.game.EnginePlay;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.log.PlayLog;
 import sosgsgmp.net.Protocol;
+import sosgsgmp.session.Chat;
 import sosgsgmp.session.EngineLink;
 import sosgsgmp.session.SetupSession;
 
@@ -177,12 +178,26 @@ final class MpLog {
 		}
 	}
 
+	private int chatLines;
+
 	/** Why the agreed speed is below the host player's, each time the reason changes (SOS-94). */
 	private void speedNotice() {
 		String n = engine.speedNotice();
 		if (n != null && !n.equals(speedNotice))
 			line("speed: " + n.replace("SOSDET: ", "") + " (step " + engine.step() + ")");
 		speedNotice = n;
+	}
+
+	/** How many chat lines arrived since the last status line, and every notification, never what players say (spec §12): a log travels to other people. */
+	private void chatCount() {
+		int added = setup.chat().added();
+		if (added != chatLines)
+			line("chat: " + (added - chatLines) + " new lines");
+		Chat chat = setup.chat();
+		for (int i = Math.max(0, chat.size() - (added - chatLines)); i < chat.size(); i++)
+			if (chat.line(i).playerId() == Chat.NOTICE)
+				line("notification: " + chat.line(i).text());
+		chatLines = added;
 	}
 
 	private void players() {
@@ -254,6 +269,7 @@ final class MpLog {
 
 	/** The status at step {@code at}: the hash compares across the PCs' logs; the rest is since the last status. */
 	private void status(long at) {
+		chatCount();
 		long now = System.nanoTime();
 		double seconds = (now - statusNanos) / 1e9;
 		Stats s = engine.stats();

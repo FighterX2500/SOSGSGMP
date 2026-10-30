@@ -24,6 +24,7 @@ import sosdet.game.cmd.WorldBattles;
 import sosdet.game.deal.DealBook;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.PlayerDeals;
+import sosgsgmp.session.SetupSession;
 import view.main.VIEW;
 import world.WORLD;
 import world.army.AD;
@@ -45,7 +46,7 @@ import world.entity.army.WArmy;
  * army at the capital); {@code mercs} (the mercenary bands for hire); {@code merc <index>} (hire one into the first army);
  * {@code attack} (the first army intercepts the other player's nearest army); {@code fight}, {@code start}, {@code retreat}
  * (the open battle prompt or battle); {@code speed <x>} (host); {@code view} (ask to view the other player's city) and
- * {@code closeview} (SOS-82).
+ * {@code closeview} (SOS-82); {@code say <text>} (the chat, SOS-110); {@code pause} (as the pause key).
  */
 final class MpAutopilotCommands {
 
@@ -56,6 +57,7 @@ final class MpAutopilotCommands {
 	private Object answeredPrompt;
 	private boolean started;
 	private boolean concluded;
+	private int chatSeen;
 
 	MpAutopilotCommands(Path events, boolean host, boolean autoBattles, BiConsumer<String, String> event) {
 		this.file = events.resolveSibling("command.txt");
@@ -65,9 +67,14 @@ final class MpAutopilotCommands {
 	}
 
 	/** Once per frame while playing, outside the step. */
-	void frame(EnginePlay engine) {
+	void frame(EnginePlay engine, SetupSession setup) {
 		if (autoBattles)
 			battles();
+		if (setup.chat().added() != chatSeen) {
+			chatSeen = setup.chat().added();
+			event.accept("chatline", "\"added\":" + chatSeen + ",\"step\":" + engine.step() + ",\"text\":\""
+					+ clean(setup.chat().line(setup.chat().size() - 1).text()) + "\"");
+		}
 		if (!Files.exists(file))
 			return;
 		List<String> lines;
@@ -83,7 +90,7 @@ final class MpAutopilotCommands {
 				continue;
 			String result;
 			try {
-				result = run(l.split("\\s+"), engine);
+				result = run(l.split("\\s+"), engine, setup);
 			} catch (RuntimeException e) {
 				result = "failed: " + e;
 			}
@@ -95,9 +102,15 @@ final class MpAutopilotCommands {
 		return FACTIONS.getByIndex(FACTIONS.player().index() == 0 ? 1 : 0);
 	}
 
-	private String run(String[] a, EnginePlay engine) {
+	private String run(String[] a, EnginePlay engine, SetupSession setup) {
 		int slot = other().index();
 		switch (a[0]) {
+		case "say":
+			setup.say(String.join(" ", java.util.Arrays.copyOfRange(a, 1, a.length)));
+			return "said";
+		case "pause":
+			GAME.SPEED.togglePause();
+			return "pause toggled";
 		case "status":
 			return status(engine);
 		case "shot":

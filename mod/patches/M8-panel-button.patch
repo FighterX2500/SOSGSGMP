@@ -2,12 +2,14 @@ diff --git a/view/main/Interrupters.java b/view/main/Interrupters.java
 index e7b66be..4b5a733 100644
 --- a/view/main/Interrupters.java
 +++ b/view/main/Interrupters.java
-@@ -26,6 +26,8 @@ public class Interrupters {
+@@ -26,6 +26,10 @@ public class Interrupters {
  	public final IPopup popup = new IPopup(manager);
  	public final IPopup popup2 = new IPopup(manager);
  	public final ILoadScreen load = new ILoadScreen(manager);
 +	/** SOSGSGMP hook M8 (docs/hooks.md): this load's multiplayer panel, which the top bar's button hides and shows; set by the mod. */
 +	public menu.MpPanelButton.Panel multiplayerPanel;
++	/** SOSGSGMP hook M8 (docs/hooks.md): this load's chat box, which the top bar's button hides and shows; set by the mod. */
++	public menu.MpPanelButton.Panel multiplayerChat;
  	
  	
  	
@@ -20,7 +22,7 @@ index 0364c13..4174490 100644
  		s.addRightC(0, UIPanelTop.messages());
  		s.addRightC(0, UIPanelTop.advice());
 -		s.addRightC(0, UIPanelTop.vToggle());
-+		s.addRightC(0, menu.MpPanelButton.beside(UIPanelTop.vToggle(), () -> VIEW.inters().multiplayerPanel)); // SOSGSGMP hook M8 (docs/hooks.md)
++		s.addRightC(0, menu.MpPanelButton.beside(UIPanelTop.vToggle(), () -> VIEW.inters().multiplayerPanel, () -> VIEW.inters().multiplayerChat)); // SOSGSGMP hook M8 (docs/hooks.md)
  		s.addRightC(0, UIPanelTop.bToggle());
  		
  		panel.addRightRight(s);
@@ -33,7 +35,7 @@ index c1e0948..ee24b65 100644
  			s.addRightC(0, UIPanelTop.junk());
  			s.addRightC(0, UIPanelTop.messages());
 -			s.addRightC(0, UIPanelTop.vToggle());
-+			s.addRightC(0, menu.MpPanelButton.beside(UIPanelTop.vToggle(), () -> VIEW.inters().multiplayerPanel)); // SOSGSGMP hook M8 (docs/hooks.md)
++			s.addRightC(0, menu.MpPanelButton.beside(UIPanelTop.vToggle(), () -> VIEW.inters().multiplayerPanel, () -> VIEW.inters().multiplayerChat)); // SOSGSGMP hook M8 (docs/hooks.md)
  			s.addRightC(0, UIPanelTop.wLog());
  			top.addRightRight(s);
  		}

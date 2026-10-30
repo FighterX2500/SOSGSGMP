@@ -32,6 +32,9 @@ import view.menu.MenuScreen;
  */
 final class MpScreenLobby extends GUI.Shadower implements SC {
 
+	private static final int CHAT_WIDTH = 520;
+	private static final int CHAT_ROWS = 6;
+
 	private final MpMenu mp;
 	private LobbySession session;
 	/** The host's Steam lobby, for invites; null over direct IP and on joining PCs. */
@@ -49,6 +52,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 	private final GText settings = new GText(UI.FONT().H2, 64);
 	private final GText status = new GText(UI.FONT().M, 256);
 	private final CLICKABLE start;
+	private final MpChatBox chat = new MpChatBox(CHAT_WIDTH, CHAT_ROWS, this::say);
 
 	MpScreenLobby(MpMenu mp) {
 		this.mp = mp;
@@ -115,8 +119,17 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 				COLOR.unbind();
 			}
 		});
+		chat.body().moveX1(content.getLastX1()).moveY2(content.body().y2());
+		content.add(chat);
 		content.body().centerIn(MenuScreen.inner);
 		add(content);
+	}
+
+	private void say(String text) {
+		if (setup != null)
+			setup.say(text);
+		else if (session != null)
+			session.say(text);
 	}
 
 	/** Extra room between the bottom buttons: their names are long, and the menu's own gap runs them together. */
@@ -137,12 +150,14 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		resumeProblem = null;
 		shownChanges = -1;
 		start.visableSet(s.isHost());
+		chat.show(s.chat());
 		refresh();
 	}
 
 	/** Called every frame by the menu's update; applies network events and refreshes the texts on change. */
 	@Override
 	public boolean hover(COORDINATE mCoo) {
+		chat.wheel();
 		if (setup != null) {
 			updateSetup();
 		} else if (session != null) {
@@ -226,6 +241,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		if (session.changes() == shownChanges)
 			return;
 		shownChanges = session.changes();
+		session.chat().roster(session.players());
 
 		List<LobbyPlayer> players = session.players();
 		shownPlayers = players.size();

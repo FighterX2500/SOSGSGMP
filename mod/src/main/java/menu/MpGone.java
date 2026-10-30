@@ -34,6 +34,8 @@ final class MpGone {
 	private String shownText;
 	/** Host, after Continue: the slots whose removal the next campaign save records, once the engine removed them. */
 	private final List<Integer> toSave = new ArrayList<>();
+	/** How many of the players gone in this hold the chat has told. */
+	private int told;
 	/** After Return to the last save ended the session here. */
 	private boolean ended;
 
@@ -58,6 +60,8 @@ final class MpGone {
 				engine.hold(EnginePlay.Hold.GONE, heldAt);
 				LOG.ln("SOSGSGMP: " + d.names() + " left; holding at step " + heldAt);
 			}
+			for (; told < d.gone().size(); told++)
+				setup.chat().notice(d.gone().get(told).name() + " left the game.");
 			String text = text(d);
 			if (!text.equals(shownText) || !VIEW.inters().fullScreen.isActivated())
 				show(d, text);
@@ -68,6 +72,7 @@ final class MpGone {
 				toSave.add(g.slot());
 			LOG.ln("SOSGSGMP: the host continued without " + d.names());
 			d.continued();
+			told = 0;
 			heldAt = -1;
 			shownText = null;
 			engine.release(EnginePlay.Hold.GONE);

@@ -144,6 +144,11 @@ public final class EnginePlay implements EnginePort {
         return Engine.invasionNoticeTake();
     }
 
+    /** The next event of the step, the same on every PC in the same order, or null (SOS-110). Each is handed out once. */
+    public sosdet.Notice noticeTake() {
+        return Engine.noticeTake();
+    }
+
     /** The realm name of the faction at {@code index}; "Rebels" for -1, the invaders with no faction. */
     public String factionName(int index) {
         return index < 0 ? "Rebels" : FACTIONS.getByIndex(index).name.toString();

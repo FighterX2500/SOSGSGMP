@@ -30,6 +30,11 @@ public final class MpCursors {
 			new ColorImp(90, 160, 120), new ColorImp(200, 200, 120), new ColorImp(130, 130, 130), new ColorImp(30, 90, 160) };
 	private static final int ARM = 6;
 
+	/** The n-th player's colour, on cursors and in the chat. */
+	static COLOR colour(int n) {
+		return COLORS[n % COLORS.length];
+	}
+
 	private final SetupSession setup;
 	private final GText[] names = new GText[LobbySettings.MAX_PLAYERS];
 	private final int[] nameIds = new int[LobbySettings.MAX_PLAYERS];
@@ -68,7 +73,7 @@ public final class MpCursors {
 			if (!window.view().holdsPoint(x, y))
 				continue;
 			int n = nameIndex(c.playerId(i));
-			COLOR color = n < 0 ? COLOR.WHITE100 : COLORS[colorOf[n] % COLORS.length];
+			COLOR color = n < 0 ? COLOR.WHITE100 : colour(colorOf[n]);
 			color.render(r, x - ARM, x + ARM + 1, y - 1, y + 2);
 			color.render(r, x - 1, x + 2, y - ARM, y + ARM + 1);
 			COLOR.unbind();
