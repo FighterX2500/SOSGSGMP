@@ -50,6 +50,7 @@ final class MpLog {
 	private long statusWireOut, statusWireIn;
 	private long statusNanos = System.nanoTime();
 	private OwnBattle battle;
+	private boolean localBattle;
 	/** The assault last seen, and whether its invasion had started then (SOS-92 B). */
 	private Assault assault;
 	private boolean assaultStarted;
@@ -197,6 +198,11 @@ final class MpLog {
 	}
 
 	private void battle() {
+		if (engine.localBattle() != localBattle) {
+			localBattle = !localBattle;
+			line((localBattle ? "a player's battle against NPCs starts at step " : "the last battle against NPCs is over at step ")
+					+ engine.step());
+		}
 		OwnBattle b = engine.battle();
 		if (b != battle) {
 			if (battle != null)
