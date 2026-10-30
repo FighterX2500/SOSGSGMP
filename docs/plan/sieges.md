@@ -2,6 +2,8 @@
 
 Spec §9 Sieges of player cities, §15 Sieges, §4 (an assault pauses the world), §11 (the save before an assault; a disconnect in an assault), §7 (no trade into a besieged city). Card: [SOS-92](https://fighterx2500.atlassian.net/browse/SOS-92). It builds on [ADR 0006](../decisions/0006-lockstep-city-viewing-and-assaults.md) (assaults in lockstep), city viewing ([city-viewing.md](city-viewing.md), SOSDET plan 0013, SOS-82), battles between players ([battles-between-players.md](battles-between-players.md), SOSDET plan 0012 M2, SOS-83), the save before a battle ([battle-saves.md](battle-saves.md), SOS-67) and the SOS-23 spike ([city-determinism.md](spikes/city-determinism.md)). Status: **approved (owner, 2026-10-29)**: decisions 1a, 3a and 6a as recommended; 2, 4 and 5 as the owner set them (section 3). Spec 0.29 and ADR 0006 record decisions 2 and 5.
 
+Status: approved by the owner (2026-10-29). Step A merged (SOSGSGMP #64, SOSDET #60, 2026-10-30); steps B and C in part are in review (SOSGSGMP #67, SOSDET #63).
+
 Game paths are relative to `<game>/info/SongsOfSyx-sources/`. Engine paths are SOSDET's (`src/main/java/sosdet/...`, `build/patched-src/...`). Line numbers are from the audits of 2026-10-29.
 
 ## 1. What exists, and what's missing

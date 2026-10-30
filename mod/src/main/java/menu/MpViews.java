@@ -345,7 +345,7 @@ final class MpViews {
 		int local = r.local();
 		if (r.asked() >= 0)
 			return WAITING;
-		if (engine.battle() != null)
+		if (engine.anyBattle())
 			return BATTLE;
 		if (open(engine.view(local)))
 			return VIEWING;

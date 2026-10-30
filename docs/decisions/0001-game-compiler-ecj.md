@@ -1,6 +1,6 @@
 # 0001: Build game source with the Eclipse compiler (ECJ)
 
-Status: Proposed · Date: 2026-10-20, amended 2026-10-22 (`-proc:none`, [SOS-26](https://fighterx2500.atlassian.net/browse/SOS-26)) · Card: [SOS-2](https://fighterx2500.atlassian.net/browse/SOS-2)
+Status: Accepted (owner, 2026-10-30), built: SOSDET's build compiles its patches this way since SOS-26 (SOSDET [ADR 0001](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine/blob/main/docs/decisions/0001-build-and-packaging.md), accepted 2026-10-22), and so does the mod's for its hooks M1 to M9 (`mod/patches/`, [hooks.md](../hooks.md)) · Date: 2026-10-20, amended 2026-10-22 (`-proc:none`, [SOS-26](https://fighterx2500.atlassian.net/browse/SOS-26)) · Card: [SOS-2](https://fighterx2500.atlassian.net/browse/SOS-2)
 
 ## Context
 

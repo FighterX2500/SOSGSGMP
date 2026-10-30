@@ -17,16 +17,17 @@ AGENTS.md holds the coding rules: Java, the game, hooks, threads, saves, network
 
 ## Current phase
 
-- **Engine (SOSDET): implementation** (owner, 2026-10-22). Merged through SOS-61, own-city battles (SOSDET PR #37, plan 0006 M1). That includes several humans (SOS-46), the world built around several humans (`Engine.buildWorld`, SOS-55), the desync hold (SOS-53) and the resync with several humans (SOS-52). Open: SOSDET PR #38 (SOS-64, a session load in a fresh process). The work happens in the SOSDET repository and follows its CLAUDE.md.
-- **Mod (this repository): implementation; the walking skeleton is done** (2026-10-25). Merged:
-  - the lobby (SOS-49);
-  - the setup's map step (SOS-54) and factions (SOS-56);
-  - the game over the network (SOS-57) and the desync window (SOS-59);
-  - Steam (SOS-60);
-  - battles (SOS-62);
-  - the playtest log (SOS-63).
+- **Engine (SOSDET): implementation** (owner, 2026-10-22). Merged through SOSDET PR #62 (2026-10-30): several humans, own-city battles, removing a human, deals, the market and war between humans, battles between two humans, city viewing, the first step of sieges (SOS-92 step A) and the playtest fixes. Open: SOSDET PR #63 (SOS-92 steps B and C in part) and #64 (SOS-102, the unit tests). The work happens in the SOSDET repository and follows its CLAUDE.md.
+- **Mod (this repository): implementation; the walking skeleton is done** (2026-10-25). Merged through PR #66 (2026-10-30):
+  - the walking skeleton: the lobby, the setup, the game over the network, the desync window, Steam, battles, the playtest log (SOS-49 to SOS-63);
+  - campaign saves and resume, the save before every battle, disconnects and removing a player (SOS-64, SOS-65, SOS-67, SOS-68);
+  - diplomacy, trade and war between players, and battles between players (SOS-72 to SOS-77, SOS-83);
+  - Save Campaign in the escape menu, names and banners, the transfer log (SOS-78, SOS-79, SOS-81);
+  - city viewing (SOS-82);
+  - sieges of a player's capital, step A: the popup and Sally out (SOS-92);
+  - playtest fixes, among them cursors in cities (SOS-58), the governor's reasons (SOS-94), stream compression (SOS-96) and a Steam invite from the main menu (SOS-103).
 
-  Open: campaign saves and resume (SOS-64, PR #39). Where things stand and what's next: [docs/plan/HANDOFF.md](docs/plan/HANDOFF.md). The rest of this section applies to the mod.
+  Open: PR #67 (SOS-92 steps B and C in part), #68 (SOS-93, a plan and draft spec changes), #69 (SOS-100) and #70 (SOS-105). Where things stand and what's next: [docs/plan/HANDOFF.md](docs/plan/HANDOFF.md). The rest of this section applies to the mod.
 
 Feature code for the mod is allowed for approved cards only. Also allowed:
 
