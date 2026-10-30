@@ -39,6 +39,7 @@ public final class JoinedSetup implements SetupSession {
     /** The host's world once all its pieces are here, until this PC takes it to load; null otherwise. */
     private byte[] save;
     private final Cursors cursors = new Cursors();
+    private final Chat chat;
     /** Players whose PC left the running game, as the host tells it, and the hold for them (SOS-65). */
     private final Departures departures = new Departures();
     /** The engine's streams once this PC plays; null before. */
@@ -58,12 +59,13 @@ public final class JoinedSetup implements SetupSession {
     private int changes;
 
     /**
-     * Takes over a started lobby's connection to the host, this PC's player id and the players. A resume ({@code resume}
+     * Takes over a started lobby's connection to the host, this PC's player id, the players and the chat. A resume ({@code resume}
      * not null) starts at the world-loaded step: the host's slot map follows, and every PC loads its own save (SOS-64).
      */
     JoinedSetup(Node node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld,
-            LobbySettings.Resume resume, boolean fullTransferLog) {
+            LobbySettings.Resume resume, boolean fullTransferLog, Chat chat) {
         this.node = node;
+        this.chat = chat;
         this.fullTransferLog = fullTransferLog;
         this.world = world;
         this.factionWorld = factionWorld;
@@ -85,8 +87,8 @@ public final class JoinedSetup implements SetupSession {
                 }
                 case Node.Event.Received r -> {
                     received(r.message());
-                    // a piece of the engine's streams, a cursor or a view's city or hashes changes nothing the panel shows
-                    if (!(r.message() instanceof Message.Stream) && !(r.message() instanceof Message.Cursor)
+                    // a piece of the engine's streams, a cursor, a chat line or a view's city or hashes changes nothing the panel shows
+                    if (!(r.message() instanceof Message.Stream) && !(r.message() instanceof Message.Cursor) && !(r.message() instanceof Message.Chat)
                             && !(r.message() instanceof Message.ViewCity) && !(r.message() instanceof Message.ViewHashes))
                         changes++;
                 }
@@ -96,6 +98,18 @@ public final class JoinedSetup implements SetupSession {
                 }
             }
         }
+    }
+
+    @Override
+    public Chat chat() {
+        return chat;
+    }
+
+    @Override
+    public void say(String text) {
+        String out = chat.outgoing(text, System.nanoTime());
+        if (out != null)
+            node.send(Node.HOST, new Message.Chat(localPlayerId(), out));
     }
 
     private void received(Message m) {
@@ -166,6 +180,7 @@ public final class JoinedSetup implements SetupSession {
                 doneNumber = d.number();
                 doneOutcome = d.outcome();
             }
+            case Message.Chat c -> chat.heard(c.playerId(), players, c.text());
             case Message.Cursor c -> {
                 if (c.playerId() != localPlayerId())
                     cursors.set(c.playerId(), c.place(), c.x(), c.y());

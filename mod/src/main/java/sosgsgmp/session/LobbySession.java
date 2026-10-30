@@ -36,12 +36,18 @@ public interface LobbySession {
     /** The host starts the lobby. Check {@link #canStart()} first. */
     void start();
 
+    /** The session's chat on this PC (spec §12), for reading. */
+    Chat chat();
+
+    /** This PC's player says {@code text} (spec §12); it shows on every PC, this one too, in the host's order. */
+    void say(String text);
+
     /** Leaves the lobby (the host closes it for everyone) and frees the connection. */
     void leave();
 
     /**
-     * Once the lobby has started: hands the connection and the players over to the setup, which owns them from then
-     * on. This session then neither updates nor closes anything.
+     * Once the lobby has started: hands the connection, the players and the chat over to the setup, which owns them
+     * from then on. This session then neither updates nor closes anything.
      */
     SetupSession handOver(MapWorld world, FactionWorld factions);
 

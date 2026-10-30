@@ -136,6 +136,12 @@ public interface SetupSession {
      */
     void chooseGone(Departures.Choice choice);
 
+    /** The session's chat on this PC (spec §12), for reading. */
+    Chat chat();
+
+    /** This PC's player says {@code text} (spec §12); it shows on every PC, this one too, in the host's order. */
+    void say(String text);
+
     /** Leaves the setup (the host closes it for everyone) and frees the connection. */
     void leave();
 

@@ -24,6 +24,7 @@ public final class JoinedLobby implements LobbySession {
     private LobbySettings settings;
     private int localId = -1;
     private String closedReason;
+    private final Chat chat = new Chat();
     private int changes;
 
     /** Starts connecting to {@code host}:{@code port}; the outcome arrives through {@link #update()}. */
@@ -57,6 +58,18 @@ public final class JoinedLobby implements LobbySession {
         }
     }
 
+    @Override
+    public Chat chat() {
+        return chat;
+    }
+
+    @Override
+    public void say(String text) {
+        String out = chat.outgoing(text, System.nanoTime());
+        if (out != null)
+            node.send(Node.HOST, new Message.Chat(localId, out));
+    }
+
     private void received(Message m) {
         switch (m) {
             case Message.Welcome w -> {
@@ -65,6 +78,7 @@ public final class JoinedLobby implements LobbySession {
                 state = LobbyState.OPEN;
             }
             case Message.Roster r -> players = r.players();
+            case Message.Chat c -> chat.heard(c.playerId(), players, c.text());
             case Message.Refused f -> close(f.reason().text);
             case Message.Start s -> state = LobbyState.STARTED;
             case Message.Leave l -> close("The host closed the lobby.");
@@ -129,7 +143,7 @@ public final class JoinedLobby implements LobbySession {
         if (state != LobbyState.STARTED || handedOver)
             throw new IllegalStateException("SOSGSGMP: only a started lobby hands over, once (state " + state + ", handed over " + handedOver + ")");
         handedOver = true;
-        return new JoinedSetup(node, localId, players, world, factions, settings.resume(), settings.fullTransferLog());
+        return new JoinedSetup(node, localId, players, world, factions, settings.resume(), settings.fullTransferLog(), chat);
     }
 
     @Override

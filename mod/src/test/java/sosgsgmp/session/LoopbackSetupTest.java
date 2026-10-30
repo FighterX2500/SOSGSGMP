@@ -863,6 +863,21 @@ class LoopbackSetupTest {
         until("Cid's cursor gone with Cid", () -> host.cursors().count() == 0 && bob.players().size() == 2 && !at(bob, 2, 1, 1));
     }
 
+    @Test
+    void aMessageReachesEveryPcOnceInTheHostsOrderWithTheRealSender() throws Exception {
+        confirmMap();
+        cid.say("first");
+        until("Cid's line on the host", () -> host.chat().size() == 1);
+        host.say("second");
+        bob.say("third");
+        until("three lines on every PC", () -> host.chat().size() == 3 && bob.chat().size() == 3 && cid.chat().size() == 3);
+        for (SetupSession s : List.of(host, bob, cid)) {
+            assertEquals(List.of("first", "second"), List.of(s.chat().line(0).text(), s.chat().line(1).text()));
+            assertEquals(2, s.chat().line(0).playerId());
+            assertEquals(0, s.chat().line(1).playerId());
+        }
+    }
+
     /** Whether {@code s} shows player {@code id}'s cursor at {@code x, y}. */
     private static boolean at(SetupSession s, int id, int x, int y) {
         Cursors c = s.cursors();

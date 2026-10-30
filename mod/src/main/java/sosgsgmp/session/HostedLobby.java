@@ -26,6 +26,7 @@ public final class HostedLobby implements LobbySession {
     private LobbyState state = LobbyState.OPEN;
     private boolean handedOver;
     private String closedReason;
+    private final Chat chat = new Chat();
     private int changes;
 
     /**
@@ -61,6 +62,26 @@ public final class HostedLobby implements LobbySession {
         }
     }
 
+    @Override
+    public Chat chat() {
+        return chat;
+    }
+
+    @Override
+    public void say(String text) {
+        String out = chat.outgoing(text, System.nanoTime());
+        if (out == null)
+            return;
+        chat.heard(localPlayerId(), lobby.players(), out);
+        relay(new Message.Chat(localPlayerId(), out));
+    }
+
+    /** Every joined PC gets it, its sender too: the host's order is every PC's. */
+    private void relay(Message.Chat c) {
+        for (int peer : joined.keySet())
+            node.send(peer, c);
+    }
+
     private void received(int peer, Message m) {
         boolean isJoined = joined.containsKey(peer);
         switch (m) {
@@ -74,6 +95,11 @@ public final class HostedLobby implements LobbySession {
                 joined.put(peer, id);
                 node.send(peer, new Message.Welcome(id, lobby.settings()));
                 sendRoster();
+            }
+            case Message.Chat c when isJoined -> {
+                int id = joined.get(peer);
+                chat.heard(id, lobby.players(), c.text());
+                relay(new Message.Chat(id, Chat.clean(c.text())));
             }
             case Message.Unsupported u -> refuse(peer, Refusal.WRONG_VERSION);
             case Message.Leave l when isJoined -> {
@@ -166,7 +192,7 @@ public final class HostedLobby implements LobbySession {
         if (state != LobbyState.STARTED || handedOver)
             throw new IllegalStateException("SOSGSGMP: only a started lobby hands over, once (state " + state + ", handed over " + handedOver + ")");
         handedOver = true;
-        return new HostedSetup(node, joined, lobby.players(), lobby.keys(), world, factions, lobby.settings());
+        return new HostedSetup(node, joined, lobby.players(), lobby.keys(), world, factions, lobby.settings(), chat);
     }
 
     @Override

@@ -74,18 +74,20 @@ public final class HostedSetup implements SetupSession {
     private int resyncTransfer;
     /** The world resync this PC sent, until it takes it to load; null otherwise. */
     private WorldResync resync;
+    private final Chat chat;
     private boolean closed;
     private String closedReason;
     private int changes;
 
     /**
      * Takes over a started lobby's connection, its joined peers (peer to player id), its players (the host first), their
-     * keys and its settings. A resume starts at the world-loaded step: every player has the campaign's slot, and every
+     * keys, its settings and its chat. A resume starts at the world-loaded step: every player has the campaign's slot, and every
      * PC loads its own save (SOS-64).
      */
     HostedSetup(Node node, Map<Integer, Integer> joined, List<LobbyPlayer> players, Map<Integer, Long> keys, MapWorld world,
-            FactionWorld factionWorld, LobbySettings settings) {
+            FactionWorld factionWorld, LobbySettings settings, Chat chat) {
         this.node = node;
+        this.chat = chat;
         this.world = world;
         this.factionWorld = factionWorld;
         this.difficulty = settings.difficulty();
@@ -122,6 +124,26 @@ public final class HostedSetup implements SetupSession {
                 }
             }
         }
+    }
+
+    @Override
+    public Chat chat() {
+        return chat;
+    }
+
+    @Override
+    public void say(String text) {
+        String out = chat.outgoing(text, System.nanoTime());
+        if (out == null)
+            return;
+        chat.heard(localPlayerId(), players, out);
+        relay(new Message.Chat(localPlayerId(), out));
+    }
+
+    /** Every joined PC gets it, its sender too: the host's order is every PC's. */
+    private void relay(Message.Chat c) {
+        for (int peer : joined.keySet())
+            node.send(peer, c);
     }
 
     private void received(int peer, Message m) {
@@ -161,6 +183,10 @@ public final class HostedSetup implements SetupSession {
                 for (Map.Entry<Integer, Integer> p : joined.entrySet())
                     if (p.getKey() != peer)
                         node.send(p.getKey(), relayed);
+            }
+            case Message.Chat c when id != null -> {
+                chat.heard(id, players, c.text());
+                relay(new Message.Chat(id, Chat.clean(c.text())));
             }
             case Message.Saved s when id != null && saveRound != null && s.number() == saveRound.order.number() -> {
                 if (saveRound.report(id, s.hash(), s.problem().isEmpty() ? null : s.problem()))

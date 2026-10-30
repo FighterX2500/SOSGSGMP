@@ -583,7 +583,7 @@ public final class MpAutopilot {
 		}
 		deals(setup, step);
 		views(setup, engine, views, step);
-		commands.frame(engine);
+		commands.frame(engine, setup);
 		Departures d = setup.departures();
 		if (d.waiting() && d.holdStep() != seenGone) {
 			seenGone = d.holdStep();

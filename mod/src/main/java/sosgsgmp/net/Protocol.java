@@ -30,7 +30,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 16;
+    public static final int VERSION = 17;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -43,6 +43,7 @@ public final class Protocol {
     private static final int SAVE_AT = 26, SAVED = 27, SAVE_DONE = 28;
     private static final int PLAYER_GONE = 29, GONE_CHOICE = 30, QUIT_ASK = 31;
     private static final int VIEW_ASK = 32, VIEW_ANSWER = 33, VIEW_CLOSE = 34, VIEW_CITY = 35, VIEW_HASHES = 36;
+    private static final int CHAT = 37;
     /** The largest city a view carries, in bytes ({@link Message.ViewCity}). */
     public static final int MAX_VIEW_CITY = 512 * 1024 * 1024;
     /** The largest reason a viewer's PC ends its view for ({@link Message.ViewClose}): the engine's closed to lost step. */
@@ -201,6 +202,11 @@ public final class Protocol {
                     out.writeInt(c.x());
                     out.writeInt(c.y());
                 }
+                case Message.Chat c -> {
+                    out.writeByte(CHAT);
+                    out.writeInt(c.playerId());
+                    out.writeUTF(c.text());
+                }
                 case Message.Resync r -> {
                     out.writeByte(RESYNC);
                     out.writeLong(r.step());
@@ -319,6 +325,7 @@ public final class Protocol {
             case GO -> new Message.Go(number(in, "transfer"));
             case STREAM -> stream(in);
             case CURSOR -> new Message.Cursor(playerId(in), cursorPlace(in.readShort()), in.readInt(), in.readInt());
+            case CHAT -> new Message.Chat(playerId(in), text(in, sosgsgmp.session.Chat.MAX_TEXT, "chat message"));
             case RESYNC -> {
                 long step = step(in, "resync");
                 Piece p = piece(in, "transfer", "resync");

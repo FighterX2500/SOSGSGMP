@@ -57,6 +57,8 @@ class ProtocolTest {
             new Message.Stream(StreamKind.AI_LOG, 0, 0, 0, new byte[0]),
             new Message.Stream(StreamKind.HASHES, 15, Long.MAX_VALUE, 7, new byte[Protocol.MAX_STREAM_PIECE]),
             new Message.Cursor(0, sosgsgmp.session.Cursors.OFF, 0, 0),
+            new Message.Chat(7, "Привет, world"),
+            new Message.Chat(0, "x".repeat(sosgsgmp.session.Chat.MAX_TEXT)),
             new Message.Resync(1, 0, 0, 1, new byte[0]),
             new Message.Resync(Integer.MAX_VALUE, Long.MAX_VALUE, 2, 3, new byte[Pieces.PIECE_BYTES]),
             new Message.Welcome(3, LobbySettings.resuming(new LobbySettings.Resume(CampaignStoreTest.CAMPAIGN_FOR_TESTS, 12))),

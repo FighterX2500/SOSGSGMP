@@ -24,6 +24,7 @@ import sosdet.game.cmd.WorldBattles;
 import sosdet.game.deal.DealBook;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.PlayerDeals;
+import sosgsgmp.session.SetupSession;
 import view.main.VIEW;
 import world.WORLD;
 import world.army.AD;
@@ -45,7 +46,7 @@ import world.entity.army.WArmy;
  * army at the capital); {@code mercs} (the mercenary bands for hire); {@code merc <index>} (hire one into the first army);
  * {@code attack} (the first army intercepts the other player's nearest army); {@code fight}, {@code start}, {@code retreat}
  * (the open battle prompt or battle); {@code speed <x>} (host); {@code view} (ask to view the other player's city) and
- * {@code closeview} (SOS-82).
+ * {@code closeview} (SOS-82); {@code say <text>} (the chat, SOS-110).
  */
 final class MpAutopilotCommands {
 
@@ -65,7 +66,7 @@ final class MpAutopilotCommands {
 	}
 
 	/** Once per frame while playing, outside the step. */
-	void frame(EnginePlay engine) {
+	void frame(EnginePlay engine, SetupSession setup) {
 		if (autoBattles)
 			battles();
 		if (!Files.exists(file))
@@ -83,7 +84,7 @@ final class MpAutopilotCommands {
 				continue;
 			String result;
 			try {
-				result = run(l.split("\\s+"), engine);
+				result = run(l.split("\\s+"), engine, setup);
 			} catch (RuntimeException e) {
 				result = "failed: " + e;
 			}
@@ -95,9 +96,12 @@ final class MpAutopilotCommands {
 		return FACTIONS.getByIndex(FACTIONS.player().index() == 0 ? 1 : 0);
 	}
 
-	private String run(String[] a, EnginePlay engine) {
+	private String run(String[] a, EnginePlay engine, SetupSession setup) {
 		int slot = other().index();
 		switch (a[0]) {
+		case "say":
+			setup.say(String.join(" ", java.util.Arrays.copyOfRange(a, 1, a.length)));
+			return "said";
 		case "status":
 			return status(engine);
 		case "shot":
