@@ -57,10 +57,17 @@ final class MpAssaultOutcome extends MpWindow {
 	}
 
 	/** The defender's and every other player's notice of what the attacker took (SOS-92 D). */
-	static String termsText(CharSequence attacker, CharSequence defender, int kind, int percent, int credits) {
+	static String termsText(CharSequence attacker, CharSequence defender, int kind, int percent, int credits, int moved, int killed, int freed) {
 		return kind == AssaultTerms.SACK
 				? attacker + " sacked " + defender + "'s capital: " + percent + "% of its money (" + String.format(Locale.ENGLISH, "%,d", credits) + ") and goods, and made peace."
+						+ peopleText(moved, killed, freed)
 				: defender + " is now " + attacker + "'s vassal, with a tribute of " + percent + "%.";
+	}
+
+	private static String peopleText(int moved, int killed, int freed) {
+		if (moved + killed + freed == 0)
+			return "";
+		return String.format(Locale.ENGLISH, " People removed: %,d moved, %,d killed, %,d freed.", moved, killed, freed);
 	}
 
 	private static String text(CharSequence them, int outcome, int men, boolean attacker) {
@@ -70,7 +77,7 @@ final class MpAssaultOutcome extends MpWindow {
 					: "Your capital held against " + them + ". Their " + men + " men are lost.";
 		case Assault.TAKEN:
 			return attacker ? "Your army reached " + them + "'s throne."
-					: them + "'s army reached your throne. They choose what they take: a share of your money and goods, or you as their vassal.";
+					: them + "'s army reached your throne. They choose what they take: a share of your money and goods and some of your people, or you as their vassal.";
 		default:
 			return attacker ? "After five days your army withdrew from " + them + "'s capital. The siege goes on, with a new wait."
 					: them + "'s army withdrew after five days. The siege goes on, with a new wait.";

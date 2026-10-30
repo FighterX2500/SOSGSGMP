@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.34 · 2026-10-30
+Version 0.35 · 2026-10-30
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -148,6 +148,7 @@ When two players' armies meet, a real-time battle is mandatory. Battles against 
   - Several players can fight NPC battles at the same time. The world stays at 1× until the last one ends.
   - **Prompts during the battle.** A prompt that needs the fighting player's answer waits until the battle ends, then appears with the usual 30-second rule. This covers a world battle of another of their armies, another player's army meeting theirs (that battle starts only after the NPC battle ends), a sally request and a siege's popups; the armies involved wait meanwhile. Deal proposals, declarations of war and other notifications arrive as notifications without popups.
   - **Saves during the battle.** Campaign saves (Save and exit, autosaves) wait until the battle ends, as during an assault. NPC battles don't get the save before battles (section 11).
+  - **Storm during the battle.** Every player watches an assault, and a fighting player can't, so an assault can't start until the last NPC battle has ended (owner, 2026-10-30; SOS-92).
 - **Watching an NPC battle** is optional. Any other player can join it while it runs, enemies included, without asking: their PC loads the battle from the fighting player's PC and runs it in step, as a city view does (section 10). Their own city is frozen while they watch. Leaving ends their view only. (Built after the battle itself.)
 - **Allies** can join a battle or siege when they are within range, as in vanilla.
 - **Captives** after a battle between players are handled as in vanilla (capture, execute or release, each changing mercy). Each winning player decides for their own share.
@@ -180,7 +181,7 @@ During the siege, the defender can attack the besieging army (sally out) at any 
 
 **When the attacker wins**, they choose one outcome:
 
-- **Sack:** the attacker chooses which resources and how much money to take, and can remove up to 80% of the population.
+- **Sack:** the attacker chooses which resources and how much money to take, and can remove up to 80% of the population. The 80% is of the citizens and slaves in the city, in total rather than per race, so one race can be taken whole; nobles are never removed. If the attacker doesn't choose in time, half the money and goods are taken and no one is removed (owner, 2026-10-30; SOS-92).
 - **Eliminate:** the attacker takes 90% of the city's resources and money, and removes 90% of its population. The city then becomes an NPC city owned by a neutral faction, as in vanilla, and its player can only spectate from then on.
 - **Vassalage:** the defender becomes the attacker's vassal (section 6).
 
@@ -368,6 +369,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 ### Sieges
 
 - The attacker can't assault before the waiting period for the city's population band ends. [AT]
+- The attacker can't assault while any player is fighting an NPC battle. [AT]
 - The besieged city receives no trade, from NPCs or from other players. [AT]
 - A defender's attack on the besiegers starts a real-time field battle. [PT]
 - The assault shows the defender's city in real time to every player, and the attacker's orders work. [PT]
@@ -463,6 +465,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-10-28 | **War between players, and real-time battles between two players' armies**, with each side's commanders, deployment, retreat, spoils and the sally; the panel's status text | SOS-74, SOS-83, SOS-84 |
 | 2026-10-29 | **City viewing:** a live view of another player's city, on request; playtest fixes: the host's lead up to 1000 steps, each player's own banner, slider buttons, messages on their own player's PC only, lockstep windows of half a second at every speed, a button that hides the panel; the README, the mod's MIT license and the Steam Workshop texts | SOS-82, SOS-86 to SOS-91 |
 | 2026-10-30 | **Sieges of a player's capital, step A:** the siege's popup, the days to the assault, Sally out at any time, no trade into or out of a besieged capital; the governor tells a slow PC from a slow link; playtest fixes: cursors in cities, the ruler name, the top bar's banner, world news on every player, Production Rate, a view's held transactions, compressed network streams, a Steam invite from the main menu | SOS-58, SOS-92, SOS-94, SOS-96 to SOS-99, SOS-102, SOS-103 |
+| 2026-10-30 | **Sieges and NPC battles:** no assault while a player fights an NPC battle. **A sack's people:** the 80% counts the citizens and slaves in the city, in total; nobles are never removed; with no choice in time, no one is removed (spec 0.35) | SOS-92 |
 
 ### Where each v1 feature stands (2026-10-30; percentages from 2026-10-29)
 
