@@ -116,6 +116,8 @@ final class MpSaves {
 			return "No saves during a battle.";
 		if (engine.assault() != null)
 			return "No saves during an assault.";
+		if (engine.assaultTaken() != null)
+			return "No saves while an attacker chooses what to take.";
 		if (engine.desyncHold() != null)
 			return "No saves while the worlds differ.";
 		return null;

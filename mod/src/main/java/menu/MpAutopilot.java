@@ -15,6 +15,7 @@ import java.util.function.IntBinaryOperator;
 import game.GAME;
 import game.faction.FACTIONS;
 import game.faction.diplomacy.DIP;
+import game.faction.npc.FactionNPC;
 import init.trade.TR;
 import settlement.main.SETT;
 import settlement.stats.POP;
@@ -40,9 +41,11 @@ import sosgsgmp.session.SetupSession;
 import sosgsgmp.session.ViewRequests;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStep;
+import sosdet.Assault;
 import sosdet.DesyncHold;
 import sosdet.Stats;
 import sosdet.game.deal.DealBook;
+import sosdet.game.siege.AssaultTerms;
 import view.main.VIEW;
 import view.tool.PlacableFixed;
 import world.WORLD;
@@ -111,6 +114,12 @@ public final class MpAutopilot {
 	private final long quit;
 	/** The step this PC's player renames the faction and changes the banner at (SOS-78); -1 for never. */
 	private final long rename;
+	/** The host opens each siege window in turn from this step, for screenshots (SOS-92); -1 for none. */
+	private final long guiPreview;
+	/** The preview's window showing, its index, and when it opened. */
+	private MpWindow previewWindow;
+	private int previewIndex = -1;
+	private long previewNanos;
 	/** The step this PC's player asks to view the other player's city at, and closes the view at (SOS-82); -1 for never. */
 	private final long viewAt, viewClose;
 	/** How this PC's player answers an ask to view its city: allow, refuse or none. */
@@ -195,6 +204,7 @@ public final class MpAutopilot {
 		tariff = Long.parseLong(m.getOrDefault("tariff", "-1"));
 		quit = Long.parseLong(m.getOrDefault("quit", "-1"));
 		rename = Long.parseLong(m.getOrDefault("rename", "-1"));
+		guiPreview = Long.parseLong(m.getOrDefault("guipreview", "-1"));
 		String[] view = m.getOrDefault("view", "-1:-1").split(":");
 		if (view.length != 2)
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " view '" + m.get("view") + "', not STEP:CLOSE");
@@ -528,6 +538,8 @@ public final class MpAutopilot {
 		}
 		if (host && speed > 0 && first("speed"))
 			GAME.SPEED.speedSet(speed);
+		if (host && guiPreview >= 0 && engine.step() >= guiPreview)
+			preview(engine);
 		if (host && save >= 0 && engine.step() >= save && exit.saveRefusal() == null && first("save")) {
 			exit.save(); // the escape menu's Save Campaign
 			event("saveorder", "\"step\":" + engine.step());
@@ -735,6 +747,63 @@ public final class MpAutopilot {
 			return false;
 		lastTry = now;
 		return true;
+	}
+
+	/** Seconds each preview window stays open. */
+	private static final long PREVIEW_NANOS = 6_000_000_000L;
+
+	/**
+	 * The siege windows one after another, as this PC's player (slot 0, the defender) and as slot 1 (the attacker) would
+	 * see them, with preview numbers: a {@code guipreview} event as each opens, for the screenshot tool (SOS-92).
+	 */
+	private void preview(EnginePlay engine) {
+		if (previewIndex >= 0 && System.nanoTime() - previewNanos < PREVIEW_NANOS)
+			return;
+		if (previewWindow != null)
+			previewWindow.close();
+		previewWindow = null;
+		previewIndex++;
+		String me = engine.factionName(0);
+		String them = engine.factionName(1);
+		String name;
+		switch (previewIndex) {
+		case 0: name = "siege-notice"; previewWindow = new MpSiegeNotice(16); break;
+		case 1: name = "outcome-defender-held"; previewWindow = new MpAssaultOutcome(1, 0, Assault.HELD, 71, false); break;
+		case 2: name = "outcome-defender-taken"; previewWindow = new MpAssaultOutcome(1, 0, Assault.TAKEN, 71, false); break;
+		case 3: name = "outcome-defender-retreat"; previewWindow = new MpAssaultOutcome(1, 0, Assault.RETREAT, 71, false); break;
+		case 4: name = "outcome-attacker-held"; previewWindow = new MpAssaultOutcome(0, 1, Assault.HELD, 71, true); break;
+		case 5: name = "outcome-attacker-retreat"; previewWindow = new MpAssaultOutcome(0, 1, Assault.RETREAT, 71, true); break;
+		case 6: name = "terms-attacker"; previewWindow = new MpAssaultTerms(1); break;
+		case 7: name = "notice-sacked"; previewWindow = new MpViewNotice("Assault", MpAssaultOutcome.termsText(them, me, AssaultTerms.SACK, 60, 1350763), true); break;
+		case 8: name = "notice-vassal"; previewWindow = new MpViewNotice("Assault", MpAssaultOutcome.termsText(them, me, AssaultTerms.VASSALAGE, 25, 0), true); break;
+		case 9: name = "notice-others"; previewWindow = new MpViewNotice("Assault", MpAssaultOutcome.othersText(them, me, Assault.HELD), true); break;
+		case 10: name = "notice-invasion"; previewWindow = new MpViewNotice(MpAssaultOutcome.invasionText(them, "Rebels") + " You can ask to view the city from their window.", true); break;
+		case 11: name = "vanilla-npc-diplomacy"; previewNpc(false); break; // SOS-100: vanilla's deal with an NPC, to compare
+		case 12: name = "vanilla-npc-trade"; previewNpc(true); break;
+		case 13: name = "player-diplomacy"; VIEW.world().panels.clear(); MpPlayers.open(FACTIONS.getByIndex(1), true); break;
+		default:
+			if (first("guipreviewdone"))
+				event("guipreview", "\"name\":\"done\",\"step\":" + engine.step());
+			return;
+		}
+		if (previewWindow != null)
+			previewWindow.open();
+		previewNanos = System.nanoTime();
+		event("guipreview", "\"name\":\"" + name + "\",\"step\":" + engine.step());
+	}
+
+	/** Vanilla's deal panel with the first NPC that has a capital: its Diplomacy, or with Trade drafted (SOS-100). */
+	private static void previewNpc(boolean trade) {
+		for (int i = 0; i < FACTIONS.NPCs().size(); i++) {
+			FactionNPC f = FACTIONS.NPCs().get(i);
+			if (f.capitolRegion() == null)
+				continue;
+			if (trade)
+				VIEW.world().UI.factions.openTrade(f);
+			else
+				VIEW.world().UI.factions.openDip(f);
+			return;
+		}
 	}
 
 	private boolean first(String what) {

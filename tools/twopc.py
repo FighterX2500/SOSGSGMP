@@ -227,6 +227,8 @@ def main():
                     " PC holds while the host's view opens) (SOS-82)")
     ap.add_argument("--view-answer", choices=("allow", "refuse", "none"), default="allow",
                     help="how the owner answers a view request; none: no answer, refused after 30 s (SOS-82)")
+    ap.add_argument("--gui-preview", type=int, default=-1,
+                    help="the host opens each siege window in turn from this step, 6 s each, for screenshots (SOS-92)")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
     if not args.here and (not REMOTE or not HOST_ADDRESS):
@@ -282,6 +284,7 @@ def main():
     host_view = ",view=" + args.host_view if args.host_view else ""
     join_view = ",view=" + args.view if args.view else ""
     host_capital = ",capital=" + args.host_capital if args.host_capital else ""
+    host_capital += ",guipreview=%d" % args.gui_preview if args.gui_preview >= 0 else ""
     join_capital = ",capital=" + args.join_capital if args.join_capital else ""
     # Steam finds the App ID here when the game isn't started by Steam
     host_env = dict(os.environ, APPDATA=str(local.parent), SteamAppId=STEAM_APP_ID,

@@ -95,7 +95,8 @@ final class MpExit implements MpEscapeMenu.Actions {
 			return;
 		}
 		String refusal = setup.isHost() ? saves.saveRefusal() : engine.battle() != null ? "No saves during a battle."
-				: engine.assault() != null ? "No saves during an assault." : null;
+				: engine.assault() != null ? "No saves during an assault."
+				: engine.assaultTaken() != null ? "No saves while an attacker chooses what to take." : null;
 		if (refusal != null && !saves.saving()) {
 			confirm(refusal + (setup.isHost() ? " End the session for every player without saving? The last save resumes it."
 					: " Leave without saving? The host chooses whether the others go on without you."), () -> leave(exitGame));

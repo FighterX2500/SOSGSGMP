@@ -6,20 +6,21 @@ import snake2d.SPRITE_RENDERER;
 import snake2d.util.color.COLOR;
 import snake2d.util.gui.renderable.RENDEROBJ;
 import sosdet.Assault;
+import sosdet.game.siege.AssaultTerms;
 import util.gui.misc.GButt;
 
 /**
  * SOSGSGMP: how the assault on a player's capital ended, for the attacker and the defender (spec §9; SOS-92 C):
- * information only. Sack, Eliminate and Vassalage after a taken throne are step D; until then the siege goes on.
+ * information only. After a taken throne the attacker chooses in {@link MpAssaultTerms} (step D).
  */
 final class MpAssaultOutcome extends MpWindow {
 
 	private static final int WIDTH = 380;
 
-	/** The window for the player in {@code slot}, the assault's attacker or defender. */
-	MpAssaultOutcome(Assault a, int slot) {
-		super(title(a, slot == a.attacker));
-		String text = text(a, slot == a.attacker);
+	/** The window for the assault's attacker ({@code asAttacker}) or defender; {@code men} the attacker committed. */
+	MpAssaultOutcome(int attacker, int defender, int outcome, int men, boolean asAttacker) {
+		super(title(outcome, asAttacker));
+		String text = text(FACTIONS.getByIndex(asAttacker ? defender : attacker).name, outcome, men, asAttacker);
 		inner.add(new RENDEROBJ.RenderImp(WIDTH, UI.FONT().M.getHeight(text, WIDTH)) {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
@@ -36,21 +37,38 @@ final class MpAssaultOutcome extends MpWindow {
 		});
 	}
 
-	private static String title(Assault a, boolean attacker) {
-		if (a.outcome() == Assault.RETREAT)
+	private static String title(int outcome, boolean attacker) {
+		if (outcome == Assault.RETREAT)
 			return "Assault: withdrawal";
-		return (a.outcome() == Assault.HELD) != attacker ? "Assault: victory" : "Assault: defeat";
+		return (outcome == Assault.HELD) != attacker ? "Assault: victory" : "Assault: defeat";
 	}
 
-	private static String text(Assault a, boolean attacker) {
-		CharSequence them = FACTIONS.getByIndex(attacker ? a.defender : a.attacker).name;
-		switch (a.outcome()) {
+	/** Every other player's notice of an NPC army invading a player's capital (SOS-92 F). */
+	static String invasionText(CharSequence defender, CharSequence invader) {
+		return defender + "'s capital is invaded by " + invader + ".";
+	}
+
+	/** Every other player's notice of an assault's outcome. */
+	static String othersText(CharSequence attacker, CharSequence defender, int outcome) {
+		String how = outcome == Assault.HELD ? "held" : outcome == Assault.TAKEN ? "fell" : "held: the attackers withdrew";
+		return attacker + " stormed " + defender + "'s capital. It " + how + ".";
+	}
+
+	/** The defender's and every other player's notice of what the attacker took (SOS-92 D). */
+	static String termsText(CharSequence attacker, CharSequence defender, int kind, int percent, int credits) {
+		return kind == AssaultTerms.SACK
+				? attacker + " sacked " + defender + "'s capital: " + percent + "% of its money (" + credits + ") and goods, and made peace."
+				: defender + " is now " + attacker + "'s vassal, with a tribute of " + percent + "%.";
+	}
+
+	private static String text(CharSequence them, int outcome, int men, boolean attacker) {
+		switch (outcome) {
 		case Assault.HELD:
-			return attacker ? "The assault on " + them + "'s capital failed. Your " + a.men + " men are lost."
-					: "Your capital held against " + them + ". Their " + a.men + " men are lost.";
+			return attacker ? "The assault on " + them + "'s capital failed. Your " + men + " men are lost."
+					: "Your capital held against " + them + ". Their " + men + " men are lost.";
 		case Assault.TAKEN:
-			return attacker ? "Your army reached " + them + "'s throne. Sack, Eliminate and Vassalage aren't built yet: the siege goes on."
-					: them + "'s army reached your throne. What they take isn't built yet: the siege goes on.";
+			return attacker ? "Your army reached " + them + "'s throne."
+					: them + "'s army reached your throne. They choose what they take: a share of your money and goods, or you as their vassal.";
 		default:
 			return attacker ? "After five days your army withdrew from " + them + "'s capital. The siege goes on, with a new wait."
 					: them + "'s army withdrew after five days. The siege goes on, with a new wait.";

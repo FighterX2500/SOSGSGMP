@@ -198,6 +198,13 @@ The attacker's outcome window has three choices. Each is a command at a step, wh
   - a rig run of each outcome, with every copy identical and each city's sums as expected;
   - twopc: one Sack.
 
+**Status (2026-10-30, overnight, decided as recommended; the owner reviews):** Sack and Vassalage are built (SOSDET plan 0014, "Step D").
+- After a taken throne, the attacker's PC opens `MpAssaultTerms`: Sack takes 0% to 80% of the defender's money and of each good, by caravan, and makes peace; Vassalage takes a tribute of 0% to 100%.
+- With no choice in two minutes, Sack takes 50%.
+- The defender and every other player get a notice, and the playtest log a line. Saves wait while the choice is open.
+- Simplification: one share for the money and every good, not a slider per good.
+- Not built: Eliminate, and the removed people (Moved, Killed, Freed, mercy).
+
 ### E. Allied attackers (engine)
 
 - Every human at war with the defender who has a besieging army on the capital's siege tiles joins the assault. NPC allies' armies join under the host's AI.

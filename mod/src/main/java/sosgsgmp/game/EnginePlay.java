@@ -111,6 +111,16 @@ public final class EnginePlay implements EnginePort {
         return Engine.assault();
     }
 
+    /** A taken throne whose attacker hasn't chosen what to take yet, or null (SOS-92 D). */
+    public Assault assaultTaken() {
+        return Engine.assaultTaken();
+    }
+
+    /** Once, as the world applies the attacker's terms: that assault, with what was taken; else null (SOS-92 D). */
+    public Assault assaultTermsTake() {
+        return Engine.assaultTermsTake();
+    }
+
     /** Once, as the world takes an assault's outcome: that assault; else null (SOS-92 C). */
     public Assault assaultOutcomeTake() {
         return Engine.assaultOutcomeTake();

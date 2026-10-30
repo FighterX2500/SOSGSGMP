@@ -69,6 +69,7 @@ final class MpPlay implements ACTION {
 				engine.battleFrame();
 				outcome();
 				assaultOutcome();
+				assaultTerms();
 				invasions();
 			}
 		}
@@ -105,12 +106,27 @@ final class MpPlay implements ACTION {
 			return;
 		log.line("assault outcome applied at step " + engine.step() + ": " + a);
 		int slot = setup.factions().slotOf(setup.localPlayerId());
-		if (slot == a.attacker || slot == a.defender) {
-			new MpAssaultOutcome(a, slot).open();
+		if (slot == a.attacker && a.outcome() == Assault.TAKEN) {
+			new MpAssaultTerms(a.defender).open();
 			return;
 		}
-		String outcome = a.outcome() == Assault.HELD ? "held" : a.outcome() == Assault.TAKEN ? "fell" : "held: the attackers withdrew";
-		new MpViewNotice(views.name(a.attacker) + " stormed " + views.name(a.defender) + "'s capital. It " + outcome + ".", true).open();
+		if (slot == a.attacker || slot == a.defender) {
+			new MpAssaultOutcome(a.attacker, a.defender, a.outcome(), a.men, slot == a.attacker).open();
+			return;
+		}
+		new MpViewNotice("Assault", MpAssaultOutcome.othersText(engine.factionName(a.attacker), engine.factionName(a.defender), a.outcome()), true).open();
+	}
+
+	/** The attacker's terms after a taken throne applied (SOS-92 D): the defender and every other player are told. */
+	private void assaultTerms() {
+		Assault a = engine.assaultTermsTake();
+		if (a == null)
+			return;
+		String what = MpAssaultOutcome.termsText(engine.factionName(a.attacker), engine.factionName(a.defender), a.termsKind(), a.termsPercent(),
+				a.termsCredits());
+		log.line("assault terms applied at step " + engine.step() + ": " + what);
+		if (setup.factions().slotOf(setup.localPlayerId()) != a.attacker)
+			new MpViewNotice("Assault", what, true).open();
 	}
 
 	/** An NPC army invades a player's capital (SOS-92 F): every other player is told, and the playtest log notes it. */
@@ -118,7 +134,7 @@ final class MpPlay implements ACTION {
 		long[] n;
 		while ((n = engine.invasionNoticeTake()) != null) {
 			int slot = (int) n[1];
-			String text = views.name(slot) + "'s capital is invaded by " + engine.factionName((int) n[2]) + ".";
+			String text = MpAssaultOutcome.invasionText(engine.factionName(slot), engine.factionName((int) n[2]));
 			log.line("invasion at step " + n[0] + ": " + text);
 			if (slot != setup.factions().slotOf(setup.localPlayerId()))
 				new MpViewNotice(text + " You can ask to view the city from their window.", true).open();
