@@ -143,6 +143,15 @@ At Storm's step S:
   - the defender's city must be identical on the defender's copy and on every loading copy at every check;
   - twopc: a two-PC assault with `--battles auto`.
 
+**Status (2026-10-30, overnight, decided as recommended; the owner reviews):** built in SOSDET PR (SOS-92 step B) and this repository's step B PR, with three differences from the plan above:
+- The vehicle is a view, not battle mode: every other human views the defender's city from Storm's next report step, and the world is held until every view thaws. City viewing already loads the defender's city on every PC and checks the hash, so no new city stream was needed.
+- No commanders yet: the invaders and the defenders run under the game's own `Invasion` AI on every PC. Player commands for the attacker's divisions are a gap for a later step.
+- No save before the assault: saves are refused while it runs ("No saves during an assault."), and the last autosave is the restart point.
+
+Rig run S92M (Mogus-72, slot 2 storms slot 0's capital): Storm at step 16,625, the view from 16,650 (7.5 s load), the defender held at 28,882, the view ended at 28,890, no desync. A twopc run is still to do. Rig run S92N repeated it with probes: held at 32,884; afterwards the attacker's army is gone and the siege record cleared on both copies, no desync.
+
+**Step C, in part (same night):** the world's outcome reaches the mod once (`Engine.assaultOutcomeTake`): the attacker and the defender get an Assault window (victory, defeat or withdrawal, with the men the attacker committed), every other player a notice, and the playtest log a line. Not done: vanilla's prisoners prompt for the defender; on a withdrawal the attacker's world army keeps the men it lost in the city; the save before an assault has no name (there is none: saves are refused).
+
 ### C. The return, and the results for each side (engine and mod)
 
 - At the end step E, every PC except the defender's loads its `__beforeBattle`, as after a battle.

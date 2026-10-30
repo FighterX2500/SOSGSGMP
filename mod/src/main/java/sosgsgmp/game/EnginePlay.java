@@ -111,6 +111,11 @@ public final class EnginePlay implements EnginePort {
         return Engine.assault();
     }
 
+    /** Once, as the world takes an assault's outcome: that assault; else null (SOS-92 C). */
+    public Assault assaultOutcomeTake() {
+        return Engine.assaultOutcomeTake();
+    }
+
     /**
      * The next NPC invasion of a player's capital, as {step, slot, invading faction or -1}, or null (SOS-92 F): the
      * same on every PC, each handed out once.
