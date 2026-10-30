@@ -27,6 +27,8 @@ public final class Chat {
     /** One line; {@code colour} is the speaker's place in the session when it was said. */
     public record Line(int playerId, String name, int colour, String text) {}
 
+    private static final String TOO_FAST = "You're sending too fast. Wait a moment.";
+
     private final List<Line> lines = new ArrayList<>();
     private final long[] sentAt = new long[BURST];
     private int sent;
@@ -34,6 +36,8 @@ public final class Chat {
     private int boxX = -1;
     private int boxY = -1;
     private boolean boxHidden;
+    /** The lobby's players at the last refresh; null before the first. */
+    private List<String> roster;
 
     /**
      * A message as it may be shown: stripped, with control characters, surrogates and U+FFFF dropped, at most
@@ -59,7 +63,8 @@ public final class Chat {
             return null;
         int slot = sent % BURST;
         if (sent >= BURST && nanos - sentAt[slot] < BURST_NANOS) {
-            notice("You're sending too fast. Wait a moment.");
+            if (lines.isEmpty() || !lines.get(lines.size() - 1).text().equals(TOO_FAST))
+                notice(TOO_FAST);
             return null;
         }
         sentAt[slot] = nanos;
@@ -83,6 +88,22 @@ public final class Chat {
     /** A line that no player said, on this PC only. */
     public void notice(String text) {
         add(new Line(NOTICE, "", 0, text));
+    }
+
+    /** The lobby's players now, at each refresh: who joined or left since the last call; the first only remembers. */
+    public void roster(List<LobbyPlayer> players) {
+        List<String> now = new ArrayList<>();
+        for (LobbyPlayer p : players)
+            now.add(p.name());
+        if (roster != null) {
+            for (String name : now)
+                if (!roster.contains(name))
+                    notice(name + " joined.");
+            for (String name : roster)
+                if (!now.contains(name))
+                    notice(name + " left.");
+        }
+        roster = now;
     }
 
     private void add(Line line) {

@@ -28,6 +28,7 @@ import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.lobby.Refusal;
+import sosgsgmp.net.Message;
 import sosgsgmp.net.Pieces;
 import sosgsgmp.net.Protocol;
 import sosgsgmp.net.StreamKind;
@@ -875,6 +876,22 @@ class LoopbackSetupTest {
             assertEquals(List.of("first", "second"), List.of(s.chat().line(0).text(), s.chat().line(1).text()));
             assertEquals(2, s.chat().line(0).playerId());
             assertEquals(0, s.chat().line(1).playerId());
+        }
+    }
+
+    @Test
+    void aPauseReachesEveryPcOnceWithItsPlayerAndAnyPlayerCanEndIt() throws Exception {
+        confirmMap();
+        cid.pause(true);
+        until("Cid's pause on every PC", () -> host.pauses().pausedBy() == 2 && bob.pauses().pausedBy() == 2
+                && cid.pauses().pausedBy() == 2);
+        bob.pause(false);
+        until("Bob's unpause on every PC", () -> host.pauses().pausedBy() == Pauses.NOBODY
+                && bob.pauses().pausedBy() == Pauses.NOBODY && cid.pauses().pausedBy() == Pauses.NOBODY);
+        for (SetupSession s : List.of(host, bob, cid)) {
+            assertEquals(new Message.Pause(2, true), s.pauses().take());
+            assertEquals(new Message.Pause(1, false), s.pauses().take());
+            assertNull(s.pauses().take());
         }
     }
 

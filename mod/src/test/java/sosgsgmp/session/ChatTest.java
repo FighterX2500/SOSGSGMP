@@ -74,4 +74,25 @@ class ChatTest {
         assertEquals("m", c.outgoing("m", 0));
         assertEquals(0, c.size());
     }
+
+    @Test
+    void sendingTooFastSaysSoOnceWhileNothingElseIsSaid() {
+        Chat c = new Chat();
+        for (int i = 0; i < Chat.BURST; i++)
+            c.outgoing("m", 0);
+        assertNull(c.outgoing("m", 0));
+        assertNull(c.outgoing("m", 0));
+        assertEquals(1, c.size());
+    }
+
+    @Test
+    void aRosterChangeSaysWhoJoinedOrLeftAndTheFirstSaysNothing() {
+        Chat c = new Chat();
+        c.roster(List.of(PLAYERS.get(0)));
+        assertEquals(0, c.size());
+        c.roster(PLAYERS);
+        c.roster(List.of(PLAYERS.get(1)));
+        assertEquals(PLAYERS.get(1).name() + " joined.", c.line(0).text());
+        assertEquals(PLAYERS.get(0).name() + " left.", c.line(1).text());
+    }
 }

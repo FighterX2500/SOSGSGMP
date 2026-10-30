@@ -241,6 +241,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		if (session.changes() == shownChanges)
 			return;
 		shownChanges = session.changes();
+		session.chat().roster(session.players());
 
 		List<LobbyPlayer> players = session.players();
 		shownPlayers = players.size();

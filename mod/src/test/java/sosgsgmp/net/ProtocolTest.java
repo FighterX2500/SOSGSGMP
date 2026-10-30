@@ -57,6 +57,7 @@ class ProtocolTest {
             new Message.Stream(StreamKind.AI_LOG, 0, 0, 0, new byte[0]),
             new Message.Stream(StreamKind.HASHES, 15, Long.MAX_VALUE, 7, new byte[Protocol.MAX_STREAM_PIECE]),
             new Message.Cursor(0, sosgsgmp.session.Cursors.OFF, 0, 0),
+            new Message.Pause(7, true),
             new Message.Chat(7, "Привет, world"),
             new Message.Chat(0, "x".repeat(sosgsgmp.session.Chat.MAX_TEXT)),
             new Message.Resync(1, 0, 0, 1, new byte[0]),

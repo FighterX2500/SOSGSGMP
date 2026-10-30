@@ -18,6 +18,7 @@ import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.session.Cursors;
+import sosgsgmp.session.Pauses;
 import sosgsgmp.session.SetupSession;
 import sosgsgmp.setup.FactionStep;
 import util.colors.GCOLOR;
@@ -259,6 +260,8 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 			status.add("Playing: step ").add(engine.step()).add(", speed ").add(engine.agreedSpeed(), 1).add("x. The slowest PC sets the pace.");
 			if (!saves.status().isEmpty())
 				status.add(" ").add(saves.status());
+			if (setup.pauses().pausedBy() != Pauses.NOBODY)
+				status.add(" Paused by ").add(MpPause.name(setup, setup.pauses().pausedBy())).add(".");
 			if (engine.active()) {
 				deals.refresh();
 				sieges.refresh();

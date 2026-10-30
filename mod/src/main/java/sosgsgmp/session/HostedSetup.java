@@ -75,6 +75,7 @@ public final class HostedSetup implements SetupSession {
     /** The world resync this PC sent, until it takes it to load; null otherwise. */
     private WorldResync resync;
     private final Chat chat;
+    private final Pauses pauses = new Pauses();
     private boolean closed;
     private String closedReason;
     private int changes;
@@ -141,9 +142,24 @@ public final class HostedSetup implements SetupSession {
     }
 
     /** Every joined PC gets it, its sender too: the host's order is every PC's. */
-    private void relay(Message.Chat c) {
+    private void relay(Message m) {
         for (int peer : joined.keySet())
-            node.send(peer, c);
+            node.send(peer, m);
+    }
+
+    @Override
+    public Pauses pauses() {
+        return pauses;
+    }
+
+    @Override
+    public void pause(boolean paused) {
+        heard(new Message.Pause(localPlayerId(), paused));
+    }
+
+    private void heard(Message.Pause p) {
+        pauses.heard(p);
+        relay(p);
     }
 
     private void received(int peer, Message m) {
@@ -184,6 +200,7 @@ public final class HostedSetup implements SetupSession {
                     if (p.getKey() != peer)
                         node.send(p.getKey(), relayed);
             }
+            case Message.Pause p when id != null -> heard(new Message.Pause(id, p.paused()));
             case Message.Chat c when id != null -> {
                 chat.heard(id, players, c.text());
                 relay(new Message.Chat(id, Chat.clean(c.text())));

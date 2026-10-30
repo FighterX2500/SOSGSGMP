@@ -40,6 +40,7 @@ public final class JoinedSetup implements SetupSession {
     private byte[] save;
     private final Cursors cursors = new Cursors();
     private final Chat chat;
+    private final Pauses pauses = new Pauses();
     /** Players whose PC left the running game, as the host tells it, and the hold for them (SOS-65). */
     private final Departures departures = new Departures();
     /** The engine's streams once this PC plays; null before. */
@@ -112,6 +113,16 @@ public final class JoinedSetup implements SetupSession {
             node.send(Node.HOST, new Message.Chat(localPlayerId(), out));
     }
 
+    @Override
+    public Pauses pauses() {
+        return pauses;
+    }
+
+    @Override
+    public void pause(boolean paused) {
+        node.send(Node.HOST, new Message.Pause(localPlayerId(), paused));
+    }
+
     private void received(Message m) {
         switch (m) {
             case Message.MapBuild b -> step.onBuild(b.buildId(), b.size());
@@ -180,6 +191,7 @@ public final class JoinedSetup implements SetupSession {
                 doneNumber = d.number();
                 doneOutcome = d.outcome();
             }
+            case Message.Pause p -> pauses.heard(p);
             case Message.Chat c -> chat.heard(c.playerId(), players, c.text());
             case Message.Cursor c -> {
                 if (c.playerId() != localPlayerId())

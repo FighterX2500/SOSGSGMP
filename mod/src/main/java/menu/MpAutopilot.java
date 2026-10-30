@@ -785,11 +785,9 @@ public final class MpAutopilot {
 		case 6: name = "terms-attacker"; previewWindow = new MpAssaultTerms(1); break;
 		case 7: name = "notice-sacked"; previewWindow = new MpViewNotice("Assault", MpAssaultOutcome.termsText(them, me, AssaultTerms.SACK, 60, 1350763), true); break;
 		case 8: name = "notice-vassal"; previewWindow = new MpViewNotice("Assault", MpAssaultOutcome.termsText(them, me, AssaultTerms.VASSALAGE, 25, 0), true); break;
-		case 9: name = "notice-others"; previewWindow = new MpViewNotice("Assault", MpAssaultOutcome.othersText(them, me, Assault.HELD), true); break;
-		case 10: name = "notice-invasion"; previewWindow = new MpViewNotice(MpAssaultOutcome.invasionText(them, "Rebels") + " You can ask to view the city from their window.", true); break;
-		case 11: name = "vanilla-npc-diplomacy"; previewNpc(false); break; // SOS-100: vanilla's deal with an NPC, to compare
-		case 12: name = "vanilla-npc-trade"; previewNpc(true); break;
-		case 13: name = "player-diplomacy"; VIEW.world().panels.clear(); MpPlayers.open(FACTIONS.getByIndex(1), true); break;
+		case 9: name = "vanilla-npc-diplomacy"; previewNpc(false); break; // SOS-100: vanilla's deal with an NPC, to compare
+		case 10: name = "vanilla-npc-trade"; previewNpc(true); break;
+		case 11: name = "player-diplomacy"; VIEW.world().panels.clear(); MpPlayers.open(FACTIONS.getByIndex(1), true); break;
 		default:
 			if (first("guipreviewdone"))
 				event("guipreview", "\"name\":\"done\",\"step\":" + engine.step());

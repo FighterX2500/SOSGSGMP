@@ -20,6 +20,7 @@ import sosgsgmp.game.EnginePlay;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.log.PlayLog;
 import sosgsgmp.net.Protocol;
+import sosgsgmp.session.Chat;
 import sosgsgmp.session.EngineLink;
 import sosgsgmp.session.SetupSession;
 
@@ -187,11 +188,15 @@ final class MpLog {
 		speedNotice = n;
 	}
 
-	/** How many chat lines arrived since the last status line, never what they say (spec §12): a log travels to other people. */
+	/** How many chat lines arrived since the last status line, and every notification, never what players say (spec §12): a log travels to other people. */
 	private void chatCount() {
 		int added = setup.chat().added();
 		if (added != chatLines)
 			line("chat: " + (added - chatLines) + " new lines");
+		Chat chat = setup.chat();
+		for (int i = Math.max(0, chat.size() - (added - chatLines)); i < chat.size(); i++)
+			if (chat.line(i).playerId() == Chat.NOTICE)
+				line("notification: " + chat.line(i).text());
 		chatLines = added;
 	}
 
