@@ -127,6 +127,16 @@ public final class PlayerTerms {
         return out;
     }
 
+    /** How many regions this player gives ({@code mine}) or asks for; with {@link #region}, no allocation per frame. */
+    public int regionCount(boolean mine) {
+        return (mine ? giveRegions : askRegions).size();
+    }
+
+    /** The {@code i}th region this player gives ({@code mine}) or asks for, as a region index. */
+    public int region(boolean mine, int i) {
+        return (mine ? giveRegions : askRegions).get(i);
+    }
+
     /** True when the region with index {@code region} is in this player's offer ({@code mine}) or demand. */
     public boolean hasRegion(boolean mine, int region) {
         return (mine ? giveRegions : askRegions).contains(region);

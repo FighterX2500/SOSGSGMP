@@ -104,6 +104,12 @@ final class MpPlayerWindow extends ISidePanel {
 	 * View city (spec §10, SOS-82): asks the player to let this one view their city live. Greyed, with the reason, when
 	 * a view can't be asked for now; "Asked..." until the answer comes.
 	 */
+	/** On the Diplomacy tab with a deal drafted, for the autopilot's GUI preview (SOS-100). */
+	void draftForPreview() {
+		diplomacy();
+		dip.draftForPreview();
+	}
+
 	private static CLICKABLE viewButton(int slot) {
 		SPRITE view = UI.FONT().H2.getText("View city");
 		SPRITE asked = UI.FONT().H2.getText("Asked...");

@@ -40,11 +40,18 @@ public final class MpPlayers {
 
 	/** Opens the window for another player; on its Diplomacy tab when {@code diplomacy}. Does nothing for anyone else. */
 	static void open(Faction f, boolean diplomacy) {
+		open(f, diplomacy, false);
+	}
+
+	/** As {@link #open(Faction, boolean)}; with {@code draft}, a deal drafted for the autopilot's GUI preview (SOS-100). */
+	static void open(Faction f, boolean diplomacy, boolean draft) {
 		if (!PlayerDeals.otherPlayer(f))
 			return;
 		VIEW.world().UI.factions.open(null); // vanilla's list, which also clears the side panels
 		MpPlayerWindow w = new MpPlayerWindow(f);
-		if (diplomacy)
+		if (draft)
+			w.draftForPreview();
+		else if (diplomacy)
 			w.diplomacy();
 		VIEW.world().panels.add(w, false);
 		VIEW.world().window.centererTile.set(f.cx(), f.cy());
