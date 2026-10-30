@@ -12,7 +12,7 @@ The simulation runs in lockstep on every PC through the deterministic engine [SO
 - **One world, own cities:** every PC runs only its own city, with no delay, and the world map runs in lockstep on every PC. The world never reads a live city: it reads city reports and changes a city only through transactions applied exactly once.
 - **Diplomacy between players:** peace, trade, colleagues and alliance as proposals; money, goods and regions in a deal; vassals with a tribute rate, and protectors; free passage at peace. You open another player's window wherever you'd click an NPC.
 - **Trade between players:** each sells to the other in the market, as with an NPC, across any land at peace, with each player's own tariff on what the other sells them.
-- **War and real-time battles:** a declaration of war applies at once. When two players' armies meet, each player commands their own army on the battle map, with their own technology and bonuses, while everyone else watches. A siege of a player's region (not the capital) asks the defender to sally out or fall back.
+- **War and real-time battles:** a declaration of war applies at once. When two players' armies meet, each player commands their own army on the battle map, with their own technology and bonuses, while everyone else watches. A siege of a player's region (not the capital) asks the defender to sally out or fall back. A siege of a player's capital shows the defender a popup and the days to the assault, and they can sally out at any time.
 - **Viewing a city:** ask to watch another player's city live; they allow or refuse. Your own city freezes until you close the view, then loads back where it stopped.
 - **Saves:** Save Campaign in the escape menu, the host's autosave, a save before every battle, and Quit or Exit saving first. The host resumes a campaign with Load Saved Lobby.
 - **Robustness:** a player dropping out holds every PC at the same step, and the host goes on without them or returns to the last save. If the worlds ever split, the host chooses Resync (every PC takes the host's world and keeps its own city) or Save and exit.
@@ -29,12 +29,13 @@ The rules are in [docs/spec.md](docs/spec.md).
 - trade between players, with tariffs;
 - war between players, and real-time field battles with each side's commanders, deployment, retreat, the winner's spoils and the sally;
 - viewing another player's city live;
-- names and banners on every PC; a playtest log on every PC.
+- the first part of sieges of a player's capital: the waiting period, the popup and Sally out, no trade in or out;
+- names and banners on every PC; other players' cursors on the world map and in cities; a playtest log on every PC.
 
 **Next, for v1:**
-- **Sieges of player cities:** the waiting period, the real-time assault on a player's capital, its outcomes, allied attackers, NPC invasions of a capital.
+- **Sieges of player cities:** the real-time assault on a player's capital, its outcomes, allied attackers, the notification of an NPC invasion of a capital.
 - **Battles, the rest:** the speed vote, allies joining, spectators' view, resync inside a battle.
-- **Chat and notifications:** chat, notifications (a war in the chat), who paused, cursors in cities, elimination and spectating.
+- **Chat and notifications:** chat, notifications (a war in the chat), who paused, elimination and spectating.
 - **Performance:** full speed at 5x and above, the 10,000-person city at 1x, a 30-minute battle with 2,000 units per side.
 - **Release:** a player's install (the distribution card).
 
@@ -49,7 +50,7 @@ You need Songs of Syx V71, **build 71.44**, on Windows through Steam, and both m
 3. Start the game. In the launcher's mod list, enable SOSDET and SOS GSG MP, with SOSDET above SOS GSG MP.
 4. The main menu now has a Multiplayer button.
 
-- **Over Steam:** the players are Steam friends. The host chooses Multiplayer, Create Lobby, then "create Steam lobby"; the others choose "join through Steam".
+- **Over Steam:** the players are Steam friends. The host chooses Multiplayer, Create Lobby, then "create Steam lobby"; the others choose "join through Steam", or accept the host's Steam invite anywhere in the main menu.
 - **By IP:** the host's TCP port 47510 must be reachable (a forwarded port, or a VPN such as Radmin VPN). The host chooses "create (IP)"; the others choose "join by IP" with the host's address.
 
 With the mods disabled in the launcher, the game is vanilla again; neither mod changes the game folder.

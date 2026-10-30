@@ -25,6 +25,8 @@ The owner decided to split it off and build it before the multiplayer work conti
 
 ## Proposed (not decided)
 
+Where these stand on 2026-10-30: the API is built (`sosdet.Engine`, SOS-27 to SOS-30 and the cards since), the mod compiles against the engine's jar ([ADR 0007](0007-mod-compiles-against-engine-jar.md)), and the mod's own hooks are a second patch set in `mod/patches/` ([hooks.md](../hooks.md)). The battle's sides went to the engine: the commanders table and its patch `94-own-army` (SOS-15, SOS-83). Releases still wait for the distribution card, SOS-18.
+
 - **API.** A narrow, versioned Java API in the engine's own package:
   - the current step, and the last step the engine may run (the mod holds every PC to the slowest one);
   - apply an order at a given step;
