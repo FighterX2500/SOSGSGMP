@@ -34,14 +34,19 @@ public final class PlayerSieges {
         return Engine.active() ? Engine.assaultTaken() : null;
     }
 
-    /** Why this PC's player can't take {@code kind} ({@code AssaultTerms}) at {@code percent} now, or null. */
-    public static String termsRefusal(int kind, int percent) {
-        return Engine.active() ? Engine.assaultTermsRefusal(kind, percent) : "No multiplayer game runs.";
+    /** Why this PC's player can't take {@code kind} ({@code AssaultTerms}) at {@code percent} and {@code people} now, or null. */
+    public static String termsRefusal(int kind, int percent, int[] people) {
+        return Engine.active() ? Engine.assaultTermsRefusal(kind, percent, people) : "No multiplayer game runs.";
     }
 
-    /** This PC's player, the attacker, takes {@code kind} at {@code percent}. Check {@link #termsRefusal} first. */
-    public static void terms(int kind, int percent) {
-        Engine.assaultTerms(kind, percent);
+    /** This PC's player, the attacker, takes these terms. Check {@link #termsRefusal} first. */
+    public static void terms(int kind, int percent, int[] people) {
+        Engine.assaultTerms(kind, percent, people);
+    }
+
+    /** The people a sack could remove from the city of the player in {@code slot}, by race; none without a game. */
+    public static int[] peopleInCity(int slot) {
+        return Engine.active() ? Engine.assaultPeopleInCity(slot) : new int[0];
     }
 
     /** Why this PC's player can't sally out of their capital now, as a sentence, or null. */

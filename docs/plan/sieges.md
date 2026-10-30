@@ -205,7 +205,8 @@ The attacker's outcome window has three choices. Each is a command at a step, wh
 - With no choice in two minutes, Sack takes 50%.
 - The defender and every other player get a notice, and the playtest log a line. Saves wait while the choice is open.
 - Simplification: one share for the money and every good, not a slider per good.
-- Not built: Eliminate, and the removed people (Moved, Killed, Freed, mercy).
+- **The removed people are built for Sack (2026-10-30):** a row per race with Moved, Killed and Freed, up to 80% of the citizens and slaves in the city in all, by `REMOVE_PEOPLE`, with mercy. Nobles stay. With no choice in time, no one is removed. Details in SOSDET plan 0014.
+- Not built: Eliminate. Its spectator is split off to SOS-111.
 
 ### E. Allied attackers (engine)
 

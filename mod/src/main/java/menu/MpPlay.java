@@ -4,6 +4,7 @@ import java.util.List;
 
 import snake2d.util.misc.ACTION;
 import sosdet.Assault;
+import sosdet.game.siege.AssaultTerms;
 import sosdet.BattleOutcome;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.WorldSetupAdapter;
@@ -123,7 +124,7 @@ final class MpPlay implements ACTION {
 		if (a == null)
 			return;
 		String what = MpAssaultOutcome.termsText(engine.factionName(a.attacker), engine.factionName(a.defender), a.termsKind(), a.termsPercent(),
-				a.termsCredits());
+				a.termsCredits(), a.termsPeople(AssaultTerms.MOVED), a.termsPeople(AssaultTerms.KILLED), a.termsPeople(AssaultTerms.FREED));
 		log.line("assault terms applied at step " + engine.step() + ": " + what);
 		if (setup.factions().slotOf(setup.localPlayerId()) != a.attacker)
 			new MpViewNotice("Assault", what, true).open();
