@@ -61,6 +61,19 @@ class SteamNodeTest {
     }
 
     @Test
+    void aSessionThatStartsAfterTheMemberJoinedIsStillAccepted() throws Exception {
+        steam.silentSessions();
+        SteamNode h = host();
+        SteamNode bob = join(2, h.lobby());
+        int bobPeer = ((Node.Event.Connected) next(h, e -> e instanceof Node.Event.Connected)).peer();
+        next(bob, e -> e instanceof Node.Event.Connected);
+        Thread.sleep(50); // the host's first accept has come and gone before the first packet exists
+        bob.send(Node.HOST, new Message.Hello("bob", 7));
+        Node.Event.Received r = (Node.Event.Received) next(h, e -> e instanceof Node.Event.Received);
+        assertEquals(bobPeer, r.peer());
+    }
+
+    @Test
     void membersBecomePeersAndMessagesGoBothWays() throws Exception {
         SteamNode h = host();
         SteamNode bob = join(2, h.lobby());

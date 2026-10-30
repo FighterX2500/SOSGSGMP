@@ -1,8 +1,14 @@
 package sosgsgmp.game;
 
 import java.nio.ByteBuffer;
+import java.nio.file.Paths;
+import java.time.Clock;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import com.codedisaster.steamworks.SteamAPI;
 import com.codedisaster.steamworks.SteamException;
@@ -21,6 +27,7 @@ import com.codedisaster.steamworks.SteamAuth;
 import com.codedisaster.steamworks.SteamAuthTicket;
 
 import snake2d.LOG;
+import sosgsgmp.log.PlayLog;
 import sosgsgmp.net.Protocol;
 import sosgsgmp.net.SteamPort;
 
@@ -41,6 +48,7 @@ public final class SteamworksPort implements SteamPort {
 
     /** {@code SOSGSGMP_STEAM_NET=p2p}: the deprecated P2P packets instead of Steam's newer messages (SOS-105). */
     private static final String NET_VARIABLE = "SOSGSGMP_STEAM_NET", P2P = "p2p";
+    private static final long STATUS_MS = 1_000;
 
     private Listener listener;
     /** Steam's newer messages; null when the old P2P packets are chosen. */
@@ -55,6 +63,11 @@ public final class SteamworksPort implements SteamPort {
     // made after the libraries load: SteamID's class setup calls into them
     private final SteamID sender;
     private final SteamFriends.FriendGameInfo game;
+    /** Every step of a lobby's connection, for {@code send-logs}: a join that hangs writes no session log. Null until a lobby is asked for. */
+    private PlayLog trace;
+    private final Map<Long, String> sessions = new HashMap<>();
+    private final Set<Long> sentTo = new HashSet<>(), readFrom = new HashSet<>(), acceptedFrom = new HashSet<>();
+    private long statusAt;
 
     /** Starts the Steam API; throws (with the reason for the screen) if Steam isn't running or won't start. */
     public SteamworksPort() {
@@ -72,10 +85,39 @@ public final class SteamworksPort implements SteamPort {
         networking = new SteamNetworking(new NetworkingCallbacks());
         friends = new SteamFriends(new FriendsCallbacks());
         networking.allowP2PPacketRelay(true);
-        messages = P2P.equals(System.getenv(NET_VARIABLE)) ? null : new SteamMessages(() -> listener);
+        messages = P2P.equals(System.getenv(NET_VARIABLE)) ? null : new SteamMessages(() -> listener, this::trace);
         LOG.ln("SOSGSGMP: Steam transport: " + (messages != null ? "ISteamNetworkingMessages (SOS-105)" : "ISteamNetworking P2P packets"));
     }
 
+
+    private void trace(String text) {
+        if (trace != null)
+            trace.line(text);
+    }
+
+    /** Opens the trace, once: the main menu's invite watch runs a port on every start and has no lobby to trace. */
+    private void traceLobby(String text) {
+        if (trace == null) {
+            trace = PlayLog.open(Paths.get(System.getenv("APPDATA"), "songsofsyx", "sosgsgmp-logs"), "steam", Clock.systemDefaultZone());
+            trace("Steam connection, protocol " + Protocol.VERSION + ", this user " + self() + ", transport "
+                    + (messages != null ? "messages" : "P2P packets"));
+        }
+        trace(text);
+    }
+
+    /** Each session's state as it changes, while a lobby is traced. */
+    private void traceSessions() {
+        if (trace == null || messages == null || System.currentTimeMillis() < statusAt)
+            return;
+        statusAt = System.currentTimeMillis() + STATUS_MS;
+        for (Map.Entry<Long, String> e : sessions.entrySet()) {
+            String now = messages.status(e.getKey());
+            if (!now.equals(e.getValue())) {
+                e.setValue(now);
+                trace("session with " + e.getKey() + ": " + now);
+            }
+        }
+    }
 
     private static SteamID id(long handle) {
         return SteamID.createFromNativeHandle(handle);
@@ -97,11 +139,13 @@ public final class SteamworksPort implements SteamPort {
 
     @Override
     public void createLobby(int maxMembers) {
+        traceLobby("creating a lobby for " + maxMembers);
         matchmaking.createLobby(SteamMatchmaking.LobbyType.FriendsOnly, maxMembers);
     }
 
     @Override
     public void joinLobby(long lobby) {
+        traceLobby("joining lobby " + lobby);
         matchmaking.joinLobby(id(lobby));
     }
 
@@ -144,7 +188,12 @@ public final class SteamworksPort implements SteamPort {
     @Override
     public void acceptSession(long user) {
         if (messages != null) {
-            messages.accept(user);
+            boolean accepted = messages.accept(user);
+            String was = sessions.put(user, sessions.getOrDefault(user, ""));
+            if (was == null)
+                trace("accepting " + user + ": " + accepted);
+            else if (accepted && acceptedFrom.add(user)) // once, the moment a session exists to accept
+                trace("accepted " + user);
             return;
         }
         networking.acceptP2PSessionWithUser(id(user));
@@ -152,6 +201,7 @@ public final class SteamworksPort implements SteamPort {
 
     @Override
     public void closeSession(long user) {
+        trace("closing the session with " + user);
         if (messages != null) {
             messages.close(user);
             return;
@@ -161,8 +211,15 @@ public final class SteamworksPort implements SteamPort {
 
     @Override
     public boolean send(long user, byte[] bytes) {
-        if (messages != null)
-            return messages.send(user, bytes);
+        if (messages != null) {
+            boolean sent = messages.send(user, bytes);
+            sessions.putIfAbsent(user, "");
+            if (!sent)
+                trace("Steam refused " + bytes.length + " bytes to " + user + ": result " + messages.sendResult());
+            else if (sentTo.add(user))
+                trace("first message to " + user + ": " + bytes.length + " bytes");
+            return sent;
+        }
         out.clear();
         out.put(bytes);
         out.flip();
@@ -175,8 +232,12 @@ public final class SteamworksPort implements SteamPort {
 
     @Override
     public byte[] read(long[] from) {
-        if (messages != null)
-            return messages.read(from);
+        if (messages != null) {
+            byte[] bytes = messages.read(from);
+            if (bytes != null && readFrom.add(from[0]))
+                trace("first message from " + from[0] + ": " + bytes.length + " bytes");
+            return bytes;
+        }
         if (!networking.isP2PPacketAvailable(CHANNEL, size))
             return null;
         if (in.capacity() < size[0])
@@ -197,10 +258,13 @@ public final class SteamworksPort implements SteamPort {
     @Override
     public void runCallbacks() {
         SteamAPI.runCallbacks();
+        traceSessions();
     }
 
     @Override
     public void close() {
+        if (trace != null)
+            trace.close();
         networking.dispose();
         matchmaking.dispose();
         friends.dispose();
@@ -213,12 +277,14 @@ public final class SteamworksPort implements SteamPort {
     private final class MatchmakingCallbacks implements SteamMatchmakingCallback {
         @Override
         public void onLobbyCreated(SteamResult result, SteamID lobby) {
+            trace("lobby created: " + result + ", lobby " + handle(lobby));
             listener.lobbyCreated(handle(lobby), result == SteamResult.OK ? null : result.name());
         }
 
         @Override
         public void onLobbyEnter(SteamID lobby, int chatPermissions, boolean blocked,
                 SteamMatchmaking.ChatRoomEnterResponse response) {
+            trace("lobby entered: " + response + ", lobby " + handle(lobby) + ", owner " + lobbyOwner(handle(lobby)));
             listener.lobbyEntered(handle(lobby), response == SteamMatchmaking.ChatRoomEnterResponse.Success ? null
                     : response.name());
         }
@@ -226,6 +292,7 @@ public final class SteamworksPort implements SteamPort {
         @Override
         public void onLobbyChatUpdate(SteamID lobby, SteamID changed, SteamID makingChange,
                 SteamMatchmaking.ChatMemberStateChange change) {
+            trace("lobby member " + handle(changed) + ": " + change);
             if (change == SteamMatchmaking.ChatMemberStateChange.Entered)
                 listener.memberJoined(handle(lobby), handle(changed));
             else

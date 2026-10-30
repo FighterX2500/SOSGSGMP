@@ -27,6 +27,8 @@ public final class SteamNode implements Node {
     private static final long LOOP_MS = 5;
     private static final long CLOSE_FLUSH_MS = 1_000;
     private static final long FRIENDS_MS = 2_000;
+    /** How often members' sessions are accepted again: Steam's newer messages forget an accept made before the first packet. */
+    private static final long ACCEPT_MS = 250;
 
     private sealed interface Command {
         record Send(int peer, byte[] bytes) implements Command {}
@@ -168,9 +170,15 @@ public final class SteamNode implements Node {
             else if (joinLobby != 0)
                 enter(joinLobby);
             long friendsAt = 0;
+            long acceptAt = 0;
             while (!closing && unwantedNot()) {
                 runCommands();
                 port.runCallbacks();
+                if (System.currentTimeMillis() >= acceptAt) {
+                    for (long user : peers.keySet())
+                        port.acceptSession(user);
+                    acceptAt = System.currentTimeMillis() + ACCEPT_MS;
+                }
                 readPackets();
                 if (!hosting && !entering && System.currentTimeMillis() >= friendsAt) {
                     friendLobbies = List.copyOf(port.friendLobbies());

@@ -1,5 +1,6 @@
 package sosgsgmp.game;
 
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import com.sun.jna.Callback;
@@ -40,6 +41,8 @@ final class SteamMessages {
     /** Steam's send rate is fixed, 256 KB/s unless set; min and max stay equal, as its header says. */
     private static final int SEND_RATE_BYTES = 1024 * 1024;
     private static final String DLL = "steam_api64.dll";
+    /** {@code SteamNetConnectionInfo_t}, for the log: {@code m_eEndReason}, {@code m_szEndDebug}, {@code m_szConnectionDescription}. */
+    private static final int INFO_BYTES = 696, INFO_END_REASON = 180, INFO_END_DEBUG = 184, INFO_DESCRIPTION = 312;
 
     /** The session callbacks' shape: one pointer to a struct that begins with the remote identity. */
     private interface SessionCallback extends Callback {
@@ -47,7 +50,11 @@ final class SteamMessages {
     }
 
     private final Pointer messages;
-    private final Function send, receive, accept, closeSession, setSteamId, getSteamId, release;
+    private final Function send, receive, accept, closeSession, setSteamId, getSteamId, release, sessionInfo, relayStatus;
+    private final Pointer utils;
+    private final Memory info = new Memory(INFO_BYTES);
+    /** What Steam answered the last {@link #send}: an {@code EResult}. */
+    private int sendResult;
     private final Memory identity = new Memory(IDENTITY_BYTES);
     private final Memory out = new Memory(Protocol.MAX_MESSAGE + 4);
     private final Memory received = new Memory(Native.POINTER_SIZE);
@@ -55,13 +62,16 @@ final class SteamMessages {
     private final SessionCallback requested;
     private final SessionCallback failed;
 
-    /** Binds the functions and installs the session callbacks, which tell {@code listener}. Steam must be initialized. */
-    SteamMessages(Supplier<SteamPort.Listener> listener) {
+    /**
+     * Binds the functions and installs the session callbacks, which tell {@code trace} and {@code listener}. Steam must
+     * be initialized.
+     */
+    SteamMessages(Supplier<SteamPort.Listener> listener, Consumer<String> trace) {
         Pointer module = NativeLibrary.getInstance("kernel32").getFunction("GetModuleHandleA").invokePointer(new Object[] {DLL});
         if (module == null)
             throw new IllegalStateException("SOSGSGMP: " + DLL + " isn't loaded: Steam's messages need steamworks4j started first");
         messages = function(module, "SteamAPI_SteamNetworkingMessages_SteamAPI_v002").invokePointer(new Object[0]);
-        Pointer utils = function(module, "SteamAPI_SteamNetworkingUtils_SteamAPI_v004").invokePointer(new Object[0]);
+        utils = function(module, "SteamAPI_SteamNetworkingUtils_SteamAPI_v004").invokePointer(new Object[0]);
         if (messages == null || utils == null)
             throw new IllegalStateException("SOSGSGMP: Steam's networking interfaces aren't available");
         send = function(module, "SteamAPI_ISteamNetworkingMessages_SendMessageToUser");
@@ -71,13 +81,22 @@ final class SteamMessages {
         setSteamId = function(module, "SteamAPI_SteamNetworkingIdentity_SetSteamID64");
         getSteamId = function(module, "SteamAPI_SteamNetworkingIdentity_GetSteamID64");
         release = function(module, "SteamAPI_SteamNetworkingMessage_t_Release");
+        sessionInfo = function(module, "SteamAPI_ISteamNetworkingMessages_GetSessionConnectionInfo");
+        relayStatus = function(module, "SteamAPI_ISteamNetworkingUtils_GetRelayNetworkStatus");
         // global defaults: they apply to sessions made after this, so before the first message
         Function config = function(module, "SteamAPI_ISteamNetworkingUtils_SetGlobalConfigValueInt32");
         configure(config, utils, CONFIG_SEND_BUFFER, SEND_BUFFER_BYTES);
         configure(config, utils, CONFIG_RATE_MIN, SEND_RATE_BYTES);
         configure(config, utils, CONFIG_RATE_MAX, SEND_RATE_BYTES);
-        requested = event -> listener.get().sessionRequested(steamId(event));
-        failed = event -> listener.get().sessionFailed(steamId(event), "Steam's session failed"); // SteamNetConnectionInfo_t begins with the identity
+        requested = event -> {
+            trace.accept("session requested by " + steamId(event));
+            listener.get().sessionRequested(steamId(event));
+        };
+        failed = event -> { // SteamNetConnectionInfo_t begins with the identity
+            String reason = "Steam's session failed: " + event.getInt(INFO_END_REASON) + " " + event.getString(INFO_END_DEBUG);
+            trace.accept("session failed with " + steamId(event) + ": " + reason);
+            listener.get().sessionFailed(steamId(event), reason);
+        };
         function(module, "SteamAPI_ISteamNetworkingUtils_SetGlobalCallback_MessagesSessionRequest").invokeInt(new Object[] {utils, requested});
         function(module, "SteamAPI_ISteamNetworkingUtils_SetGlobalCallback_MessagesSessionFailed").invokeInt(new Object[] {utils, failed});
         function(module, "SteamAPI_ISteamNetworkingUtils_InitRelayNetworkAccess").invokeVoid(new Object[] {utils}); // the relay's routes, ahead of the first message
@@ -105,8 +124,21 @@ final class SteamMessages {
         return getSteamId.invokeLong(new Object[] {identity});
     }
 
-    void accept(long user) {
-        accept.invokeInt(new Object[] {messages, identity(user)});
+    /** False while the user has no session to accept. */
+    boolean accept(long user) {
+        return (accept.invokeInt(new Object[] {messages, identity(user)}) & 0xFF) != 0;
+    }
+
+    /** The session with {@code user} and the relay as Steam sees them now, for the log. */
+    String status(long user) {
+        info.clear(INFO_BYTES);
+        int state = sessionInfo.invokeInt(new Object[] {messages, identity(user), info, null});
+        return "state " + state + ", end " + info.getInt(INFO_END_REASON) + " " + info.getString(INFO_END_DEBUG) + ", "
+                + info.getString(INFO_DESCRIPTION) + ", relay " + relayStatus.invokeInt(new Object[] {utils, null});
+    }
+
+    int sendResult() {
+        return sendResult;
     }
 
     void close(long user) {
@@ -116,7 +148,8 @@ final class SteamMessages {
     /** Sends one message reliably, in order; false if Steam refused it. */
     boolean send(long user, byte[] bytes) {
         out.write(0, bytes, 0, bytes.length);
-        return send.invokeInt(new Object[] {messages, identity(user), out, bytes.length, SEND_FLAGS, CHANNEL}) == RESULT_OK;
+        sendResult = send.invokeInt(new Object[] {messages, identity(user), out, bytes.length, SEND_FLAGS, CHANNEL});
+        return sendResult == RESULT_OK;
     }
 
     /** The next message waiting, its sender in {@code from[0]}; null when none waits. */

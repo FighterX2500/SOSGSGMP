@@ -18,6 +18,8 @@ Status: Proposed (decided as recommended overnight, 2026-10-30; the owner asked 
 - `SteamworksPort` keeps steamworks4j for lobbies, friends and the overlay, and sends and receives through `SteamMessages` unless `SOSGSGMP_STEAM_NET=p2p` is set, which chooses the old P2P packets.
 - Session requests and failures come from the DLL's global callbacks, inside `SteamAPI_RunCallbacks` on the node's I/O thread, so the threading rule (AGENTS.md) holds.
 - No new library: JNA and the DLL are the game's own, compiled against as `compileOnly`, never shipped.
+- The host accepts each lobby member's session again every 250 ms: an accept before the member's first message does nothing, so a join can't rest on the session-request callback alone. Pack 2026-10-30d, without this, hung on "connecting" between two PCs.
+- A lobby's connection writes a `steam-*.log` beside the session logs: a join that hangs writes no session log.
 - `SteamMessages` sets Steam's global defaults before the first session: a send buffer of 256 MB and a send rate of 1 MB/s. The DLL's own are 512 KB, past which it refuses a message and `SteamNode` drops the player, and a fixed 256 KB/s (both read from the DLL, 2026-10-30).
 - The owner made the new messages the default for the playtest build 2026-10-30d, before a twopc run over Steam, so that playtest is their first test between two PCs. A setting replaces the variable once it passes.
 
