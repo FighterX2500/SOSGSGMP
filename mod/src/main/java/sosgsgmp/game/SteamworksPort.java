@@ -38,7 +38,12 @@ public final class SteamworksPort implements SteamPort {
 
     private static final int CHANNEL = 0;
 
+    /** {@code SOSGSGMP_STEAM_NET=messages}: Steam's newer messages instead of the deprecated P2P packets (SOS-105). */
+    private static final String NET_VARIABLE = "SOSGSGMP_STEAM_NET", MESSAGES = "messages";
+
     private Listener listener;
+    /** Steam's newer messages, when chosen; null for the old P2P packets. */
+    private final SteamMessages messages;
     private final SteamUser user;
     private final SteamMatchmaking matchmaking;
     private final SteamNetworking networking;
@@ -66,6 +71,7 @@ public final class SteamworksPort implements SteamPort {
         networking = new SteamNetworking(new NetworkingCallbacks());
         friends = new SteamFriends(new FriendsCallbacks());
         networking.allowP2PPacketRelay(true);
+        messages = MESSAGES.equals(System.getenv(NET_VARIABLE)) ? new SteamMessages(() -> listener) : null;
     }
 
 
@@ -135,16 +141,26 @@ public final class SteamworksPort implements SteamPort {
 
     @Override
     public void acceptSession(long user) {
+        if (messages != null) {
+            messages.accept(user);
+            return;
+        }
         networking.acceptP2PSessionWithUser(id(user));
     }
 
     @Override
     public void closeSession(long user) {
+        if (messages != null) {
+            messages.close(user);
+            return;
+        }
         networking.closeP2PSessionWithUser(id(user));
     }
 
     @Override
     public boolean send(long user, byte[] bytes) {
+        if (messages != null)
+            return messages.send(user, bytes);
         out.clear();
         out.put(bytes);
         out.flip();
@@ -157,6 +173,8 @@ public final class SteamworksPort implements SteamPort {
 
     @Override
     public byte[] read(long[] from) {
+        if (messages != null)
+            return messages.read(from);
         if (!networking.isP2PPacketAvailable(CHANNEL, size))
             return null;
         if (in.capacity() < size[0])

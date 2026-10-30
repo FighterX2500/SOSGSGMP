@@ -115,10 +115,15 @@ def refresh_mods(data, rdir):
         fail("sending the mods: %s" % unpack.stderr.strip())
 
 
+# SOSGSGMP_STEAM_NET for both games: "messages" with --steam-messages (SOS-105), else empty (the old P2P packets)
+STEAM_NET = [""]
+
+
 def start_remote(rdir, autopilot):
     """The game on the second PC, in its logged-on session (a game started over ssh would have no screen)."""
-    script = ("@echo off\r\nset APPDATA=%s\r\nset SOSGSGMP_AUTOPILOT=%s\r\nset SteamAppId=%s\r\ncd /d %s\\game\r\n"
-              "jre\\bin\\java.exe -cp SongsOfSyx.jar init.Main\r\n" % (rdir, autopilot, STEAM_APP_ID, REMOTE_ROOT))
+    script = ("@echo off\r\nset APPDATA=%s\r\nset SOSGSGMP_AUTOPILOT=%s\r\nset SteamAppId=%s\r\nset SOSGSGMP_STEAM_NET=%s\r\n"
+              "cd /d %s\\game\r\njre\\bin\\java.exe -cp SongsOfSyx.jar init.Main\r\n"
+              % (rdir, autopilot, STEAM_APP_ID, STEAM_NET[0], REMOTE_ROOT))
     path = rdir + "\\start.cmd"
     remote_ps("[IO.File]::WriteAllText('%s', '%s')" % (path, script.replace("'", "''")))
     remote_ps("Register-ScheduledTask -TaskName 'SOSGSGMP-twopc' -Action (New-ScheduledTaskAction -Execute '%s')"
@@ -128,7 +133,8 @@ def start_remote(rdir, autopilot):
 
 def start_here(data, autopilot):
     """A joiner's game on this PC, in its own data folder."""
-    env = dict(os.environ, APPDATA=str(data.parent), SteamAppId=STEAM_APP_ID, SOSGSGMP_AUTOPILOT=autopilot)
+    env = dict(os.environ, APPDATA=str(data.parent), SteamAppId=STEAM_APP_ID, SOSGSGMP_AUTOPILOT=autopilot,
+               SOSGSGMP_STEAM_NET=STEAM_NET[0])
     subprocess.Popen([str(GAME / "jre" / "bin" / "java.exe"), "-cp", str(GAME / "SongsOfSyx.jar"), "init.Main"], cwd=str(GAME),
                      env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -227,8 +233,11 @@ def main():
                     " PC holds while the host's view opens) (SOS-82)")
     ap.add_argument("--view-answer", choices=("allow", "refuse", "none"), default="allow",
                     help="how the owner answers a view request; none: no answer, refused after 30 s (SOS-82)")
+    ap.add_argument("--steam-messages", action="store_true",
+                    help="with --net steam: both games use Steam's newer messages (SOSGSGMP_STEAM_NET=messages, SOS-105)")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
+    STEAM_NET[0] = "messages" if args.steam_messages else ""
     if not args.here and (not REMOTE or not HOST_ADDRESS):
         fail("set SOSGSGMP_REMOTE and SOSGSGMP_HOST_ADDRESS")
     crash_who, _, crash_at = args.crash.partition(":")
@@ -284,7 +293,7 @@ def main():
     host_capital = ",capital=" + args.host_capital if args.host_capital else ""
     join_capital = ",capital=" + args.join_capital if args.join_capital else ""
     # Steam finds the App ID here when the game isn't started by Steam
-    host_env = dict(os.environ, APPDATA=str(local.parent), SteamAppId=STEAM_APP_ID,
+    host_env = dict(os.environ, APPDATA=str(local.parent), SteamAppId=STEAM_APP_ID, SOSGSGMP_STEAM_NET=STEAM_NET[0],
                     SOSGSGMP_AUTOPILOT="role=host,name=Host,players=%d,seed=%d,speed=%g,ondesync=%s,save=%d,resume=%d,ongone=%s,startafter=%d,fulllog=%d,%s"
                     % (players, args.seed, args.speed, args.on_desync, args.save, 1 if args.resume else 0, args.on_gone, args.start_after,
                        1 if args.transfer_log == "full" else 0, common + host_capital + host_view))
