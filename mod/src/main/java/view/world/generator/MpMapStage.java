@@ -96,6 +96,7 @@ public final class MpMapStage {
 		g.dummy.add(stage.panel, "map");
 		// Intr centres the panel; move it to the left so the map stays in view.
 		stage.panel.body().moveX1(16);
+		menu.MpChat.show(setup);
 		if (!setup.isHost())
 			g.minimap.show();
 		MpAutopilot autopilot = MpAutopilot.fromEnv();

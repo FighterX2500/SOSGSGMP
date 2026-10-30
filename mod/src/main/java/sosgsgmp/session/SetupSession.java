@@ -136,6 +136,18 @@ public interface SetupSession {
      */
     void chooseGone(Departures.Choice choice);
 
+    /** Who paused the game, and the pauses every PC heard (spec §4). */
+    Pauses pauses();
+
+    /** This PC's player paused or unpaused the game; every PC hears it, this one too, in the host's order. */
+    void pause(boolean paused);
+
+    /** The session's chat on this PC (spec §12), for reading. */
+    Chat chat();
+
+    /** This PC's player says {@code text} (spec §12); it shows on every PC, this one too, in the host's order. */
+    void say(String text);
+
     /** Leaves the setup (the host closes it for everyone) and frees the connection. */
     void leave();
 

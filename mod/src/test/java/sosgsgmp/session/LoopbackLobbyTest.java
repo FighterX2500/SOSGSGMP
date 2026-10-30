@@ -101,6 +101,34 @@ class LoopbackLobbyTest {
     }
 
     @Test
+    void aLobbyMessageReachesEveryPcOnceInTheHostsOrderAndGoesToTheSetup() throws Exception {
+        HostedLobby h = host(3);
+        JoinedLobby bob = join(h, "Bob");
+        JoinedLobby cid = join(h, "Cid");
+        until("everyone in", () -> {
+            h.update();
+            bob.update();
+            cid.update();
+            return h.players().size() == 3 && bob.players().size() == 3 && cid.players().size() == 3;
+        });
+        h.say("one");
+        bob.say("two");
+        until("both on every PC", () -> {
+            h.update();
+            bob.update();
+            cid.update();
+            return h.chat().size() == 2 && bob.chat().size() == 2 && cid.chat().size() == 2;
+        });
+        for (LobbySession s : List.of(h, bob, cid)) {
+            assertEquals("one", s.chat().line(0).text());
+            assertEquals("Ann", s.chat().line(0).name());
+            assertEquals("two", s.chat().line(1).text());
+            assertEquals("Bob", s.chat().line(1).name());
+            assertEquals(1, s.chat().line(1).colour());
+        }
+    }
+
+    @Test
     void aFullLobbyRefuses() throws Exception {
         HostedLobby h = host(2);
         JoinedLobby bob = join(h, "Bob");

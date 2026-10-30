@@ -34,6 +34,10 @@ final class MpPlay implements ACTION {
 	private final MpExit exit;
 	/** City viewing: the requests, the owner's city going out, the viewer's load and limits (SOS-82). */
 	private final MpViews views;
+	/** The engine's events as chat lines (SOS-110). */
+	private final MpNotices notices;
+	/** The pause every PC shares, and who set it (spec §4, SOS-110). */
+	private final MpPause pause;
 
 	MpPlay(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpLog log, MpSaves saves, MpExit exit) {
 		this.setup = setup;
@@ -44,6 +48,8 @@ final class MpPlay implements ACTION {
 		this.saves = saves;
 		this.exit = exit;
 		this.views = new MpViews(setup, engine, log);
+		this.notices = new MpNotices(setup, engine);
+		this.pause = new MpPause(setup, engine);
 	}
 
 	@Override
@@ -72,6 +78,7 @@ final class MpPlay implements ACTION {
 				assaultOutcome();
 				assaultTerms();
 				invasions();
+				notices.frame();
 			}
 		}
 		if (setup.playing()) {
@@ -81,31 +88,34 @@ final class MpPlay implements ACTION {
 				views.frame();
 				saves.frame();
 				exit.frame(); // after the saves: a save that ends the session ends it in the frame it is done
+				pause.frame();
 			}
 		}
 		if (autopilot != null)
 			autopilot.game(setup, engine, desync, saves, gone, exit, views);
 	}
 
-	/** A battle between two players ended (SOS-83): the playtest log notes it, and the loser gets its window. */
+	/** A battle between two players ended (SOS-83): the log and the chat note it, and the loser gets its window. */
 	private void outcome() {
 		BattleOutcome o = engine.battleOutcomeTake();
 		if (o == null)
 			return;
 		log.line("battle between players over: " + o);
+		notices.battleOver(o);
 		if (o.loser == setup.factions().slotOf(setup.localPlayerId()))
 			new MpBattleOutcome(o).open();
 	}
 
 	/**
-	 * The world took an assault's outcome (SOS-92 C): the attacker and the defender get its window, every other player a
-	 * notice.
+	 * The world took an assault's outcome (SOS-92 C): the chat tells every player, and the attacker and the defender get
+	 * its window.
 	 */
 	private void assaultOutcome() {
 		Assault a = engine.assaultOutcomeTake();
 		if (a == null)
 			return;
 		log.line("assault outcome applied at step " + engine.step() + ": " + a);
+		setup.chat().notice(MpAssaultOutcome.othersText(notices.name(a.attacker), notices.name(a.defender), a.outcome()));
 		int slot = setup.factions().slotOf(setup.localPlayerId());
 		if (slot == a.attacker && a.outcome() == Assault.TAKEN) {
 			new MpAssaultTerms(a.defender).open();
@@ -113,12 +123,10 @@ final class MpPlay implements ACTION {
 		}
 		if (slot == a.attacker || slot == a.defender) {
 			new MpAssaultOutcome(a.attacker, a.defender, a.outcome(), a.men, slot == a.attacker).open();
-			return;
 		}
-		new MpViewNotice("Assault", MpAssaultOutcome.othersText(engine.factionName(a.attacker), engine.factionName(a.defender), a.outcome()), true).open();
 	}
 
-	/** The attacker's terms after a taken throne applied (SOS-92 D): the defender and every other player are told. */
+	/** The attacker's terms after a taken throne applied (SOS-92 D): the chat tells every player, and the defender gets a window. */
 	private void assaultTerms() {
 		Assault a = engine.assaultTermsTake();
 		if (a == null)
@@ -126,19 +134,22 @@ final class MpPlay implements ACTION {
 		String what = MpAssaultOutcome.termsText(engine.factionName(a.attacker), engine.factionName(a.defender), a.termsKind(), a.termsPercent(),
 				a.termsCredits(), a.termsPeople(AssaultTerms.MOVED), a.termsPeople(AssaultTerms.KILLED), a.termsPeople(AssaultTerms.FREED));
 		log.line("assault terms applied at step " + engine.step() + ": " + what);
-		if (setup.factions().slotOf(setup.localPlayerId()) != a.attacker)
+		setup.chat().notice(MpAssaultOutcome.termsText(notices.name(a.attacker), notices.name(a.defender), a.termsKind(), a.termsPercent(),
+				a.termsCredits(), a.termsPeople(AssaultTerms.MOVED), a.termsPeople(AssaultTerms.KILLED), a.termsPeople(AssaultTerms.FREED)));
+		if (setup.factions().slotOf(setup.localPlayerId()) == a.defender)
 			new MpViewNotice("Assault", what, true).open();
 	}
 
-	/** An NPC army invades a player's capital (SOS-92 F): every other player is told, and the playtest log notes it. */
+	/** An NPC army invades a player's capital (SOS-92 F): the chat tells every player, and the playtest log notes it. */
 	private void invasions() {
 		long[] n;
 		while ((n = engine.invasionNoticeTake()) != null) {
 			int slot = (int) n[1];
 			String text = MpAssaultOutcome.invasionText(engine.factionName(slot), engine.factionName((int) n[2]));
 			log.line("invasion at step " + n[0] + ": " + text);
-			if (slot != setup.factions().slotOf(setup.localPlayerId()))
-				new MpViewNotice(text + " You can ask to view the city from their window.", true).open();
+			String line = MpAssaultOutcome.invasionText(notices.name(slot), engine.factionName((int) n[2]));
+			setup.chat().notice(slot == setup.factions().slotOf(setup.localPlayerId()) ? line
+					: line + " You can ask to view the city from their window.");
 		}
 	}
 

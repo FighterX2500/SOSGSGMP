@@ -446,9 +446,9 @@ final class MpViews {
 		};
 	}
 
-	/** A message to this PC's player, with OK; it never pauses the game. */
-	private static void message(String text) {
-		new MpViewNotice(text, true).open();
+	/** A message to this PC's player, in the chat (spec §12). */
+	private void message(String text) {
+		setup.chat().notice(text);
 	}
 
 	/** The name of the player in {@code slot}. */

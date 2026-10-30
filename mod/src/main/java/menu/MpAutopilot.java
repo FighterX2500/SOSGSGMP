@@ -122,6 +122,9 @@ public final class MpAutopilot {
 	private long previewNanos;
 	/** The game's own screenshot of the preview window was taken (it reads the frame buffer, so a locked screen still works). */
 	private boolean previewShot;
+	/** When {@link #stageChat} said its line, and whether it took its screenshot. */
+	private long stageAt;
+	private boolean stageShot;
 	/** The step this PC's player asks to view the other player's city at, and closes the view at (SOS-82); -1 for never. */
 	private final long viewAt, viewClose;
 	/** How this PC's player answers an ask to view its city: allow, refuse or none. */
@@ -436,6 +439,8 @@ public final class MpAutopilot {
 			}
 			return;
 		}
+		if (s.players().size() > 1 && stageChat("lobby", s::say))
+			return;
 		if (host && s.canStart() && s.players().size() >= players && System.nanoTime() - lobbyAt >= startAfterNanos
 				&& first("started")) {
 			s.start();
@@ -443,10 +448,30 @@ public final class MpAutopilot {
 		}
 	}
 
+	/**
+	 * With a GUI preview, on reaching a screen before the game: a chat line, a screenshot of the box, and this stage
+	 * waits a moment for them (SOS-110). True while it waits.
+	 */
+	private boolean stageChat(String stage, java.util.function.Consumer<String> say) {
+		if (guiPreview < 0)
+			return false;
+		if (first("stagechat" + stage)) {
+			say.accept("Hello from the " + stage + " screen, " + name);
+			stageAt = System.nanoTime();
+			stageShot = false;
+		}
+		double seconds = (System.nanoTime() - stageAt) / 1e9;
+		if (seconds >= 2 && !stageShot) {
+			stageShot = true;
+			CORE.getGraphics().makeScreenShot();
+		}
+		return seconds < 3;
+	}
+
 	/** The map step, every frame: the host generates once and confirms; every PC goes on to the factions. */
 	public void map(SetupSession setup, boolean canGoOn, Runnable next) {
 		MapStep step = setup.step();
-		if (setup.closed())
+		if (setup.closed() || stageChat("map", setup::say))
 			return;
 		if (host && step.genId() == 0 && step.canGenerate()) {
 			setup.generate(new MapOptions(step.size(), "", MapOptions.DEFAULT_LATITUDE, seed));
@@ -465,7 +490,7 @@ public final class MpAutopilot {
 	 * through {@code placeAt} (returns the location's x, or NONE when none was placed); the host initializes.
 	 */
 	public void factions(SetupSession setup, boolean hasLocation, IntBinaryOperator placeAt) {
-		if (setup.closed() || setup.factions().initialized())
+		if (setup.closed() || setup.factions().initialized() || stageChat("factions", setup::say))
 			return;
 		if (FACTIONS.player().name.toString().isBlank())
 			FACTIONS.player().name.clear().add(name);
@@ -583,7 +608,7 @@ public final class MpAutopilot {
 		}
 		deals(setup, step);
 		views(setup, engine, views, step);
-		commands.frame(engine);
+		commands.frame(engine, setup);
 		Departures d = setup.departures();
 		if (d.waiting() && d.holdStep() != seenGone) {
 			seenGone = d.holdStep();
@@ -785,11 +810,9 @@ public final class MpAutopilot {
 		case 6: name = "terms-attacker"; previewWindow = new MpAssaultTerms(1); break;
 		case 7: name = "notice-sacked"; previewWindow = new MpViewNotice("Assault", MpAssaultOutcome.termsText(them, me, AssaultTerms.SACK, 60, 1350763, 1200, 300, 150), true); break;
 		case 8: name = "notice-vassal"; previewWindow = new MpViewNotice("Assault", MpAssaultOutcome.termsText(them, me, AssaultTerms.VASSALAGE, 25, 0, 0, 0, 0), true); break;
-		case 9: name = "notice-others"; previewWindow = new MpViewNotice("Assault", MpAssaultOutcome.othersText(them, me, Assault.HELD), true); break;
-		case 10: name = "notice-invasion"; previewWindow = new MpViewNotice(MpAssaultOutcome.invasionText(them, "Rebels") + " You can ask to view the city from their window.", true); break;
-		case 11: name = "vanilla-npc-diplomacy"; previewNpc(false); break; // SOS-100: vanilla's deal with an NPC, to compare
-		case 12: name = "vanilla-npc-trade"; previewNpc(true); break;
-		case 13: name = "player-diplomacy"; VIEW.world().panels.clear(); MpPlayers.open(FACTIONS.getByIndex(1), true); break;
+		case 9: name = "vanilla-npc-diplomacy"; previewNpc(false); break; // SOS-100: vanilla's deal with an NPC, to compare
+		case 10: name = "vanilla-npc-trade"; previewNpc(true); break;
+		case 11: name = "player-diplomacy"; VIEW.world().panels.clear(); MpPlayers.open(FACTIONS.getByIndex(1), true); break;
 		default:
 			if (first("guipreviewdone"))
 				event("guipreview", "\"name\":\"done\",\"step\":" + engine.step());
