@@ -235,6 +235,8 @@ def main():
                     help="how the owner answers a view request; none: no answer, refused after 30 s (SOS-82)")
     ap.add_argument("--steam-messages", action="store_true",
                     help="with --net steam: both games use Steam's newer messages (SOSGSGMP_STEAM_NET=messages, SOS-105)")
+    ap.add_argument("--gui-preview", type=int, default=-1,
+                    help="the host opens each siege window in turn from this step, 6 s each, for screenshots (SOS-92)")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
     STEAM_NET[0] = "messages" if args.steam_messages else ""
@@ -278,7 +280,7 @@ def main():
             refresh_mods(local, rdir)
         log("resuming in the last run's data folders")
     else:
-        local = data_folder(INST / "1", (1280, 720))
+        local = data_folder(INST / "1", (1920, 1080) if args.gui_preview >= 0 else (1280, 720))  # screenshots at full size
         local3 = data_folder(INST / "3", (1024, 640)) if args.local_joiner else INST / "3" / "songsofsyx"
         remote_data = data_folder(INST / str(REMOTE_K), (1024, 640) if args.here else (1600, 900))
         local2 = remote_data
@@ -291,6 +293,7 @@ def main():
     host_view = ",view=" + args.host_view if args.host_view else ""
     join_view = ",view=" + args.view if args.view else ""
     host_capital = ",capital=" + args.host_capital if args.host_capital else ""
+    host_capital += ",guipreview=%d" % args.gui_preview if args.gui_preview >= 0 else ""
     join_capital = ",capital=" + args.join_capital if args.join_capital else ""
     # Steam finds the App ID here when the game isn't started by Steam
     host_env = dict(os.environ, APPDATA=str(local.parent), SteamAppId=STEAM_APP_ID, SOSGSGMP_STEAM_NET=STEAM_NET[0],

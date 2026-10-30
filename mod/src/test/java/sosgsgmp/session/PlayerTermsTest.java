@@ -84,6 +84,22 @@ class PlayerTermsTest {
     }
 
     @Test
+    void theRegionsReadOneByOneAsTheyWereChosen() {
+        PlayerTerms p = new PlayerTerms(3);
+        p.toggleRegion(true, 40);
+        p.toggleRegion(true, 12);
+        p.toggleRegion(false, 7);
+        assertEquals(2, p.regionCount(true));
+        assertEquals(40, p.region(true, 0));
+        assertEquals(12, p.region(true, 1));
+        assertEquals(1, p.regionCount(false));
+        assertEquals(7, p.region(false, 0));
+        p.toggleRegion(true, 40);
+        assertEquals(1, p.regionCount(true));
+        assertEquals(12, p.region(true, 0));
+    }
+
+    @Test
     void regionsAndTheTributeReachTheEnginesTerms() {
         PlayerTerms p = new PlayerTerms(3);
         p.toggle(Term.VASSAL);
