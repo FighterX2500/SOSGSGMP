@@ -266,6 +266,8 @@ final class MpAutopilotCommands {
 			return "no soldier";
 		case "npcs":
 			return npcs();
+		case "why":
+			return Engine.holdWhy();
 		case "trace":
 			if (a.length < 2)
 				return "trace at which step?";
