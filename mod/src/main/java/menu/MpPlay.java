@@ -32,6 +32,8 @@ final class MpPlay implements ACTION {
 	private final MpLog log;
 	private boolean spectatorShown;
 	private boolean lastShown;
+	/** Steps a spectator's PC may fall behind: 45 s at 25×, 5 minutes at 1×. */
+	private static final long SPECTATOR_LAG = 18000;
 	private Assault assaultShown;
 	/** Campaign saves: the host's orders, and every PC's save at their step (SOS-64). */
 	private final MpSaves saves;
@@ -163,6 +165,9 @@ final class MpPlay implements ACTION {
 			for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++)
 				if (engine.spectator(slot) && !setup.campaign().inSlot(slot).eliminated())
 					setup.eliminated(slot);
+				else if (engine.spectator(slot) && engine.view(slot) == null && engine.peerStep(slot) >= 0
+						&& engine.step() - engine.peerStep(slot) > SPECTATOR_LAG)
+					setup.dropSpectator(slot);
 			for (Integer slot = setup.takeSpectatorLeft(); slot != null; slot = setup.takeSpectatorLeft())
 				engine.spectatorLeft(slot);
 		}

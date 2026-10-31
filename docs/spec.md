@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.36 · 2026-10-30
+Version 0.37 · 2026-10-31
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -195,7 +195,7 @@ During the siege, the defender can attack the besieging army (sally out) at any 
 
 Each fate changes the attacker's mercy as in vanilla, and with it their nobles' Chivalry and Cruelty opinions: freeing raises it, moving lowers it, killing lowers it twice as much.
 
-**Allied attackers.** An army of a player allied with the player who stormed, and at war with the defender, fights in the assault when it stands within 3 tiles of the stormer's army (owner, 2026-10-31; SOS-92). The player with the most soldiers in the assault chooses the outcome; with a tie, the player who stormed does. Taken resources, money and removed people are split between them by the number of soldiers each brought, and what doesn't divide evenly goes to the player who chooses.
+**Allied attackers.** An army of a player allied with the player who stormed, and at war with the defender, fights in the assault when it stands within 3 tiles of the capital's centre (owner, 2026-10-31; SOS-92). The player with the most soldiers in the assault chooses the outcome; with a tie, the player who stormed does. Taken resources, money and removed people are split between them by the number of soldiers each brought, and what doesn't divide evenly goes to the player who chooses.
 
 ## 10. City viewing
 
@@ -385,7 +385,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A forced assault desync is detected within 2 seconds, recovered from the host's assault state within 10 seconds, and writes a report. [AT]
 - An NPC invasion of a player's capital doesn't pause the world; every player gets a notification of it, and another player can view the invaded city when its owner allows it. [PT]
 - The defender can sally out against the besiegers at any time during a siege of their capital, and the popup at the siege's start says so. [PT]
-- An ally's army within 3 tiles of the stormer's fights in the assault; one further away doesn't. With allied attackers, the player with the most soldiers chooses the outcome, and the spoils are split by soldiers brought. [AT]
+- An ally's army within 3 tiles of the capital fights in the assault; one further away doesn't. With allied attackers, the player with the most soldiers chooses the outcome, and the spoils are split by soldiers brought. [AT]
 - In an assault each attacker commands only the soldiers they brought, and the defender the city's. A player in the fight can't close the view. [PT]
 - Each outcome works. Sack takes the chosen resources and up to 80% of the population. Eliminate takes 90% of the resources, the money and the population, turns the city into a neutral NPC city and makes its player a spectator. Removed people are moved, killed or freed as chosen, and each fate changes the attacker's mercy as in vanilla. Vassalage applies the vassal rules. [AT + PT]
 

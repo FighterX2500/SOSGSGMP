@@ -41,6 +41,8 @@ final class MpSaves {
 	private int exitedQuitter = SaveOrder.NO_QUITTER;
 	/** The Engage step of the last battle this PC saved before, held there (SOS-67); -1 before the first. */
 	private long savedBeforeBattle = -1;
+	/** The step of this PC's last save. */
+	private long savedStep = -1;
 	/** Host: real milliseconds played since the last save, as vanilla's autosave counts them. */
 	private long autoMillis;
 	private long autoLast = -1;
@@ -75,7 +77,8 @@ final class MpSaves {
 		// every PC holds before a battle's Engage until it has saved the campaign there (spec §11, SOS-67)
 		long ahead = engine.battleAhead();
 		if (order == null) {
-			if (ahead >= 0 && savedBeforeBattle == ahead) {
+			// a joining PC can save at the hold's step before it hears of the battle: that save is the one
+			if (ahead >= 0 && (savedBeforeBattle == ahead || savedStep == ahead - 1)) {
 				log.line("the battle at step " + ahead + " begins");
 				engine.battleGo();
 			} else if (ahead >= 0 && canSave()) {
@@ -178,6 +181,7 @@ final class MpSaves {
 	/** At the order's step: this PC's game and record, then the report to the host. A PC past the step reports why. */
 	private void save() {
 		savedHere = true;
+		savedStep = engine.step();
 		long hash = 0;
 		String problem = null;
 		if (engine.anyBattle()) {

@@ -200,6 +200,7 @@ public final class JoinedSetup implements SetupSession {
                     cursors.set(c.playerId(), c.place(), c.x(), c.y());
             }
             case Message.PlayerGone g when link != null -> gone(g.playerId(), g.holdStep());
+            case Message.Refused f -> close(f.reason().text); // a spectator's PC too far behind (spec §11)
             case Message.GoneChoice c when link != null -> {
                 Departures.Choice choice = c.continued() ? Departures.Choice.CONTINUE : Departures.Choice.RETURN;
                 if (departures.chosen(c.holdStep(), choice) && choice == Departures.Choice.RETURN)

@@ -325,6 +325,17 @@ public final class HostedSetup implements SetupSession {
     }
 
     @Override
+    public void dropSpectator(int slot) {
+        for (Map.Entry<Integer, Integer> p : new ArrayList<>(joined.entrySet()))
+            if (factions.slotOf(p.getValue()) == slot) {
+                node.send(p.getKey(), new Message.Refused(Refusal.TOO_SLOW));
+                node.disconnect(p.getKey());
+                removeJoined(p.getKey());
+                return;
+            }
+    }
+
+    @Override
     public Integer takeSpectatorLeft() {
         return spectatorsLeft.poll();
     }
