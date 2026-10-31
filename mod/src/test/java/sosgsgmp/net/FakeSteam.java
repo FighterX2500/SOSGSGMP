@@ -27,6 +27,20 @@ public final class FakeSteam {
         silentSessions = true;
     }
 
+    /** Steam never answers a join. */
+    private boolean silentJoins;
+
+    public synchronized void silentJoins() {
+        silentJoins = true;
+    }
+
+    /** Nothing a user sends arrives: the join works, and the host never answers. */
+    private boolean lostPackets;
+
+    public synchronized void lostPackets() {
+        lostPackets = true;
+    }
+
     /** A user's port; each call to the node's supplier should make a new one for a new user id. */
     public synchronized Port port(long user) {
         Port p = new Port(user);
@@ -73,6 +87,8 @@ public final class FakeSteam {
         @Override
         public void joinLobby(long lobby) {
             synchronized (FakeSteam.this) {
+                if (silentJoins)
+                    return;
                 Set<Long> members = lobbies.get(lobby);
                 if (members == null) {
                     later(() -> listener.lobbyEntered(lobby, "no such lobby"));
@@ -158,7 +174,8 @@ public final class FakeSteam {
                 Port to = users.get(user);
                 if (to == null || to.closed)
                     return false;
-                to.deliver(self, bytes.clone());
+                if (!lostPackets)
+                    to.deliver(self, bytes.clone());
                 return true;
             }
         }

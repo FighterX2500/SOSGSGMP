@@ -37,6 +37,25 @@ class SteamNodeTest {
         return j;
     }
 
+    @Test
+    void aJoinSteamNeverAnswersEndsWithAReason() throws InterruptedException {
+        steam.silentJoins();
+        SteamNode j = SteamNode.join(() -> steam.port(2), 1000, 50);
+        nodes.add(j);
+        Node.Event.Disconnected d = (Node.Event.Disconnected) next(j, e -> e instanceof Node.Event.Disconnected);
+        assertTrue(d.reason().contains("into the lobby"), d.reason());
+    }
+
+    @Test
+    void aHostWhoNeverAnswersEndsTheJoinWithAReason() throws InterruptedException {
+        SteamNode h = host();
+        steam.lostPackets();
+        SteamNode j = SteamNode.join(() -> steam.port(2), h.lobby(), 50);
+        nodes.add(j);
+        Node.Event.Disconnected d = (Node.Event.Disconnected) next(j, e -> e instanceof Node.Event.Disconnected);
+        assertTrue(d.reason().contains("didn't answer"), d.reason());
+    }
+
     /** The next event from {@code node} that matches, skipping others; fails after 5 s. */
     private static Node.Event next(SteamNode node, Predicate<Node.Event> match) throws InterruptedException {
         long deadline = System.currentTimeMillis() + 5_000;

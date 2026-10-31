@@ -27,6 +27,8 @@ public final class SteamNode implements Node {
     private static final long LOOP_MS = 5;
     private static final long CLOSE_FLUSH_MS = 1_000;
     private static final long FRIENDS_MS = 2_000;
+    /** How long a joining PC waits for Steam's lobby, and then for the host's first message (SOS-105). */
+    private static final long JOIN_MS = 30_000;
     /** How often members' sessions are accepted again: Steam's newer messages forget an accept made before the first packet. */
     private static final long ACCEPT_MS = 250;
 
@@ -61,24 +63,32 @@ public final class SteamNode implements Node {
     private long owner;
     /** A joining node has asked to enter a lobby. */
     private boolean entering;
+    /** Until when a joining node waits for the lobby, then for the host's first message; 0 when it doesn't wait. */
+    private long joinDeadline;
+    private final long joinMs;
 
     /** Hosts: creates a lobby for up to {@code maxMembers} friends. Joining PCs appear as they enter it. */
     public static SteamNode host(Supplier<SteamPort> steam, int maxMembers) {
-        return new SteamNode(steam, true, maxMembers, 0);
+        return new SteamNode(steam, true, maxMembers, 0, JOIN_MS);
     }
 
     /** Joins {@code lobby}: success arrives as {@link Event.Connected} for {@link #HOST}, failure as {@link Event.Disconnected}. */
     public static SteamNode join(Supplier<SteamPort> steam, long lobby) {
-        return new SteamNode(steam, false, 0, lobby);
+        return join(steam, lobby, JOIN_MS);
+    }
+
+    static SteamNode join(Supplier<SteamPort> steam, long lobby, long joinMs) {
+        return new SteamNode(steam, false, 0, lobby, joinMs);
     }
 
     /** Starts Steam without a lobby yet: friends' lobbies and accepted invites appear; {@link #join(long)} picks one. */
     public static SteamNode browse(Supplier<SteamPort> steam) {
-        return new SteamNode(steam, false, 0, 0);
+        return new SteamNode(steam, false, 0, 0, JOIN_MS);
     }
 
-    private SteamNode(Supplier<SteamPort> steam, boolean hosting, int maxMembers, long joinLobby) {
+    private SteamNode(Supplier<SteamPort> steam, boolean hosting, int maxMembers, long joinLobby, long joinMs) {
         this.hosting = hosting;
+        this.joinMs = joinMs;
         thread = new Thread(() -> run(steam, maxMembers, joinLobby), "SOSGSGMP steam");
         thread.setDaemon(true);
         thread.start();
@@ -180,6 +190,7 @@ public final class SteamNode implements Node {
                     acceptAt = System.currentTimeMillis() + ACCEPT_MS;
                 }
                 readPackets();
+                joinTimeout();
                 if (!hosting && !entering && System.currentTimeMillis() >= friendsAt) {
                     friendLobbies = List.copyOf(port.friendLobbies());
                     friendsAt = System.currentTimeMillis() + FRIENDS_MS;
@@ -211,7 +222,22 @@ public final class SteamNode implements Node {
         if (entering || hosting)
             return;
         entering = true;
+        joinDeadline = System.currentTimeMillis() + joinMs;
         port.joinLobby(id);
+    }
+
+    /** A join Steam never answers ends with a reason instead of waiting for ever (SOS-105). */
+    private void joinTimeout() {
+        if (joinDeadline == 0 || System.currentTimeMillis() < joinDeadline)
+            return;
+        joinDeadline = 0;
+        String reason = lobby == 0
+                ? "Steam didn't let this PC into the lobby within " + joinMs / 1000 + " seconds. Check that you are friends and"
+                        + " that the host's lobby is still open, then try again."
+                : "The host's PC didn't answer over Steam within " + joinMs / 1000 + " seconds. Check that both players installed"
+                        + " the same build, or connect by IP address instead.";
+        port.note(reason);
+        fail(reason);
     }
 
     private void fail(String reason) {
@@ -251,6 +277,7 @@ public final class SteamNode implements Node {
             Integer peer = peers.get(from[0]);
             if (peer == null)
                 continue; // not a member of this lobby: dropped
+            joinDeadline = 0;
             try {
                 events.add(new Event.Received(peer, Protocol.decode(bytes)));
             } catch (IOException e) {
@@ -291,13 +318,16 @@ public final class SteamNode implements Node {
         public void lobbyEntered(long id, String error) {
             if (hosting)
                 return; // the host's own lobby, entered as it was created
+            joinDeadline = 0;
             if (error != null) {
                 fail("Couldn't enter the Steam lobby: " + error);
                 return;
             }
             lobby = id;
+            joinDeadline = System.currentTimeMillis() + joinMs;
             owner = port.lobbyOwner(id);
             if (owner == 0 || owner == port.self()) {
+                joinDeadline = 0;
                 fail("The Steam lobby has no host.");
                 return;
             }

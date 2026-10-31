@@ -95,6 +95,11 @@ public final class SteamworksPort implements SteamPort {
             trace.line(text);
     }
 
+    @Override
+    public void note(String text) {
+        trace(text);
+    }
+
     /** Opens the trace, once: the main menu's invite watch runs a port on every start and has no lobby to trace. */
     private void traceLobby(String text) {
         if (trace == null) {
