@@ -223,7 +223,7 @@ final class MpAutopilotCommands {
 		}
 		case "mercs": {
 			StringBuilder b = new StringBuilder();
-			for (int i = 0; i < AD.mercenaries().size(); i++)
+			for (int i = 0; i < Math.min(AD.mercenaries().max(), AD.mercenaries().size()); i++) // the rest aren't for hire yet, as in vanilla's list
 				b.append(i).append(':').append(AD.mercenaries().get(i).name()).append(" men ").append(AD.mercenaries().get(i).men())
 						.append(" cost ").append(AD.mercenaries().signingCost(i)).append(AD.mercenaries().get(i).army() != null ? " hired" : "")
 						.append("; ");
@@ -268,6 +268,17 @@ final class MpAutopilotCommands {
 			return npcs();
 		case "why":
 			return Engine.holdWhy();
+		case "supplies": {
+			WArmy w = firstArmy();
+			if (w == null)
+				return "refused: no army";
+			StringBuilder b = new StringBuilder("health ").append(AD.supplies().health(w)).append(", morale ").append(AD.supplies().morale(w));
+			for (init.resources.ResSupply s : init.resources.RESOURCES.SUP().ALL)
+				b.append("; ").append(s.resource.name).append(' ').append(AD.supplies().get(s).current().get(w)).append('/')
+						.append(AD.supplies().get(s).targetAmount(w)).append(" stock ")
+						.append(settlement.main.SETT.ROOMS().STOCKPILE.tally().amountReservable.get(s.resource));
+			return b.toString();
+		}
 		case "trace":
 			if (a.length < 2)
 				return "trace at which step?";
