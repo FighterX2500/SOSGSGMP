@@ -385,7 +385,7 @@ final class MpAutopilotCommands {
 			MpViews.current().close(sosdet.View.CLOSED);
 			return "closing the view";
 		case "speed":
-			if (!host && !Hooks.battleBetweenHumans() && !Hooks.localCommander()) // a battle's commanders vote (spec §8)
+			if (!host && !Hooks.speedVoteHere()) // a battle's commanders vote (spec §8)
 				return "refused: the host sets the speed";
 			GAME.SPEED.speedSet(Double.parseDouble(a[1]));
 			return "speed set";
