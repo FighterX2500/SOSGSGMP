@@ -313,7 +313,7 @@ public final class EnginePlay implements EnginePort {
     public WorldResync worldResyncSave() {
         Path file = tempFile();
         try {
-            byte[] state = Engine.worldResyncSave(file);
+            byte[] state = Engine.battle() != null ? Engine.battleResyncSave(file) : Engine.worldResyncSave(file);
             return new WorldResync(Engine.step(), state, Files.readAllBytes(file));
         } catch (IOException e) {
             throw new UncheckedIOException("SOSGSGMP: reading the world resync save " + file, e);
@@ -330,7 +330,10 @@ public final class EnginePlay implements EnginePort {
         Path file = tempFile();
         try {
             Files.write(file, r.save());
-            Engine.worldResyncLoad(file, r.state());
+            if (Engine.battle() != null)
+                Engine.battleResyncLoad(file, r.state());
+            else
+                Engine.worldResyncLoad(file, r.state());
         } catch (IOException e) {
             throw new UncheckedIOException("SOSGSGMP: writing the world resync save " + file, e);
         } finally {

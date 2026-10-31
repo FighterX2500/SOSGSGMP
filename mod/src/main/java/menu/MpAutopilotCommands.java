@@ -63,7 +63,8 @@ import world.map.regions.Region;
  * next sally prompt is answered with Fall Back); {@code assault} (the
  * assault running and the last one over); {@code terms sack|vassalage <percent> [moved:killed:freed]} (the attacker's
  * outcome, the people being of the city's largest race); {@code order all|<division> <tx> <ty>} (as placing a division in
- * the battle UI, to that tile).
+ * the battle UI, to that tile); {@code teleport <tx> <ty>} (test tooling: the
+ * first army stands at that world tile); {@code assaultretreat} (an attacker orders the retreat from the assault).
  */
 final class MpAutopilotCommands {
 
@@ -248,6 +249,13 @@ final class MpAutopilotCommands {
 			storm = true;
 			w.besiege(other().capitolRegion());
 			return "the siege order opens the prompt; Storm answers it";
+		}
+		case "teleport": {
+			WArmy w = firstArmy();
+			if (w == null)
+				return "refused: no army";
+			Sieges.teleportForTest(w, Integer.parseInt(a[1]), Integer.parseInt(a[2]));
+			return "army " + w.armyIndex() + " teleports, at its step on every PC";
 		}
 		case "assaultretreat":
 			MpViews.current().retreat();
