@@ -110,6 +110,26 @@ class ViewRequestsTest {
         assertNull(host().takeEnd());
     }
 
+    private void hashesArrive(byte... bytes) {
+        assertNull(pcs[1].received(0, new Message.ViewHashes(1, bytes)));
+    }
+
+    @Test
+    void hashesThatArriveWhileTheViewLoadsWaitForIt() {
+        hashesArrive((byte) 1, (byte) 2); // over a slow link they come right behind the city
+        assertEquals(0, pcs[1].takeHashes(true, false).length);
+        hashesArrive((byte) 3);
+        assertArrayEquals(new byte[] {1, 2, 3}, pcs[1].takeHashes(true, true), "the first piece holds the header");
+    }
+
+    @Test
+    void hashesLeftFromAnEndedViewDontReachTheNextOne() {
+        hashesArrive((byte) 1);
+        assertEquals(0, pcs[1].takeHashes(false, false).length);
+        hashesArrive((byte) 2);
+        assertArrayEquals(new byte[] {2}, pcs[1].takeHashes(true, true));
+    }
+
     @Test
     void aRefusalOrNoAnswerIn30SecondsReachesTheViewer() {
         pcs[1].ask(2);

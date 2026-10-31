@@ -166,6 +166,17 @@ public final class ViewRequests {
         tape.clear();
     }
 
+    /**
+     * Viewer, every frame: the hashes for the engine, none until the view runs. Over a slow link they arrive right behind
+     * the city, while it loads, and they wait: the first piece holds the stream's header. With no view open, what's left
+     * of the last one goes, so it can't reach the next.
+     */
+    public byte[] takeHashes(boolean viewOpen, boolean running) {
+        if (!viewOpen)
+            hashes.reset();
+        return running ? takeHashes() : NONE;
+    }
+
     // ---------------------------------------------------------------- the owner's side
 
     /** The oldest ask this PC's player hasn't answered, or null. */
