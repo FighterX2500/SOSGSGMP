@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.38 · 2026-10-31
+Version 0.39 · 2026-10-31
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -58,7 +58,7 @@ Version 1 includes six features:
 All players are online at the same time. A campaign is saved and resumed later, and one campaign can run over several days.
 
 - **Pausing.** Any player can pause and any player can unpause a normal pause. While paused, every player sees who paused the game. A spectator can't pause or unpause (section 11). A priority pause can only be unpaused by the host; the game enters one when a player disconnects (section 11).
-- **Game speed.** The host sets the speed. It is capped by the slowest PC: if one player's game falls behind, the speed drops for everyone, as in Paradox grand strategy games. A PC that only waits for the connection isn't slow: the connection lowers the speed only when it holds the game up for over a third of the time for 5 seconds, one step at a time, and the speed goes back up 10 seconds after the waits end. The top bar says whether a PC or the connection holds the speed down (owner, 2026-10-29; SOS-94).
+- **Game speed.** The host sets the speed, apart from battles between players (section 8). It is capped by the slowest PC: if one player's game falls behind, the speed drops for everyone, as in Paradox grand strategy games. A PC that only waits for the connection isn't slow: the connection lowers the speed only when it holds the game up for over a third of the time for 5 seconds, one step at a time, and the speed goes back up 10 seconds after the waits end. The top bar says whether a PC or the connection holds the speed down (owner, 2026-10-29; SOS-94).
 - **Speeds.** The host can choose 1×, 5×, 25× or 250×. Vanilla's 0.25× isn't offered in multiplayer, in battles either.
 - **Lowest speed.** A slow PC can lower the speed to 0.5× and no further. If a PC can't hold even 0.5×, the game stops for everyone until it catches up, then resumes.
 - **Menus, notifications and prompts don't pause.** Opening a menu or window, getting a notification popup, or a prompt that needs an answer (such as a world battle or a declaration of war) never pauses, holds or slows the game in multiplayer, unlike vanilla. The player's city and the world keep running; while a world-battle prompt is open, only the armies in that battle wait (section 8). Only the pauses in this section stop time. Single-player keeps vanilla's behaviour.
@@ -129,14 +129,14 @@ Players trade through direct contracts and through a shared market.
 
 When two players' armies meet, a real-time battle is mandatory. Battles against NPC armies and attacks on NPC towns can be auto-resolved, as in vanilla.
 
-- **Battle size** has no limit beyond vanilla's. Every PC simulates every battle between players' armies, and only orders, the host's AI orders and state checks cross the network ([ADR 0003](decisions/0003-battle-lockstep.md)). The battle AI runs on the host, and every PC applies its orders at the same moment. If any PC cannot keep up, the battle slows down for everyone, spectators included, as with the world speed (section 4). A battle against NPC armies runs only on the fighting player's PC and on the PCs of players who watch it.
+- **Battle size** has no limit beyond vanilla's. Every PC simulates every battle between players' armies, and only orders, the host's AI orders and state checks cross the network ([ADR 0003](decisions/0003-battle-lockstep.md)). The battle AI runs on the host, and every PC applies its orders at the same moment. If any PC cannot keep up, the battle slows down for everyone, spectators included, as with the world speed (section 4). A battle against NPC armies runs only on the PCs of the players who fight it or watch it.
 - **Battle start.** The PC of the player whose army starts the battle generates the battlefield and sends it to every PC, and every PC loads it at the same step, so every PC starts from the same battle state. Every PC runs its own city, so no other PC holds what the battle is built from ([ADR 0003](decisions/0003-battle-lockstep.md) second amendment, owner 2026-10-25). Against NPC armies, the fighting player's PC generates the battlefield and runs it alone; nothing is sent unless another player watches.
 - **Desyncs.** If one PC's battle ever differs from the host's, the battle pauses briefly, every PC reloads the host's current battle state, and the battle continues.
 - **Latency.** Up to 1 second between giving an order and seeing it carried out is acceptable.
 - **World battle prompts.** When a battle on the world map needs a player's answer, such as fighting it in real time or auto-resolving it, only the armies in that battle wait in place while the prompt is open; the rest of the world runs on. If nobody answers within 30 seconds of real time, every PC gives the default answer at the same moment: auto-resolve, wait for a siege, accept a result with no captives or spoils, occupy a captured settlement.
 - **When two players' armies meet**, both players get the prompt with Fight only: no auto-resolve and no retreat. The battle starts when both press Fight, or after 30 seconds. The PC of the player whose army moved into the other builds it (owner, 2026-10-27; SOS-83).
-- **Each side's commanders.** In a battle between players each player commands their own army; the host's AI commands only NPC divisions. Each player deploys in their own area, the second army's mirrored from the first's, and the battle starts when both press Start, or after 2 minutes. The second army fights with its own player's technology, levels and other bonuses (SOS-83).
-- **The result** of a battle between players goes to the winner, who chooses captives and spoils; the loser gets a window with the losses, for information. Each side's losses reach its own city once (SOS-83). When the second army retreats, it pays vanilla's retreat penalty, as the first army does.
+- **Each side's commanders.** In a battle between players each player commands their own army; the host's AI commands only NPC divisions. Each player deploys in their own area, the second army's mirrored from the first's, and the battle starts when every commander has pressed Start, or after 2 minutes. Every player's divisions fight with that player's own technology, levels and other bonuses, an ally's included (SOS-83).
+- **The result** of a battle between players goes to the winning side, whichever of the two armies won. Each winning player gets the window to choose captives and spoils, with the 30-second default; the losing players get a window with the losses, for information. Captives and spoils are counted from the battle itself, so every PC has the same numbers, a beaten sally included. With allies they are split by the men each player brought, and what doesn't divide evenly goes to the player who brought the most. Each player's losses reach their own city once (SOS-83).
 - **Battles against NPC armies** can be fought in real time, as in vanilla (owner, 2026-10-30; SOS-93):
   - Only the fighting player's PC runs the battle, with vanilla's battle AI, battle speeds and pause, on the battle's own clock. The fighting player alone sets the speed and pauses.
   - The world doesn't pause: it runs at 1× for everyone while the battle lasts (section 4).
@@ -145,6 +145,7 @@ When two players' armies meet, a real-time battle is mandatory. Battles against 
   - The fighting player's city is frozen until the battle ends, then resumes where it stopped and receives what the world sent it meanwhile.
   - If the fighting player's PC can't keep up, its battle slows; the world speed doesn't drop for it.
   - There is no time limit, as in vanilla.
+  - **An allied player** whose army stands within 4 tiles of the battle along the map, allied with the fighting player and at war with the NPC army, is asked with Join and Stay out, and no answer in 30 seconds stays out. If they join, only the two players' PCs run the battle, apart from the world, and both players' cities are frozen. The fighting player's PC leads and the ally's PC follows it, as a watcher's does, and the ally's orders go to it. Each player commands their own army. The commanders' speed vote applies, either of them can pause, and retreat and the result follow the rules for battles between players.
   - Several players can fight NPC battles at the same time. The world stays at 1× until the last one ends.
   - **Prompts during the battle.** A prompt that needs the fighting player's answer waits until the battle ends, then appears with the usual 30-second rule. This covers a world battle of another of their armies, another player's army meeting theirs (that battle starts only after the NPC battle ends), a sally request and a siege's popups; the armies involved wait meanwhile. Deal proposals, declarations of war and other notifications arrive as notifications without popups.
   - **Saves during the battle.** Campaign saves (Save and exit, autosaves) wait until the battle ends, as during an assault. NPC battles don't get the save before battles (section 11).
@@ -152,11 +153,11 @@ When two players' armies meet, a real-time battle is mandatory. Battles against 
 - **Watching an NPC battle** is optional. Any other player can join it while it runs, enemies included, without asking: their PC loads the battle from the fighting player's PC and runs it from that player's orders and speed, at its own pace. Their own city is frozen while they watch. Leaving ends their view only.
   - **Joining** reloads the battle on both PCs, so the fighting player's game stops for a few seconds (owner, 2026-10-30).
   - **A slow watcher.** A watcher's PC that can't keep up runs behind the battle and catches up when it can; the fighting player doesn't wait for it. The watch ends with a message only once it is 3 minutes behind (owner, 2026-10-30).
-- **Allies** can join a battle or siege when they are within range, as in vanilla.
+- **Allies** can join a battle between players as it starts, as in vanilla: an army within 4 tiles of it along the map, allied with one side and at war with the other. An allied player is asked with Join and Stay out as the battle's prompt opens, and no answer in 30 seconds stays out. An ally who is fighting another battle at that moment isn't asked: their army stays out, and the battle doesn't wait for them. Nobody joins a battle that has begun. An NPC ally's army joins as in vanilla, under the host's AI. An assault has its own rule (section 9).
 - **Captives** after a battle between players are handled as in vanilla (capture, execute or release, each changing mercy). Each winning player decides for their own share.
-- **Deployment.** Each player's army spawns as a separate army. Allied armies stand side by side on the same side of the field, 20 tiles apart, and the enemy's armies are placed the same way. Every player can rearrange their own army before the battle, as in vanilla, and commands only their own divisions during it.
-- **Battle speed** in a battle between players is chosen by its commanders, by majority vote. On a tie, the speed stays as it is.
-- **Retreat.** Only a side's commanders can order that side's retreat.
+- **Deployment.** Each player's army spawns as a separate army. Allied armies stand side by side on the same side of the field, 20 tiles apart, and the enemy's armies are placed the same way. A side has vanilla's number of divisions: the slots are split evenly between its players, and slots a player doesn't use go to the others. Every player can rearrange their own army before the battle, as in vanilla, and commands only their own divisions during it.
+- **Battle speed** in a battle between players is chosen by its commanders, by majority vote. Each commander's speed button is their vote, and the speed changes when more than half of the commanders still in the battle pick the same one, so two commanders must agree. On a tie, the speed stays as it is. Spectators don't vote. The speeds are the battle's usual buttons. When the battle ends, the world goes back to the speed it had before it.
+- **Retreat.** Each commander retreats only their own army, at any time. The side's other armies fight on, and the battle ends when one side has no army left on the field. The army leaves at once, shares no captives or spoils and has no more vote on the speed; its player can stay and watch. It pays its share of vanilla's retreat loss, by its men among the side's men still fighting, halved while an ally stays behind. The last army of a side pays its share in full. Divisions in melee lose 75%, as in vanilla.
 - **No restart.** Vanilla's battle restart is turned off in every battle, those against NPC armies included (owner, 2026-10-30; SOS-93).
 - **Spectating.** In a battle between players, all other players watch while the world is paused (section 4). An NPC battle can be watched by choice (above).
 
@@ -172,7 +173,7 @@ Real-time sieges of player cities are part of v1. A siege runs in three phases:
 
 **Invasions by NPC armies.** When an NPC army (an NPC faction's, rebels' or raiders') invades a player's capital, the invasion runs as in vanilla, inside that player's city and in its own time, on that player's PC only. The world doesn't pause and nobody else has to watch (owner, 2026-10-29). Every player gets a notification that the city is invaded, and any player can ask to view it (section 10); the owner allows or refuses the view as usual. The outcome is vanilla's.
 
-During the siege, the defender can attack the besieging army (sally out) at any time, in every phase before the assault. That creates a real-time field battle under the rules in section 8. When a siege of their capital starts, the defender gets a popup that says the siege has started and that they can sally out at any time. Vanilla's warning when the assault begins, and its offer of one more battle before the city, are left out (owner, 2026-10-29). Allies can lift the siege only by defeating the besieging army. A garrison beaten in a sally gives the winner no captives or spoils (2026-10-31, the night run).
+During the siege, the defender can attack the besieging army (sally out) at any time, in every phase before the assault. That creates a real-time field battle under the rules in section 8. When a siege of their capital starts, the defender gets a popup that says the siege has started and that they can sally out at any time. Vanilla's warning when the assault begins, and its offer of one more battle before the city, are left out (owner, 2026-10-29). Allies can lift the siege only by defeating the besieging army.
 
 | City population | Waiting period before assault |
 | --- | --- |
@@ -361,9 +362,15 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A battle with 2,000 units per side runs 30 minutes with every PC's battle state identical to the host's. [AT + PT]
 - The same battle save, seed and orders give an identical battle state on two runs, compared every step. [AT]
 - When any PC in a battle between players is slow, the battle slows for everyone. In an NPC battle, a slow fighting PC slows its battle, not the world. [AT]
-- Only a side's commanders can order its retreat, and no battle can be restarted. [AT]
+- Each commander can retreat only their own army, the side's other armies fight on, and no battle can be restarted. [AT]
+- An army that retreats while an ally stays pays half its share of the retreat loss, and the side's last army pays its share in full. [AT]
+- An allied player within 4 tiles of a battle is asked Join or Stay out, no answer in 30 seconds stays out, and an ally in another battle isn't asked. [AT]
+- A side's division slots are split evenly between its players, and unused slots go to the others. [AT]
+- Each winning player chooses their own share of captives and spoils, split by the men brought, whichever army won, with the same numbers on every PC, a beaten sally included. [AT]
+- The world goes back to its speed from before the battle when the battle ends. [AT]
+- An ally who joins an NPC battle runs it on the two players' PCs only, the world goes on at 1×, and the result applies once on every PC. [AT + PT]
 - When two players' armies meet, both are asked with Fight only, and the battle starts when both press it or after 30 seconds; each player's PC commands only their own army, and the result goes to the winner. [AT]
-- A player's army in a battle between players fights with that player's own bonuses, the same on every PC. [AT]
+- A player's army in a battle between players fights with that player's own bonuses, an ally's included, the same on every PC. [AT]
 - A player whose region another player besieges is asked to sally out, and a sally between players can't be auto-resolved. [AT]
 - While a world-battle prompt is open, only that battle's armies wait; with no answer within 30 seconds, every PC applies the default answer at the same step. [AT]
 - While a player fights an NPC army in real time, every other player's city and the world keep running at 1×, and every PC's world hash matches the host's throughout the battle and after it. [AT]
@@ -455,6 +462,7 @@ Every card on the board, not only features, is done when:
 - [ ] **Viewing numbers:** the catch-up numbers in section 10 (a 5-second gap closed in about 2 seconds, and the 1-minute limit before a view that can't keep up ends) are first guesses. Confirm them in playtests (owner, 2026-10-24): city save size and time, loading a city into a running game, and a 10,000-person city.
 - [ ] **Order delay above 1×:** since SOS-90 the engine applies an order at least 30 steps after it is given (half a second at 1×), and at higher speeds half a second of real time, up to 400 steps. With ping added, that should stay inside the 1-second limit (section 8). Measure the delay in playtests at several speeds and pings, and decide whether it needs to change.
 - [x] **Passage and trade reach:** players at peace move armies freely through each other's land (section 6). Should free passage between players also let trade through? Yes: a player's trade crosses the land of any player it is at peace with, whatever the destination, NPC factions included (owner, 2026-10-27; sections 6 and 7).
+- [ ] **A commander who drops out of a battle with allies:** section 11's Continue without them ends a battle with no result. Should that still end a battle with an ally left in it, or should the host's AI take the dropped player's divisions? The same goes for a slow ally in a joined NPC battle: a watcher is dropped once 3 minutes behind. To decide before allies ship (owner, 2026-10-31).
 
 ### Things to optimize (optional)
 
@@ -485,6 +493,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-10-30 | **Sieges and NPC battles:** no assault while a player fights an NPC battle. **A sack's people:** the 80% counts the citizens and slaves in the city, in total; nobles are never removed; with no choice in time, no one is removed (spec 0.35) | SOS-92 |
 | 2026-10-30 | **Watching an NPC battle:** any other player joins without asking; a watcher's PC runs the battle at its own pace from the fighting player's orders and speed, and the watch ends only 3 minutes behind. Joining reloads the battle on both PCs | SOS-109 |
 | 2026-10-31 | The night run: **sieges finished** (the lockstep assault with commanders, Retreat, every outcome, Eliminate, allied attackers), **spectators**, battle resync, one viewer for each city; the Fray2 crash | SOS-92, SOS-111, SOS-114, SOS-109, SOS-112 |
+| 2026-10-31 | **Battles with allies, decided:** allies within 4 tiles are asked Join or Stay out; every player's own bonuses; slots split evenly; each commander retreats their own army, at half their share while an ally stays; spoils split by men brought; both armies get the winner's window; the commanders' speed vote; the world's speed comes back after a battle; an ally can join an NPC battle on two PCs only | [ADR 0009](decisions/0009-several-humans-in-a-battle.md) |
 
 ### Where each v1 feature stands (2026-10-30; percentages from 2026-10-29)
 
