@@ -285,7 +285,8 @@ final class MpAutopilotCommands {
 			return "sallying out";
 		}
 		case "assault":
-			return "now " + Engine.assault() + "; last " + Engine.lastAssault() + "; awaiting terms " + Engine.assaultTaken();
+			return "now " + Engine.assault() + "; last " + Engine.lastAssault() + "; awaiting terms " + Engine.assaultTaken()
+					+ (Engine.assault() != null ? "; " + sosdet.game.GameAssault.fight() : "");
 		case "terms": {
 			int kind = a[1].equals("vassalage") ? AssaultTerms.VASSALAGE
 					: a[1].equals("eliminate") ? AssaultTerms.ELIMINATE : AssaultTerms.SACK;
