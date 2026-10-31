@@ -260,12 +260,15 @@ public final class EnginePlay implements EnginePort {
 
     /**
      * After a whole-game load outside a battle (a city view's, SOS-82): the load leaves the game paused, and this PC's
-     * game speed sets its pace, so it unpauses at the agreed speed, as at {@link #start}. A battle's load stays paused
-     * for its deployment.
+     * game speed sets its pace, so it unpauses at the agreed speed, as at {@link #start}. A battle's load unpauses at 1×,
+     * as vanilla's battle opens: nothing moves until Start, but only a step can apply Start. A resync in a battle keeps
+     * its speed.
      */
     public void resumeAfterLoad() {
         if (Engine.battle() == null)
             GAME.SPEED.speedSet(agreedSpeed());
+        else if (GAME.SPEED.speed() == 0)
+            GAME.SPEED.speedSet(1);
     }
 
     /** The speed every PC runs at now. Builds the engine's stats: for the panel's refresh, not every frame. */
