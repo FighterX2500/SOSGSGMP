@@ -283,11 +283,18 @@ final class MpAutopilotCommands {
 			if (a.length < 2)
 				return "trace at which step?";
 			traceAt = Long.parseLong(a[1]);
-			Engine.traceDraws(1200);
+			Engine.traceDraws(1400);
 			return "world draws traced, written to trace.txt at step " + traceAt;
 		case "npcbesiege":
 			Sieges.npcBesiegeForTest(FACTIONS.player().index());
 			return "the strongest NPC army marches on this city";
+		case "fill": {
+			WArmy w = firstArmy();
+			if (w == null)
+				return "refused: no army";
+			Sieges.fillForTest(w);
+			return "army " + w.armyIndex() + "'s supplies filled, at its step on every PC";
+		}
 		case "teleport": {
 			WArmy w = firstArmy();
 			if (w == null)
@@ -503,7 +510,7 @@ final class MpAutopilotCommands {
 		if (traceAt < 0 || Engine.step() < traceAt)
 			return;
 		try {
-			Files.writeString(file.resolveSibling("trace.txt"), Engine.drawTrace(traceAt - 600, traceAt), StandardCharsets.UTF_8);
+			Files.writeString(file.resolveSibling("trace.txt"), Engine.drawTrace(traceAt - 1200, traceAt), StandardCharsets.UTF_8);
 		} catch (IOException e) {
 			event.accept("trace", "\"failed\":\"" + clean(e.getMessage()) + "\"");
 		}
