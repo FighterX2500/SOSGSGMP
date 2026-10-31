@@ -26,12 +26,15 @@ final class MpViewBar extends Interrupter {
 
 	private static final String WATCHING = "Only watching: orders are dropped.";
 	private static final String CLOSING = "Closing the view; your city loads back...";
+	/** "Only watching", or an attacker's line instead. */
+	private final String line;
 
 	private final GuiSection section = new GuiSection();
 	private boolean closing;
 
-	MpViewBar(MpViews views, String title) {
+	MpViewBar(MpViews views, String title, String commanding) {
 		super(true, true, false);
+		line = commanding == null ? WATCHING : commanding;
 		GuiSection inner = new GuiSection();
 		// one line, as wide as the longer text: at a fixed 320 px the line wrapped below the bar (G82F)
 		int width = Math.max(UI.FONT().M.width(WATCHING), UI.FONT().M.width(CLOSING)) + 4;
@@ -39,7 +42,7 @@ final class MpViewBar extends Interrupter {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				COLOR.WHITE100.bind();
-				UI.FONT().M.render(r, closing ? CLOSING : WATCHING,
+				UI.FONT().M.render(r, closing ? CLOSING : line,
 						body.x1(), body.y1(), body.width(), 1.0);
 				COLOR.unbind();
 			}
@@ -52,15 +55,34 @@ final class MpViewBar extends Interrupter {
 
 			@Override
 			protected void renAction() {
-				activeSet(!closing);
+				activeSet(!closing && views.closeRefusal() == null);
 			}
 
 			@Override
 			public void hoverInfoGet(GUI_BOX text) {
 				if (closing)
 					((GBox) text).error("The view is closing.");
+				else if (views.closeRefusal() != null)
+					((GBox) text).error(views.closeRefusal());
 			}
 		});
+		if (commanding != null)
+			inner.addRightC(8, new GButt.ButtPanel("Retreat") {
+				@Override
+				protected void clickA() {
+					views.retreat();
+				}
+
+				@Override
+				protected void renAction() {
+					activeSet(!closing);
+				}
+
+				@Override
+				public void hoverInfoGet(GUI_BOX text) {
+					text.text("Every attacker's soldiers leave the city. The siege goes on, and its wait starts over.");
+				}
+			});
 		GPanel panel = new GPanel(inner.body().width(), inner.body().height());
 		panel.setTitle(title);
 		panel.inner().set(inner);

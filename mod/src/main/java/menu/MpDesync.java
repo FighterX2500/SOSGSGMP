@@ -54,6 +54,11 @@ final class MpDesync {
 			resyncChosen = false;
 			resyncSent = false;
 			exitChosen = false;
+			if (engine.battle() != null) { // a battle recovers by itself (spec §8 Desyncs): no window, no choice
+				message = null;
+				resyncChosen = setup.isHost();
+				LOG.ln("SOSGSGMP: the battle desynced at step " + h.desyncStep + ": every PC reloads the host's battle");
+			} else {
 			message = setup.isHost()
 					? "The world desynced at step " + h.desyncStep + ": " + differs(h.pc) + "'s world differs from yours.\n"
 							+ "Resync: every player's game reloads your world, each keeping their own city.\n"
@@ -62,6 +67,7 @@ final class MpDesync {
 					: "The world desynced at step " + h.desyncStep + ": " + differs(h.pc) + "'s world differs from the host's.\n"
 							+ "Waiting for the host to resync, or to save and exit.";
 			show();
+			}
 		}
 		if (setup.isHost() && resyncChosen && !resyncSent && shown != null && engine.step() == shown.holdStep) {
 			setup.resync(engine.worldResyncSave());
@@ -72,7 +78,7 @@ final class MpDesync {
 			saves.saveAndExit();
 			exitChosen = false;
 		}
-		if (shown != null && !VIEW.inters().fullScreen.isActivated())
+		if (shown != null && message != null && !VIEW.inters().fullScreen.isActivated())
 			show();
 	}
 
@@ -94,7 +100,8 @@ final class MpDesync {
 		pending = null;
 		if (engine.desyncHold() == null) {
 			shown = null;
-			VIEW.inters().fullScreen.deactivate();
+			if (message != null)
+				VIEW.inters().fullScreen.deactivate();
 		}
 	}
 

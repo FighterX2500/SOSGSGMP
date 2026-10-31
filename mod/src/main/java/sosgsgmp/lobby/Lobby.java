@@ -24,7 +24,7 @@ public final class Lobby {
     public Lobby(LobbySettings settings, String hostName, long hostKey) {
         this.settings = settings;
         Campaign.Player self = settings.resume() == null ? null : settings.resume().campaign().player(hostKey);
-        if (settings.resume() != null && (self == null || self.removed()))
+        if (settings.resume() != null && (self == null || self.refused()))
             throw new IllegalArgumentException("SOSGSGMP: this PC isn't a player of campaign " + settings.resume().campaign().name());
         keys.put(nextId, hostKey);
         players.add(new LobbyPlayer(nextId++, cleanName(hostName), true));
@@ -44,7 +44,7 @@ public final class Lobby {
             return Refusal.STARTED;
         if (settings.resume() != null && settings.resume().campaign().player(key) == null)
             return Refusal.NOT_IN_CAMPAIGN;
-        if (settings.resume() != null && settings.resume().campaign().player(key).removed())
+        if (settings.resume() != null && settings.resume().campaign().player(key).refused())
             return Refusal.REMOVED;
         if (keys.containsValue(key))
             return Refusal.ALREADY_JOINED;

@@ -1,6 +1,5 @@
 package sosgsgmp.game;
 
-import game.faction.FACTIONS;
 import sosdet.Assault;
 import sosdet.Engine;
 import world.map.regions.Region;
@@ -16,17 +15,23 @@ public final class PlayerSieges {
 
     /** The game second the siege of this PC's player's capital began, or -1 while it isn't besieged. */
     public static int besiegedSince() {
-        return Engine.active() ? Engine.besiegedSince(FACTIONS.player().index()) : -1;
+        return Engine.active() ? Engine.besiegedSince(Engine.local()) : -1;
     }
 
     /** The game days left before this PC's player's capital may be assaulted, 0 once the wait passed, -1 unbesieged. */
     public static int assaultInDays() {
-        return Engine.active() ? Engine.assaultInDays(FACTIONS.player().index()) : -1;
+        return Engine.active() ? Engine.assaultInDays(Engine.local()) : -1;
+    }
+
+    /** True until an assault begins and after its terms are chosen: Sally out and the days to the assault mean nothing then. */
+    public static boolean beforeAssault() {
+        return Engine.assault() == null && Engine.assaultTaken() == null;
     }
 
     /** True when {@code reg} is this PC's player's capital and it is besieged. */
     public static boolean besiegedCapital(Region reg) {
-        return reg != null && reg == FACTIONS.player().capitolRegion() && besiegedSince() >= 0;
+        return besiegedSince() >= 0 && reg != null && reg.capitol() && reg.faction() != null
+                && reg.faction().index() == Engine.local();
     }
 
     /** A taken throne whose attacker hasn't chosen what to take yet, or null (SOS-92 D). */

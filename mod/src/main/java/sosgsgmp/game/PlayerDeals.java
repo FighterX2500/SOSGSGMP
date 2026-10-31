@@ -29,7 +29,9 @@ public final class PlayerDeals {
      * the mod's. False in single player, where no engine session runs.
      */
     public static boolean otherPlayer(Faction f) {
-        return f instanceof Player && f != FACTIONS.player() && Engine.active() && !Engine.retired(f.index());
+        // on a spectator's PC the game's player is a living human, whom the spectator still sees as another player
+        return f instanceof Player && Engine.active() && !Engine.retired(f.index())
+                && (f != FACTIONS.player() || Engine.spectating());
     }
 
     /**

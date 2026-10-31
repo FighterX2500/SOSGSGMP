@@ -111,6 +111,38 @@ class ViewRequestsTest {
     }
 
     @Test
+    void anAssaultsViewIsAskedByNoOneAndItsCityStillReachesTheViewer() {
+        host().opened(1, 0);
+        host().opened(2, 0);
+        host().city(1, 900, new byte[] {1, 2, 3});
+        host().hashes(1, new byte[] {7});
+        flush();
+        assertArrayEquals(new byte[] {1, 2, 3}, pcs[1].takeCity(900));
+        assertArrayEquals(new byte[] {7}, pcs[1].takeHashes());
+        assertNull(pcs[2].takeCity(900), "only the viewer it is for");
+    }
+
+    private void hashesArrive(byte... bytes) {
+        assertNull(pcs[1].received(0, new Message.ViewHashes(1, bytes)));
+    }
+
+    @Test
+    void hashesThatArriveWhileTheViewLoadsWaitForIt() {
+        hashesArrive((byte) 1, (byte) 2); // over a slow link they come right behind the city
+        assertEquals(0, pcs[1].takeHashes(true, false).length);
+        hashesArrive((byte) 3);
+        assertArrayEquals(new byte[] {1, 2, 3}, pcs[1].takeHashes(true, true), "the first piece holds the header");
+    }
+
+    @Test
+    void hashesLeftFromAnEndedViewDontReachTheNextOne() {
+        hashesArrive((byte) 1);
+        assertEquals(0, pcs[1].takeHashes(false, false).length);
+        hashesArrive((byte) 2);
+        assertArrayEquals(new byte[] {2}, pcs[1].takeHashes(true, true));
+    }
+
+    @Test
     void aRefusalOrNoAnswerIn30SecondsReachesTheViewer() {
         pcs[1].ask(2);
         flush();
@@ -186,6 +218,29 @@ class ViewRequestsTest {
         assertArrayEquals(new byte[] {4}, pcs[2].takeHashes());
     }
 
+    /** Spec section 8: a running NPC battle is watched without asking, and its tape waits while the watcher loads. */
+    @Test
+    void aBattleIsWatchedWithoutAskingAndItsTapeComesInWholePieces() {
+        pcs[1].ask(2);
+        flush();
+        ViewRequests.Pair p = host().takeCheck();
+        host().checkedNoAsk(p);
+        assertNull(pcs[2].ask(), "the fighting player isn't asked");
+        assertEquals(p, host().takeBegin());
+        host().begun(p, null);
+        flush();
+        pcs[2].tape(1, new byte[] {1, 2});
+        pcs[2].tape(1, new byte[] {3});
+        flush();
+        assertArrayEquals(new byte[] {1, 2}, pcs[1].takeTape());
+        assertArrayEquals(new byte[] {3}, pcs[1].takeTape());
+        assertNull(pcs[1].takeTape());
+        pcs[2].tape(1, new byte[] {4});
+        flush();
+        pcs[1].dropTape();
+        assertNull(pcs[1].takeTape(), "an older watch's tape goes");
+    }
+
     @Test
     void messagesFromTheWrongPcBreakTheProtocol() {
         assertNotNull(host().received(1, new Message.ViewAsk(2, 0)), "Bob asks as Cid");
@@ -193,6 +248,7 @@ class ViewRequestsTest {
         assertNotNull(host().received(1, new Message.ViewClose(2, 0)), "Bob closes Cid's view");
         assertNotNull(host().received(1, new Message.ViewCity(2, 30, 1, 0, new byte[1])), "a city for no view");
         assertNotNull(host().received(1, new Message.ViewHashes(2, new byte[1])), "hashes for no view");
+        assertNotNull(host().received(1, new Message.ViewTape(2, new byte[1])), "a tape for no view");
         assertNotNull(pcs[1].received(2, new Message.ViewHashes(1, new byte[1])), "not from the host");
         assertNotNull(pcs[1].received(0, new Message.ViewCity(1, 30, 4, 2, new byte[1])), "a city that didn't start");
         assertNull(pcs[1].received(0, new Message.ViewAnswer(1, 2, true, "")), "an answer to no ask: too late, dropped");

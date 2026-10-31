@@ -58,6 +58,9 @@ final class MpAssaultOutcome extends MpWindow {
 
 	/** The defender's and every other player's notice of what the attacker took (SOS-92 D). */
 	static String termsText(CharSequence attacker, CharSequence defender, int kind, int percent, int credits, int moved, int killed, int freed) {
+		if (kind == AssaultTerms.ELIMINATE)
+			return attacker + " eliminated " + defender + ": " + percent + "% of its money (" + String.format(Locale.ENGLISH, "%,d", credits)
+					+ ") and goods. Its city is neutral now, and " + defender + " watches as a spectator." + peopleText(moved, killed, freed);
 		return kind == AssaultTerms.SACK
 				? attacker + " sacked " + defender + "'s capital: " + percent + "% of its money (" + String.format(Locale.ENGLISH, "%,d", credits) + ") and goods, and made peace."
 						+ peopleText(moved, killed, freed)

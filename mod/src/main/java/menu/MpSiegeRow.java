@@ -33,7 +33,7 @@ public final class MpSiegeRow extends GuiSection {
 
 	@Override
 	public void render(SPRITE_RENDERER r, float ds) {
-		visableSet(PlayerSieges.besiegedCapital(region.get()));
+		visableSet(PlayerSieges.besiegedCapital(region.get()) && PlayerSieges.beforeAssault());
 		if (!visableIs())
 			return;
 		int days = PlayerSieges.assaultInDays();

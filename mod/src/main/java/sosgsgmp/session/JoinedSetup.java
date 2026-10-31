@@ -90,7 +90,8 @@ public final class JoinedSetup implements SetupSession {
                     received(r.message());
                     // a piece of the engine's streams, a cursor, a chat line or a view's city or hashes changes nothing the panel shows
                     if (!(r.message() instanceof Message.Stream) && !(r.message() instanceof Message.Cursor) && !(r.message() instanceof Message.Chat)
-                            && !(r.message() instanceof Message.ViewCity) && !(r.message() instanceof Message.ViewHashes))
+                            && !(r.message() instanceof Message.ViewCity) && !(r.message() instanceof Message.ViewTape)
+                            && !(r.message() instanceof Message.ViewHashes))
                         changes++;
                 }
                 case Node.Event.Disconnected d -> {
@@ -182,6 +183,7 @@ public final class JoinedSetup implements SetupSession {
             case Message.ViewAsk v when views != null -> view(v);
             case Message.ViewAnswer v when views != null -> view(v);
             case Message.ViewCity v when views != null -> view(v);
+            case Message.ViewTape v when views != null -> view(v);
             case Message.ViewHashes v when views != null -> view(v);
             case Message.SaveAt s when link != null -> {
                 saveOrder = s.order();
@@ -198,6 +200,7 @@ public final class JoinedSetup implements SetupSession {
                     cursors.set(c.playerId(), c.place(), c.x(), c.y());
             }
             case Message.PlayerGone g when link != null -> gone(g.playerId(), g.holdStep());
+            case Message.Refused f -> close(f.reason().text); // a spectator's PC too far behind (spec §11)
             case Message.GoneChoice c when link != null -> {
                 Departures.Choice choice = c.continued() ? Departures.Choice.CONTINUE : Departures.Choice.RETURN;
                 if (departures.chosen(c.holdStep(), choice) && choice == Departures.Choice.RETURN)

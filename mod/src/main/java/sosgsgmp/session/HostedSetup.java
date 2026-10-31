@@ -68,6 +68,8 @@ public final class HostedSetup implements SetupSession {
     private String doneOutcome;
     /** The engine's streams once this PC plays; null before. */
     private EngineLink link;
+    /** Slots of spectators whose PC left, for the engine. */
+    private final java.util.ArrayDeque<Integer> spectatorsLeft = new java.util.ArrayDeque<>();
     /** City viewing's requests once this PC plays; null before (SOS-82). */
     private ViewRequests views;
     /** The latest world resync's transfer number; 0 before the first. */
@@ -192,6 +194,7 @@ public final class HostedSetup implements SetupSession {
             case Message.ViewAnswer v when id != null && views != null -> view(id, v);
             case Message.ViewClose v when id != null && views != null -> view(id, v);
             case Message.ViewCity v when id != null && views != null -> view(id, v);
+            case Message.ViewTape v when id != null && views != null -> view(id, v);
             case Message.ViewHashes v when id != null && views != null -> view(id, v);
             case Message.Cursor c when id != null -> {
                 cursors.set(id, c.place(), c.x(), c.y());
@@ -290,6 +293,11 @@ public final class HostedSetup implements SetupSession {
      * player chooses ({@link #chooseGone}). Nothing more comes from that PC, so nothing of it is relayed.
      */
     private void gone(int id) {
+        Campaign.Player who = campaign == null ? null : campaign.inSlot(factions.slotOf(id));
+        if (who != null && who.eliminated()) {
+            spectatorGone(id, who.slot());
+            return;
+        }
         Departures.Gone g = new Departures.Gone(id, name(id), factions.slotOf(id));
         players.removeIf(p -> p.id() == id);
         cursors.removePlayer(id);
@@ -300,6 +308,41 @@ public final class HostedSetup implements SetupSession {
         if (saveRound != null && saveRound.report(id, 0, "left the game")) // the open save waits for them no more
             saveDoneWhenComplete();
         changes++;
+    }
+
+    /** A spectator's PC left: nobody holds and nobody is asked (spec §11); the engine hears of it from the next frame. */
+    private void spectatorGone(int id, int slot) {
+        notes.add(name(id) + ", a spectator, left at step " + link.step());
+        chat.notice(name(id) + " stopped watching and left the game.");
+        players.removeIf(p -> p.id() == id);
+        cursors.removePlayer(id);
+        views.gone(slot);
+        spectatorsLeft.add(slot);
+        sendAll(new Message.Roster(players));
+        if (saveRound != null && saveRound.report(id, 0, "left the game"))
+            saveDoneWhenComplete();
+        changes++;
+    }
+
+    @Override
+    public void dropSpectator(int slot) {
+        for (Map.Entry<Integer, Integer> p : new ArrayList<>(joined.entrySet()))
+            if (factions.slotOf(p.getValue()) == slot) {
+                node.send(p.getKey(), new Message.Refused(Refusal.TOO_SLOW));
+                node.disconnect(p.getKey());
+                removeJoined(p.getKey());
+                return;
+            }
+    }
+
+    @Override
+    public Integer takeSpectatorLeft() {
+        return spectatorsLeft.poll();
+    }
+
+    @Override
+    public void eliminated(int slot) {
+        campaign = campaign.eliminating(slot);
     }
 
     @Override

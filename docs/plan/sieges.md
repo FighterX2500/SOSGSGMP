@@ -210,9 +210,9 @@ The attacker's outcome window has three choices. Each is a command at a step, wh
 
 ### E. Allied attackers (engine)
 
-- Every human at war with the defender who has a besieging army on the capital's siege tiles joins the assault. NPC allies' armies join under the host's AI.
+- The stormer's armies always join. An ally joins with each army within 3 tiles of the capital's centre, the box vanilla's blockade uses: allied with the stormer and at war with the defender, the side vanilla's siege already computes (owner, 2026-10-31). NPC allies' armies join under the host's AI.
 - Each human commands their own divisions (the commanders table, one PC per division).
-- The human with the most soldiers at Engage chooses the outcome. Money, goods and removed people are split by the soldiers each human brought at Engage, rounded down, with the remainder going to the chooser.
+- The human with the most soldiers at Engage chooses the outcome; a tie goes to the stormer. Money, goods and removed people are split by the soldiers each human brought at Engage, rounded down, with the remainder going to the chooser.
 - **Tests:** a rig run with 3 humans, two attackers and a defender.
 
 ### F. NPC invasions of a player's capital stay local, and can be viewed (engine and mod)
@@ -235,8 +235,8 @@ Decision 5: they keep today's path. An NPC faction's or a rebel army's `invadeCa
 ### G. Resync during an assault (engine)
 
 - §15 asks that a forced assault desync be detected within 2 s and recovered from the host's assault state within 10 s.
-- This is battle resync (plan 0006 M3), not built yet. The host's save of the battle-mode game is loaded on every PC, keeping the session, the way the co-op resync does (`Engine.resyncSave/resyncLoad`).
-- One mechanism serves battles and assaults, and it closes the field-battle gap too.
+- A field battle between players is battle resync (plan 0006 M3): the host's save of the battle-mode game is loaded on every PC, keeping the session (`Engine.battleResyncSave/battleResyncLoad`).
+- An assault doesn't need it, as its city runs on one PC and every other PC views it: a view that loses step with the city ends all the assault's views, and they all open again from the city as it stands (decided in the night run of 2026-10-31).
 - **Tests:** rig `--corrupt` during an assault and during a battle.
 
 ## 3. Decisions (owner, 2026-10-29)
