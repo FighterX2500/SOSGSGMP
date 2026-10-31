@@ -68,7 +68,7 @@ Engine M8.
 
 ## Results
 
-The rig results and the bugs found are in SOSDET plan 0018's Results. What the mod adds here (`MpAllyJoin`, the `allyAsked` and `allyAnswer` calls, the `join`, `stayout` and `ally` autopilot commands) compiles and passes its unit tests. Nobody has seen it in a game yet.
+The rig results and the bugs found are in SOSDET plan 0018's Results. Two PCs with the real mods: S7F for the speed vote, 62,000 steps with 0 hashes differing, and A4 for an ally in an NPC battle. In A4 the prompt, the view that starts by itself, both votes, both retreats and the result all worked, with no desync. The autopilot answered the prompt, so nobody has seen `MpAllyJoin` on screen.
 
 Choices made while building, for the owner to confirm:
 

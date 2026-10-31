@@ -303,6 +303,18 @@ final class MpAutopilotCommands {
 			Sieges.teleportForTest(w, Integer.parseInt(a[1]), Integer.parseInt(a[2]));
 			return "army " + w.armyIndex() + " teleports, at its step on every PC";
 		}
+		case "npcarmies": { // the NPC armies with men, for a two-PC test of an ally in an NPC battle
+			StringBuilder b = new StringBuilder();
+			for (int i = 0; i < WORLD.ENTITIES().armies.max(); i++) {
+				WArmy e = WORLD.ENTITIES().armies.tryGet(i);
+				if (e != null && e.faction() instanceof FactionNPC && AD.men(null).get(e) > 0)
+					b.append(e.faction().index()).append(' ').append(AD.men(null).get(e)).append(' ').append(e.ctx()).append(' ').append(e.cty()).append("; ");
+			}
+			return b.toString();
+		}
+		case "npcwar":
+			Sieges.npcWarForTest(FACTIONS.player().index(), Integer.parseInt(a[1]));
+			return "at war with " + a[1] + ", at its step on every PC";
 		case "assaultretreat":
 			MpViews.current().retreat();
 			return "retreat ordered";
