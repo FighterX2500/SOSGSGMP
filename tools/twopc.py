@@ -209,6 +209,8 @@ def main():
     ap.add_argument("--crash", default="", help="'remote:STEP' or 'local:STEP': that joiner's game stops dead at STEP (SOS-65)")
     ap.add_argument("--on-gone", choices=("continue", "return"), default="continue",
                     help="the host's choice when a player left: continue without them, or return to the last save")
+    ap.add_argument("--manual-deals", action="store_true",
+                    help="players answer deals themselves: the host doesn't accept each on its own")
     ap.add_argument("--deal", type=int, default=-1,
                     help="the joiner proposes trade and 100 denari to the host at this step, and the host accepts (SOS-72)")
     ap.add_argument("--deal-cancel", type=int, default=-1,
@@ -290,6 +292,8 @@ def main():
         if v and (len(v.split(":")) != 2 or not v.split(":")[0].isdigit()):
             fail("--view and --host-view are STEP:CLOSE")
     common = "port=%d,steps=%d,net=%s,viewanswer=%s,battles=%s" % (args.port, args.steps, args.net, args.view_answer, args.battles)
+    if args.manual_deals:
+        common += ",manualdeals=1"
     host_view = ",view=" + args.host_view if args.host_view else ""
     join_view = ",view=" + args.view if args.view else ""
     host_capital = ",capital=" + args.host_capital if args.host_capital else ""

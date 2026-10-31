@@ -551,6 +551,8 @@ final class MpAutopilotCommands {
 						.append(AD.men(null).get(w)).append(" at ").append(w.ctx()).append(',').append(w.cty()).append(' ')
 						.append(w.state().name(w)).append("; ");
 		}
+		if (engine.anyBattle())
+			armies.append("a battle is running: nothing else happens until it ends; ");
 		return String.format(Locale.ROOT, "step %d, credits %d, at war %b, spectating %b, last player %d, my capital besieged %b, theirs %b, armies: %s",
 				engine.step(), (long) FACTIONS.player().credits().getD(),
 				DIP.WAR().is(FACTIONS.player(), other()), Engine.spectating(), Engine.lastHuman(),

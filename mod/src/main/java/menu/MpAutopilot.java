@@ -104,6 +104,8 @@ public final class MpAutopilot {
 	private final long deal;
 	/** Join: the step from which to cancel every treaty with the host at once (SOS-76); -1 for none. */
 	private final long dealCancel;
+	/** The player answers deals with {@code accept}; otherwise the host's autopilot accepts each. */
+	private final boolean manualDeals;
 	/** Join: the step to declare war on the host at (SOS-74); -1 for never. */
 	private final long war;
 	/** Host: the lobby's switch for the playtest log (SOS-81). */
@@ -204,6 +206,7 @@ public final class MpAutopilot {
 		crash = Long.parseLong(m.getOrDefault("crash", "-1"));
 		deal = Long.parseLong(m.getOrDefault("deal", "-1"));
 		dealCancel = Long.parseLong(m.getOrDefault("dealcancel", "-1"));
+		manualDeals = m.containsKey("manualdeals");
 		war = Long.parseLong(m.getOrDefault("war", "-1"));
 		fullLog = !"0".equals(m.getOrDefault("fulllog", "1"));
 		tariff = Long.parseLong(m.getOrDefault("tariff", "-1"));
@@ -292,7 +295,7 @@ public final class MpAutopilot {
 		for (DealBook.Proposal p : PlayerDeals.open()) {
 			if (first("dealopen" + p.id()))
 				event("dealopen", "\"id\":" + p.id() + ",\"from\":" + p.from() + ",\"to\":" + p.to() + ",\"step\":" + step);
-			if (host && p.to() == me && first("dealaccept" + p.id()))
+			if (host && !manualDeals && p.to() == me && first("dealaccept" + p.id()))
 				PlayerDeals.answer(p.id(), true);
 		}
 		for (DealBook.Answer a : PlayerDeals.answers()) {
