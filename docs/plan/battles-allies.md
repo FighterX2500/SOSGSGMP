@@ -2,16 +2,16 @@
 
 Spec 0.39 §8, §9, §11, §15, §16. Decisions: [ADR 0009](../decisions/0009-several-humans-in-a-battle.md). Engine half: SOSDET plan 0018.
 
-## Cards to create
+## Cards
 
-Worked one at a time, in this order. Nothing is created until the owner approves this list.
+Worked one at a time, in this order. Approved by the owner on 2026-10-31.
 
 | Card | What | Tested on |
 | --- | --- | --- |
-| Results for either winner | Both armies get the winner's window, counts from the battle, a beaten sally gives captives | Two PCs |
-| The commanders' speed vote | The vote, and the world's speed back after a battle | Two PCs |
-| Allies in a battle between players | The prompt, owners, bonuses, slots, deployment, separate retreats, shared results | Rig, three humans |
-| An ally in an NPC battle | Two PCs run one local battle, with both commanders | Two PCs |
+| [SOS-116](https://fighterx2500.atlassian.net/browse/SOS-116) Results for either winner | Both armies get the winner's window, counts from the battle, a beaten sally gives captives | Two PCs |
+| [SOS-117](https://fighterx2500.atlassian.net/browse/SOS-117) The commanders' speed vote | The vote, and the world's speed back after a battle | Two PCs |
+| [SOS-118](https://fighterx2500.atlassian.net/browse/SOS-118) Allies in a battle between players | The prompt, owners, bonuses, slots, deployment, separate retreats, shared results | Rig, three humans |
+| [SOS-119](https://fighterx2500.atlassian.net/browse/SOS-119) An ally in an NPC battle | Two PCs run one local battle, with both commanders | Two PCs |
 
 The fourth depends on the third's owners and bonuses. The first two stand alone.
 

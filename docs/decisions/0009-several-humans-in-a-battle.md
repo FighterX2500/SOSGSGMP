@@ -1,6 +1,6 @@
 # 0009: Several humans in one battle
 
-Status: Proposed (the owner's decisions of 2026-10-31 are below; this record waits for their approval) · Cards: proposed in [battles-allies.md](../plan/battles-allies.md)
+Status: Accepted (owner, 2026-10-31) · Cards: [SOS-116](https://fighterx2500.atlassian.net/browse/SOS-116), [SOS-117](https://fighterx2500.atlassian.net/browse/SOS-117), [SOS-118](https://fighterx2500.atlassian.net/browse/SOS-118), [SOS-119](https://fighterx2500.atlassian.net/browse/SOS-119)
 
 ## Context
 

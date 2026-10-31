@@ -449,9 +449,10 @@ final class MpAutopilotCommands {
 			WorldBattles.engage();
 			what = "fight";
 		} else if (open instanceof WBattleResult) {
-			boolean victory = ((WBattleResult) open).result == BATTLE_RESULT.VICTORY;
-			WorldBattles.accept(victory ? new int[RACES.all().size()] : null, victory ? new int[RESOURCES.ALL().size()] : null, 0);
-			what = victory ? "victory accept" : "defeat accept";
+			WBattleResult result = (WBattleResult) open;
+			boolean won = result.result == BATTLE_RESULT.VICTORY || Hooks.resultForArmy1(true);
+			WorldBattles.accept(won ? result.capturedRaces.clone() : null, won ? result.lostResources.clone() : null, 0); // all of it
+			what = won ? "victory accept" : "defeat accept";
 		} else {
 			return; // a captured settlement's choice: left to its time-out
 		}
