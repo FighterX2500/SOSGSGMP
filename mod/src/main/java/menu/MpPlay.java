@@ -97,7 +97,8 @@ final class MpPlay implements ACTION {
 				views.frame();
 				saves.frame();
 				exit.frame(); // after the saves: a save that ends the session ends it in the frame it is done
-				pause.frame();
+				if (engine.active())
+					pause.frame();
 			}
 		}
 		if (autopilot != null)
