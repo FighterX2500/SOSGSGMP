@@ -47,6 +47,8 @@ public final class EnginePlay implements EnginePort {
     private final BattleSaves battles = new BattleSaves();
     /** The size of the last battle save this PC sent or loaded, for the playtest log. */
     private int battleBytes;
+    /** A battle resync's file, until its load has read it. */
+    private Path battleResyncFile;
 
     /**
      * Every PC at {@code Go}: the game unpauses at the agreed speed (spec §5.5, the automatic unpause), the game speed
@@ -265,6 +267,10 @@ public final class EnginePlay implements EnginePort {
      * its speed.
      */
     public void resumeAfterLoad() {
+        if (battleResyncFile != null) {
+            delete(battleResyncFile);
+            battleResyncFile = null;
+        }
         if (Engine.battle() == null)
             GAME.SPEED.speedSet(agreedSpeed());
         else if (GAME.SPEED.speed() == 0)
@@ -333,14 +339,17 @@ public final class EnginePlay implements EnginePort {
         Path file = tempFile();
         try {
             Files.write(file, r.save());
-            if (Engine.battle() != null)
+            if (Engine.battle() != null) {
                 Engine.battleResyncLoad(file, r.state());
-            else
+                battleResyncFile = file; // that load comes with the next frame: the file goes after it
+            } else {
                 Engine.worldResyncLoad(file, r.state());
+            }
         } catch (IOException e) {
             throw new UncheckedIOException("SOSGSGMP: writing the world resync save " + file, e);
         } finally {
-            delete(file);
+            if (battleResyncFile != file)
+                delete(file);
         }
         applyHolds(); // the load held the engine at its step: back to what the mod's holds say
     }
