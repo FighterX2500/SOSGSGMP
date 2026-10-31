@@ -1,6 +1,7 @@
 package view.world.generator;
 
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
 import init.constant.C;
 import init.race.RACES;
@@ -45,8 +46,10 @@ final class MpFactions {
 	private static final double PICK_CHECK_SECONDS = 0.5;
 	static final int SIDE_WIDTH = 420;
 	private static final int ROW_GAP = 2;
-	private static final String PICK_STATUS = "Pick your race, customize your faction and place your capital. You can change them until the host initializes the world.";
-	private static final String INITIALIZE_STATUS = "Every player has a location. Initialize World builds the world and starts every player's game; the picks can't change after it.";
+	private static final String PICK_STATUS = "Pick your race, customize your faction and place your capital. Then press Ready; pressing it again lets you change them.";
+	private static final String READY_STATUS = "Press Ready when your city is where you want it.";
+	private static final CharSequence READY_INFO = "While you are ready your picks can't change. The host can initialize the world once every player is ready.";
+	private static final String INITIALIZE_STATUS = "Every player is ready. Initialize World builds the world and starts every player's game; the picks can't change after it.";
 
 	final WorldViewGenerator g;
 	final SetupSession setup;
@@ -63,8 +66,10 @@ final class MpFactions {
 	private final GText status = new GText(UI.FONT().M, 256);
 	/** Whether the faction had a name at the last check: the status line follows it. */
 	private boolean named;
-	/** Host: every player has a location and the world isn't built yet. */
+	/** Host: every player is ready and the world isn't built yet. */
 	private boolean canInitialize;
+	/** This PC's player can press Ready: the host holds their location and the world isn't built yet. */
+	private boolean canReady;
 	/** This PC's location as last placed, or NONE: kept here so a frame never rebuilds the table to read it. */
 	private int ownX = FactionPick.NONE;
 	private int ownY = FactionPick.NONE;
@@ -108,7 +113,7 @@ final class MpFactions {
 		autopilot.factions(setup, ownX != FactionPick.NONE, (x, y) -> {
 			placeAt(x, y);
 			return ownX;
-		});
+		}, () -> MpLocationStage.place(this));
 	}
 
 	/**
@@ -149,9 +154,34 @@ final class MpFactions {
 			buttons.addRightC(0, back);
 		if (next != null)
 			buttons.addRightC(16, next);
-		else if (setup.isHost()) {
-			// Only on the last screen, once race, faction and location are picked
-			buttons.addRightC(buttons.elements().isEmpty() ? 0 : 16, new GButt.ButtPanel("initialize world") {
+		GuiSection row = new GuiSection();
+		row.add(locking(buttons, this::locked));
+		if (next == null)
+			row.addRightC(16, locking(lastButtons(), this::initialized)); // they stay while this PC is ready
+		s.addDown(12, row);
+		// Leave stays: a transfer that never ends must not trap a player
+		MpSetupLeave.addBottomRight(s, row, MpSetupLeave.button(setup, () -> leaving = true));
+		return s;
+	}
+
+	/** Only on the last screen, once race, faction and location are picked: Ready, and the host's Initialize World. */
+	private GuiSection lastButtons() {
+		GuiSection s = new GuiSection();
+		s.addRightC(0, new GButt.ButtPanel("ready") {
+			@Override
+			protected void clickA() {
+				if (!setup.closed() && canReady)
+					setup.ready(!setup.factions().ready());
+			}
+
+			@Override
+			protected void renAction() {
+				activeSet(canReady);
+				selectedSet(!setup.closed() && setup.factions().ready());
+			}
+		}.hoverInfoSet(READY_INFO));
+		if (setup.isHost()) {
+			s.addRightC(16, new GButt.ButtPanel("initialize world") {
 				@Override
 				protected void clickA() {
 					setup.initialize();
@@ -163,10 +193,6 @@ final class MpFactions {
 				}
 			});
 		}
-		GuiSection row = locking(buttons);
-		s.addDown(12, row);
-		// Leave stays: a transfer that never ends must not trap a player
-		MpSetupLeave.addBottomRight(s, row, MpSetupLeave.button(setup, () -> leaving = true));
 		return s;
 	}
 
@@ -184,24 +210,42 @@ final class MpFactions {
 		return h + UI.FONT().M.height();
 	}
 
-	/** From Initialize World until this PC leaves for the load, the picks can't change: every button but Leave is locked. */
+	/**
+	 * From Ready, or from Initialize World until this PC leaves for the load, the picks can't change: every button but
+	 * Leave is locked, and Ready and Initialize World until the world is built.
+	 */
 	boolean locked() {
+		return !setup.closed() && (setup.factions().initialized() || setup.factions().ready());
+	}
+
+	/** The world is built, or being built: nothing can change now. */
+	boolean initialized() {
 		return !setup.closed() && setup.factions().initialized();
 	}
 
 	/** {@code content}, greyed and taking no clicks while {@link #locked()}. */
 	GuiSection locking(GuiSection content) {
+		return locking(content, this::locked);
+	}
+
+	/** {@code content}, greyed and taking no clicks while {@code lock} says so. */
+	private GuiSection locking(GuiSection content, BooleanSupplier lock) {
 		GuiSection s = new GuiSection() {
+			private boolean wasLocked;
+
 			@Override
 			public boolean click() {
-				return !locked() && super.click();
+				return !lock.getAsBoolean() && super.click();
 			}
 
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
-				boolean l = locked();
+				boolean l = lock.getAsBoolean();
 				if (l)
 					activeSet(false); // vanilla's buttons grey themselves; the shade covers the rest (names, banner)
+				else if (wasLocked)
+					activeSet(true); // pressing Ready again gives them back
+				wasLocked = l;
 				super.render(r, ds);
 				if (l) {
 					OPACITY.O50.bind();
@@ -216,7 +260,7 @@ final class MpFactions {
 
 	/** Places this PC's location at world tile {@code x, y} (the capital's centre), with its current race and faction. */
 	void placeAt(int x, int y) {
-		if (setup.closed() || setup.factions().initialized())
+		if (setup.closed() || locked())
 			return;
 		FactionPick now = game.pick(x, y);
 		if (now == null)
@@ -257,7 +301,7 @@ final class MpFactions {
 
 	/** Sends this PC's picks when the game's differ from the last sent (the location as last placed). */
 	private void syncPick() {
-		if (setup.closed() || setup.factions().initialized())
+		if (setup.closed() || locked())
 			return;
 		FactionPick now = game.pick(ownX, ownY);
 		if ((now != null) != named)
@@ -269,6 +313,7 @@ final class MpFactions {
 	private void refresh() {
 		shownChanges = setup.changes();
 		canInitialize = !setup.closed() && setup.isHost() && setup.factions().canInitialize();
+		canReady = !setup.closed() && setup.factions().canReady();
 		named = game.pick(FactionPick.NONE, FactionPick.NONE) != null;
 		FactionStep f = setup.factions();
 		List<FactionStep.PlayerPick> table = f.table();
@@ -299,6 +344,8 @@ final class MpFactions {
 			row.add(": ").add(fp.name()).add(", ").add(raceName(fp.race()));
 			if (fp.hasLocation()) {
 				row.add(", at ").add(fp.x()).add(',').add(fp.y());
+				if (pick.ready())
+					row.add(", ready");
 				row.color(GCOLOR.T().IGOOD);
 				if (p.id() != setup.localPlayerId()) {
 					otherX[others] = fp.x();
@@ -327,18 +374,20 @@ final class MpFactions {
 			status.add("Your location was refused: ").add(mine.refused()).add(". Pick another.");
 		else if (mine == null || !mine.pick().hasLocation())
 			status.add(PICK_STATUS);
+		else if (!f.ready())
+			status.add(READY_STATUS);
 		else if (setup.isHost() && f.canInitialize())
 			status.add(INITIALIZE_STATUS);
-		else if (!setup.isHost() && allPlaced(table, players))
-			status.add("Every player has a location. Waiting for the host to initialize the world.");
+		else if (!setup.isHost() && allReady(table, players))
+			status.add("Every player is ready. Waiting for the host to initialize the world.");
 		else
-			status.add("Waiting for every player's location.");
+			status.add("Waiting for every player to be ready.");
 	}
 
-	private static boolean allPlaced(List<FactionStep.PlayerPick> table, List<LobbyPlayer> players) {
+	private static boolean allReady(List<FactionStep.PlayerPick> table, List<LobbyPlayer> players) {
 		for (LobbyPlayer p : players) {
 			FactionStep.PlayerPick pick = find(table, p.id());
-			if (pick == null || !pick.pick().hasLocation())
+			if (pick == null || !pick.ready())
 				return false;
 		}
 		return true;

@@ -268,7 +268,58 @@ class LoopbackSetupTest {
         assertFalse(host.factions().canInitialize(), "Bob has no location");
 
         bob.pick(pick("Bob", 20, 10));
-        until("Bob's location on the host", host.factions()::canInitialize);
+        until("Bob's location on his PC", () -> bob.factions().canReady());
+        assertFalse(host.factions().canInitialize(), "nobody is ready");
+    }
+
+    @Test
+    void readyReachesEveryPcAndOpensInitializeWorld() throws Exception {
+        confirmMap();
+        host.pick(pick("Ann", 10, 10));
+        bob.pick(pick("Bob", 20, 10));
+        cid.pick(pick("Cid", 30, 10));
+        until("every location on every PC", () -> bob.factions().canReady() && cid.factions().canReady()
+                && names(bob).size() == 3 && names(cid).size() == 3);
+        bob.ready(true);
+        assertTrue(bob.factions().ready(), "Bob's PC locks at once");
+        until("Bob ready on Cid's PC", () -> cid.factions().table().get(1).ready());
+        until("the chat line on every PC", () -> said(host, "Bob is ready.") && said(bob, "Bob is ready.") && said(cid, "Bob is ready."));
+
+        bob.pick(pick("Bob", 50, 50));
+        until("a move of a ready city left the host unchanged", () -> host.factions().table().get(1).pick().x() == 20);
+
+        bob.ready(false);
+        until("Bob no longer ready on Cid's PC", () -> !cid.factions().table().get(1).ready());
+        until("the chat says so", () -> said(host, "Bob is no longer ready.") && said(cid, "Bob is no longer ready."));
+
+        host.ready(true);
+        cid.ready(true);
+        bob.ready(true);
+        until("everyone ready on the host", host.factions()::canInitialize);
+        until("everyone ready on Bob's PC", () -> bob.factions().table().stream().allMatch(PlayerPick::ready));
+        until("the host's own Ready goes out too", () -> said(cid, "Ann is ready."));
+    }
+
+    @Test
+    void aPlayerLeavingNoLongerHoldsUpInitializeWorld() throws Exception {
+        confirmMap();
+        host.pick(pick("Ann", 10, 10));
+        bob.pick(pick("Bob", 20, 10));
+        cid.pick(pick("Cid", 30, 10));
+        until("Bob's location on his PC", () -> bob.factions().canReady());
+        host.ready(true);
+        bob.ready(true);
+        until("Bob ready on the host", () -> host.factions().table().get(1).ready());
+        assertFalse(host.factions().canInitialize(), "Cid isn't ready");
+        cid.leave();
+        until("Cid gone from the host", host.factions()::canInitialize);
+    }
+
+    private static boolean said(SetupSession s, String line) {
+        for (int i = 0; i < s.chat().size(); i++)
+            if (s.chat().line(i).text().equals(line))
+                return true;
+        return false;
     }
 
     @Test
@@ -296,7 +347,7 @@ class LoopbackSetupTest {
         until("three picks on Bob's PC", () -> names(bob).size() == 3);
         cid.leave();
         until("Cid gone from Bob's table", () -> names(bob).equals(List.of("Ann", "Bob")));
-        assertTrue(host.factions().canInitialize());
+        assertEquals(List.of("Ann", "Bob"), names(host));
         assertEquals("Cid left", host.takeNote(), "the host's playtest log learns why (SOS-63)");
         for (String more; (more = host.takeNote()) != null;)
             assertTrue(more.endsWith("disconnected: The other side closed the connection."), more); // if Cid closed first
@@ -305,13 +356,17 @@ class LoopbackSetupTest {
         assertTrue(bob.network().startsWith("direct IP to "), bob.network());
     }
 
-    /** Through the picks, every player with a location, to the host's Initialize World; returns the host's save. */
+    /** Through the picks, every player with a location and ready, to the host's Initialize World; returns the host's save. */
     private byte[] initialize() throws Exception {
         confirmMap();
         host.pick(pick("Ann", 10, 10));
         bob.pick(pick("Bob", 20, 10));
         cid.pick(pick("Cid", 30, 10));
-        until("every location on the host", host.factions()::canInitialize);
+        until("every location on its PC", () -> bob.factions().canReady() && cid.factions().canReady());
+        host.ready(true);
+        bob.ready(true);
+        cid.ready(true);
+        until("everyone ready on the host", host.factions()::canInitialize);
         host.initialize();
         return host.takeWorld();
     }

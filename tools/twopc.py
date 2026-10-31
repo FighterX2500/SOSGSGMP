@@ -238,7 +238,7 @@ def main():
     ap.add_argument("--steam-p2p", action="store_true",
                     help="with --net steam: both games use the old P2P packets (SOSGSGMP_STEAM_NET=p2p, SOS-105)")
     ap.add_argument("--gui-preview", type=int, default=-1,
-                    help="the host opens each siege window in turn from this step, 6 s each, for screenshots (SOS-92)")
+                    help="both PCs hold each setup screen for a screenshot, the joiner settling near the host (SOS-120); the host opens each siege window in turn from this step, 6 s each (SOS-92)")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
     STEAM_NET[0] = "p2p" if args.steam_p2p else ""
@@ -299,6 +299,7 @@ def main():
     host_capital = ",capital=" + args.host_capital if args.host_capital else ""
     host_capital += ",guipreview=%d" % args.gui_preview if args.gui_preview >= 0 else ""
     join_capital = ",capital=" + args.join_capital if args.join_capital else ""
+    join_capital += ",guipreview=%d" % args.gui_preview if args.gui_preview >= 0 else ""  # the setup's shots, SOS-120
     # Steam finds the App ID here when the game isn't started by Steam
     host_env = dict(os.environ, APPDATA=str(local.parent), SteamAppId=STEAM_APP_ID, SOSGSGMP_STEAM_NET=STEAM_NET[0],
                     SOSGSGMP_AUTOPILOT="role=host,name=Host,players=%d,seed=%d,speed=%g,ondesync=%s,save=%d,resume=%d,ongone=%s,startafter=%d,fulllog=%d,%s"

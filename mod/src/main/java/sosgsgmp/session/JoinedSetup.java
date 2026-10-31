@@ -146,7 +146,11 @@ public final class JoinedSetup implements SetupSession {
                     factions = FactionStep.joiner(step.localPlayerId());
                 }
             }
-            case Message.Picks p when factions != null -> factions.onPicks(p.picks());
+            case Message.Picks p when factions != null -> {
+                List<FactionStep.PlayerPick> before = factions.table();
+                if (factions.onPicks(p.picks()))
+                    chat.readyChanged(before, factions.table(), players);
+            }
             case Message.SlotMap s when factions != null -> {
                 if (!factions.onSlotMap(s.transfer(), s.slots()) && !factions.initialized())
                     close("The host built a world without a place for you.");
@@ -393,6 +397,15 @@ public final class JoinedSetup implements SetupSession {
             throw new IllegalStateException("SOSGSGMP: picks before the map is confirmed");
         factions.ownPick(pick);
         node.send(Node.HOST, new Message.Pick(pick));
+        changes++;
+    }
+
+    @Override
+    public void ready(boolean ready) {
+        if (factions == null)
+            throw new IllegalStateException("SOSGSGMP: ready before the map is confirmed");
+        factions.ownReady(ready);
+        node.send(Node.HOST, new Message.Ready(ready));
         changes++;
     }
 

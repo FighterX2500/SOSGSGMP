@@ -39,6 +39,8 @@ import sosgsgmp.session.LobbySession;
 import sosgsgmp.session.Departures;
 import sosgsgmp.session.SetupSession;
 import sosgsgmp.session.ViewRequests;
+import sosgsgmp.setup.FactionPick;
+import sosgsgmp.setup.FactionStep;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStep;
 import sosdet.Assault;
@@ -124,6 +126,8 @@ public final class MpAutopilot {
 	private long previewNanos;
 	/** The game's own screenshot of the preview window was taken (it reads the frame buffer, so a locked screen still works). */
 	private boolean previewShot;
+	/** Leave's prompt was shown once, for the preview's screenshot. */
+	private boolean leavePreviewed;
 	/** When {@link #stageChat} said its line, and whether it took its screenshot. */
 	private long stageAt;
 	private boolean stageShot;
@@ -427,7 +431,9 @@ public final class MpAutopilot {
 	}
 
 	/** The lobby screen, every frame: the host starts once every player is in. */
-	void lobby(LobbySession s) {
+	void lobby(LobbySession s, java.util.function.Consumer<Boolean> leavePrompt) {
+		if (leavePreview(leavePrompt))
+			return;
 		if (hostSteam != null && hostSteam.lobby() != 0 && first("steamlobby"))
 			event("steamlobby", "\"lobby\":" + hostSteam.lobby());
 		if (hostSteam != null && hostSteam.failure() != null && first("steamfail"))
@@ -471,6 +477,27 @@ public final class MpAutopilot {
 		return seconds < 3;
 	}
 
+	/** With a GUI preview, once in the lobby: Leave's prompt for three seconds, with a screenshot; true meanwhile. */
+	private boolean leavePreview(java.util.function.Consumer<Boolean> prompt) {
+		if (guiPreview < 0 || leavePreviewed)
+			return false;
+		if (first("leaveprompt")) {
+			prompt.accept(true);
+			stageAt = System.nanoTime();
+			stageShot = false;
+		}
+		double seconds = (System.nanoTime() - stageAt) / 1e9;
+		if (seconds >= 2 && !stageShot) {
+			stageShot = true;
+			CORE.getGraphics().makeScreenShot();
+		}
+		if (seconds < 3)
+			return true;
+		prompt.accept(false);
+		leavePreviewed = true;
+		return false;
+	}
+
 	/** The map step, every frame: the host generates once and confirms; every PC goes on to the factions. */
 	public void map(SetupSession setup, boolean canGoOn, Runnable next) {
 		MapStep step = setup.step();
@@ -492,9 +519,11 @@ public final class MpAutopilot {
 	 * The factions step, every frame: a name, then a capital, searched from a point of this player's own and placed
 	 * through {@code placeAt} (returns the location's x, or NONE when none was placed); the host initializes.
 	 */
-	public void factions(SetupSession setup, boolean hasLocation, IntBinaryOperator placeAt) {
+	public void factions(SetupSession setup, boolean hasLocation, IntBinaryOperator placeAt, Runnable toLocation) {
 		if (setup.closed() || setup.factions().initialized() || stageChat("factions", setup::say))
 			return;
+		if (guiPreview >= 0 && first("tolocation"))
+			toLocation.run(); // the preview's shots show the location screen, where Ready is
 		if (FACTIONS.player().name.toString().isBlank())
 			FACTIONS.player().name.clear().add(name);
 		if (!hasLocation && capitalX >= 0 && !capitalRefused && due()) { // due() starts its wait: one branch calls it
@@ -513,6 +542,13 @@ public final class MpAutopilot {
 				i++;
 			int sx = WORLD.TWIDTH() * (i + 1) / (ps.size() + 1);
 			int sy = WORLD.THEIGHT() / 2;
+			if (guiPreview >= 0 && !host) { // near the host's city, so that the preview shows the route notice
+				FactionPick other = setup.factions().table().isEmpty() ? null : setup.factions().table().get(0).pick();
+				if (other == null || !other.hasLocation())
+					return;
+				sx = other.x() + 9;
+				sy = other.y();
+			}
 			for (int r = 0; r < WORLD.TWIDTH(); r += 2) {
 				int found = spiral(sx, sy, r, (x, y) -> setup.locationProblem(x, y) == null ? 1 : 0);
 				if (found >= 0) {
@@ -523,10 +559,39 @@ public final class MpAutopilot {
 				}
 			}
 		}
-		if (host && setup.factions().canInitialize() && first("initialize")) {
+		FactionStep f = setup.factions();
+		if (previewUnready(setup, f))
+			return;
+		if (f.canReady() && !f.ready() && !stageChat("placed", setup::say)) {
+			event("ready", "");
+			setup.ready(true);
+		}
+		if (f.ready() && stageChat("ready", setup::say))
+			return;
+		if (host && f.canInitialize() && (guiPreview < 0 || unreadySeen(setup)) && !stageChat("allready", setup::say)
+				&& first("initialize")) {
 			event("initializing", "");
 			setup.initialize();
 		}
+	}
+
+	/** With a GUI preview, on the joining PC: Ready undone once and held for a screenshot; true during the hold. */
+	private boolean previewUnready(SetupSession setup, FactionStep f) {
+		if (guiPreview < 0 || host)
+			return false;
+		if (f.ready() && !stageChat("ready", setup::say) && first("unready")) {
+			event("unready", "");
+			setup.ready(false);
+		}
+		return !f.ready() && once.containsKey("unready") && stageChat("unready", setup::say);
+	}
+
+	/** With a GUI preview, the host waits for the chat's line about {@link #previewUnready} before it initializes. */
+	private static boolean unreadySeen(SetupSession setup) {
+		for (int i = 0; i < setup.chat().size(); i++)
+			if (setup.chat().line(i).text().endsWith(" is no longer ready."))
+				return true;
+		return false;
 	}
 
 	/**

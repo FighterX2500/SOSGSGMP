@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.39 · 2026-10-31
+Version 0.40 · 2026-11-01
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -77,6 +77,7 @@ Every player starts with the same starting resources and difficulty, set by the 
 2. With Create Lobby, the host chooses the difficulty and number of players.
 3. The lobby waits for players to join and shows a list of everyone in it.
 4. The host clicks Start Lobby.
+5. Leaving the lobby asks Confirm or Cancel first.
 
 **Map**
 
@@ -86,9 +87,9 @@ Every player starts with the same starting resources and difficulty, set by the 
 
 **Factions and starting locations**
 
-1. Each player, at their own pace, picks their race, customizes their faction and picks a location on the world map. A player who is done doesn't wait for the others to start, and can change their picks until the host initializes the world. Customizing works as in vanilla, including saving and loading the faction profile. No titles are given at this stage.
+1. Each player, at their own pace, picks their race, customizes their faction and picks a location on the world map. A player who is done presses Ready, which needs a location, and doesn't wait for the others to start. While ready, the player can't move their city or change their picks, and every setup button but Ready and Leave is greyed; pressing Ready again undoes this. The chat tells every player who is ready and who no longer is. Customizing works as in vanilla, including saving and loading the faction profile. No titles are given at this stage.
 2. Every player sees the locations the others have picked. There is no maximum distance, but a location closer than 6 tiles to another player's can't be picked. Vanilla's terrain rules for a capital apply, plus one: the capital needs land beyond its square, on at least one side. A capital surrounded by water can end up with no roads on its city map, and that city is unplayable (SOS-75).
-3. When everyone has picked, the host can initialize the world: NPC countries and routes are generated around the players. Any two players 6–15 tiles apart are guaranteed a land or water route between them. Players further apart are connected the vanilla way, through NPC states and other players.
+3. When every player is ready, the host can initialize the world; until then Initialize World is greyed. NPC countries and routes are generated around the players. Any two players 6–15 tiles apart are guaranteed a connection: a land or water route their armies and caravans can walk, which may cross NPC land, and, with a trade agreement, market trade along it whatever land lies between them (section 7). While a player places their city, a notice under the top of the screen says so when the spot is in range of another player's city. Players further apart are connected the vanilla way, through NPC states and other players.
 4. Each player then picks their starting spot on their own city map. The game stays paused, and nobody can unpause it, but players can already plan their city.
 5. When the last player picks their starting spot, the game unpauses automatically.
 
@@ -311,7 +312,9 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 
 - A host can create a lobby with chosen difficulty and player count, and a friend can join it by direct IP and through Steam. [PT]
 - After the host generates the map, every player's terrain matches the host's, for every map size offered. [AT]
-- A player can pick their race, faction and location while others are still picking, and can change them until the host initializes the world. [PT]
+- A player can pick their race, faction and location while others are still picking, and can change them until they press Ready. [PT]
+- Initialize World stays greyed until every player is ready, and a ready player's city can't be moved. [AT]
+- Two players 6–15 tiles apart with a trade agreement are each other's market partners, whatever land lies between them. [AT]
 - The lobby list shows every joined player within 2 seconds of them joining. [PT]
 - A location that breaks the start location rules can't be confirmed, and the reason is shown. [AT]
 - The game stays paused until the last player picks their city start spot, then unpauses automatically. [PT]

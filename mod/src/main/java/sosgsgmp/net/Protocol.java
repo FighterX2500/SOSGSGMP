@@ -30,7 +30,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 19;
+    public static final int VERSION = 20;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -43,7 +43,7 @@ public final class Protocol {
     private static final int SAVE_AT = 26, SAVED = 27, SAVE_DONE = 28;
     private static final int PLAYER_GONE = 29, GONE_CHOICE = 30, QUIT_ASK = 31;
     private static final int VIEW_ASK = 32, VIEW_ANSWER = 33, VIEW_CLOSE = 34, VIEW_CITY = 35, VIEW_HASHES = 36;
-    private static final int CHAT = 37, PAUSE = 38, VIEW_TAPE = 39;
+    private static final int CHAT = 37, PAUSE = 38, VIEW_TAPE = 39, READY = 40;
     /** The largest city a view carries, in bytes ({@link Message.ViewCity}). */
     public static final int MAX_VIEW_CITY = 512 * 1024 * 1024;
     /** The largest reason a viewer's PC ends its view for ({@link Message.ViewClose}): the engine's closed to lost step. */
@@ -142,6 +142,10 @@ public final class Protocol {
                     out.writeByte(PICK);
                     writePick(out, p.pick());
                 }
+                case Message.Ready r -> {
+                    out.writeByte(READY);
+                    out.writeBoolean(r.ready());
+                }
                 case Message.Picks p -> {
                     out.writeByte(PICKS);
                     out.writeByte(p.picks().size());
@@ -149,6 +153,7 @@ public final class Protocol {
                         out.writeInt(pp.playerId());
                         writePick(out, pp.pick());
                         out.writeUTF(pp.refused() == null ? "" : pp.refused());
+                        out.writeBoolean(pp.ready());
                     }
                 }
                 case Message.SlotMap s -> {
@@ -325,6 +330,7 @@ public final class Protocol {
             case MAP_CONFIRM -> new Message.MapConfirm(number(in, "generation"), in.readLong());
             case MAP_PLAYERS -> mapPlayers(in);
             case PICK -> new Message.Pick(pick(in));
+            case READY -> new Message.Ready(in.readBoolean());
             case PICKS -> picks(in);
             case SLOT_MAP -> slotMap(in);
             case WORLD_PART -> {
@@ -657,7 +663,7 @@ public final class Protocol {
             String refused = in.readUTF();
             if (refused.length() > MAX_REASON)
                 throw new IOException("SOSGSGMP: reason of " + refused.length() + " characters");
-            all.add(new FactionStep.PlayerPick(id, p, refused.isEmpty() ? null : refused));
+            all.add(new FactionStep.PlayerPick(id, p, refused.isEmpty() ? null : refused, in.readBoolean()));
         }
         return new Message.Picks(all);
     }
