@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.BiConsumer;
@@ -73,6 +74,7 @@ import world.map.regions.Region;
 final class MpAutopilotCommands {
 
 	private final Path file;
+	private long traceAt = -1;
 	private final boolean host;
 	private final boolean autoBattles;
 	/** The last simulation question answered, by its key. */
@@ -96,6 +98,7 @@ final class MpAutopilotCommands {
 
 	/** Once per frame while playing, outside the step. */
 	void frame(EnginePlay engine, SetupSession setup) {
+		traceDue();
 		if (autoBattles)
 			battles();
 		if (setup.chat().added() != chatSeen) {
@@ -261,6 +264,14 @@ final class MpAutopilotCommands {
 					return "a soldier here dies, on this PC only";
 				}
 			return "no soldier";
+		case "npcs":
+			return npcs();
+		case "trace":
+			if (a.length < 2)
+				return "trace at which step?";
+			traceAt = Long.parseLong(a[1]);
+			Engine.traceDraws(1200);
+			return "world draws traced, written to trace.txt at step " + traceAt;
 		case "npcbesiege":
 			Sieges.npcBesiegeForTest(FACTIONS.player().index());
 			return "the strongest NPC army marches on this city";
@@ -472,6 +483,43 @@ final class MpAutopilotCommands {
 			}
 		}
 		return best;
+	}
+
+	/** A desync hunt: the kept draws go to trace.txt once the step has come, before the desync's hold stops the game. */
+	private void traceDue() {
+		if (traceAt < 0 || Engine.step() < traceAt)
+			return;
+		try {
+			Files.writeString(file.resolveSibling("trace.txt"), Engine.drawTrace(traceAt - 600, traceAt), StandardCharsets.UTF_8);
+		} catch (IOException e) {
+			event.accept("trace", "\"failed\":\"" + clean(e.getMessage()) + "\"");
+		}
+		event.accept("trace", "\"step\":" + Engine.step());
+		traceAt = -1;
+	}
+
+	/** The NPC armies: how many, and the three nearest this PC's capital. */
+	private String npcs() {
+		Faction me = FACTIONS.getByIndex(Engine.local());
+		int cx = me.capitolRegion() == null ? 0 : me.capitolRegion().cx();
+		int cy = me.capitolRegion() == null ? 0 : me.capitolRegion().cy();
+		ArrayList<WArmy> found = new ArrayList<>(WORLD.ENTITIES().armies.max());
+		for (int i = 0; i < WORLD.ENTITIES().armies.max(); i++) {
+			WArmy w = WORLD.ENTITIES().armies.tryGet(i);
+			if (w != null && w.faction() instanceof FactionNPC && AD.men(null).get(w) > 0)
+				found.add(w);
+		}
+		StringBuilder b = new StringBuilder().append(found.size()).append(" NPC armies");
+		for (int n = 0; n < 3 && found.size() > 0; n++) {
+			WArmy near = found.get(0);
+			for (WArmy w : found)
+				if (Math.abs(w.ctx() - cx) + Math.abs(w.cty() - cy) < Math.abs(near.ctx() - cx) + Math.abs(near.cty() - cy))
+					near = w;
+			found.remove(near);
+			b.append("; ").append(near.faction().name).append(" men ").append(AD.men(null).get(near)).append(" at ").append(near.ctx())
+					.append(',').append(near.cty()).append(' ').append(near.state().name(near));
+		}
+		return b.toString();
 	}
 
 	private String status(EnginePlay engine) {
