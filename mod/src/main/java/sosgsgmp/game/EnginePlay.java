@@ -270,6 +270,7 @@ public final class EnginePlay implements EnginePort {
         if (battleResyncFile != null) {
             delete(battleResyncFile);
             battleResyncFile = null;
+            applyHolds(); // the load held the engine at its step
         }
         if (Engine.battle() == null)
             GAME.SPEED.speedSet(agreedSpeed());
