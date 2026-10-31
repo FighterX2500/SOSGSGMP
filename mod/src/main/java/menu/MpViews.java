@@ -161,12 +161,18 @@ final class MpViews {
 		long t0 = System.nanoTime();
 		byte[] out = engine.viewOut();
 		if (out != null) {
-			View v = ownView(local, engine.step());
-			if (v == null)
+			int sent = 0;
+			for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++) { // an assault's viewers all freeze at one step
+				View v = engine.view(slot);
+				if (v != null && v.owner == local && v.freeze == engine.step() && v.frozen()) {
+					r.city(v.viewer, v.freeze, out);
+					log.line(String.format(Locale.ROOT, "viewout: this city for %s's view from step %d: %d bytes, saved in %.0f ms",
+							name(v.viewer), v.freeze, out.length, (System.nanoTime() - t0) / 1e6));
+					sent++;
+				}
+			}
+			if (sent == 0)
 				throw new IllegalStateException("SOSGSGMP: the engine handed out a city at step " + engine.step() + " for no view");
-			r.city(v.viewer, v.freeze, out);
-			log.line(String.format(Locale.ROOT, "viewout: this city for %s's view from step %d: %d bytes, saved in %.0f ms",
-					name(v.viewer), v.freeze, out.length, (System.nanoTime() - t0) / 1e6));
 		}
 		for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++) {
 			View v = engine.view(slot);
@@ -179,16 +185,6 @@ final class MpViews {
 					r.hashes(v.viewer, h);
 			}
 		}
-	}
-
-	/** The view of this PC's city that freezes at {@code step}, or null. */
-	private View ownView(int local, long step) {
-		for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++) {
-			View v = engine.view(slot);
-			if (v != null && v.owner == local && v.freeze == step && v.frozen())
-				return v;
-		}
-		return null;
 	}
 
 	/** The owner's popup: its player allows or refuses. */

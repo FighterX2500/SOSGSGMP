@@ -211,6 +211,7 @@ Any player can view any other player's city, enemies included. This is intended.
 - **Too slow.** If the viewer hasn't caught up 1 minute after catching up started (the owner's save, the download and the load don't count), or their PC can't keep up with the city at the current speed, the view ends with a message to the viewer. Only that view ends; nobody else is affected.
 - **Keeping up.** The same applies after catching up: a view that falls behind its owner's city and doesn't catch up again within 1 minute ends.
 - **The owner is barely slowed.** When the view opens, the owner's game pauses for a few seconds while it saves and reloads its own city, so that both PCs run the same loaded city (a game that reloads a save doesn't run exactly like one that didn't). After that the owner keeps playing their city with zero latency while it is viewed. The owner accepted this pause by allowing the view.
+- **One viewer at a time.** A city has one viewer at a time; a second player is refused with the reason until that view ends, because the owner's reload for a new view would lose the open one (2026-10-31). An assault's viewers are the exception: they all open together, from one save.
 - **During a siege assault:** every player watches the city in real time (section 9).
 - **During an NPC invasion** of the owner's city: a view works as at any other time, and needs the owner's Allow (section 9).
 
