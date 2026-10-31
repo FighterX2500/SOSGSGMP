@@ -66,11 +66,28 @@ Engine M8.
 
 **Check, twopc:** this PC and the laptop against an NPC army, with the world going on at 1×: both command, one retreats, the result applies once on every PC, both cities come back.
 
+## Results
+
+The rig results and the bugs found are in SOSDET plan 0018's Results. What the mod adds here (`MpAllyJoin`, the `allyAsked` and `allyAnswer` calls, the `join`, `stayout` and `ally` autopilot commands) compiles and passes its unit tests. Nobody has seen it in a game yet.
+
+Choices made while building, for the owner to confirm:
+
+- **Start in an NPC battle:** only the fighter's Start counts, so the ally can't hold the battle up at deployment.
+- **One ally in an NPC battle:** the first who says Join, as the spec speaks of two players' PCs.
+- **Deployment:** one shared area for a side, with the groups 20 tiles apart. The spec says "their own area".
+- **NPC allies in a side:** their divisions go to the side's lead, where the spec says the host's AI commands only NPC divisions. The spec needs an answer here.
+- **The last human of a side retreating** ends the side, NPC allies included.
+- **The retreat dialog's** loss estimate doesn't count the ally's share.
+- **The result panel:** the fighter's Close sends the result; the ally's does nothing.
+- **Speed in a joined NPC battle:** either commander's pause holds it, and any press resumes it.
+- **The ally's prompts** wait with the fighter's until the battle ends.
+- **The ally's view** comes back after the game ends it or a desync does, not after they close it or fall behind (open question below).
+
 ## Open
 
 Spec §16: a commander who drops out of a battle with allies, and a slow ally in a joined NPC battle. Until the owner decides, §11's Continue without them stays as it is, so it ends the battle with no result. Cards 3 and 4 can be built without this, but they don't ship without it.
 
 ## Gaps to expect
 
-- Allied attackers in an assault read the same single bonus slot, so they may fight with the stormer's bonuses. Card 3 checks this and fixes it with the same owners if so.
+- An assault has no roster: read in the code, the invaders use the invasion's faction, so neither the stormer nor an ally fights with their own bonuses. Fixing it needs every attacker's report at the assault's start, for all attackers alike, so it was left for a card of its own.
 - Only the rig can test three humans, as there are two PCs.

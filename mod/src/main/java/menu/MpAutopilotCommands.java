@@ -175,8 +175,9 @@ final class MpAutopilotCommands {
 			return "war declared on " + other().name;
 		}
 		case "peace":
+		case "ally":
 		case "trade": {
-			int treaty = a[0].equals("peace") ? DealBook.PEACE : DealBook.TRADE;
+			int treaty = a[0].equals("peace") ? DealBook.PEACE : a[0].equals("ally") ? DealBook.ALLY : DealBook.TRADE;
 			int credits = a.length > 1 ? Integer.parseInt(a[1]) : 0;
 			DealBook.Terms t = new DealBook.Terms(treaty, credits, 0, new int[0], new int[0]);
 			String why = PlayerDeals.refusal(slot, t);
@@ -360,6 +361,10 @@ final class MpAutopilotCommands {
 			World.armyIntercept(w, target);
 			return "intercepting army " + target.armyIndex();
 		}
+		case "join":
+			return WorldBattles.allyAnswer(true) ? "Join" : "no session";
+		case "stayout":
+			return WorldBattles.allyAnswer(false) ? "Stay out" : "no session";
 		case "fight":
 			return WorldBattles.engage() ? "Fight" : "no session";
 		case "start":
@@ -380,7 +385,7 @@ final class MpAutopilotCommands {
 			MpViews.current().close(sosdet.View.CLOSED);
 			return "closing the view";
 		case "speed":
-			if (!host && !Hooks.battleBetweenHumans()) // a battle's commanders vote (spec §8)
+			if (!host && !Hooks.battleBetweenHumans() && !Hooks.localCommander()) // a battle's commanders vote (spec §8)
 				return "refused: the host sets the speed";
 			GAME.SPEED.speedSet(Double.parseDouble(a[1]));
 			return "speed set";
