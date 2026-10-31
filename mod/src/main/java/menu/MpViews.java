@@ -213,7 +213,8 @@ final class MpViews {
 		}
 		int local = r.local();
 		View v = engine.view(local);
-		byte[] hashes = r.takeHashes(v != null, engine.viewingHere());
+		boolean open = v != null && v.state() != View.ENDED && v.state() != View.CANCELLED; // the engine keeps an ended view
+		byte[] hashes = r.takeHashes(open, engine.viewingHere());
 		if (v == null)
 			return;
 		if (v != seen) {
@@ -221,6 +222,7 @@ final class MpViews {
 			seenState = -1;
 			closeSent = caughtUpLogged = desyncLogged = false;
 			r.dropTape();
+			r.takeHashes(false, false); // late pieces of an older view: this one's come after its freeze
 		}
 		if (v.state() == View.LOADING && engine.step() == v.freeze) {
 			loading(v);
