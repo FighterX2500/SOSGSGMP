@@ -9,6 +9,7 @@ import java.util.Locale;
 import java.util.function.BiConsumer;
 
 import game.GAME;
+import game.battle.div.Div;
 import game.battle.state.BattleState;
 import game.faction.FACTIONS;
 import game.faction.Faction;
@@ -16,6 +17,7 @@ import game.faction.diplomacy.DIP;
 import game.faction.npc.FactionNPC;
 import init.race.RACES;
 import init.resources.RESOURCES;
+import settlement.stats.STATS;
 import snake2d.CORE;
 import sosdet.Engine;
 import sosdet.Hooks;
@@ -47,6 +49,7 @@ import world.map.regions.Region;
  * <p>Actions: {@code status}; {@code shot} (an in-game screenshot, as the screenshot key); {@code ui diplomacy|world|city|profile};
  * {@code war}; {@code peace <denari>}; {@code trade}; {@code accept} (every proposal to this player); {@code army} (a new
  * army at the capital); {@code mercs} (the mercenary bands for hire); {@code merc <index>} (hire one into the first army);
+ * {@code divs} (the city's divisions); {@code attach <division|all>} (the city army screen's send out, to the first army);
  * {@code attack} (the first army intercepts the other player's nearest army); {@code fight}, {@code start}, {@code retreat}
  * (the open battle prompt or battle); {@code speed <x>} (host); {@code view} (ask to view the other player's city) and
  * {@code closeview} (SOS-82); {@code say <text>} (the chat, SOS-110); {@code pause} (as the pause key).
@@ -172,6 +175,28 @@ final class MpAutopilotCommands {
 			if (!World.armyCreate(-1, -1))
 				return "refused: no session";
 			return "army ordered at the capital";
+		}
+		case "pop":
+			return "population " + STATS.POP().POP.data().get(null);
+		case "divs": {
+			StringBuilder b = new StringBuilder();
+			for (Div d : GAME.ARMIES().player().divisions())
+				if (d.menNrOf() > 0 || AD.cityDivs().attachedArmy(d) != null)
+					b.append(d.index()).append(": men ").append(d.menNrOf()).append(" stored ").append(AD.cityDivs().get(d).men())
+							.append(" army ").append(AD.cityDivs().attachedArmy(d) == null ? -1 : AD.cityDivs().attachedArmy(d).armyIndex())
+							.append("; ");
+			return b.length() == 0 ? "no divisions" : b.toString();
+		}
+		case "attach": {
+			WArmy w = firstArmy();
+			if (w == null)
+				return "refused: no army";
+			int n = 0;
+			for (Div d : GAME.ARMIES().player().divisions())
+				if ((a[1].equals("all") ? d.menNrOf() > 0 && AD.cityDivs().attachedArmy(d) == null : d.index() == Integer.parseInt(a[1]))
+						&& World.cityDivAttach(w, d))
+					n++;
+			return n + " divisions sent to army " + w.armyIndex();
 		}
 		case "mercs": {
 			StringBuilder b = new StringBuilder();
