@@ -75,6 +75,10 @@ public interface SteamPort {
 
     void runCallbacks();
 
+    /** A line for the connection's trace, when it keeps one. */
+    default void note(String text) {
+    }
+
     /** Leaves nothing open: the port's Steam interfaces are released. */
     void close();
 }

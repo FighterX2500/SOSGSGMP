@@ -130,6 +130,19 @@ public interface SetupSession {
     /** Players whose PC left the running game, and the hold for them (spec §11 Disconnects, SOS-65); for reading. */
     Departures departures();
 
+    /** Host: a spectator's slot whose PC left the game, once; null when none did. */
+    default Integer takeSpectatorLeft() {
+        return null;
+    }
+
+    /** Host: the spectator in {@code slot} is too far behind: their PC is dropped with a message (spec §11). */
+    default void dropSpectator(int slot) {
+    }
+
+    /** Host: the player in {@code slot} was eliminated: saves say so from now on, and a resume lets them back to watch. */
+    default void eliminated(int slot) {
+    }
+
     /**
      * Host, while {@link Departures#waiting}: Continue without the players gone (call it once the engine removed them)
      * or Return to the last save, which ends the session on every PC. Every PC hears the choice.

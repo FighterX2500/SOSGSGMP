@@ -112,6 +112,7 @@ final class MpPlayerWindow extends ISidePanel {
 
 	private static CLICKABLE viewButton(int slot) {
 		SPRITE view = UI.FONT().H2.getText("View city");
+		SPRITE watch = UI.FONT().H2.getText("Watch battle");
 		SPRITE asked = UI.FONT().H2.getText("Asked...");
 		return new GButt.ButtPanel(view) {
 			@Override
@@ -125,7 +126,7 @@ final class MpPlayerWindow extends ISidePanel {
 			protected void renAction() {
 				MpViews v = MpViews.current();
 				activeSet(v != null && v.canAsk(slot));
-				replaceLabel(v != null && v.asked(slot) ? asked : view, DIR.C);
+				replaceLabel(v != null && v.asked(slot) ? asked : v != null && v.watches(slot) ? watch : view, DIR.C);
 			}
 
 			@Override
@@ -133,9 +134,15 @@ final class MpPlayerWindow extends ISidePanel {
 				MpViews v = MpViews.current();
 				String refusal = v == null ? "The game isn't running." : v.askRefusal(slot);
 				GBox b = (GBox) text;
-				b.title("View city");
-				b.text("Ask to watch this player's city live. They allow or refuse; while you watch, your own city waits"
-						+ " where it stopped.");
+				if (v != null && v.watches(slot)) {
+					b.title("Watch battle");
+					b.text("Join this player's battle against NPCs and watch it live. While you watch, your own city waits"
+							+ " where it stopped.");
+				} else {
+					b.title("View city");
+					b.text("Ask to watch this player's city live. They allow or refuse; while you watch, your own city waits"
+							+ " where it stopped.");
+				}
 				if (refusal != null) {
 					b.NL(4);
 					b.error(refusal);

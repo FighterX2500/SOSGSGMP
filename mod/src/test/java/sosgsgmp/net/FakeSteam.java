@@ -20,6 +20,26 @@ public final class FakeSteam {
     private long nextLobby = 1000;
     private final Map<Long, Set<Long>> lobbies = new HashMap<>();
     private final Map<Long, Port> users = new HashMap<>();
+    /** As the newer messages may: an accept before the first packet does nothing, and no session request arrives. */
+    private boolean silentSessions;
+
+    public synchronized void silentSessions() {
+        silentSessions = true;
+    }
+
+    /** Steam never answers a join. */
+    private boolean silentJoins;
+
+    public synchronized void silentJoins() {
+        silentJoins = true;
+    }
+
+    /** Nothing a user sends arrives: the join works, and the host never answers. */
+    private boolean lostPackets;
+
+    public synchronized void lostPackets() {
+        lostPackets = true;
+    }
 
     /** A user's port; each call to the node's supplier should make a new one for a new user id. */
     public synchronized Port port(long user) {
@@ -67,6 +87,8 @@ public final class FakeSteam {
         @Override
         public void joinLobby(long lobby) {
             synchronized (FakeSteam.this) {
+                if (silentJoins)
+                    return;
                 Set<Long> members = lobbies.get(lobby);
                 if (members == null) {
                     later(() -> listener.lobbyEntered(lobby, "no such lobby"));
@@ -127,6 +149,8 @@ public final class FakeSteam {
         @Override
         public void acceptSession(long user) {
             synchronized (FakeSteam.this) {
+                if (silentSessions && !waiting.containsKey(user))
+                    return;
                 accepted.add(user);
                 Queue<byte[]> q = waiting.remove(user);
                 if (q != null)
@@ -150,7 +174,8 @@ public final class FakeSteam {
                 Port to = users.get(user);
                 if (to == null || to.closed)
                     return false;
-                to.deliver(self, bytes.clone());
+                if (!lostPackets)
+                    to.deliver(self, bytes.clone());
                 return true;
             }
         }
@@ -163,7 +188,7 @@ public final class FakeSteam {
             }
             boolean first = !waiting.containsKey(from);
             waiting.computeIfAbsent(from, k -> new ArrayDeque<>()).add(bytes);
-            if (first)
+            if (first && !silentSessions)
                 later(() -> listener.sessionRequested(from));
         }
 

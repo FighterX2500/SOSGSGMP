@@ -17,10 +17,11 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
     public static final int MAX_NAME = 48;
 
     /**
-     * A player of the campaign: the key its PC sends in its hello, its name, its human's slot, and whether the host
-     * removed them (spec §11 Removing a player, SOS-65): a removed player stays listed, but never plays again.
+     * A player of the campaign: the key its PC sends in its hello, its name, its human's slot, whether the host removed
+     * them (spec §11 Removing a player, SOS-65): a removed player stays listed, but never plays again, and whether that
+     * was by elimination (SOS-111): only they may come back, to watch, and no resume waits for them.
      */
-    public record Player(long key, String name, int slot, boolean removed) {
+    public record Player(long key, String name, int slot, boolean removed, boolean eliminated) {
         public Player {
             if (name == null || name.isEmpty())
                 throw new IllegalArgumentException("SOSGSGMP: a campaign player without a name (slot " + slot + ")");
@@ -30,7 +31,17 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
 
         /** A player still in the campaign. */
         public Player(long key, String name, int slot) {
-            this(key, name, slot, false);
+            this(key, name, slot, false, false);
+        }
+
+        /** A player removed or not, not by elimination. */
+        public Player(long key, String name, int slot, boolean removed) {
+            this(key, name, slot, removed, false);
+        }
+
+        /** Whether this player can't join a resume. */
+        public boolean refused() {
+            return removed && !eliminated;
         }
     }
 
@@ -70,8 +81,24 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
     public Campaign removing(Collection<Integer> slots) {
         List<Player> now = new ArrayList<>(players.size());
         for (Player p : players)
-            now.add(slots.contains(p.slot()) && !p.removed() ? new Player(p.key(), p.name(), p.slot(), true) : p);
+            now.add(slots.contains(p.slot()) && !p.removed() ? new Player(p.key(), p.name(), p.slot(), true, false) : p);
         return new Campaign(id, name, seed, difficulty, now);
+    }
+
+    /** This campaign with the player in {@code slot} eliminated (spec §9): they may come back as a spectator. */
+    public Campaign eliminating(int slot) {
+        List<Player> now = new ArrayList<>(players.size());
+        for (Player p : players)
+            now.add(p.slot() == slot ? new Player(p.key(), p.name(), p.slot(), true, true) : p);
+        return new Campaign(id, name, seed, difficulty, now);
+    }
+
+    /** The player in {@code slot}, or null. */
+    public Player inSlot(int slot) {
+        for (Player p : players)
+            if (p.slot() == slot)
+                return p;
+        return null;
     }
 
     /** The slots of {@code c}'s players still playing that aren't among {@code present}: a resume's missing players. */

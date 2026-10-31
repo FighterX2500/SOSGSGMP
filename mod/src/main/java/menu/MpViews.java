@@ -91,6 +91,12 @@ final class MpViews {
 				continue;
 			watched[slot] = v;
 			watchedStates[slot] = state;
+			if (v != null && v.battle() && v.owner == setup.views().local()) {
+				if (state == View.RUNNING)
+					message(name(v.viewer) + " joined to watch your battle. It reloads for a few seconds.");
+				else if (state == View.ENDED)
+					message(name(v.viewer) + " stopped watching your battle.");
+			}
 			if (v != null)
 				log.line(String.format(Locale.ROOT, "viewstate: %s viewing %s's city: %s at step %d (freeze %d, thaw %d)%s; this PC's"
 						+ " last view load %.0f ms", name(v.viewer), name(v.owner), stateName(state), engine.step(), v.freeze, v.thaw(),
@@ -101,12 +107,21 @@ final class MpViews {
 	// ---------------------------------------------------------------- the host
 
 	private void host(ViewRequests r) {
+		for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++) {
+			View v = engine.view(slot);
+			if (v != null && v.state() != View.ENDED && v.state() != View.CANCELLED)
+				r.opened(v.viewer, v.owner);
+		}
 		ViewRequests.Pair p;
 		while ((p = r.takeCheck()) != null) {
 			String refusal = engine.viewRefusal(p.viewer(), p.owner());
-			r.checked(p, refusal);
-			log.line("viewask: " + name(p.viewer()) + " asks to view " + name(p.owner()) + "'s city at step " + engine.step()
-					+ (refusal == null ? "; passed to them" : "; refused: " + refusal));
+			boolean battle = refusal == null && engine.localBattle(p.owner());
+			if (battle)
+				r.checkedNoAsk(p); // spec §8: a running NPC battle is watched without asking
+			else
+				r.checked(p, refusal);
+			log.line("viewask: " + name(p.viewer()) + " asks to view " + name(p.owner()) + "'s " + (battle ? "battle" : "city")
+					+ " at step " + engine.step() + (battle ? "; no answer needed" : refusal == null ? "; passed to them" : "; refused: " + refusal));
 		}
 		while ((p = r.takeBegin()) != null) {
 			String refusal = engine.viewRefusal(p.viewer(), p.owner());
@@ -146,31 +161,32 @@ final class MpViews {
 		long t0 = System.nanoTime();
 		byte[] out = engine.viewOut();
 		if (out != null) {
-			View v = ownView(local, engine.step());
-			if (v == null)
+			int sent = 0;
+			for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++) { // an assault's viewers all freeze at one step
+				View v = engine.view(slot);
+				if (v != null && v.owner == local && v.freeze == engine.step() && v.frozen()) {
+					r.city(v.viewer, v.freeze, out);
+					log.line(String.format(Locale.ROOT, "viewout: this city for %s's view from step %d: %d bytes, saved in %.0f ms",
+							name(v.viewer), v.freeze, out.length, (System.nanoTime() - t0) / 1e6));
+					sent++;
+				}
+			}
+			if (sent == 0)
 				throw new IllegalStateException("SOSGSGMP: the engine handed out a city at step " + engine.step() + " for no view");
-			r.city(v.viewer, v.freeze, out);
-			log.line(String.format(Locale.ROOT, "viewout: this city for %s's view from step %d: %d bytes, saved in %.0f ms",
-					name(v.viewer), v.freeze, out.length, (System.nanoTime() - t0) / 1e6));
 		}
 		for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++) {
 			View v = engine.view(slot);
-			if (v != null && v.owner == local && v.frozen()) {
+			if (v == null || v.owner != local)
+				continue;
+			byte[] tape = engine.viewTapeOut(v.viewer); // after its thaw too: the watcher still needs the last steps
+			if (tape.length > 0)
+				r.tape(v.viewer, tape);
+			if (v.frozen()) {
 				byte[] h = engine.viewHashOut(v.viewer);
 				if (h.length > 0)
 					r.hashes(v.viewer, h);
 			}
 		}
-	}
-
-	/** The view of this PC's city that freezes at {@code step}, or null. */
-	private View ownView(int local, long step) {
-		for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++) {
-			View v = engine.view(slot);
-			if (v != null && v.owner == local && v.freeze == step && v.frozen())
-				return v;
-		}
-		return null;
 	}
 
 	/** The owner's popup: its player allows or refuses. */
@@ -197,13 +213,16 @@ final class MpViews {
 		}
 		int local = r.local();
 		View v = engine.view(local);
-		byte[] hashes = r.takeHashes(v != null, engine.viewingHere());
+		boolean open = v != null && v.state() != View.ENDED && v.state() != View.CANCELLED; // the engine keeps an ended view
+		byte[] hashes = r.takeHashes(open, engine.viewingHere());
 		if (v == null)
 			return;
 		if (v != seen) {
 			seen = v;
 			seenState = -1;
 			closeSent = caughtUpLogged = desyncLogged = false;
+			r.dropTape();
+			r.takeHashes(false, false); // late pieces of an older view: this one's come after its freeze
 		}
 		if (v.state() == View.LOADING && engine.step() == v.freeze) {
 			loading(v);
@@ -214,6 +233,8 @@ final class MpViews {
 			}
 		}
 		if (engine.viewingHere()) {
+			for (byte[] t = r.takeTape(); t != null; t = r.takeTape())
+				engine.viewTapeIn(t);
 			if (hashes.length > 0)
 				engine.viewHashIn(hashes);
 			limits(r, v);
@@ -250,10 +271,25 @@ final class MpViews {
 	/** This PC's player, or its limits, close its view. */
 	void close(int why) {
 		ViewRequests r = setup.views();
-		if (r == null || closeSent)
+		if (r == null || closeSent || why == View.CLOSED && closeRefusal() != null)
 			return;
 		closeSent = true;
 		r.close(why);
+	}
+
+	/** An attacker orders the retreat from the assault: its soldiers leave the city, and the view ends with it (spec §9). */
+	void retreat() {
+		ViewRequests r = setup.views();
+		if (r != null && !closeSent) {
+			closeSent = true;
+			r.close(View.RETREAT);
+			log.line("this PC's player ordered the retreat at step " + engine.step());
+		}
+	}
+
+	/** Why this PC's player can't close its view; null when they can. Nobody walks out of an assault (spec §9). */
+	String closeRefusal() {
+		return engine.assault() != null && !engine.spectating() ? "You stay until the assault ends." : null;
 	}
 
 	private void stateChanged(View v) {
@@ -266,7 +302,8 @@ final class MpViews {
 		}
 		if (v.state() == View.CANCELLED) {
 			log.line("viewend: " + name(v.owner) + "'s city never opened: " + v.reason());
-			message("The view of " + name(v.owner) + "'s city didn't open: " + v.reason());
+			message("The view of " + name(v.owner) + "'s " + (engine.localBattle(v.owner) ? "battle" : "city") + " didn't open: "
+					+ v.reason());
 		} else if (v.state() == View.ENDED && was >= 0) {
 			log.line("viewend: " + name(v.owner) + "'s city, " + why(v.why()) + (v.reason() == null ? "" : " (" + v.reason() + ")")
 					+ ", thawed at step " + v.thaw());
@@ -282,7 +319,7 @@ final class MpViews {
 		if (loadingShown && VIEW.inters().fullScreen.isActivated())
 			return;
 		loadingShown = true;
-		VIEW.inters().fullScreen.activate("Loading " + name(v.owner) + "'s city...", COLOR.WHITE100, null);
+		VIEW.inters().fullScreen.activate("Loading " + subject(v) + "...", COLOR.WHITE100, null);
 	}
 
 	private void bar(View v) {
@@ -295,8 +332,12 @@ final class MpViews {
 			return;
 		}
 		if (!shown(bar)) {
-			bar = new MpViewBar(this, "Viewing " + name(v.owner) + "'s city");
+			boolean attacker = engine.assault() != null && engine.assault().attacks(setup.views().local());
+			bar = new MpViewBar(this, (attacker ? "Assault on " : v.battle() ? "Watching " : "Viewing ") + subject(v),
+					attacker ? "You command the invaders." : null);
 			bar.open();
+			if (attacker)
+				VIEW.s().battle.activate(); // the battle UI: the attacker's soldiers are theirs to order
 		}
 		bar.closing(closeSent || v.thaw() >= 0);
 	}
@@ -345,7 +386,7 @@ final class MpViews {
 		int local = r.local();
 		if (r.asked() >= 0)
 			return WAITING;
-		if (engine.anyBattle())
+		if (engine.battle() != null || engine.localBattle(local))
 			return BATTLE;
 		if (open(engine.view(local)))
 			return VIEWING;
@@ -354,6 +395,8 @@ final class MpViews {
 			if (open(v) && v.owner == local)
 				return VIEWED;
 		}
+		if (engine.localBattle(owner))
+			return CAN_ASK; // the engine answers when it is starting, ending or watched already
 		return open(engine.view(owner)) ? OWNER_VIEWING : CAN_ASK;
 	}
 
@@ -375,6 +418,11 @@ final class MpViews {
 		};
 	}
 
+	/** Whether the player in {@code owner} fights an NPC battle: the button then watches it, without asking (spec §8). */
+	boolean watches(int owner) {
+		return engine.active() && engine.localBattle(owner);
+	}
+
 	/** Whether this PC's player is waiting for an answer from the player in {@code owner}. */
 	boolean asked(int owner) {
 		ViewRequests r = setup.views();
@@ -386,7 +434,8 @@ final class MpViews {
 		if (!canAsk(owner))
 			return;
 		setup.views().ask(owner);
-		log.line("viewask: this PC asks to view " + name(owner) + "'s city at step " + engine.step());
+		log.line("viewask: this PC asks to view " + name(owner) + "'s " + (watches(owner) ? "battle" : "city") + " at step "
+				+ engine.step());
 	}
 
 	/**
@@ -425,8 +474,15 @@ final class MpViews {
 		};
 	}
 
+	/** What the view shows, for the player's text. */
+	private String subject(View v) {
+		return name(v.owner) + (v.battle() ? "'s battle" : "'s city");
+	}
+
 	/** Why the view ended, for the viewer: the spec's messages, with the owner's name. */
 	private String ended(View v) {
+		if (v.battle())
+			return v.reason() == null ? "The watch of " + subject(v) + " ended." : v.reason();
 		String name = name(v.owner);
 		return switch (v.why()) {
 			case View.NOT_CAUGHT_UP -> "Your PC couldn't catch up with " + name + "'s city.";

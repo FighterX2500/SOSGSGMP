@@ -32,7 +32,7 @@ HOST_ADDRESS = os.environ.get("SOSGSGMP_HOST_ADDRESS", "")
 KEY = os.environ.get("SOSGSGMP_REMOTE_KEY", str(pathlib.Path.home() / ".ssh" / "sosdet_laptop"))
 SSH = ["ssh", "-i", KEY, "-o", "BatchMode=yes", "-o", "ConnectTimeout=20", "-o", "LogLevel=ERROR"]
 REMOTE_ROOT = r"C:\SOSTest"
-REMOTE_K = 2  # the remote data folder C:\SOSTest\inst\2 (its cache stays between runs)
+REMOTE_K = int(os.environ.get("SOSGSGMP_REMOTE_K", "2"))  # the remote data folder C:\SOSTest\inst\2 (its cache stays between runs)
 EVENTS = pathlib.PurePath("sosgsgmp-autopilot") / "events.jsonl"
 STEAM_APP_ID = "1162750"  # Songs of Syx; Steam reads it from SteamAppId when the game is not started by Steam
 
@@ -115,7 +115,7 @@ def refresh_mods(data, rdir):
         fail("sending the mods: %s" % unpack.stderr.strip())
 
 
-# SOSGSGMP_STEAM_NET for both games: "messages" with --steam-messages (SOS-105), else empty (the old P2P packets)
+# SOSGSGMP_STEAM_NET for both games: "p2p" with --steam-p2p (the old P2P packets), else empty (Steam's messages, SOS-105)
 STEAM_NET = [""]
 
 
@@ -209,6 +209,8 @@ def main():
     ap.add_argument("--crash", default="", help="'remote:STEP' or 'local:STEP': that joiner's game stops dead at STEP (SOS-65)")
     ap.add_argument("--on-gone", choices=("continue", "return"), default="continue",
                     help="the host's choice when a player left: continue without them, or return to the last save")
+    ap.add_argument("--manual-deals", action="store_true",
+                    help="players answer deals themselves: the host doesn't accept each on its own")
     ap.add_argument("--deal", type=int, default=-1,
                     help="the joiner proposes trade and 100 denari to the host at this step, and the host accepts (SOS-72)")
     ap.add_argument("--deal-cancel", type=int, default=-1,
@@ -233,13 +235,13 @@ def main():
                     " PC holds while the host's view opens) (SOS-82)")
     ap.add_argument("--view-answer", choices=("allow", "refuse", "none"), default="allow",
                     help="how the owner answers a view request; none: no answer, refused after 30 s (SOS-82)")
-    ap.add_argument("--steam-messages", action="store_true",
-                    help="with --net steam: both games use Steam's newer messages (SOSGSGMP_STEAM_NET=messages, SOS-105)")
+    ap.add_argument("--steam-p2p", action="store_true",
+                    help="with --net steam: both games use the old P2P packets (SOSGSGMP_STEAM_NET=p2p, SOS-105)")
     ap.add_argument("--gui-preview", type=int, default=-1,
                     help="the host opens each siege window in turn from this step, 6 s each, for screenshots (SOS-92)")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
-    STEAM_NET[0] = "messages" if args.steam_messages else ""
+    STEAM_NET[0] = "p2p" if args.steam_p2p else ""
     if not args.here and (not REMOTE or not HOST_ADDRESS):
         fail("set SOSGSGMP_REMOTE and SOSGSGMP_HOST_ADDRESS")
     crash_who, _, crash_at = args.crash.partition(":")
@@ -254,7 +256,7 @@ def main():
     shutil.rmtree(run, ignore_errors=True)
     run.mkdir(parents=True)
 
-    if game_running_here() or not args.here and "java" in remote_ps("Get-Process java -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '%s\\game\\*' } | Select-Object -ExpandProperty Name" % REMOTE_ROOT):
+    if game_running_here() or not args.here and "java" in remote_ps("Get-CimInstance Win32_Process -Filter \"Name='java.exe'\" | Where-Object { $_.ExecutablePath -like '%s\game\*' -and $_.CommandLine -notlike '*util.error.ErrorMessage*' } | Select-Object -ExpandProperty Name" % REMOTE_ROOT):
         fail("a game still runs on this PC or the second one; close it first")
     if args.resume:
         # the campaign saves, records and player keys of the last run stay; only its events go
@@ -290,6 +292,8 @@ def main():
         if v and (len(v.split(":")) != 2 or not v.split(":")[0].isdigit()):
             fail("--view and --host-view are STEP:CLOSE")
     common = "port=%d,steps=%d,net=%s,viewanswer=%s,battles=%s" % (args.port, args.steps, args.net, args.view_answer, args.battles)
+    if args.manual_deals:
+        common += ",manualdeals=1"
     host_view = ",view=" + args.host_view if args.host_view else ""
     join_view = ",view=" + args.view if args.view else ""
     host_capital = ",capital=" + args.host_capital if args.host_capital else ""

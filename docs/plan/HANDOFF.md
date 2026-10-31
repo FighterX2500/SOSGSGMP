@@ -30,6 +30,7 @@ Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-
 - goods and tariffs between players (SOS-77, [goods-tariffs.md](goods-tariffs.md)); names and banners on every PC (SOS-78, [names-banners.md](names-banners.md)); every transfer in the playtest log (SOS-81, [transfer-log.md](transfer-log.md));
 - war between players and real-time battles between two players' armies, with the sally from a besieged region (SOS-74, SOS-83, [war.md](war.md), [battles-between-players.md](battles-between-players.md));
 - city viewing (SOS-82, [city-viewing.md](city-viewing.md));
+- watching another player's NPC battle, without asking: the watcher's PC runs the battle at its own pace from the fighter's tape, and each join reloads the battle on both PCs (SOS-109, SOSDET plan 0017);
 - sieges of a player's capital, step A: the siege's popup, the days to the assault and Sally out (SOS-92, hook M9, [sieges.md](sieges.md));
 - playtest fixes: no capital without roads (SOS-75), the panel's status text and hide button (SOS-84, SOS-91), the host's lead of 1000 steps (SOS-86), the governor's reasons in the log (SOS-94), and batch 1 (PR #66): the ruler name (SOS-98), cursors in cities (SOS-58), a Steam invite from the main menu (SOS-103) and compressed streams with network figures in the log (SOS-96). Protocol 16.
 
@@ -60,7 +61,7 @@ From now on, move a card to In Review when its PR opens. When the PR merges, com
 
 ## 3. Next
 
-1. **Sieges of player cities, SOS-92** ([sieges.md](sieges.md)): step A is merged; steps B and C (the assault) are in review; the outcomes, the removed people and allied attackers follow.
+1. **The night run of 2026-10-31:** engine PR #70, then mod PR #78, carry SOS-92 (sieges), SOS-111 (spectators), SOS-109, SOS-112, SOS-114 and the LLM runs' fixes. Its PDF lists every decision, result and gap.
 2. **The open PRs above**, then the cards from the 2026-10-29 playtest (SOS-85, SOS-95, SOS-101, SOS-104, SOS-105).
 3. **Battles:** resync in a battle (engine plan 0006 M3), the speed vote, allies joining, spectators' view; SOS-93 (NPC battles on their own clock) waits for the owner's answers in PR #68.
 4. **Chat and notifications** (§12, apart from cursors), who paused, debug mode off, elimination and spectating.
@@ -70,7 +71,8 @@ From now on, move a card to In Review when its PR opens. When the PR merges, com
 ## 4. Known issues
 
 - **Market runs in the rig:** a human trades only with capitals it reaches, never across unclaimed land. In Mogus-72 use `--make-humans 2,24`. A game day is 1,152 s and trade runs once a day, so a sale needs about 45,000 steps.
-- **High speeds:** SOS-90 keeps the lockstep windows at half a second of real time at every speed; whether 5x and above now reach their full rate is still to check in a playtest.
+- **High speeds:** SOS-90 keeps the lockstep windows at half a second of real time at every speed. Two PCs over Radmin held 25x at 400 steps/s, with about 1,000 steps/s to spare, in the LLM runs of 2026-10-31.
+- **One world desync with no cause found:** step 133,230 of L2, in the NPC stocks section; the automatic resync cleared it at once. A desync report now names each NPC's stocks, so the next one names the NPC and the value.
 - **"No active entry points" warning:** found and fixed in SOS-75 (SOSDET #46 and the SOSGSGMP PR). Islet capitals with no land beyond their square could get no roads; the location rules now refuse them. Plan and results: [joiner-roads.md](joiner-roads.md).
 - **City↔world items at a resume:** anything crossing in the last ~0.5 s before a campaign save is lost on resume. A battle's return has the same gap.
 - **Engine open items** (SOSDET HANDOFF): SOS-32's owner checks (camera and clicks, older-save followers, draw tracing), the V01B rig split at step 154,365, the resync with an open prompt, and the scenario suite's recordings, all older than the AI log's and hash's format 8.

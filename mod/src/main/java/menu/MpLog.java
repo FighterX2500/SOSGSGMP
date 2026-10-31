@@ -156,6 +156,11 @@ final class MpLog {
 		}
 		if (!setup.playing())
 			return;
+		if (!engine.active()) {
+			line("the engine's session ended");
+			end();
+			return; // Return to the last save: nothing left to read
+		}
 		frames++;
 		if (!go) {
 			go = true;

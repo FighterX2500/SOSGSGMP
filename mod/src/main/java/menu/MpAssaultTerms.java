@@ -36,6 +36,7 @@ final class MpAssaultTerms extends MpWindow {
 
 	private final INT.IntImp sack = new INT.IntImp(0, AssaultTerms.MAX_SACK);
 	private final INT.IntImp tribute = new INT.IntImp(0, 100);
+	private final INT.IntImp eliminate = new INT.IntImp(AssaultTerms.ELIMINATE_SHARE, AssaultTerms.ELIMINATE_SHARE);
 	/** The people who can be removed, by race, as the window opened; the step caps the choice to the city by then. */
 	private final int[] inCity;
 	/** The choice: {@code AssaultTerms}'s flat counts. */
@@ -49,6 +50,7 @@ final class MpAssaultTerms extends MpWindow {
 		super("Assault: the throne is yours");
 		sack.set(AssaultTerms.DEFAULT_PERCENT);
 		tribute.set(DealBook.DEFAULT_TRIBUTE);
+		eliminate.set(AssaultTerms.ELIMINATE_SHARE);
 		inCity = PlayerSieges.peopleInCity(defender);
 		people = new int[inCity.length * AssaultTerms.FATES];
 		limit = AssaultTerms.peopleLimit(inCity);
@@ -65,6 +67,9 @@ final class MpAssaultTerms extends MpWindow {
 		inner.add(new GSliderInt(tribute, 260, true, false), 0, inner.body().y2() + 12);
 		inner.addRightC(8, percent(tribute));
 		inner.addRightC(8, choose("Vassal", AssaultTerms.VASSALAGE, tribute));
+		inner.add(text("Eliminate takes " + AssaultTerms.ELIMINATE_SHARE + "% of their money, goods and people. Their city becomes"
+				+ " neutral and they can only watch from then on. Anyone you gave no fate is freed."), 0, inner.body().y2() + 12);
+		inner.add(choose("Eliminate", AssaultTerms.ELIMINATE, eliminate), 0, inner.body().y2() + 8);
 	}
 
 	private static RENDEROBJ text(String text) {
@@ -189,7 +194,7 @@ final class MpAssaultTerms extends MpWindow {
 		return new GButt.ButtPanel(name) {
 			@Override
 			protected void clickA() {
-				int[] taken = kind == AssaultTerms.SACK && chosen() > 0 ? people.clone() : AssaultTerms.NO_PEOPLE;
+				int[] taken = kind != AssaultTerms.VASSALAGE && chosen() > 0 ? people.clone() : AssaultTerms.NO_PEOPLE;
 				String why = PlayerSieges.termsRefusal(kind, percent.get(), taken);
 				if (why != null) {
 					new MpViewNotice("Assault", why, true).open();

@@ -47,6 +47,8 @@ public final class EnginePlay implements EnginePort {
     private final BattleSaves battles = new BattleSaves();
     /** The size of the last battle save this PC sent or loaded, for the playtest log. */
     private int battleBytes;
+    /** A battle resync's file, until its load has read it. */
+    private Path battleResyncFile;
 
     /**
      * Every PC at {@code Go}: the game unpauses at the agreed speed (spec §5.5, the automatic unpause), the game speed
@@ -106,6 +108,11 @@ public final class EnginePlay implements EnginePort {
         return Engine.localBattleRunning();
     }
 
+    /** True while the player in {@code slot} fights a battle against NPCs. */
+    public boolean localBattle(int slot) {
+        return Engine.localBattle(slot) != null;
+    }
+
     /** True during any battle: one on every PC, or one on its player's PC alone. */
     public boolean anyBattle() {
         return Engine.battle() != null || localBattle();
@@ -114,6 +121,26 @@ public final class EnginePlay implements EnginePort {
     /** The battle on the battle map, or null (SOSDET plan 0006). */
     public OwnBattle battle() {
         return Engine.battle();
+    }
+
+    /** This PC's player was eliminated and watches (SOS-111). */
+    public boolean spectating() {
+        return Engine.spectating();
+    }
+
+    /** Whether the player in {@code slot} watches as a spectator. */
+    public boolean spectator(int slot) {
+        return Engine.spectator(slot);
+    }
+
+    /** Host: the PC of the spectator in {@code slot} left. */
+    public void spectatorLeft(int slot) {
+        Engine.spectatorLeft(slot);
+    }
+
+    /** The one player still playing once others left or fell, or -1. */
+    public int lastHuman() {
+        return Engine.lastHuman();
     }
 
     /** The assault on a human's capital running, or null (SOS-92 B). */
@@ -235,12 +262,20 @@ public final class EnginePlay implements EnginePort {
 
     /**
      * After a whole-game load outside a battle (a city view's, SOS-82): the load leaves the game paused, and this PC's
-     * game speed sets its pace, so it unpauses at the agreed speed, as at {@link #start}. A battle's load stays paused
-     * for its deployment.
+     * game speed sets its pace, so it unpauses at the agreed speed, as at {@link #start}. A battle's load unpauses at 1×,
+     * as vanilla's battle opens: nothing moves until Start, but only a step can apply Start. A resync in a battle keeps
+     * its speed.
      */
     public void resumeAfterLoad() {
+        if (battleResyncFile != null) {
+            delete(battleResyncFile);
+            battleResyncFile = null;
+            applyHolds(); // the load held the engine at its step
+        }
         if (Engine.battle() == null)
             GAME.SPEED.speedSet(agreedSpeed());
+        else if (GAME.SPEED.speed() == 0)
+            GAME.SPEED.speedSet(1);
     }
 
     /** The speed every PC runs at now. Builds the engine's stats: for the panel's refresh, not every frame. */
@@ -288,7 +323,7 @@ public final class EnginePlay implements EnginePort {
     public WorldResync worldResyncSave() {
         Path file = tempFile();
         try {
-            byte[] state = Engine.worldResyncSave(file);
+            byte[] state = Engine.battle() != null ? Engine.battleResyncSave(file) : Engine.worldResyncSave(file);
             return new WorldResync(Engine.step(), state, Files.readAllBytes(file));
         } catch (IOException e) {
             throw new UncheckedIOException("SOSGSGMP: reading the world resync save " + file, e);
@@ -305,11 +340,17 @@ public final class EnginePlay implements EnginePort {
         Path file = tempFile();
         try {
             Files.write(file, r.save());
-            Engine.worldResyncLoad(file, r.state());
+            if (Engine.battle() != null) {
+                Engine.battleResyncLoad(file, r.state());
+                battleResyncFile = file; // that load comes with the next frame: the file goes after it
+            } else {
+                Engine.worldResyncLoad(file, r.state());
+            }
         } catch (IOException e) {
             throw new UncheckedIOException("SOSGSGMP: writing the world resync save " + file, e);
         } finally {
-            delete(file);
+            if (battleResyncFile != file)
+                delete(file);
         }
         applyHolds(); // the load held the engine at its step: back to what the mod's holds say
     }
@@ -395,6 +436,16 @@ public final class EnginePlay implements EnginePort {
     /** The owner's PC: its view hashes for the viewer in {@code viewer} since the last call. */
     public byte[] viewHashOut(int viewer) {
         return Engine.viewHashOut(viewer);
+    }
+
+    /** The battle's PC: its tape for the watcher in {@code viewer} since the last call (SOS-109). */
+    public byte[] viewTapeOut(int viewer) {
+        return Engine.viewTapeOut(viewer);
+    }
+
+    /** The watcher's PC: more of the battle's tape, whole pieces in order. */
+    public void viewTapeIn(byte[] bytes) {
+        Engine.viewTapeIn(bytes);
     }
 
     /** The viewer's PC: more of the owner's view hashes. */
