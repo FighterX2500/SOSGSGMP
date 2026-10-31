@@ -176,10 +176,12 @@ final class MpViews {
 		}
 		for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++) {
 			View v = engine.view(slot);
-			if (v != null && v.owner == local && v.frozen()) {
-				byte[] tape = engine.viewTapeOut(v.viewer);
-				if (tape.length > 0)
-					r.tape(v.viewer, tape);
+			if (v == null || v.owner != local)
+				continue;
+			byte[] tape = engine.viewTapeOut(v.viewer); // after its thaw too: the watcher still needs the last steps
+			if (tape.length > 0)
+				r.tape(v.viewer, tape);
+			if (v.frozen()) {
 				byte[] h = engine.viewHashOut(v.viewer);
 				if (h.length > 0)
 					r.hashes(v.viewer, h);
