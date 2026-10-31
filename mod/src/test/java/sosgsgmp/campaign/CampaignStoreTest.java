@@ -40,19 +40,22 @@ public class CampaignStoreTest {
         assertEquals(c, c.removing(java.util.Set.of(0)), "removing twice changes nothing");
         CampaignRecord r = new CampaignRecord(c, 4, CampaignRecord.Kind.AUTO, 9, 1, "b.save", 77);
         assertEquals(r, CampaignRecord.fromText(r.toText()));
+        CampaignRecord e = new CampaignRecord(c.eliminating(1), 5, CampaignRecord.Kind.AUTO, 9, 1, "b.save", 77);
+        assertTrue(e.campaign().inSlot(1).eliminated());
+        assertEquals(e, CampaignRecord.fromText(e.toText()));
     }
 
     @Test
     void aFormat1RecordLoadsWithNobodyRemoved() {
         CampaignRecord r = record(2, CampaignRecord.Kind.SAVE, 5);
-        String v1 = r.toText().replace("format=2", "format=1").replaceAll("player\\.\\d+\\.removed=false\n", "");
+        String v1 = r.toText().replace("format=3", "format=1").replaceAll("player\\.\\d+\\.(removed|eliminated)=false\n", "");
         assertEquals(r, CampaignRecord.fromText(v1));
     }
 
     @Test
     void anUnknownFormatOrABrokenRecordIsRefused() {
         String text = record(1, CampaignRecord.Kind.SAVE, 1).toText();
-        assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("format=2", "format=3")));
+        assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("format=3", "format=4")));
         assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("player.0.removed=false",
                 "player.0.removed=yes")));
         assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("\nslot=1\n", "\n")));

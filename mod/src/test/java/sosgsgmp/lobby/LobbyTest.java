@@ -21,6 +21,16 @@ class LobbyTest {
             List.of(new Campaign.Player(1, "Ann", 0), new Campaign.Player(2, "Bob", 1), new Campaign.Player(3, "Cid", 2, true)));
 
     @Test
+    void anEliminatedPlayerMayComeBackToWatchAndNoResumeWaitsForThem() {
+        Campaign c = THREE_PLAYED.eliminating(1).eliminating(0);
+        Lobby lobby = new Lobby(LobbySettings.resuming(new LobbySettings.Resume(c, 4)), "Bob", 2);
+        assertEquals(List.of(), lobby.missing());
+        assertTrue(lobby.canStart(), "even the eliminated host of slot 0 isn't waited for");
+        assertNull(lobby.refusal(1), "Ann watches");
+        assertEquals(Refusal.REMOVED, lobby.refusal(3), "a removal is for good");
+    }
+
+    @Test
     void aResumeStartsWithoutMissingPlayersButNeverWithoutSlot0() {
         Lobby lobby = new Lobby(LobbySettings.resuming(new LobbySettings.Resume(THREE_PLAYED, 4)), "Ann", 1);
         assertEquals(List.of(THREE_PLAYED.players().get(1)), lobby.missing(), "Cid is removed: nobody waits for them");

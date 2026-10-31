@@ -121,6 +121,26 @@ public final class EnginePlay implements EnginePort {
         return Engine.battle();
     }
 
+    /** This PC's player was eliminated and watches (SOS-111). */
+    public boolean spectating() {
+        return Engine.spectating();
+    }
+
+    /** Whether the player in {@code slot} watches as a spectator. */
+    public boolean spectator(int slot) {
+        return Engine.spectator(slot);
+    }
+
+    /** Host: the PC of the spectator in {@code slot} left. */
+    public void spectatorLeft(int slot) {
+        Engine.spectatorLeft(slot);
+    }
+
+    /** The one player still playing once others left or fell, or -1. */
+    public int lastHuman() {
+        return Engine.lastHuman();
+    }
+
     /** The assault on a human's capital running, or null (SOS-92 B). */
     public Assault assault() {
         return Engine.assault();

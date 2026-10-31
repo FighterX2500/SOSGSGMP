@@ -36,6 +36,10 @@ final class MpPause {
 		if (engine.anyBattle())
 			settledAt = now + SETTLE_NANOS;
 		boolean paused = paused();
+		if (paused != seen && engine.spectating()) { // a spectator can't pause or unpause (SOS-111)
+			GAME.SPEED.togglePause();
+			return;
+		}
 		if (now - settledAt >= 0 && paused != seen)
 			setup.pause(paused);
 		seen = paused;

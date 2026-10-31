@@ -9,7 +9,9 @@ import sosdet.BattleOutcome;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbyPlayer;
+import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.session.SetupSession;
+import view.main.VIEW;
 
 /**
  * SOSGSGMP: the game over the network, once per frame after the game's update, outside the step
@@ -28,6 +30,9 @@ final class MpPlay implements ACTION {
 	/** Test tooling: the autopilot, or null in play. */
 	private final MpAutopilot autopilot = MpAutopilot.fromEnv();
 	private final MpLog log;
+	private boolean spectatorShown;
+	private boolean lastShown;
+	private Assault assaultShown;
 	/** Campaign saves: the host's orders, and every PC's save at their step (SOS-64). */
 	private final MpSaves saves;
 	/** The escape menu's save and quit, and every save that ends the session (SOS-79). */
@@ -75,8 +80,10 @@ final class MpPlay implements ACTION {
 				setup.exchange();
 				engine.battleFrame();
 				outcome();
+				assaultStart();
 				assaultOutcome();
 				assaultTerms();
+				spectator();
 				invasions();
 				notices.frame();
 			}
@@ -117,12 +124,12 @@ final class MpPlay implements ACTION {
 		log.line("assault outcome applied at step " + engine.step() + ": " + a);
 		setup.chat().notice(MpAssaultOutcome.othersText(notices.name(a.attacker), notices.name(a.defender), a.outcome()));
 		int slot = setup.factions().slotOf(setup.localPlayerId());
-		if (slot == a.attacker && a.outcome() == Assault.TAKEN) {
+		if (slot == a.chooser && a.outcome() == Assault.TAKEN) {
 			new MpAssaultTerms(a.defender).open();
 			return;
 		}
-		if (slot == a.attacker || slot == a.defender) {
-			new MpAssaultOutcome(a.attacker, a.defender, a.outcome(), a.men, slot == a.attacker).open();
+		if (a.attacks(slot) || slot == a.defender) {
+			new MpAssaultOutcome(a.attacker, a.defender, a.outcome(), a.men, a.attacks(slot)).open();
 		}
 	}
 
@@ -138,6 +145,38 @@ final class MpPlay implements ACTION {
 				a.termsCredits(), a.termsPeople(AssaultTerms.MOVED), a.termsPeople(AssaultTerms.KILLED), a.termsPeople(AssaultTerms.FREED)));
 		if (setup.factions().slotOf(setup.localPlayerId()) == a.defender)
 			new MpViewNotice("Assault", what, true).open();
+	}
+
+	/** This PC's player was eliminated: the world map, and a word on why nothing works any more (SOS-111). */
+	/** An assault on this PC's player's city: they go to its battle view at once, their soldiers are theirs to order. */
+	private void assaultStart() {
+		Assault a = engine.assault();
+		if (a == null || a == assaultShown)
+			return;
+		assaultShown = a;
+		if (a.defender == setup.factions().slotOf(setup.localPlayerId()))
+			VIEW.s().battle.activate();
+	}
+
+	private void spectator() {
+		if (setup.isHost()) {
+			for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++)
+				if (engine.spectator(slot) && !setup.campaign().inSlot(slot).eliminated())
+					setup.eliminated(slot);
+			for (Integer slot = setup.takeSpectatorLeft(); slot != null; slot = setup.takeSpectatorLeft())
+				engine.spectatorLeft(slot);
+		}
+		if (!lastShown && engine.lastHuman() >= 0) {
+			lastShown = true;
+			setup.chat().notice(notices.name(engine.lastHuman()) + " is the last player standing. Play goes on.");
+		}
+		if (spectatorShown || !engine.spectating())
+			return;
+		spectatorShown = true;
+		log.line("this PC's player is a spectator from step " + engine.step());
+		VIEW.world().activate();
+		new MpViewNotice("Eliminated", "Your city has fallen. You stay in the game as a spectator: you can use the chat, but you"
+				+ " can't act any more.", true).open();
 	}
 
 	/** An NPC army invades a player's capital (SOS-92 F): the chat tells every player, and the playtest log notes it. */

@@ -30,7 +30,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 18;
+    public static final int VERSION = 19;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -47,7 +47,7 @@ public final class Protocol {
     /** The largest city a view carries, in bytes ({@link Message.ViewCity}). */
     public static final int MAX_VIEW_CITY = 512 * 1024 * 1024;
     /** The largest reason a viewer's PC ends its view for ({@link Message.ViewClose}): the engine's closed to lost step. */
-    public static final int MAX_VIEW_CLOSE = 3;
+    public static final int MAX_VIEW_CLOSE = 5;
     /** Largest piece of an engine stream in one message, in bytes: well under {@link #MAX_MESSAGE}. */
     public static final int MAX_STREAM_PIECE = 48 * 1024;
     /** Longest reason a location was cleared, in characters. */
@@ -415,6 +415,7 @@ public final class Protocol {
             out.writeUTF(p.name());
             out.writeByte(p.slot());
             out.writeBoolean(p.removed());
+            out.writeBoolean(p.eliminated());
         }
     }
 
@@ -431,7 +432,7 @@ public final class Protocol {
             int slot = in.readUnsignedByte();
             if (slot >= LobbySettings.MAX_PLAYERS)
                 throw new IOException("SOSGSGMP: campaign slot " + slot);
-            players.add(new Campaign.Player(key, name2, slot, in.readBoolean()));
+            players.add(new Campaign.Player(key, name2, slot, in.readBoolean(), in.readBoolean()));
         }
         try {
             return new Campaign(id, name, seed, difficulty, players);

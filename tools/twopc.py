@@ -32,7 +32,7 @@ HOST_ADDRESS = os.environ.get("SOSGSGMP_HOST_ADDRESS", "")
 KEY = os.environ.get("SOSGSGMP_REMOTE_KEY", str(pathlib.Path.home() / ".ssh" / "sosdet_laptop"))
 SSH = ["ssh", "-i", KEY, "-o", "BatchMode=yes", "-o", "ConnectTimeout=20", "-o", "LogLevel=ERROR"]
 REMOTE_ROOT = r"C:\SOSTest"
-REMOTE_K = 2  # the remote data folder C:\SOSTest\inst\2 (its cache stays between runs)
+REMOTE_K = int(os.environ.get("SOSGSGMP_REMOTE_K", "2"))  # the remote data folder C:\SOSTest\inst\2 (its cache stays between runs)
 EVENTS = pathlib.PurePath("sosgsgmp-autopilot") / "events.jsonl"
 STEAM_APP_ID = "1162750"  # Songs of Syx; Steam reads it from SteamAppId when the game is not started by Steam
 
@@ -254,7 +254,7 @@ def main():
     shutil.rmtree(run, ignore_errors=True)
     run.mkdir(parents=True)
 
-    if game_running_here() or not args.here and "java" in remote_ps("Get-Process java -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '%s\\game\\*' } | Select-Object -ExpandProperty Name" % REMOTE_ROOT):
+    if game_running_here() or not args.here and "java" in remote_ps("Get-CimInstance Win32_Process -Filter \"Name='java.exe'\" | Where-Object { $_.ExecutablePath -like '%s\game\*' -and $_.CommandLine -notlike '*util.error.ErrorMessage*' } | Select-Object -ExpandProperty Name" % REMOTE_ROOT):
         fail("a game still runs on this PC or the second one; close it first")
     if args.resume:
         # the campaign saves, records and player keys of the last run stay; only its events go

@@ -107,6 +107,11 @@ final class MpViews {
 	// ---------------------------------------------------------------- the host
 
 	private void host(ViewRequests r) {
+		for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++) {
+			View v = engine.view(slot);
+			if (v != null && v.state() != View.ENDED && v.state() != View.CANCELLED)
+				r.opened(v.viewer, v.owner);
+		}
 		ViewRequests.Pair p;
 		while ((p = r.takeCheck()) != null) {
 			String refusal = engine.viewRefusal(p.viewer(), p.owner());
@@ -266,10 +271,25 @@ final class MpViews {
 	/** This PC's player, or its limits, close its view. */
 	void close(int why) {
 		ViewRequests r = setup.views();
-		if (r == null || closeSent)
+		if (r == null || closeSent || why == View.CLOSED && closeRefusal() != null)
 			return;
 		closeSent = true;
 		r.close(why);
+	}
+
+	/** An attacker orders the retreat from the assault: its soldiers leave the city, and the view ends with it (spec §9). */
+	void retreat() {
+		ViewRequests r = setup.views();
+		if (r != null && !closeSent) {
+			closeSent = true;
+			r.close(View.RETREAT);
+			log.line("this PC's player ordered the retreat at step " + engine.step());
+		}
+	}
+
+	/** Why this PC's player can't close its view; null when they can. Nobody walks out of an assault (spec §9). */
+	String closeRefusal() {
+		return engine.assault() != null && !engine.spectating() ? "You stay until the assault ends." : null;
 	}
 
 	private void stateChanged(View v) {
@@ -312,8 +332,12 @@ final class MpViews {
 			return;
 		}
 		if (!shown(bar)) {
-			bar = new MpViewBar(this, (v.battle() ? "Watching " : "Viewing ") + subject(v));
+			boolean attacker = engine.assault() != null && engine.assault().attacks(setup.views().local());
+			bar = new MpViewBar(this, (attacker ? "Assault on " : v.battle() ? "Watching " : "Viewing ") + subject(v),
+					attacker ? "You command the invaders." : null);
 			bar.open();
+			if (attacker)
+				VIEW.s().battle.activate(); // the battle UI: the attacker's soldiers are theirs to order
 		}
 		bar.closing(closeSent || v.thaw() >= 0);
 	}

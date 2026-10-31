@@ -269,6 +269,11 @@ public final class ViewRequests {
         deliver(p.viewer(), new Message.ViewAnswer(p.viewer(), p.owner(), refusal == null, refusal == null ? "" : refusal));
     }
 
+    /** Host: a view the engine began without an ask, an assault's (spec §9): its city and hashes pass through here too. */
+    public void opened(int viewer, int owner) {
+        open.put(viewer, owner);
+    }
+
     /** Host: a view to end in the engine, once. Null when none waits. */
     public End takeEnd() {
         return ends.poll();

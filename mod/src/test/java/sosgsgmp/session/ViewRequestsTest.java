@@ -110,6 +110,18 @@ class ViewRequestsTest {
         assertNull(host().takeEnd());
     }
 
+    @Test
+    void anAssaultsViewIsAskedByNoOneAndItsCityStillReachesTheViewer() {
+        host().opened(1, 0);
+        host().opened(2, 0);
+        host().city(1, 900, new byte[] {1, 2, 3});
+        host().hashes(1, new byte[] {7});
+        flush();
+        assertArrayEquals(new byte[] {1, 2, 3}, pcs[1].takeCity(900));
+        assertArrayEquals(new byte[] {7}, pcs[1].takeHashes());
+        assertNull(pcs[2].takeCity(900), "only the viewer it is for");
+    }
+
     private void hashesArrive(byte... bytes) {
         assertNull(pcs[1].received(0, new Message.ViewHashes(1, bytes)));
     }

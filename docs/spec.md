@@ -57,7 +57,7 @@ Version 1 includes six features:
 
 All players are online at the same time. A campaign is saved and resumed later, and one campaign can run over several days.
 
-- **Pausing.** Any player can pause and any player can unpause a normal pause. While paused, every player sees who paused the game. A priority pause can only be unpaused by the host; the game enters one when a player disconnects (section 11).
+- **Pausing.** Any player can pause and any player can unpause a normal pause. While paused, every player sees who paused the game. A spectator can't pause or unpause (section 11). A priority pause can only be unpaused by the host; the game enters one when a player disconnects (section 11).
 - **Game speed.** The host sets the speed. It is capped by the slowest PC: if one player's game falls behind, the speed drops for everyone, as in Paradox grand strategy games. A PC that only waits for the connection isn't slow: the connection lowers the speed only when it holds the game up for over a third of the time for 5 seconds, one step at a time, and the speed goes back up 10 seconds after the waits end. The top bar says whether a PC or the connection holds the speed down (owner, 2026-10-29; SOS-94).
 - **Speeds.** The host can choose 1×, 5×, 25× or 250×. Vanilla's 0.25× isn't offered in multiplayer, in battles either.
 - **Lowest speed.** A slow PC can lower the speed to 0.5× and no further. If a PC can't hold even 0.5×, the game stops for everyone until it catches up, then resumes.
@@ -166,7 +166,7 @@ Real-time sieges of player cities are part of v1. A siege runs in three phases:
 
 1. **Siege.** The attacking army besieges the city, and the vanilla siege rules apply. The city is blockaded, and the attacking army needs supplies as in vanilla.
 2. **Waiting period.** The attacker cannot assault until 1 in-game season has passed for every started 1,000 people in the city, up to a maximum of 4 seasons.
-3. **Assault.** The city is simulated in real time while the attacker storms it. Every PC runs the assault in lockstep, like a field battle ([ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md)): the defender's PC sends its city at the start, every PC loads it, and only orders, the host's AI orders and state checks cross the network. Desyncs are recovered from the host's assault state, as in section 8. The world is paused and every player watches.
+3. **Assault.** The city is simulated in real time while the attacker storms it. Every PC runs the assault in lockstep, like a field battle ([ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md)): the defender's PC sends its city at the start, every PC loads it, and only orders, the host's AI orders and state checks cross the network. Desyncs are recovered from the host's assault state, as in section 8. The world is paused and every player watches. Each player commands only their own soldiers: the defender the city's, each attacker the divisions they brought, and a division nobody has ordered yet is run by the game's general. The players in the fight can't close the view while it lasts; a spectator can (owner, 2026-10-31; SOS-92). Any attacker can order the retreat: every attacker's soldiers leave the city, the survivors stay at the siege, and its waiting period starts over.
 
 **A player's other regions** (not the capital) are attacked and taken by vanilla rules, including vanilla's choices after a capture. When another player besieges one with soldiers in it, the defender is first asked to sally out: Fight starts a battle between the two players (section 8), built by the defender's PC, and Fall Back, or no answer in 30 seconds, lets the siege go on to the besieger's prompt. A sally against a player can't be auto-resolved (SOS-83).
 
@@ -184,7 +184,7 @@ During the siege, the defender can attack the besieging army (sally out) at any 
 **When the attacker wins**, they choose one outcome:
 
 - **Sack:** the attacker chooses which resources and how much money to take, and can remove up to 80% of the population. The 80% is of the citizens and slaves in the city, in total rather than per race, so one race can be taken whole; nobles are never removed. If the attacker doesn't choose in time, half the money and goods are taken and no one is removed (owner, 2026-10-30; SOS-92).
-- **Eliminate:** the attacker takes 90% of the city's resources and money, and removes 90% of its population. The city then becomes an NPC city owned by a neutral faction, as in vanilla, and its player can only spectate from then on.
+- **Eliminate:** the attacker takes 90% of the city's resources and money, and removes 90% of its population. The city then becomes an NPC city owned by a neutral faction, as in vanilla, and its player can only spectate from then on. Removed people the attacker gives no fate to are freed (2026-10-31; SOS-92).
 - **Vassalage:** the defender becomes the attacker's vassal (section 6).
 
 **Removed people.** In a sack or an elimination, the attacker splits the removed people between three fates, as with vanilla's captives:
@@ -195,7 +195,7 @@ During the siege, the defender can attack the besieging army (sally out) at any 
 
 Each fate changes the attacker's mercy as in vanilla, and with it their nobles' Chivalry and Cruelty opinions: freeing raises it, moving lowers it, killing lowers it twice as much.
 
-**Allied attackers.** When several players take a city together, the player with the most soldiers in the assault chooses the outcome. Taken resources, money and removed people are split between them by the number of soldiers each brought.
+**Allied attackers.** An army of a player allied with the player who stormed, and at war with the defender, fights in the assault when it stands within 3 tiles of the stormer's army (owner, 2026-10-31; SOS-92). The player with the most soldiers in the assault chooses the outcome; with a tie, the player who stormed does. Taken resources, money and removed people are split between them by the number of soldiers each brought, and what doesn't divide evenly goes to the player who chooses.
 
 ## 10. City viewing
 
@@ -206,7 +206,7 @@ Any player can view any other player's city, enemies included. This is intended.
 - **Watch only.** While viewing, the viewer can only watch and chat. Their armies and regions keep running on their last orders. A battle, or a prompt that needs the viewer's answer, ends the view.
 - **Only the viewer and the owner.** A view is between those two players, and a view never changes the game speed for anyone. The one part the others play: when a view opens and when it closes, every other player's game pauses briefly (about a second) while it reloads its own world, keeping its city, as a world resync does. A load resets some world state that no save holds, so every PC reloads at the same moment and the world stays the same everywhere.
 - **When the host views.** Every PC follows the host's PC, so while the host's own view opens (the owner's save, the download and the load, a few seconds), the game holds for every player, with the reason shown. Once it is open, nobody waits. Later, the host's role may move to another PC for the view, so nobody waits at all.
-- **Asking.** A view is a request: the viewer asks, and the owner sees the request and allows or refuses it. The view opens only if the owner allows it.
+- **Asking.** A view is a request: the viewer asks, and the owner sees the request and allows or refuses it. The view opens only if the owner allows it. A spectator asks like any other player (owner, 2026-10-31; SOS-111).
 - **Opening a view.** The owner saves their city and sends it straight to the viewer; the viewer's PC loads it and runs it fast until it catches up with the owner's city. Target: a 5-second gap closes in about 2 seconds.
 - **Too slow.** If the viewer hasn't caught up 1 minute after catching up started (the owner's save, the download and the load don't count), or their PC can't keep up with the city at the current speed, the view ends with a message to the viewer. Only that view ends; nobody else is affected.
 - **Keeping up.** The same applies after catching up: a view that falls behind its owner's city and doesn't catch up again within 1 minute ends.
@@ -244,7 +244,13 @@ The window appears on every world desync; there is no automatic resync.
 
 A disconnected player never rejoins a running session; they come back only through a resume. No city is frozen because its player is gone: the only frozen city is a viewer's own city (section 10).
 
-**Elimination.** An eliminated player becomes a spectator. Spectators can view every city and battle and can use chat, but cannot act in the game.
+**Elimination.** An eliminated player becomes a spectator. Spectators can view every city and battle and can use chat, but cannot act in the game. Decided by the owner on 2026-10-31 (SOS-111):
+
+- **Their PC stays.** A spectator's PC stays in the session and runs the world in step with the others. Their old city stays loaded but never runs. An eliminated host stays the host: their PC keeps running the game for everyone.
+- **What they can do.** They read and send chat and get the notifications, and they watch every battle between players and every assault. A view of a city needs its owner's Allow, as any view does (section 10). They can't pause or unpause.
+- **Speed and leaving.** A spectator never limits the game speed. When a spectator leaves, nobody pauses and the host has nothing to choose. A spectator's PC that can't keep up is dropped with a message.
+- **Resume.** An eliminated player can come back to a resume as a spectator, and no resume waits for them. A player removed after a disconnect stays out: only elimination makes a spectator.
+- **Last player standing.** With one player left, the chat says so and play goes on. The spectators can stay or leave.
 
 ## 12. Chat and notifications
 
@@ -379,7 +385,8 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A forced assault desync is detected within 2 seconds, recovered from the host's assault state within 10 seconds, and writes a report. [AT]
 - An NPC invasion of a player's capital doesn't pause the world; every player gets a notification of it, and another player can view the invaded city when its owner allows it. [PT]
 - The defender can sally out against the besiegers at any time during a siege of their capital, and the popup at the siege's start says so. [PT]
-- With allied attackers, the player with the most soldiers chooses the outcome, and the spoils are split by soldiers brought. [AT]
+- An ally's army within 3 tiles of the stormer's fights in the assault; one further away doesn't. With allied attackers, the player with the most soldiers chooses the outcome, and the spoils are split by soldiers brought. [AT]
+- In an assault each attacker commands only the soldiers they brought, and the defender the city's. A player in the fight can't close the view. [PT]
 - Each outcome works. Sack takes the chosen resources and up to 80% of the population. Eliminate takes 90% of the resources, the money and the population, turns the city into a neutral NPC city and makes its player a spectator. Removed people are moved, killed or freed as chosen, and each fate changes the attacker's mercy as in vanilla. Vassalage applies the vassal rules. [AT + PT]
 
 ### City viewing
@@ -398,6 +405,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 
 - A host autosave makes every player save at the same world tick, and the game resumes only when all saves are confirmed. [AT]
 - Before a battle between players or a siege assault starts, every player has a confirmed campaign save from that moment. [AT]
+- A saved campaign with a spectator resumes, with them back as a spectator or without them, and nobody waits. [AT]
 - A campaign saved under one host can be resumed with a different host. [PT]
 - The host can start a resume without a missing player, who is then removed. [AT]
 - A campaign saved from the escape menu's Save Campaign resumes. A joining player's Exit makes every PC save the campaign before the session ends, and that save resumes too. [AT]
@@ -411,10 +419,15 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - Return to the last save resumes every player, the disconnected one included, from the campaign's last save. [PT]
 - Continue without them frees every region the player held and disbands their armies, with the same world hash on every PC. [AT]
 - In a battle or siege, Continue without them ends it with no result, and the other side's armies stay as they were before it. [AT]
+- A spectator who leaves or falls behind pauses nobody, and the host has nothing to choose. [AT]
 
 ### Chat and notifications
 
 - Chat messages reach every player, spectators included, within 2 seconds. [PT]
+- An eliminated player's PC stays in the session, in step with every other PC, with no desync, for a host and for a joiner. [AT]
+- Nothing clicked on a spectator's PC changes the game on any PC, and a spectator can't pause or unpause. [AT]
+- A spectator views a city when its owner allows it, and watches a battle and an assault. [PT]
+- With one player left, the chat says so and play continues. [PT]
 - War declarations and siege starts appear as notifications for every player. [PT]
 - Every player sees the same chat lines in the same order. [AT]
 - A message over 200 characters, or with characters the game can't draw, never stops a PC. [AT]
