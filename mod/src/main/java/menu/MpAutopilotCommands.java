@@ -380,7 +380,7 @@ final class MpAutopilotCommands {
 			MpViews.current().close(sosdet.View.CLOSED);
 			return "closing the view";
 		case "speed":
-			if (!host)
+			if (!host && !Hooks.battleBetweenHumans()) // a battle's commanders vote (spec §8)
 				return "refused: the host sets the speed";
 			GAME.SPEED.speedSet(Double.parseDouble(a[1]));
 			return "speed set";
@@ -450,7 +450,7 @@ final class MpAutopilotCommands {
 			what = "fight";
 		} else if (open instanceof WBattleResult) {
 			WBattleResult result = (WBattleResult) open;
-			boolean won = result.result == BATTLE_RESULT.VICTORY || Hooks.resultForArmy1(true);
+			boolean won = Hooks.resultWon(result);
 			WorldBattles.accept(won ? result.capturedRaces.clone() : null, won ? result.lostResources.clone() : null, 0); // all of it
 			what = won ? "victory accept" : "defeat accept";
 		} else {

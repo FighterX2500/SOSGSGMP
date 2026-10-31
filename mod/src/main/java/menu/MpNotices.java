@@ -57,6 +57,7 @@ final class MpNotices {
 			case Notice.BATTLE -> a + " and " + b + " are fighting a battle.";
 			case Notice.TARIFF -> n.second() == setup.factions().slotOf(setup.localPlayerId())
 					? a + " set a tariff of " + n.value() + "% on you." : null;
+			case Notice.SPEED_VOTE -> a + " voted for speed " + n.value() + "x.";
 			default -> throw new IllegalArgumentException("SOSGSGMP: a notice of kind " + n.kind());
 		};
 	}
