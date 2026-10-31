@@ -265,11 +265,11 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 			if (engine.active()) {
 				deals.refresh();
 				sieges.refresh();
-				sally.visableSet(sieges.besieged());
+				sally.visableSet(sieges.besieged() && PlayerSieges.beforeAssault());
 				if (!deals.lastAnswer().isEmpty())
 					status.add(" ").add(deals.lastAnswer());
 				int days = PlayerSieges.assaultInDays();
-				if (days >= 0)
+				if (days >= 0 && PlayerSieges.beforeAssault())
 					status.add(" Your capital is besieged: the assault can start in ").add(days).add(days == 1 ? " day." : " days.");
 			}
 		}

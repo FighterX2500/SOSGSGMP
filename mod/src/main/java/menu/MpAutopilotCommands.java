@@ -127,7 +127,7 @@ final class MpAutopilotCommands {
 	}
 
 	private Faction other() {
-		return FACTIONS.getByIndex(FACTIONS.player().index() == 0 ? 1 : 0);
+		return FACTIONS.getByIndex(Engine.local() == 0 ? 1 : 0);
 	}
 
 	private String run(String[] a, EnginePlay engine, SetupSession setup) {

@@ -23,6 +23,11 @@ public final class PlayerSieges {
         return Engine.active() ? Engine.assaultInDays(Engine.local()) : -1;
     }
 
+    /** True until an assault begins and after its terms are chosen: Sally out and the days to the assault mean nothing then. */
+    public static boolean beforeAssault() {
+        return Engine.assault() == null && Engine.assaultTaken() == null;
+    }
+
     /** True when {@code reg} is this PC's player's capital and it is besieged. */
     public static boolean besiegedCapital(Region reg) {
         return besiegedSince() >= 0 && reg != null && reg.capitol() && reg.faction() != null
