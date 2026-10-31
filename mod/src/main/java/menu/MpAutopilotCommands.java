@@ -389,11 +389,26 @@ final class MpAutopilotCommands {
 		}
 	}
 
+	/** Answers this PC's oldest simulation question yes; false with none. */
+	private boolean question() {
+		long question = Hooks.stepPromptOldest();
+		if (question < 0 || question == answeredQuestion)
+			return false;
+		answeredQuestion = question;
+		if (Hooks.stepPromptShown() == question && VIEW.inters().yesNo.isActivated())
+			VIEW.inters().yesNo.deactivate(); // the button hides the dialog as it is clicked; nobody clicks here
+		StepPrompts.answer(question, true);
+		event.accept("battle", "\"what\":\"question yes\",\"step\":" + Engine.step());
+		return true;
+	}
+
 	/** The battles on their own (battles=auto): Fight, Start, fight on, Close, and accept the result. */
 	private void battles() {
 		BattleState b = VIEW.b().state();
-		if (Engine.viewing() != null)
-			return; // a watcher only watches
+		if (Engine.viewing() != null) {
+			question(); // a watcher only watches, but a question holds its view open
+			return;
+		}
 		if (b != null) {
 			if (Engine.battle() != null && Engine.battle().awaiting())
 				return;
@@ -410,15 +425,8 @@ final class MpAutopilotCommands {
 			return;
 		}
 		started = concluded = false;
-		long question = Hooks.stepPromptOldest();
-		if (question >= 0 && question != answeredQuestion) {
-			answeredQuestion = question;
-			if (Hooks.stepPromptShown() == question && VIEW.inters().yesNo.isActivated())
-				VIEW.inters().yesNo.deactivate(); // the button hides the dialog as it is clicked; nobody clicks here
-			StepPrompts.answer(question, true);
-			event.accept("battle", "\"what\":\"question yes\",\"step\":" + Engine.step());
+		if (question())
 			return;
-		}
 		Object open = Hooks.worldPromptHere() ? Hooks.worldPrompt() : null;
 		if (open == null) {
 			answeredPrompt = null;
