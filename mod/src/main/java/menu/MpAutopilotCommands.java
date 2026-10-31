@@ -175,8 +175,9 @@ final class MpAutopilotCommands {
 			return "war declared on " + other().name;
 		}
 		case "peace":
+		case "ally":
 		case "trade": {
-			int treaty = a[0].equals("peace") ? DealBook.PEACE : DealBook.TRADE;
+			int treaty = a[0].equals("peace") ? DealBook.PEACE : a[0].equals("ally") ? DealBook.ALLY : DealBook.TRADE;
 			int credits = a.length > 1 ? Integer.parseInt(a[1]) : 0;
 			DealBook.Terms t = new DealBook.Terms(treaty, credits, 0, new int[0], new int[0]);
 			String why = PlayerDeals.refusal(slot, t);
@@ -302,6 +303,18 @@ final class MpAutopilotCommands {
 			Sieges.teleportForTest(w, Integer.parseInt(a[1]), Integer.parseInt(a[2]));
 			return "army " + w.armyIndex() + " teleports, at its step on every PC";
 		}
+		case "npcarmies": { // the NPC armies with men, for a two-PC test of an ally in an NPC battle
+			StringBuilder b = new StringBuilder();
+			for (int i = 0; i < WORLD.ENTITIES().armies.max(); i++) {
+				WArmy e = WORLD.ENTITIES().armies.tryGet(i);
+				if (e != null && e.faction() instanceof FactionNPC && AD.men(null).get(e) > 0)
+					b.append(e.faction().index()).append(' ').append(AD.men(null).get(e)).append(' ').append(e.ctx()).append(' ').append(e.cty()).append("; ");
+			}
+			return b.toString();
+		}
+		case "npcwar":
+			Sieges.npcWarForTest(FACTIONS.player().index(), Integer.parseInt(a[1]));
+			return "at war with " + a[1] + ", at its step on every PC";
 		case "assaultretreat":
 			MpViews.current().retreat();
 			return "retreat ordered";
@@ -360,6 +373,10 @@ final class MpAutopilotCommands {
 			World.armyIntercept(w, target);
 			return "intercepting army " + target.armyIndex();
 		}
+		case "join":
+			return WorldBattles.allyAnswer(true) ? "Join" : "no session";
+		case "stayout":
+			return WorldBattles.allyAnswer(false) ? "Stay out" : "no session";
 		case "fight":
 			return WorldBattles.engage() ? "Fight" : "no session";
 		case "start":
@@ -380,7 +397,7 @@ final class MpAutopilotCommands {
 			MpViews.current().close(sosdet.View.CLOSED);
 			return "closing the view";
 		case "speed":
-			if (!host)
+			if (!host && !Hooks.speedVoteHere()) // a battle's commanders vote (spec §8)
 				return "refused: the host sets the speed";
 			GAME.SPEED.speedSet(Double.parseDouble(a[1]));
 			return "speed set";
@@ -449,9 +466,10 @@ final class MpAutopilotCommands {
 			WorldBattles.engage();
 			what = "fight";
 		} else if (open instanceof WBattleResult) {
-			boolean victory = ((WBattleResult) open).result == BATTLE_RESULT.VICTORY;
-			WorldBattles.accept(victory ? new int[RACES.all().size()] : null, victory ? new int[RESOURCES.ALL().size()] : null, 0);
-			what = victory ? "victory accept" : "defeat accept";
+			WBattleResult result = (WBattleResult) open;
+			boolean won = Hooks.resultWon(result);
+			WorldBattles.accept(won ? result.capturedRaces.clone() : null, won ? result.lostResources.clone() : null, 0); // all of it
+			what = won ? "victory accept" : "defeat accept";
 		} else {
 			return; // a captured settlement's choice: left to its time-out
 		}

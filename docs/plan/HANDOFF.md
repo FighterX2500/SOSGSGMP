@@ -61,9 +61,9 @@ From now on, move a card to In Review when its PR opens. When the PR merges, com
 
 ## 3. Next
 
-1. **The night run of 2026-10-31:** engine PR #70, then mod PR #78, carry SOS-92 (sieges), SOS-111 (spectators), SOS-109, SOS-112, SOS-114 and the LLM runs' fixes. Its PDF lists every decision, result and gap.
+1. **Battles of 2026-10-31:** the branch `SOS-116-battles` in both repositories carries SOS-116 to SOS-119 ([battles-allies.md](battles-allies.md), SOSDET plan 0018). Merge the engine's PR first. The night run (engine PR #70, mod PR #78) is merged.
 2. **The open PRs above**, then the cards from the 2026-10-29 playtest (SOS-85, SOS-95, SOS-101, SOS-104, SOS-105).
-3. **Battles:** resync in a battle (engine plan 0006 M3), the speed vote, allies joining, spectators' view; SOS-93 (NPC battles on their own clock) waits for the owner's answers in PR #68.
+3. **Battles:** spec §16's open decision 9 (a commander who drops out, a slow ally), and each attacker's own bonuses in an assault, which no card covers yet.
 4. **Chat and notifications** (§12, apart from cursors), who paused, debug mode off, elimination and spectating.
 5. **Planning cards still open:** SOS-18 (distribution), SOS-19 (test plan), SOS-21 (the board).
 6. Spec §17 keeps the feature-by-feature status and the estimate for v1.

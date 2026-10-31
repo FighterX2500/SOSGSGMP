@@ -43,6 +43,7 @@ final class MpPlay implements ACTION {
 	private final MpViews views;
 	/** The engine's events as chat lines (SOS-110). */
 	private final MpNotices notices;
+	private MpAllyJoin ally;
 	/** The pause every PC shares, and who set it (spec §4, SOS-110). */
 	private final MpPause pause;
 
@@ -88,6 +89,7 @@ final class MpPlay implements ACTION {
 				spectator();
 				invasions();
 				notices.frame();
+				allyPrompt();
 			}
 		}
 		if (setup.playing()) {
@@ -105,6 +107,18 @@ final class MpPlay implements ACTION {
 			autopilot.game(setup, engine, desync, saves, gone, exit, views);
 	}
 
+	/** The window asking this PC's player to join an ally's battle, while the battle's prompt waits for them (SOS-118). */
+	private void allyPrompt() {
+		boolean asked = engine.allyAsked();
+		if (asked && ally == null) {
+			ally = new MpAllyJoin(engine);
+			ally.open();
+		} else if (!asked && ally != null) {
+			ally.close();
+			ally = null;
+		}
+	}
+
 	/** A battle between two players ended (SOS-83): the log and the chat note it, and the loser gets its window. */
 	private void outcome() {
 		BattleOutcome o = engine.battleOutcomeTake();
@@ -112,7 +126,7 @@ final class MpPlay implements ACTION {
 			return;
 		log.line("battle between players over: " + o);
 		notices.battleOver(o);
-		if (o.loser == setup.factions().slotOf(setup.localPlayerId()))
+		if (o.lost(setup.factions().slotOf(setup.localPlayerId())))
 			new MpBattleOutcome(o).open();
 	}
 

@@ -396,6 +396,16 @@ public final class EnginePlay implements EnginePort {
         return Engine.capacity(pc);
     }
 
+    /** True while a battle's prompt asks this PC's player to join or stay out (SOS-118). */
+    public boolean allyAsked() {
+        return sosdet.Hooks.worldPromptAsksAlly();
+    }
+
+    /** This PC's player's answer: every PC applies it at its step. */
+    public void allyAnswer(boolean join) {
+        sosdet.game.cmd.WorldBattles.allyAnswer(join);
+    }
+
     /** The top bar's speed line while a PC or the link holds the speed down, or null. */
     public String speedNotice() {
         return Engine.speedNotice();
