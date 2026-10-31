@@ -18,6 +18,9 @@ import game.faction.npc.FactionNPC;
 import init.constant.C;
 import init.race.RACES;
 import init.resources.RESOURCES;
+import settlement.entity.ENTITY;
+import settlement.entity.humanoid.Humanoid;
+import settlement.main.SETT;
 import settlement.stats.STATS;
 import snake2d.CORE;
 import sosdet.Engine;
@@ -64,7 +67,8 @@ import world.map.regions.Region;
  * assault running and the last one over); {@code terms sack|vassalage <percent> [moved:killed:freed]} (the attacker's
  * outcome, the people being of the city's largest race); {@code order all|<division> <tx> <ty>} (as placing a division in
  * the battle UI, to that tile); {@code teleport <tx> <ty>} (test tooling: the
- * first army stands at that world tile); {@code assaultretreat} (an attacker orders the retreat from the assault).
+ * first army stands at that world tile); {@code npcbesiege} (test tooling: the strongest NPC army marches on this
+ * city); {@code nudge} (test tooling: a forced desync in a battle or an assault); {@code assaultretreat} (an attacker orders the retreat from the assault).
  */
 final class MpAutopilotCommands {
 
@@ -250,6 +254,16 @@ final class MpAutopilotCommands {
 			w.besiege(other().capitolRegion());
 			return "the siege order opens the prompt; Storm answers it";
 		}
+		case "nudge":
+			for (ENTITY e : SETT.ENTITIES().getAllEnts())
+				if (e instanceof Humanoid && !e.isRemoved() && ((Humanoid) e).division() != null) {
+					STATS.NEEDS().INJURIES.COUNT.indu().set(((Humanoid) e).indu(), STATS.NEEDS().INJURIES.COUNT.indu().max(((Humanoid) e).indu()));
+					return "a soldier here dies, on this PC only";
+				}
+			return "no soldier";
+		case "npcbesiege":
+			Sieges.npcBesiegeForTest(FACTIONS.player().index());
+			return "the strongest NPC army marches on this city";
 		case "teleport": {
 			WArmy w = firstArmy();
 			if (w == null)
@@ -466,10 +480,12 @@ final class MpAutopilotCommands {
 			if (w != null && (w.faction() == FACTIONS.player() || w.faction() == other()))
 				armies.append(w.faction() == FACTIONS.player() ? "mine " : "theirs ").append(w.armyIndex()).append(" men ")
 						.append(AD.men(null).get(w)).append(" at ").append(w.ctx()).append(',').append(w.cty()).append(' ')
-						.append(w.state()).append("; ");
+						.append(w.state().name(w)).append("; ");
 		}
-		return String.format(Locale.ROOT, "step %d, credits %d, at war %b, armies: %s", engine.step(),
-				(long) FACTIONS.player().credits().getD(), DIP.WAR().is(FACTIONS.player(), other()), armies);
+		return String.format(Locale.ROOT, "step %d, credits %d, at war %b, spectating %b, last player %d, my capital besieged %b, theirs %b, armies: %s",
+				engine.step(), (long) FACTIONS.player().credits().getD(),
+				DIP.WAR().is(FACTIONS.player(), other()), Engine.spectating(), Engine.lastHuman(),
+				Engine.besiegedSince(FACTIONS.player().index()) >= 0, Engine.besiegedSince(other().index()) >= 0, armies);
 	}
 
 	private static String clean(String s) {
