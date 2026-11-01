@@ -17,17 +17,17 @@ AGENTS.md holds the coding rules: Java, the game, hooks, threads, saves, network
 
 ## Current phase
 
-- **Engine (SOSDET): implementation** (owner, 2026-10-22). Merged through SOSDET PR #62 (2026-10-30): several humans, own-city battles, removing a human, deals, the market and war between humans, battles between two humans, city viewing, the first step of sieges (SOS-92 step A) and the playtest fixes. Open: SOSDET PR #63 (SOS-92 steps B and C in part) and #64 (SOS-102, the unit tests). The work happens in the SOSDET repository and follows its CLAUDE.md.
-- **Mod (this repository): implementation; the walking skeleton is done** (2026-10-25). Merged through PR #66 (2026-10-30):
+- **Engine (SOSDET): release** (owner, 2026-11-01). Merged through SOSDET PR #73. The work happens in the SOSDET repository and follows its CLAUDE.md.
+- **Mod (this repository): release** (owner, 2026-11-01). Every v1 feature is merged through PR #81; the audit of 2026-11-01 lists what must go in before the Steam release. Merged through PR #66 (2026-10-30):
   - the walking skeleton: the lobby, the setup, the game over the network, the desync window, Steam, battles, the playtest log (SOS-49 to SOS-63);
   - campaign saves and resume, the save before every battle, disconnects and removing a player (SOS-64, SOS-65, SOS-67, SOS-68);
   - diplomacy, trade and war between players, and battles between players (SOS-72 to SOS-77, SOS-83);
   - Save Campaign in the escape menu, names and banners, the transfer log (SOS-78, SOS-79, SOS-81);
   - city viewing (SOS-82);
-  - sieges of a player's capital, step A: the popup and Sally out (SOS-92);
+  - sieges of a player's capital, with the assault and its outcomes (SOS-92); battles with allies and the speed vote (SOS-116 to SOS-119); NPC battles on their own clock (SOS-93, SOS-109); chat and spectators (SOS-110, SOS-111); the fixes from the 2026-11-01 playtest (SOS-120 to SOS-125);
   - playtest fixes, among them cursors in cities (SOS-58), the governor's reasons (SOS-94), stream compression (SOS-96) and a Steam invite from the main menu (SOS-103).
 
-  Open: PR #67 (SOS-92 steps B and C in part), #68 (SOS-93, a plan and draft spec changes), #69 (SOS-100) and #70 (SOS-105). Where things stand and what's next: [docs/plan/HANDOFF.md](docs/plan/HANDOFF.md). The rest of this section applies to the mod.
+  Where things stand and what's next: [docs/plan/HANDOFF.md](docs/plan/HANDOFF.md). The rest of this section applies to the mod.
 
 Feature code for the mod is allowed for approved cards only. Also allowed:
 

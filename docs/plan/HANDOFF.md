@@ -1,6 +1,6 @@
 # Handoff: the next session starts here
 
-Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-10-30 (docs audit). It covers both repositories. SOSDET's own `docs/plan/HANDOFF.md` keeps the engine-only notes (rig, patches, the engine's open items).
+Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-11-01 (release docs audit). It covers both repositories. SOSDET's own `docs/plan/HANDOFF.md` keeps the engine-only notes (rig, patches, the engine's open items).
 
 ## 1. Read first
 
@@ -16,7 +16,7 @@ Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-
 - **Engine:** `C:\ClaudeFolder\SOSDET`, GitHub `FighterX2500/Songs-of-Syx-Deterministic-Engine` (public).
 - **The game:** `C:\ClaudeFolder\Songs of Syx`, V71 build 71.44.
 
-**What works.** Two players play one world map together, each running their own city, over direct IP or Steam:
+**What works.** Players share one world map, tested with up to 3, each running their own city, over direct IP or Steam:
 - the lobby and the setup: map, factions and locations, then the landing party (SOS-49, SOS-54, SOS-56); Ready for every player, the connection notice while placing, and Leave's prompt in the lobby (SOS-120);
 - the world in lockstep through the mod's network (SOS-57);
 - the desync window: the host chooses Resync or Save and exit (SOS-59);
@@ -31,15 +31,14 @@ Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-
 - war between players and real-time battles between two players' armies, with the sally from a besieged region (SOS-74, SOS-83, [war.md](war.md), [battles-between-players.md](battles-between-players.md));
 - city viewing (SOS-82, [city-viewing.md](city-viewing.md));
 - watching another player's NPC battle, without asking: the watcher's PC runs the battle at its own pace from the fighter's tape, and each join reloads the battle on both PCs (SOS-109, SOSDET plan 0017);
-- sieges of a player's capital, step A: the siege's popup, the days to the assault and Sally out (SOS-92, hook M9, [sieges.md](sieges.md));
-- playtest fixes: no capital without roads (SOS-75), the panel's status text and hide button (SOS-84, SOS-91), the host's lead of 1000 steps (SOS-86), the governor's reasons in the log (SOS-94), and batch 1 (PR #66): the ruler name (SOS-98), cursors in cities (SOS-58), a Steam invite from the main menu (SOS-103) and compressed streams with network figures in the log (SOS-96). Protocol 16.
+- sieges of a player's capital, whole: the wait, Sally out, the lockstep assault with each side's commanders, Retreat, Sack, Vassalage, Eliminate and allied attackers (SOS-92, hook M9, [sieges.md](sieges.md));
+- spectators after elimination (SOS-111); chat, notifications and who paused (SOS-110, [chat-notifications.md](chat-notifications.md));
+- real-time NPC battles on their own clock (SOS-93);
+- battles with allies: the winner's choice on either army, the speed vote, allies in both kinds of battle (SOS-116 to SOS-119, [battles-allies.md](battles-allies.md));
+- the 2026-11-01 playtest's list: direct links, global events, cursors on the minimaps, no Resettle, and the NPC courts' desync (SOS-121 to SOS-125);
+- playtest fixes: no capital without roads (SOS-75), the panel's status text and hide button (SOS-84, SOS-91), the host's lead of 1000 steps (SOS-86), the governor's reasons in the log (SOS-94), and batch 1 (PR #66): the ruler name (SOS-98), cursors in cities (SOS-58), a Steam invite from the main menu (SOS-103) and compressed streams with network figures in the log (SOS-96). Protocol 20; city report protocol 7.
 
-**Open PRs** (2026-10-30):
-- SOSGSGMP #67 and SOSDET #63: SOS-92 steps B and C in part, the assault on a player's capital.
-- SOSGSGMP #68: SOS-93, the plan, spike design and draft spec changes for NPC battles on their own clock.
-- SOSGSGMP #69: SOS-100, the player Diplomacy tab laid out as vanilla's NPC deal.
-- SOSGSGMP #70: SOS-105, Steam's newer messages through JNA, behind `SteamPort` (opt-in).
-- SOSDET #64: SOS-102, the unit tests run again.
+**Open PRs:** none in either repository (2026-11-01).
 
 **GUI changelog, SOS-80** (the owner checks GUI changes in-game; no tests for pure layout). Keep these conventions in new screens:
 - **Leave** goes in the bottom-right corner of every setup panel: add the panel's other buttons as its last row, then call `MpSetupLeave.addBottomRight(panel, buttonsRow, MpSetupLeave.button(...))`. Never add Leave inline with other buttons.
@@ -49,29 +48,25 @@ Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-
 - **Status text boxes** are sized for their longest message plus a spare line (`Font.getHeight(text, width)`), so the panel grows downward instead of the text overlapping the buttons. A new long status message must go into that measure (`MpFactions.statusHeight`).
 - **Full-screen prompts with one button** go through `menu.MpPrompt.show(text, button)`: vanilla's `IPromtScreen` puts a lone button half a slot left of centre. Two or more buttons are centred already, so call `fullScreen.activate` directly.
 
-**Jira** (read 2026-10-30). Every card with a merged PR is Done, SOS-58 (cursors) included. Open:
-- In progress: SOS-92 (sieges), SOS-93 (NPC battles on their own clock), SOS-100 (the Diplomacy tab).
-- Also open: SOS-85 (a viewer's PC stopped at a view's load), SOS-95 (a report desync after a view ends), and the 2026-10-30 cards SOS-101, SOS-104 and SOS-105.
-- The epics SOS-22 (engine) and SOS-47 (mod).
-- The planning cards SOS-18, SOS-19 and SOS-21.
+**Jira.** The board holds each card's state; this file doesn't track it. A card goes to In Review when its PR opens. When the PR merges, comment with it and move the card to Done.
 
-From now on, move a card to In Review when its PR opens. When the PR merges, comment with it and move the card to Done, so cards don't pile up again.
-
-**Installed for play.** This PC's `%APPDATA%\songsofsyx\mods` and the laptop's hold the SOS-64 builds of both mods. `C:\ClaudeFolder\SOSGSGMP-playtest-2026-10-25.zip` holds the same builds for a friend, with a README and `send-logs.cmd`.
+**Installed for play.** The newest playtest pack is `C:\ClaudeFolder\SOSGSGMP-playtest-2026-11-01.zip`, with a README and `send-logs.cmd`. It holds main plus SOS-120, from before SOS-121 to SOS-125, so build a new one before the next playtest.
 
 ## 3. Next
 
-1. **Battles of 2026-10-31:** the branch `SOS-116-battles` in both repositories carries SOS-116 to SOS-119 ([battles-allies.md](battles-allies.md), SOSDET plan 0018). Merge the engine's PR first. The night run (engine PR #70, mod PR #78) is merged.
-2. **The open PRs above**, then the cards from the 2026-10-29 playtest (SOS-85, SOS-95, SOS-101, SOS-104, SOS-105).
-3. **Battles:** spec §16's open decision 9 (a commander who drops out, a slow ally), and each attacker's own bonuses in an assault, which no card covers yet.
-4. **Chat and notifications** (§12, apart from cursors), who paused, debug mode off, elimination and spectating.
+1. **For the owner:** debug mode isn't off in multiplayer (spec §4), and the engine's speed floor is 0.25× against the spec's 0.5× (spec §4).
+2. **A player's install (SOS-18):** a clear message when SOSDET is missing, a check of the engine and game builds between PCs, and a check of the game's build at run time (section 4).
+3. **Battles:** spec §16's open question (a commander who drops out, a slow ally), and each attacker's own bonuses in an assault, which no card covers yet.
+4. **Long tests:** the 2-hour world check, the 30-minute battle with 2,000 units per side, the 10,000-person city at 1×, and play-tests at 300 ms ping.
 5. **Planning cards still open:** SOS-18 (distribution), SOS-19 (test plan), SOS-21 (the board).
-6. Spec §17 keeps the feature-by-feature status and the estimate for v1.
+6. Spec §17 keeps the feature-by-feature status.
 
 ## 4. Known issues
 
 - **Market runs in the rig:** a human trades only with capitals it reaches, never across unclaimed land. In Mogus-72 use `--make-humans 2,24`. A game day is 1,152 s and trade runs once a day, so a sale needs about 45,000 steps.
-- **High speeds:** SOS-90 keeps the lockstep windows at half a second of real time at every speed. Two PCs over Radmin held 25x at 400 steps/s, with about 1,000 steps/s to spare, in the LLM runs of 2026-10-31.
+- **High speeds:** SOS-90 keeps the lockstep windows at half a second of real time at every speed. Two PCs over Radmin held 25x at 400 steps/s, with about 1,000 steps/s to spare, in the LLM runs of 2026-10-31. 250×, and 25× in a late-game city, run only as fast as the slowest PC.
+- **SOSDET missing:** the game stops at start-up with "Failed loading assets! file corrupt: ...SOSGSGMP.jar" and "menu.MpDeals$1 could not be loaded". Nothing names SOSDET.
+- **Versions between PCs:** `Hello` carries no engine or game build. The lobby refuses another mod protocol, but not another SOSDET or game build, and nothing checks the game's build at run time.
 - **One world desync with no cause found:** step 133,230 of L2, in the NPC stocks section; the automatic resync cleared it at once. A desync report now names each NPC's stocks, so the next one names the NPC and the value.
 - **"No active entry points" warning:** found and fixed in SOS-75 (SOSDET #46 and the SOSGSGMP PR). Islet capitals with no land beyond their square could get no roads; the location rules now refuse them. Plan and results: [joiner-roads.md](joiner-roads.md).
 - **City↔world items at a resume:** anything crossing in the last ~0.5 s before a campaign save is lost on resume. A battle's return has the same gap.
@@ -85,21 +80,21 @@ Every PC writes its own log of each multiplayer session, with no setup:
 - **Comparing PCs:** the hashes in the status lines are at the same steps on every PC, so two logs side by side show where a desync began.
 
 **After a session:**
-- **This PC plus the laptop:** `python tools\collect.py --remote Qarasiq@26.161.86.190`. It zips both PCs' logs and crash files from the last 24 hours. Add `--remote-appdata C:\SOSTest\inst\2` for a `twopc.py` run.
+- **This PC plus the laptop:** `python tools\collect.py --remote user@address`. It zips both PCs' logs and crash files from the last 24 hours. Add `--remote-appdata C:\SOSTest\inst\2` for a `twopc.py` run.
 - **A friend:** they close the game and run `send-logs.cmd` from the playtest zip. It puts a zip of their logs and crash files from the last 24 hours on their Desktop for them to send. Run `python tools\collect.py` here for this PC's half.
 - **Write down** roughly when something happened, and what each player did just before.
 
 ## 6. Tests
 
-- **Build:** `gradlew.bat build installMod` in each repository, run through PowerShell with `SOS_GAME_DIR` set. Mod: 158 unit and loopback tests (PR #66).
-- **Two PCs, mod:** `tools\twopc.py`. Set `SOSGSGMP_REMOTE=Qarasiq@26.161.86.190` and `SOSGSGMP_HOST_ADDRESS=26.215.11.176`.
+- **Build:** `gradlew.bat build installMod` in each repository, run through PowerShell with `SOS_GAME_DIR` set. Mod: 184 unit and loopback tests.
+- **Two PCs, mod:** `tools\twopc.py`. Set `SOSGSGMP_REMOTE=user@address` and `SOSGSGMP_HOST_ADDRESS=26.x.x.x`.
   - Options: `--steps N`, `--speed X`, `--seed N`, `--corrupt STEP --on-desync resync|exit`, `--net steam`, `--save STEP` and `--resume`.
   - `--resume` keeps both data folders from the last run and copies the installed mods into them.
   - Each instance gets its own player key: the runner deletes the copied lobby settings, and the game saves a new key at once.
-  - Latest runs: S64A (save) and S64B (resume) PASS.
+  - Each plan under `docs/plan/` records its own runs.
 - **Engine:** SOSDET's rig and suite (`rig\suite.py`, see SOSDET `rig/README.md`).
 - **Owner rules for runs:**
-  - one game at a time: list `java.exe` on both PCs first (PID 15828 is the Gradle daemon);
+  - one game at a time: list `java.exe` on both PCs first;
   - a monitor every minute that flags stalls and crash files;
   - short smoke runs only;
   - never rebuild SOSDET while a rig run is live;

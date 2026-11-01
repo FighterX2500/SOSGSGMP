@@ -5,7 +5,7 @@ Investigation, 2026-10-30. Verdict: **as designed** (vanilla's rule, spec §7), 
 ## What the playtest shows
 
 - The host's playtest logs from 2026-10-29/30 hold 403 transfers. All the market trades (`Trade`) were with two NPC realms, Hayven and Vorkia: 82 sales to Hayven, 66 purchases from Hayven, 70 from Vorkia, 41 sales to Vorkia.
-- No market trade ran between FighterX2500 and Fray2. Everything that passed between them went through diplomacy deals (`Diplomacy` transfers: Bread, Stone, Wood, Clothes).
+- No market trade ran between the two players. Everything that passed between them went through diplomacy deals (`Diplomacy` transfers: Bread, Stone, Wood, Clothes).
 - The two were allied the whole time (tariffs 0%/20%, then 0%/0%), and each held one region, its capital.
 
 ## The rule
