@@ -1,0 +1,11 @@
+diff --git a/script/ScriptLoad.java b/script/ScriptLoad.java
+--- a/script/ScriptLoad.java
++++ b/script/ScriptLoad.java
+@@ -189,6 +189,7 @@
+ 				}catch(Exception e) {
+ 					//this is good!
+ 				}catch(NoClassDefFoundError e) {
++					menu.MpEngineCheck.check(); // SOSGSGMP hook M11 (docs/hooks.md)
+ 					throw new Errors.DataError(className + " could not be loaded.", pathRoot.get(jarFile));
+ 				}
+ 				
