@@ -26,7 +26,7 @@ A deterministic simulation engine for Songs of Syx V71 (build 71.44). The same s
 
 [h2]How it's built[/h2]
 [list]
-[*]An ordinary mod: the launcher puts its jar ahead of the game's on the class path. 37 patches touch 354 game files, and the game folder is never changed.
+[*]An ordinary mod: the launcher puts its jar ahead of the game's on the class path. 37 patches touch 355 game files, and the game folder is never changed.
 [*]The patches apply to the game's own source and compile with ECJ, the game's compiler. The build proves the toolchain by rebuilding the untouched source and matching the shipped jar byte for byte.
 [*]No third-party libraries at run time.
 [*]Tested with 299 unit tests, a rig that runs copies of the game on one or two PCs and compares every hash, two PCs held at 25x, and a three-player session over Steam.
