@@ -13,6 +13,8 @@ import java.util.function.Predicate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import sosgsgmp.lobby.Builds;
+
 class SteamNodeTest {
 
     private final FakeSteam steam = new FakeSteam();
@@ -87,7 +89,7 @@ class SteamNodeTest {
         int bobPeer = ((Node.Event.Connected) next(h, e -> e instanceof Node.Event.Connected)).peer();
         next(bob, e -> e instanceof Node.Event.Connected);
         Thread.sleep(50); // the host's first accept has come and gone before the first packet exists
-        bob.send(Node.HOST, new Message.Hello("bob", 7));
+        bob.send(Node.HOST, new Message.Hello("bob", 7, new Builds("0.71.44", 1, 2)));
         Node.Event.Received r = (Node.Event.Received) next(h, e -> e instanceof Node.Event.Received);
         assertEquals(bobPeer, r.peer());
     }
@@ -100,10 +102,10 @@ class SteamNodeTest {
         int bobPeer = ((Node.Event.Connected) next(h, e -> e instanceof Node.Event.Connected)).peer();
         assertEquals(1, bobPeer, "the host numbers members from 1");
 
-        bob.send(Node.HOST, new Message.Hello("Bob", 2));
+        bob.send(Node.HOST, new Message.Hello("Bob", 2, new Builds("0.71.44", 1, 2)));
         Node.Event.Received r = (Node.Event.Received) next(h, e -> e instanceof Node.Event.Received);
         assertEquals(bobPeer, r.peer());
-        assertEquals(new Message.Hello("Bob", 2), r.message());
+        assertEquals(new Message.Hello("Bob", 2, new Builds("0.71.44", 1, 2)), r.message());
 
         h.send(bobPeer, new Message.Start());
         assertEquals(new Message.Start(), ((Node.Event.Received) next(bob, e -> e instanceof Node.Event.Received)).message());
@@ -136,13 +138,13 @@ class SteamNodeTest {
     void packetsFromOutsideTheLobbyAreNeverRead() throws Exception {
         SteamNode h = host();
         FakeSteam.Port stranger = steam.port(9);
-        stranger.send(1, Protocol.encode(new Message.Hello("Eve", 9)));
+        stranger.send(1, Protocol.encode(new Message.Hello("Eve", 9, new Builds("0.71.44", 1, 2))));
         SteamNode bob = join(2, h.lobby());
         next(h, e -> e instanceof Node.Event.Connected);
         next(bob, e -> e instanceof Node.Event.Connected);
-        bob.send(Node.HOST, new Message.Hello("Bob", 2));
+        bob.send(Node.HOST, new Message.Hello("Bob", 2, new Builds("0.71.44", 1, 2)));
         Node.Event.Received r = (Node.Event.Received) next(h, e -> e instanceof Node.Event.Received);
-        assertEquals(new Message.Hello("Bob", 2), r.message(), "Eve's hello never arrives");
+        assertEquals(new Message.Hello("Bob", 2, new Builds("0.71.44", 1, 2)), r.message(), "Eve's hello never arrives");
     }
 
     @Test

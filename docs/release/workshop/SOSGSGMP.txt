@@ -2,7 +2,7 @@
 
 Each player runs their own city-state on one shared world map. Meet each other and the NPC factions through diplomacy, trade and war, with real-time battles and sieges between players. Made for a small group of friends, usually 2 or 3, in long sessions that are saved and resumed.
 
-[b]Beta.[/b] Every main feature is in, and three players have played it together over Steam. Expect bugs, and please send logs (at the bottom).
+[b]V1 Beta.[/b] Every main feature is in, and three players have played it together over Steam. Expect bugs, and please send logs (at the bottom).
 
 [h2]You need[/h2]
 [list]
@@ -30,7 +30,7 @@ Each player runs their own city-state on one shared world map. Meet each other a
 [*]Watching another player's city live, with their permission
 [*]Going on without a player who drops out, and recovery from a desync
 [/list]
-[b]Beta (2026-11-01)[/b]
+[b]V1 Beta (2026-11-01)[/b]
 [list]
 [*]Sieges of player capitals: the wait, the sally, a real-time assault, then sack, vassalage or elimination
 [*]Allies in battles and assaults, and a speed vote between commanders
@@ -40,12 +40,11 @@ Each player runs their own city-state on one shared world map. Meet each other a
 [*]Direct routes between players who start 6 to 15 tiles apart
 [*]Global events, such as an eclipse, that reach every city at once
 [*]25x on two PCs, and three players in one session over Steam
+[*]Clear messages for a missing SOSDET or a different build
 [/list]
 
 [h2]Known problems[/h2]
 [list]
-[*]If SOSDET is off, the game stops at start-up and calls SOSGSGMP.jar corrupt. Enable SOSDET.
-[*]A different game build or SOSDET version isn't detected yet, and can crash or desync.
 [*]At 250x, and at 25x in a big late-game city, the game runs only as fast as the slowest PC.
 [*]The owner's game pauses for a few seconds when their city's view opens, and everyone else's for about a second.
 [*]Goods or people crossing between a city and the world in the last half second before a campaign save can be lost on resume.

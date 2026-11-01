@@ -6,7 +6,7 @@ A deterministic simulation engine for Songs of Syx V71 (build 71.44). The same s
 
 [h2]Installing[/h2]
 [list]
-[*][b]Songs of Syx V71, build 71.44[/b], on Windows. Other builds aren't supported, and it doesn't check the build when the game starts yet.
+[*][b]Songs of Syx V71, build 71.44[/b], on Windows. On any other build it stops the game at start-up and says so.
 [*]Subscribe, and enable it in the launcher's mod list along with SoS GSG MP. Every player needs the same version.
 [*]It replaces some of the game's own classes with patched copies, so mods that change the same code may not work with it. Compatibility with other mods isn't supported.
 [/list]
@@ -26,7 +26,7 @@ A deterministic simulation engine for Songs of Syx V71 (build 71.44). The same s
 
 [h2]How it's built[/h2]
 [list]
-[*]An ordinary mod: the launcher puts its jar ahead of the game's on the class path. 36 patches touch 352 game files, and the game folder is never changed.
+[*]An ordinary mod: the launcher puts its jar ahead of the game's on the class path. 37 patches touch 355 game files, and the game folder is never changed.
 [*]The patches apply to the game's own source and compile with ECJ, the game's compiler. The build proves the toolchain by rebuilding the untouched source and matching the shipped jar byte for byte.
 [*]No third-party libraries at run time.
 [*]Tested with 299 unit tests, a rig that runs copies of the game on one or two PCs and compares every hash, two PCs held at 25x, and a three-player session over Steam.

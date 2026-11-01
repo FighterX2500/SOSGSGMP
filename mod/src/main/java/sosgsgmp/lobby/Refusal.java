@@ -9,7 +9,10 @@ public enum Refusal {
     ALREADY_JOINED("A PC with your player key is already in the lobby. If one PC's profile was copied from the other, delete"
             + " saves\\profile\\SOSGSGMP-lobby.properties on one of them: it gets a new key."),
     REMOVED("The host removed you from this campaign, so you can't play in it again."),
-    TOO_SLOW("Your PC couldn't keep up with the game, so the host dropped it. You can come back to watch at the next resume.");
+    TOO_SLOW("Your PC couldn't keep up with the game, so the host dropped it. You can come back to watch at the next resume."),
+    WRONG_GAME("Your Songs of Syx isn't the host's build. Everyone needs the same build of the game."),
+    WRONG_ENGINE("Your SOSDET isn't the host's build. Everyone needs the same one: let Steam finish updating, then restart the game."),
+    WRONG_MOD("Your SOS GSG MP isn't the host's build. Everyone needs the same one: let Steam finish updating, then restart the game.");
 
     public final String text;
 

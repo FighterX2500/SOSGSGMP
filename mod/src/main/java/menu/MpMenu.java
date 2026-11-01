@@ -17,6 +17,7 @@ import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
 import snake2d.util.misc.ACTION;
 import snake2d.util.sprite.SPRITE;
+import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPrefs;
 import sosgsgmp.net.SteamNode;
 import sosgsgmp.session.LobbySession;
@@ -31,6 +32,7 @@ final class MpMenu {
 
 	final Menu menu;
 	final LobbyPrefs prefs;
+	final Builds builds = MpBuilds.local();
 	final Modes modes;
 	final MpScreenMain main;
 	final MpScreenCreate create;

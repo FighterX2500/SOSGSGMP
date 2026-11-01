@@ -76,7 +76,7 @@ final class MpScreenJoin extends GUI.Shadower implements SC {
 		mp.prefs.port = p;
 		mp.savePrefs();
 		try {
-			JoinedLobby lobby = new JoinedLobby(host, p, n, mp.prefs.playerKey);
+			JoinedLobby lobby = new JoinedLobby(host, p, n, mp.prefs.playerKey, mp.builds);
 			error.clear();
 			mp.openLobby(lobby, null);
 		} catch (IOException e) {

@@ -4,7 +4,7 @@ Multiplayer for Songs of Syx V71 (build 71.44). Each player runs their own city-
 
 The simulation runs in lockstep on every PC through the deterministic engine [SOSDET](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine), a separate mod that this one needs. The mod's name in the game's launcher is SOS GSG MP.
 
-**Status:** beta. All of v1's main features are built and play over Steam or direct IP; three players have played it together. Some safety checks, long tests and the performance targets are still open. What works and what's next: [Status](#status) below, and spec §17.
+**Status:** V1 Beta. All of v1's main features are built and play over Steam or direct IP; three players have played it together. Long tests and the performance targets are still open. What works and what's next: [Status](#status) below, and spec §17.
 
 ## What it does
 
@@ -38,7 +38,6 @@ The rules are in [docs/spec.md](docs/spec.md).
 - names and banners on every PC; other players' cursors on the maps and minimaps; a session log on every PC.
 
 **Still open:**
-- **Before a public release:** a clear message when SOSDET is missing (today the game stops at start-up and calls `SOSGSGMP.jar` corrupt), and a check of the SOSDET and game builds on every PC.
 - **Spec gaps:** debug mode isn't turned off in multiplayer, the code's lowest speed is 0.25× where spec §4 says 0.5×, and each attacker's own bonuses in an assault aren't built.
 - **Tests:** a 2-hour session, a 30-minute battle with 2,000 units per side, the 10,000-person city at 1x, and 300 ms ping.
 
@@ -46,7 +45,7 @@ The rules are in [docs/spec.md](docs/spec.md).
 
 ## Playing
 
-You need Songs of Syx V71, **build 71.44**, on Windows through Steam, and both mods: SOSDET and SOS GSG MP. Every player must have the same build of both. A different mod version is refused in the lobby; a different SOSDET or game build isn't detected yet, and can crash or desync.
+You need Songs of Syx V71, **build 71.44**, on Windows through Steam, and both mods: SOSDET and SOS GSG MP. Every player must have the same build of both. The lobby refuses a different game, SOSDET or mod build and says which one differs. If SOSDET is off, the game says so at start-up.
 
 1. Close the game.
 2. Copy the `SOSDET` and `SOSGSGMP` folders into `%APPDATA%\songsofsyx\mods` (create `mods` if it isn't there).

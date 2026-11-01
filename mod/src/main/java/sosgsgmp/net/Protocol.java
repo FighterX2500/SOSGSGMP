@@ -15,6 +15,7 @@ import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.lobby.Lobby;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
+import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep;
@@ -30,7 +31,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 20;
+    public static final int VERSION = 21;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -66,6 +67,9 @@ public final class Protocol {
                     out.writeByte(HELLO);
                     out.writeUTF(h.name());
                     out.writeLong(h.playerKey());
+                    out.writeUTF(h.builds().game());
+                    out.writeLong(h.builds().engine());
+                    out.writeLong(h.builds().mod());
                 }
                 case Message.Welcome w -> {
                     out.writeByte(WELCOME);
@@ -313,7 +317,7 @@ public final class Protocol {
             return new Message.Unsupported(version);
         int type = in.readUnsignedByte();
         Message m = switch (type) {
-            case HELLO -> new Message.Hello(name(in), in.readLong());
+            case HELLO -> new Message.Hello(name(in), in.readLong(), new Builds(in.readUTF(), in.readLong(), in.readLong()));
             case WELCOME -> new Message.Welcome(in.readInt(), settings(in));
             case ROSTER -> roster(in);
             case REFUSED -> new Message.Refused(refusal(in.readUnsignedByte()));

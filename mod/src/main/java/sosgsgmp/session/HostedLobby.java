@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.Lobby;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
@@ -27,19 +28,21 @@ public final class HostedLobby implements LobbySession {
     private boolean handedOver;
     private String closedReason;
     private final Chat chat = new Chat();
+    private final Builds builds;
     private int changes;
 
     /**
      * Opens a lobby listening on {@code port} (0: any free port); throws if the port can't be used. {@code hostKey}: this
      * PC's player key, who it is in a campaign.
      */
-    public HostedLobby(LobbySettings settings, String hostName, long hostKey, int port) throws IOException {
-        this(settings, hostName, hostKey, TcpNode.listen(port));
+    public HostedLobby(LobbySettings settings, String hostName, long hostKey, Builds builds, int port) throws IOException {
+        this(settings, hostName, hostKey, builds, TcpNode.listen(port));
     }
 
     /** Opens a lobby on a node that already hosts (a Steam lobby this PC owns). */
-    public HostedLobby(LobbySettings settings, String hostName, long hostKey, Node node) {
+    public HostedLobby(LobbySettings settings, String hostName, long hostKey, Builds builds, Node node) {
         this.lobby = new Lobby(settings, hostName, hostKey);
+        this.builds = builds;
         this.node = node;
     }
 
@@ -86,7 +89,9 @@ public final class HostedLobby implements LobbySession {
         boolean isJoined = joined.containsKey(peer);
         switch (m) {
             case Message.Hello h when !isJoined -> {
-                Refusal refusal = lobby.refusal(h.playerKey());
+                Refusal refusal = builds.mismatch(h.builds());
+                if (refusal == null)
+                    refusal = lobby.refusal(h.playerKey());
                 if (refusal != null) {
                     refuse(peer, refusal);
                     return;

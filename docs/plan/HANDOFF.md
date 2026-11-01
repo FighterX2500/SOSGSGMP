@@ -55,7 +55,7 @@ Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-
 ## 3. Next
 
 1. **For the owner:** debug mode isn't off in multiplayer (spec §4), and the engine's speed floor is 0.25× against the spec's 0.5× (spec §4).
-2. **A player's install (SOS-18):** a clear message when SOSDET is missing, a check of the engine and game builds between PCs, and a check of the game's build at run time (section 4).
+2. **A player's install (SOS-18):** the build checks are in (SOS-126 to SOS-128). Left: publishing on the Steam Workshop.
 3. **Battles:** spec §16's open question (a commander who drops out, a slow ally), and each attacker's own bonuses in an assault, which no card covers yet.
 4. **Long tests:** the 2-hour world check, the 30-minute battle with 2,000 units per side, the 10,000-person city at 1×, and play-tests at 300 ms ping.
 5. **Planning cards still open:** SOS-18 (distribution), SOS-19 (test plan), SOS-21 (the board).
@@ -65,8 +65,6 @@ Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-
 
 - **Market runs in the rig:** a human trades only with capitals it reaches, never across unclaimed land. In Mogus-72 use `--make-humans 2,24`. A game day is 1,152 s and trade runs once a day, so a sale needs about 45,000 steps.
 - **High speeds:** SOS-90 keeps the lockstep windows at half a second of real time at every speed. Two PCs over Radmin held 25x at 400 steps/s, with about 1,000 steps/s to spare, in the LLM runs of 2026-10-31. 250×, and 25× in a late-game city, run only as fast as the slowest PC.
-- **SOSDET missing:** the game stops at start-up with "Failed loading assets! file corrupt: ...SOSGSGMP.jar" and "menu.MpDeals$1 could not be loaded". Nothing names SOSDET.
-- **Versions between PCs:** `Hello` carries no engine or game build. The lobby refuses another mod protocol, but not another SOSDET or game build, and nothing checks the game's build at run time.
 - **One world desync with no cause found:** step 133,230 of L2, in the NPC stocks section; the automatic resync cleared it at once. A desync report now names each NPC's stocks, so the next one names the NPC and the value.
 - **"No active entry points" warning:** found and fixed in SOS-75 (SOSDET #46 and the SOSGSGMP PR). Islet capitals with no land beyond their square could get no roads; the location rules now refuse them. Plan and results: [joiner-roads.md](joiner-roads.md).
 - **City↔world items at a resume:** anything crossing in the last ~0.5 s before a campaign save is lost on resume. A battle's return has the same gap.

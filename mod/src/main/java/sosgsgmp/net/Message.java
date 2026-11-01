@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Objects;
 
 import sosgsgmp.campaign.SaveOrder;
+import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.Refusal;
@@ -17,7 +18,7 @@ import sosgsgmp.setup.MapStep;
 public sealed interface Message {
 
     /** Joining PC to host, first message: who is joining. The key identifies the player across sessions (direct IP). */
-    record Hello(String name, long playerKey) implements Message {}
+    record Hello(String name, long playerKey, Builds builds) implements Message {}
 
     /** Host to a joined PC: its player id and the lobby's settings. */
     record Welcome(int yourId, LobbySettings settings) implements Message {}
