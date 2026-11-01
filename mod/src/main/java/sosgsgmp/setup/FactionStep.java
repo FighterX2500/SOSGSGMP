@@ -26,8 +26,11 @@ public final class FactionStep {
         String problem(int x, int y, int[] otherX, int[] otherY);
     }
 
-    /** A player's latest picks as the host holds them; {@code refused}: why the host cleared the location, or null. */
-    public record PlayerPick(int playerId, FactionPick pick, String refused) {}
+    /**
+     * A player's latest picks as the host holds them; {@code refused}: why the host cleared the location, or null;
+     * {@code ready}: they pressed Ready (SOS-120), so their picks stay as they are until they press it again.
+     */
+    public record PlayerPick(int playerId, FactionPick pick, String refused, boolean ready) {}
 
     /** A player's place in the world the host built: slot 0 is the host's, then the joiners in join order. */
     public record PlayerSlot(int playerId, int slot) {}
@@ -56,6 +59,8 @@ public final class FactionStep {
     private final Map<Integer, PlayerPick> picks = new LinkedHashMap<>();
     /** This PC's own latest picks, before the host's table echoes them. */
     private FactionPick ownPick;
+    /** This PC's player pressed Ready, before the host's table echoes it. */
+    private boolean ownReady;
     /** The save's transfer number once the world is initialized; 0 before. */
     private int transfer;
     private final Map<Integer, Integer> slots = new HashMap<>();
@@ -114,13 +119,13 @@ public final class FactionStep {
      */
     public boolean onPick(int playerId, FactionPick pick) {
         requireHost("collect picks");
-        if (transfer > 0 || !order.contains(playerId))
+        if (transfer > 0 || !order.contains(playerId) || isReady(playerId))
             return false;
-        PlayerPick held = new PlayerPick(playerId, pick, null);
+        PlayerPick held = new PlayerPick(playerId, pick, null, false);
         if (pick.hasLocation()) {
             String problem = problem(playerId, pick.x(), pick.y(), rule);
             if (problem != null)
-                held = new PlayerPick(playerId, pick.at(FactionPick.NONE, FactionPick.NONE), problem);
+                held = new PlayerPick(playerId, pick.at(FactionPick.NONE, FactionPick.NONE), problem, false);
         }
         if (held.equals(picks.get(playerId)))
             return false;
@@ -157,16 +162,53 @@ public final class FactionStep {
         return problem(localId, x, y, rule);
     }
 
-    /** Initialize World is active when every player has a location, until it is pressed. */
-    public boolean canInitialize() {
-        if (!host || transfer > 0)
+    /**
+     * Host: a player pressed Ready or pressed it again (SOS-120). Ready needs a location. False, changing nothing, when
+     * the world is built, the player isn't in the setup, or nothing changes.
+     */
+    public boolean onReady(int playerId, boolean ready) {
+        requireHost("collect ready");
+        PlayerPick p = picks.get(playerId);
+        if (transfer > 0 || !order.contains(playerId) || p == null || p.ready() == ready || (ready && !p.pick().hasLocation()))
             return false;
-        for (int id : order) {
-            PlayerPick p = picks.get(id);
-            if (p == null || !p.pick().hasLocation())
-                return false;
-        }
+        picks.put(playerId, new PlayerPick(playerId, p.pick(), p.refused(), ready));
+        if (playerId == localId)
+            ownReady = ready;
         return true;
+    }
+
+    /** This PC's player pressed Ready or pressed it again; a joining PC sends it to the host. */
+    public void ownReady(boolean ready) {
+        ownReady = ready;
+    }
+
+    /** Whether this PC's player is ready: the setup's buttons stay greyed but for Ready itself. */
+    public boolean ready() {
+        return ownReady;
+    }
+
+    /** This PC's player can press Ready: the host's table holds their location. */
+    public boolean canReady() {
+        PlayerPick p = picks.get(localId);
+        return transfer == 0 && p != null && p.pick().hasLocation();
+    }
+
+    private boolean isReady(int playerId) {
+        PlayerPick p = picks.get(playerId);
+        return p != null && p.ready();
+    }
+
+    /** Host: every player is ready: each holds a location, as Ready needs one. */
+    private boolean everyoneReady() {
+        for (int id : order)
+            if (!isReady(id))
+                return false;
+        return !order.isEmpty();
+    }
+
+    /** Initialize World is active when every player is ready, until it is pressed. */
+    public boolean canInitialize() {
+        return host && transfer == 0 && everyoneReady();
     }
 
     /** Host: locks every pick and gives every player its slot. Returns the save's transfer number. */
@@ -281,6 +323,9 @@ public final class FactionStep {
             return false;
         picks.clear();
         picks.putAll(now);
+        PlayerPick mine = now.get(localId);
+        if (mine != null && !mine.pick().hasLocation())
+            ownReady = false; // the host refused the location this PC pressed Ready on
         return true;
     }
 

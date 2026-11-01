@@ -103,6 +103,9 @@ public sealed interface Message {
     /** Joining PC to host: this PC's latest picks: race, faction, banner and location (setup-factions-step.md §4). */
     record Pick(FactionPick pick) implements Message {}
 
+    /** Joining PC to host: this PC's player pressed Ready, or pressed it again (SOS-120). */
+    record Ready(boolean ready) implements Message {}
+
     /** Host to every joined PC: every player's latest picks, the host's first, with the reason a location was cleared. */
     record Picks(List<FactionStep.PlayerPick> picks) implements Message {
         public Picks {

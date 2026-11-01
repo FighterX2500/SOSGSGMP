@@ -67,6 +67,12 @@ public interface SetupSession {
     void pick(FactionPick pick);
 
     /**
+     * This PC's player presses Ready, or presses it again (SOS-120). Check {@link FactionStep#canReady()} first. The
+     * host holds who is ready, and the chat says so on every PC.
+     */
+    void ready(boolean ready);
+
+    /**
      * Why this PC's location can't be at world tile {@code x, y}: the engine's rule with the other players' locations
      * as this PC knows them; null when it can. Only once the map is confirmed.
      */

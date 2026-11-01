@@ -175,6 +175,10 @@ public final class HostedSetup implements SetupSession {
                 if (step.onResult(id, r.genId(), r.hash(), r.status()))
                     changed();
             }
+            case Message.Ready r when id != null && factions != null -> {
+                if (factions.onReady(id, r.ready()))
+                    picksChanged();
+            }
             case Message.Pick p when id != null && factions != null -> {
                 if (factions.onPick(id, p.pick()))
                     picksChanged();
@@ -408,6 +412,7 @@ public final class HostedSetup implements SetupSession {
         List<FactionStep.PlayerPick> now = factions.table();
         if (now.isEmpty() || now.equals(sentPicks))
             return;
+        chat.readyChanged(sentPicks, now, players);
         sentPicks = now;
         sendAll(new Message.Picks(now));
     }
@@ -670,6 +675,14 @@ public final class HostedSetup implements SetupSession {
             throw new IllegalStateException("SOSGSGMP: picks before the map is confirmed");
         factions.ownPick(pick);
         if (factions.onPick(step.localPlayerId(), pick))
+            picksChanged();
+    }
+
+    @Override
+    public void ready(boolean ready) {
+        if (factions == null)
+            throw new IllegalStateException("SOSGSGMP: ready before the map is confirmed");
+        if (factions.onReady(step.localPlayerId(), ready))
             picksChanged();
     }
 

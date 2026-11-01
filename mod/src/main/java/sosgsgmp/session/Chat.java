@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import sosgsgmp.lobby.LobbyPlayer;
+import sosgsgmp.setup.FactionStep;
 
 /**
  * The session's chat on this PC (spec §12): the last {@link #MAX_LINES} lines, in the host's order, so every PC shows
@@ -88,6 +89,23 @@ public final class Chat {
     /** A line that no player said, on this PC only. */
     public void notice(String text) {
         add(new Line(NOTICE, "", 0, text));
+    }
+
+    /** One line for each player whose Ready differs between two tables of picks; a player who left has no line. */
+    void readyChanged(List<FactionStep.PlayerPick> before, List<FactionStep.PlayerPick> now, List<LobbyPlayer> players) {
+        for (LobbyPlayer p : players) {
+            boolean was = ready(before, p.id());
+            boolean is = ready(now, p.id());
+            if (was != is)
+                notice(p.name() + (is ? " is ready." : " is no longer ready."));
+        }
+    }
+
+    private static boolean ready(List<FactionStep.PlayerPick> table, int id) {
+        for (FactionStep.PlayerPick p : table)
+            if (p.playerId() == id)
+                return p.ready();
+        return false;
     }
 
     /** The lobby's players now, at each refresh: who joined or left since the last call; the first with anyone in only remembers. */

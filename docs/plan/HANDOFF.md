@@ -17,7 +17,7 @@ Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-
 - **The game:** `C:\ClaudeFolder\Songs of Syx`, V71 build 71.44.
 
 **What works.** Two players play one world map together, each running their own city, over direct IP or Steam:
-- the lobby and the setup: map, factions and locations, then the landing party (SOS-49, SOS-54, SOS-56);
+- the lobby and the setup: map, factions and locations, then the landing party (SOS-49, SOS-54, SOS-56); Ready for every player, the connection notice while placing, and Leave's prompt in the lobby (SOS-120);
 - the world in lockstep through the mod's network (SOS-57);
 - the desync window: the host chooses Resync or Save and exit (SOS-59);
 - Steam lobbies and P2P (SOS-60);

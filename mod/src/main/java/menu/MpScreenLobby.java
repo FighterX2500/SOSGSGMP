@@ -3,11 +3,13 @@ package menu;
 import java.nio.file.Files;
 import java.util.List;
 
+import init.constant.C;
 import init.paths.PATHS;
 import init.sprite.UI.UI;
 import menu.GUI.COLORS;
 import snake2d.SPRITE_RENDERER;
 import snake2d.util.color.COLOR;
+import snake2d.util.color.OPACITY;
 import snake2d.util.datatypes.COORDINATE;
 import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.clickable.CLICKABLE;
@@ -53,13 +55,17 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 	private final GText status = new GText(UI.FONT().M, 256);
 	private final CLICKABLE start;
 	private final MpChatBox chat = new MpChatBox(CHAT_WIDTH, CHAT_ROWS, this::say);
+	/** Asks before leaving, over the lobby, which takes no clicks meanwhile: a stray click shouldn't drop a player out. */
+	private final GuiSection leaveAsk = new GuiSection();
+	private final GText leaveQuestion = new GText(UI.FONT().H2, 64);
+	private boolean askingLeave;
 
 	MpScreenLobby(MpMenu mp) {
 		this.mp = mp;
 		MenuScreen screen = new MenuScreen("lobby", GUI.labelColor) {
 			@Override
 			protected void back() {
-				leave();
+				askLeave();
 			}
 		};
 		start = new MenuScreen.ScreenButton("start lobby") {
@@ -92,10 +98,24 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		screen.addButt(new MenuScreen.ScreenButton("leave") {
 			@Override
 			protected void clickA() {
-				leave();
+				askLeave();
 			}
 		});
 		add(screen);
+		leaveAsk.add(new MenuScreen.ScreenButton("confirm") {
+			@Override
+			protected void clickA() {
+				askingLeave = false;
+				leave();
+			}
+		});
+		leaveAsk.addRightC(80, new MenuScreen.ScreenButton("cancel") {
+			@Override
+			protected void clickA() {
+				askingLeave = false;
+			}
+		});
+		leaveAsk.body().centerIn(C.DIM());
 
 		for (int i = 0; i < rows.length; i++)
 			rows[i] = new GText(UI.FONT().H2, 64);
@@ -150,8 +170,37 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		resumeProblem = null;
 		shownChanges = -1;
 		start.visableSet(s.isHost());
+		askingLeave = false;
 		chat.show(s.chat());
 		refresh();
+	}
+
+	/** Leave and Escape come here. A lobby already closed has nothing to leave: it goes back at once. */
+	private void askLeave() {
+		if (session == null || session.state() == LobbyState.CLOSED) {
+			leave();
+			return;
+		}
+		leaveQuestion.clear().add(session.isHost() ? "Leave and close the lobby for every player?" : "Leave the lobby?");
+		leaveQuestion.adjustWidth();
+		askingLeave = true;
+	}
+
+	@Override
+	public void render(SPRITE_RENDERER r, float ds) {
+		super.render(r, ds);
+		if (!askingLeave)
+			return;
+		OPACITY.O75.bind();
+		COLOR.BLACK.render(r, 0, C.WIDTH(), 0, C.HEIGHT());
+		OPACITY.unbind();
+		leaveQuestion.renderC(r, C.WIDTH() / 2, leaveAsk.body().y1() - 60);
+		leaveAsk.render(r, ds);
+	}
+
+	@Override
+	public boolean click() {
+		return askingLeave ? leaveAsk.click() : super.click();
 	}
 
 	/** Called every frame by the menu's update; applies network events and refreshes the texts on change. */
@@ -166,11 +215,19 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 			refresh();
 			steamFailure();
 			if (mp.autopilot != null)
-				mp.autopilot.lobby(session);
+				mp.autopilot.lobby(session, this::previewLeave);
 			if (session.state() == LobbyState.STARTED)
 				startSetup();
 		}
-		return super.hover(mCoo);
+		return askingLeave ? leaveAsk.hover(mCoo) : super.hover(mCoo);
+	}
+
+	/** The test autopilot's GUI preview: shows Leave's prompt or takes it away. */
+	private void previewLeave(boolean show) {
+		if (show)
+			askLeave();
+		else
+			askingLeave = false;
 	}
 
 	/**
@@ -228,6 +285,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 	}
 
 	private void leaveMenu(snake2d.CORE_STATE.Constructor next) {
+		askingLeave = false;
 		session = null;
 		steam = null;
 		setup = null;
@@ -307,7 +365,10 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 
 	@Override
 	public boolean back(Menu menu) {
-		leave();
+		if (askingLeave)
+			askingLeave = false;
+		else
+			askLeave();
 		return true;
 	}
 }
