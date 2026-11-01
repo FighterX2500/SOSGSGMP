@@ -412,6 +412,8 @@ public final class MpAutopilot {
 				event("steamfail", "\"reason\":\"" + clean(browsing.failure()) + "\"");
 			return;
 		}
+		if (browsing.personaName() != null && first("steamname"))
+			event("steamname", "\"name\":\"" + clean(browsing.personaName()) + "\"");
 		if (browsing.friendLobbies().isEmpty())
 			return;
 		SteamPort.FriendLobby f = browsing.friendLobbies().get(0);

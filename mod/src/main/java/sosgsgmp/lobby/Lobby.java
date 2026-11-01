@@ -115,6 +115,12 @@ public final class Lobby {
         return started;
     }
 
+    /** The name for a Steam join: the Steam name, unless the player chose a name of their own; {@code persona} may be null. */
+    public static String steamName(String typed, String persona) {
+        String name = cleanName(typed);
+        return name.equals(cleanName(null)) && persona != null ? cleanName(persona) : name;
+    }
+
     /** A name as the lobby shows it: trimmed, cut to {@link #MAX_NAME}, "Player" when empty. */
     public static String cleanName(String name) {
         String n = name == null ? "" : name.strip();

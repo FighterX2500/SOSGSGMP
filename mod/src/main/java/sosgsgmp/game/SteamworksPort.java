@@ -138,6 +138,11 @@ public final class SteamworksPort implements SteamPort {
     }
 
     @Override
+    public String personaName() {
+        return friends.getPersonaName();
+    }
+
+    @Override
     public long self() {
         return handle(user.getSteamID());
     }
