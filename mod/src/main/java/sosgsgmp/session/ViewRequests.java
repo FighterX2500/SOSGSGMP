@@ -89,6 +89,8 @@ public final class ViewRequests {
     private final Map<Integer, Integer> pending = new HashMap<>();
     /** Views begun, by viewer: the owner, whose city and hashes go to that viewer. */
     private final Map<Integer, Integer> open = new HashMap<>();
+    /** Host: allowed views wait to begin: a campaign save is waiting or under way. */
+    private boolean beginsHeld;
 
     /** This PC, in slot {@code local}; the host is in slot {@code hostSlot}. */
     ViewRequests(boolean host, int local, int hostSlot, Net net, LongSupplier clock) {
@@ -258,7 +260,12 @@ public final class ViewRequests {
 
     /** Host: a view its owner allowed, to begin in the engine, once; then {@link #begun}. Null when none waits. */
     public Pair takeBegin() {
-        return begins.poll();
+        return beginsHeld ? null : begins.poll();
+    }
+
+    /** Host: holds or releases {@link #takeBegin}, so that no view starts under a campaign save. */
+    public void holdBegins(boolean held) {
+        beginsHeld = held;
     }
 
     /** Host: the allowed view began in the engine, or couldn't ({@code refusal}); the viewer hears either. */
@@ -277,6 +284,11 @@ public final class ViewRequests {
     /** Host: a view to end in the engine, once. Null when none waits. */
     public End takeEnd() {
         return ends.poll();
+    }
+
+    /** Host: the view of the player in slot {@code viewer} ends, as if they closed it. */
+    public void end(int viewer) {
+        ends.add(new End(viewer, CLOSED));
     }
 
     /**

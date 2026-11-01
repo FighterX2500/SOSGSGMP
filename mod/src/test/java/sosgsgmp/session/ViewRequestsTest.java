@@ -255,6 +255,34 @@ class ViewRequestsTest {
         assertNull(pcs[1].takeAnswer());
     }
 
+    /** Spec §11: a campaign save waits for views, so none may start under it; the allowed one starts after. */
+    @Test
+    void anAllowedViewWaitsOutACampaignSave() {
+        pcs[1].ask(2);
+        flush();
+        host().checked(host().takeCheck(), null);
+        flush();
+        host().holdBegins(true);
+        pcs[2].answer(1, true);
+        flush();
+        assertNull(host().takeBegin(), "no view begins under the save");
+        assertNull(pcs[1].takeAnswer(), "the viewer still waits");
+        host().holdBegins(false);
+        ViewRequests.Pair begin = host().takeBegin();
+        assertEquals(new ViewRequests.Pair(1, 2), begin);
+        host().begun(begin, null);
+        flush();
+        assertTrue(pcs[1].takeAnswer().allowed());
+    }
+
+    /** A save that ends the session closes the views in its way: the same end as the viewer's own Close. */
+    @Test
+    void theHostCanEndAView() {
+        host().end(1);
+        assertEquals(new ViewRequests.End(1, ViewRequests.CLOSED), host().takeEnd());
+        assertNull(host().takeEnd());
+    }
+
     @Test
     void aPlayerWhoLeavesEndsTheirAsksAndViews() {
         pcs[1].ask(2);

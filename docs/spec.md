@@ -221,11 +221,11 @@ Any player can view any other player's city, enemies included. This is intended.
 
 ## 11. Saves, disconnects and elimination
 
-**Saving.** When the host autosaves, every player autosaves their own city at the same moment. The game stays paused until every player has saved and the saves are in sync.
+**Saving.** When the host autosaves, every player autosaves their own city at the same moment. The game stays paused until every player has saved and the saves are in sync. A player viewing a city has their own city unloaded and can't save it, so an autosave or a Save Campaign waits until no player is viewing one, and no new view opens meanwhile; a spectator's view doesn't hold it up, since a resume goes on without them.
 
-**Saving by hand.** In a multiplayer game the escape menu has Save Campaign, which saves the campaign the same way. Only the host can use it; the other players see it greyed out, with the reason. The game's own Quick-save, Save and Load, and the Quick Load key, are gone in a multiplayer game, since their saves can't be resumed. Quit to menu and Exit save the campaign first, on every PC, and then end the session for every player; a joining player's quit asks the host's PC for the save. During a battle no save can start, so a player who quits then leaves without one.
+**Saving by hand.** In a multiplayer game the escape menu has Save Campaign, which saves the campaign the same way. Only the host can use it; the other players see it greyed out, with the reason. The game's own Quick-save, Save and Load, and the Quick Load key, are gone in a multiplayer game, since their saves can't be resumed. Quit to menu and Exit save the campaign first, on every PC, and then end the session for every player; a joining player's quit asks the host's PC for the save. Such a save closes any open view first. During a battle no save can start, so a player who quits then leaves without one.
 
-**Save before battles.** Before every real-time battle between players or siege assault starts, the campaign is saved the same way. If the connection is lost during the battle, the players can resume from that save.
+**Save before battles.** Before every real-time battle between players or siege assault starts, the campaign is saved the same way. If the connection is lost during the battle, the players can resume from that save. This save can't wait for a view: the world is held at the battle's start, and a view needs the world to run to end. A player viewing a city then has no save from that moment.
 
 **Resuming.** Any player can host when a saved campaign is resumed. If a player is missing, the host can wait for them or start without them; a player left out is removed (see Removing a player).
 
@@ -419,7 +419,8 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 ### Saves and resume
 
 - A host autosave makes every player save at the same world tick, and the game resumes only when all saves are confirmed. [AT]
-- Before a battle between players or a siege assault starts, every player has a confirmed campaign save from that moment. [AT]
+- An autosave or a Save Campaign with a player viewing a city waits until the view ends, then every player saves. [AT]
+- Before a battle between players or a siege assault starts, every player has a confirmed campaign save from that moment, except a player viewing a city then. [AT]
 - A saved campaign with a spectator resumes, with them back as a spectator or without them, and nobody waits. [AT]
 - A campaign saved under one host can be resumed with a different host. [PT]
 - The host can start a resume without a missing player, who is then removed. [AT]
@@ -505,6 +506,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-01 | Ready for every player, the connection notice while placing, Leave's prompt, market trade at 6 to 15 tiles; a three-player playtest over Steam, about two hours | SOS-105, SOS-120 |
 | 2026-11-01 | The 2026-11-01 playtest's list: **direct links** between players 6 to 15 tiles apart, by land or across water (new worlds); **global events**; other players' cursors on the minimaps; no Resettle; the placing screen's top-right buttons reduced to + and −; the desync that playtest showed (NPC courts differed per PC) is fixed and hashed. | SOS-121 to SOS-125 |
 | 2026-11-01 | Through Steam, a player who never chose a name joins under their Steam name. | SOS-131 |
+| 2026-11-02 | An autosave or Save Campaign waits until no player is viewing a city. A save that ends the session closes the views instead, and the save before a battle can't wait, so a viewer has no save from that moment. | Batch 4 |
 
 ### Where each v1 feature stands (2026-11-01)
 

@@ -61,7 +61,7 @@ final class MpExit implements MpEscapeMenu.Actions {
 				pendingQuitter = asked;
 				log.line(name(asked) + " asked to quit: the campaign is saved, then the session ends");
 			}
-			if (pendingQuitter != SaveOrder.NO_QUITTER && saves.canSave()) {
+			if (pendingQuitter != SaveOrder.NO_QUITTER && saves.canSaveToExit()) {
 				saves.saveAndExit(pendingQuitter);
 				pendingQuitter = SaveOrder.NO_QUITTER;
 			}

@@ -5,24 +5,25 @@ import java.nio.file.Paths;
 import game.GAME;
 import init.settings.S;
 import snake2d.CORE;
+import sosdet.View;
 import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.campaign.CampaignStore;
 import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.WorldSetupAdapter;
+import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.session.SetupSession;
+import sosgsgmp.session.ViewRequests;
 
 /**
  * SOSGSGMP: campaign saves in the running game (spec §11 Saving, SOS-64; docs/plan/campaign-saves.md). The host orders a
  * save from the panel's button or on its autosave interval; every PC, the host too, holds at the order's step, saves
- * its own game and the campaign record there, and plays on once every PC has reported. Once per frame from
- * {@link MpPlay}, between steps.
+ * its own game and the campaign record there, and plays on once every PC has reported. A PC viewing a city has its own
+ * city unloaded and can't save, so a save waits until nobody views one; only the save before a battle can't, since the
+ * world holds there and a view needs steps to end. Once per frame from {@link MpPlay}, between steps.
  */
 final class MpSaves {
-
-	/** The save step is this far past the host's step: past every peer, which runs at most 30 steps past the host. */
-	private static final long LEAD = 60;
 
 	private final SetupSession setup;
 	private final EnginePlay engine;
@@ -32,6 +33,12 @@ final class MpSaves {
 	/** This PC's open order: held at its step, saved, then waiting for every PC; null otherwise. */
 	private SaveOrder order;
 	private boolean savedHere;
+	/** Host: the save that waits for the city views to end; null otherwise. */
+	private CampaignRecord.Kind waiting;
+	private boolean loggedWaiting;
+	/** Host: a save that ends the session has the views in its way closed; each view is asked once. */
+	private final View[] closing = new View[LobbySettings.MAX_PLAYERS];
+	private boolean closingViews;
 	/** The latest save's outcome for the panel; empty before the first. */
 	private String status = "";
 	private int changes;
@@ -74,6 +81,9 @@ final class MpSaves {
 		SaveOrder o = setup.takeSaveOrder();
 		if (o != null)
 			begin(o);
+		ViewRequests views = setup.views();
+		if (views != null)
+			views.holdBegins(waiting != null || closingViews || order != null);
 		// every PC holds before a battle's Engage until it has saved the campaign there (spec §11, SOS-67)
 		long ahead = engine.battleAhead();
 		if (order == null) {
@@ -81,10 +91,11 @@ final class MpSaves {
 			if (ahead >= 0 && (savedBeforeBattle == ahead || savedStep == ahead - 1)) {
 				log.line("the battle at step " + ahead + " begins");
 				engine.battleGo();
-			} else if (ahead >= 0 && canSave()) {
+			} else if (ahead >= 0 && saveRefusal() == null) {
 				log.line("a battle at step " + ahead + ": the campaign is saved before it");
 				order(CampaignRecord.Kind.AUTO, false, engine.step());
 			} else if (ahead < 0 && setup.isHost()) {
+				startWaiting();
 				autosave();
 			}
 			return;
@@ -100,9 +111,28 @@ final class MpSaves {
 		}
 	}
 
-	/** Host: whether a save can start now: none open, no battle, no desync hold. */
+	/** Host: whether a save can start now: none open, no battle, no desync hold, nobody viewing a city. */
 	boolean canSave() {
-		return saveRefusal() == null;
+		return saveRefusal() == null && !engine.viewOpen();
+	}
+
+	/** Host: as {@link #canSave()} for a save that ends the session: it doesn't wait for a viewer, it closes the views in its way. */
+	boolean canSaveToExit() {
+		if (saveRefusal() != null)
+			return false;
+		if (!engine.viewOpen())
+			return true;
+		closingViews = true;
+		ViewRequests views = setup.views();
+		for (int slot = 0; slot < closing.length; slot++) {
+			View v = engine.view(slot);
+			if (EnginePlay.viewLive(v) && v != closing[slot] && v.thaw() < 0) {
+				closing[slot] = v;
+				log.line("a save that ends the session closes the view of slot " + slot);
+				views.end(slot);
+			}
+		}
+		return false;
 	}
 
 	/** Why this PC can't start a save now, for the escape menu (SOS-79); null when it can: the host, playing, nothing in the way. */
@@ -126,19 +156,39 @@ final class MpSaves {
 		return null;
 	}
 
-	/** Host: orders save of {@code kind} on every PC. Check {@link #canSave()} first. */
+	/** Host: orders save of {@code kind} on every PC, once nobody views a city. Check {@link #saveRefusal()} first. */
 	void saveNow(CampaignRecord.Kind kind) {
-		order(kind, false, engine.step() + LEAD);
+		if (waiting != kind && waiting != CampaignRecord.Kind.SAVE) { // a player's save outranks an autosave
+			waiting = kind;
+			changes++;
+		}
+		startWaiting();
+		if (waiting != null && !loggedWaiting) {
+			loggedWaiting = true;
+			log.line("a campaign save (" + waiting + ") waits for the city views to end");
+		}
 	}
 
-	/** Host: a desync's Save and exit, after the resync: every PC saves the campaign, then the session ends. Check {@link #canSave()} first. */
+	/** Host: the waiting save starts once nothing stands in its way. */
+	private void startWaiting() {
+		if (waiting == null || !canSave())
+			return;
+		CampaignRecord.Kind kind = waiting;
+		waiting = null;
+		loggedWaiting = false;
+		order(kind, false, engine.stepPastPeers());
+	}
+
+	/** Host: a desync's Save and exit, after the resync: every PC saves the campaign, then the session ends. Check {@link #canSaveToExit()} first. */
 	void saveAndExit() {
 		saveAndExit(SaveOrder.NO_QUITTER);
 	}
 
-	/** Host: as {@link #saveAndExit()}, for player {@code quitter}'s Quit to menu or Exit (SOS-79). Check {@link #canSave()} first. */
+	/** Host: as {@link #saveAndExit()}, for player {@code quitter}'s Quit to menu or Exit (SOS-79). Check {@link #canSaveToExit()} first. */
 	void saveAndExit(int quitter) {
-		order(CampaignRecord.Kind.SAVE, true, quitter, engine.step() + LEAD);
+		waiting = null;
+		closingViews = false;
+		order(CampaignRecord.Kind.SAVE, true, quitter, engine.stepPastPeers());
 	}
 
 	private void order(CampaignRecord.Kind kind, boolean exit, long step) {
@@ -146,7 +196,7 @@ final class MpSaves {
 	}
 
 	private void order(CampaignRecord.Kind kind, boolean exit, int quitter, long step) {
-		if (!canSave())
+		if (saveRefusal() != null)
 			throw new IllegalStateException("SOSGSGMP: a campaign save can't start now");
 		Campaign c = setup.campaign();
 		int keep = kind == CampaignRecord.Kind.AUTO ? Math.max(1, S.get().autoSaveFiles.get()) : 0;
@@ -165,7 +215,7 @@ final class MpSaves {
 			autoMillis += now - autoLast;
 		autoLast = now;
 		long due = (1 + 2L * (S.get().autoSaveInterval.max() - S.get().autoSaveInterval.get())) * 60_000;
-		if (autoMillis >= due && canSave())
+		if (autoMillis >= due && saveRefusal() == null)
 			saveNow(CampaignRecord.Kind.AUTO);
 	}
 
@@ -256,7 +306,9 @@ final class MpSaves {
 
 	/** What the panel shows: a save under way, or the latest outcome. */
 	String status() {
-		return order != null ? "Saving the campaign (save " + order.number() + ")..." : status;
+		if (order != null)
+			return "Saving the campaign (save " + order.number() + ")...";
+		return waiting != null ? "The campaign saves once no player is viewing a city." : status;
 	}
 
 	/** Counts changes to {@link #status()}, so the panel redraws only when it moves. */
