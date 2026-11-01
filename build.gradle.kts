@@ -203,9 +203,10 @@ val compileGamePatches by tasks.registering {
 
 /**
  * Mod classes live in package sosgsgmp; the adapter classes that need package-private game members sit in the game's
- * packages, named Mp*: menu (the lobby screens) and view/world/generator (the map step's panel).
+ * packages, named Mp*: menu (the lobby screens), view/world/generator (the map step's panel) and view/sett/ui/minimap.
  */
-fun isModClass(path: String) = path.startsWith("sosgsgmp/") || path.startsWith("menu/Mp") || path.startsWith("view/world/generator/Mp")
+fun isModClass(path: String) = path.startsWith("sosgsgmp/") || path.startsWith("menu/Mp") || path.startsWith("view/world/generator/Mp") ||
+    path.startsWith("view/sett/ui/minimap/Mp")
 
 tasks.jar {
     description = "The mod's script jar: mod classes plus the game classes compiled from the hooks."

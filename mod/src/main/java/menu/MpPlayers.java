@@ -11,6 +11,7 @@ import snake2d.util.gui.renderable.RENDEROBJ;
 import snake2d.util.sets.ArrayList;
 import snake2d.util.sets.LIST;
 import snake2d.util.sets.Tree;
+import sosdet.Engine;
 import sosgsgmp.game.PlayerDeals;
 import util.gui.misc.GBox;
 import util.gui.misc.GText;
@@ -31,6 +32,11 @@ public final class MpPlayers {
 	static final String PLAYER = "Player";
 
 	private MpPlayers() {
+	}
+
+	/** Hook M10: a multiplayer game runs, so no Resettle: it would abandon a player's city (SOS-123). */
+	public static boolean inGame() {
+		return Engine.active();
 	}
 
 	/** Hooks M2 to M4: opens the faction window for another player, beside vanilla's faction list, as for an NPC. */
