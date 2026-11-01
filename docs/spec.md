@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.42 · 2026-11-01
+Version 0.43 · 2026-11-01
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -517,7 +517,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | Sieges of player cities (section 9) | Built | Done: sieges by another player arrive, the sally from a region, the save before an assault (SOS-67, SOS-71, SOS-83); the siege of a capital with its wait, the popup and Sally out (SOS-92 step A); the lockstep assault with each side's commanders, Retreat, the outcomes, Sack, Vassalage and Eliminate with the removed people, the two-minute default, allied attackers and their share, NPC invasions (SOS-92). Left: confirmed by players in a playtest, and each attacker's own bonuses in an assault, which no card covers yet |
 | City viewing (section 10) | Built | Done: the live view on request, catching up, the frozen own city, the other PCs' world reload (SOS-82). Left: a viewer's PC that stopped at a view's load (SOS-85), the catch-up numbers confirmed in playtests (section 16) |
 | Chat, notifications, pause, spectators (sections 4, 11, 12) | Built, apart from debug mode | Done: cursors on the world map and in cities (SOS-58); chat, notifications, who paused, any player unpausing (SOS-110); elimination and spectating (SOS-92, SOS-111). Left: debug mode isn't off in multiplayer (section 4) |
-| Release: performance and distribution (sections 13, 14) | Not done | Done: the README, the license and the Steam Workshop texts. Left: the 10,000-person city at 1×, the 30-minute battle with 2,000 units per side, a player's install (SOS-18), the test plan (SOS-19). Open: with SOSDET missing the game stops at start-up with "Failed loading assets! file corrupt: ...SOSGSGMP.jar" and "menu.MpDeals$1 could not be loaded", and nothing names SOSDET. Hello carries no engine or game build, so the lobby can't refuse a different SOSDET or game build |
+| Release: performance and distribution (sections 13, 14) | Not done | Done: the README, the license and the Steam Workshop texts. Left: the 10,000-person city at 1×, the 30-minute battle with 2,000 units per side, publishing on the Steam Workshop (SOS-18), the test plan (SOS-19) |
 
 Every feature in section 2 is built as of 2026-11-01. The table above lists what's left.
 

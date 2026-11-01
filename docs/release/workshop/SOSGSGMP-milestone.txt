@@ -1,4 +1,4 @@
-[h1]Beta (2026-11-01)[/h1]
+[h1]V1 Beta (2026-11-01)[/h1]
 
 Every main feature of version 1 is in. Three players have played it together over Steam.
 
@@ -14,12 +14,12 @@ Every main feature of version 1 is in. Three players have played it together ove
 [*][b]Global events:[/b] an eclipse, a comet, a great storm and other such events reach every city at the same moment.
 [*][b]Cursors:[/b] other players' cursors now show on the minimaps too.
 [*][b]Speed:[/b] 25x holds on two PCs.
-[*][b]Fixed:[/b] the desync from NPC heirs' religions, found in the three-player playtest.
+[*][b]Safer installs:[/b] the game says so if SOSDET is off or the game's build is wrong, and the lobby refuses a player whose game, SOSDET or mod build differs.
+[*][b]Fixed:[/b] the desync from NPC heirs' religions, found in the three-player playtest, and two desyncs after a city view or a local battle.
 [/list]
 
 [h2]Still open[/h2]
 [list]
-[*]Clear messages for a missing SOSDET, a different SOSDET version and a different game build
 [*]Turning the game's debug tools off in multiplayer
 [*]Each attacker's own bonuses in an assault
 [*]Long tests: a 2-hour session, a 30-minute battle, 300 ms ping
