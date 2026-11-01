@@ -17,6 +17,7 @@ import snake2d.util.color.COLOR;
 import snake2d.util.color.OPACITY;
 import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.renderable.RENDEROBJ;
+import sosgsgmp.game.MinimapAdapter;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
@@ -84,6 +85,7 @@ final class MpFactions {
 		this.g = g;
 		this.setup = setup;
 		this.cursors = new MpCursors(setup);
+		MpMinimapCursors.show(cursors, new MinimapAdapter().setupMap(g.minimap), () -> onLocation && !leaving);
 		for (int i = 0; i < rows.length; i++) {
 			rows[i] = new GText(UI.FONT().M, 128).setMaxWidth(SIDE_WIDTH);
 			rows[i].setMultipleLines(true);
