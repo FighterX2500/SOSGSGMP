@@ -4,7 +4,7 @@ Multiplayer for Songs of Syx V71 (build 71.44). Each player runs their own city-
 
 The simulation runs in lockstep on every PC through the deterministic engine [SOSDET](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine), a separate mod that this one needs. The mod's name in the game's launcher is SOS GSG MP.
 
-**Status:** playtest builds. Most of v1 is built and plays over Steam or direct IP; sieges of player cities, chat and the release work are still to come. What works and what's next: [Status](#status) below, and spec §17.
+**Status:** beta. All of v1's main features are built and play over Steam or direct IP; three players have played it together. Some safety checks, long tests and the performance targets are still open. What works and what's next: [Status](#status) below, and spec §17.
 
 ## What it does
 
@@ -12,38 +12,41 @@ The simulation runs in lockstep on every PC through the deterministic engine [SO
 - **One world, own cities:** every PC runs only its own city, with no delay, and the world map runs in lockstep on every PC. The world never reads a live city: it reads city reports and changes a city only through transactions applied exactly once.
 - **Diplomacy between players:** peace, trade, colleagues and alliance as proposals; money, goods and regions in a deal; vassals with a tribute rate, and protectors; free passage at peace. You open another player's window wherever you'd click an NPC.
 - **Trade between players:** each sells to the other in the market, as with an NPC, across any land at peace, with each player's own tariff on what the other sells them.
-- **War and real-time battles:** a declaration of war applies at once. When two players' armies meet, each player commands their own army on the battle map, with their own technology and bonuses, while everyone else watches. A siege of a player's region (not the capital) asks the defender to sally out or fall back. A siege of a player's capital shows the defender a popup and the days to the assault, and they can sally out at any time.
+- **War and real-time battles:** a declaration of war applies at once. When two players' armies meet, each player commands their own army on the battle map, with their own technology and bonuses, while everyone else watches. A siege of a player's region (not the capital) asks the defender to sally out or fall back. A siege of a player's capital shows the defender a popup and the days to the assault, and they can sally out at any time. When the wait ends the attacker can storm: a real-time assault every player watches, ending in Sack, Eliminate or Vassalage.
 - **Viewing a city:** ask to watch another player's city live; they allow or refuse. Your own city freezes until you close the view, then loads back where it stopped.
 - **Saves:** Save Campaign in the escape menu, the host's autosave, a save before every battle, and Quit or Exit saving first. The host resumes a campaign with Load Saved Lobby.
 - **Robustness:** a player dropping out holds every PC at the same step, and the host goes on without them or returns to the last save. If the worlds ever split, the host chooses Resync (every PC takes the host's world and keeps its own city) or Save and exit.
 - **Pace:** the host sets the speed, and the slowest PC caps it for everyone. Menus, popups and prompts never pause the game.
-- **Playtest log:** every PC logs its session, including every transfer of goods and money; `send-logs.cmd` in the playtest zip collects the logs for a bug report.
+- **Chat and spectators:** one chat for every player, with wars, sieges and battles announced in it. An eliminated player stays in the session and watches.
+- **Routes:** in a new world, players who start 6 to 15 tiles apart get a direct road or sea crossing.
+- **Global events:** eclipses, comets, storms and similar events reach every city at the same step, and world news applies once.
+- **Session log:** every PC logs its session in `%APPDATA%\songsofsyx\sosgsgmp-logs`, including every transfer of goods and money, for bug reports.
 
 The rules are in [docs/spec.md](docs/spec.md).
 
 ## Status
 
-**Built** (merged, playtested with 2 players over Steam):
-- the lockstep engine (SOSDET), the lobby, the setup, Steam P2P and direct IP, campaign saves and resume, disconnects and desync recovery;
+**Built** (merged, playtested with up to 3 players over Steam):
+- the lockstep engine (SOSDET), the lobby, the setup, Steam and direct IP, campaign saves and resume, disconnects and desync recovery;
 - diplomacy between players: treaties, money, goods, regions, vassalage, passage;
-- trade between players, with tariffs;
-- war between players, and real-time field battles with each side's commanders, deployment, retreat, the winner's spoils and the sally;
+- trade between players, with tariffs, and direct routes in new worlds;
+- war between players, and real-time field battles with each side's commanders, deployment, retreat, spoils, the sally, allies, a speed vote and resync inside a battle;
+- battles against NPCs on their own clock, which other players can watch;
+- sieges of a player's capital: the wait, Sally out, the real-time assault, its outcomes and allied attackers;
 - viewing another player's city live;
-- the first part of sieges of a player's capital: the waiting period, the popup and Sally out, no trade in or out;
-- names and banners on every PC; other players' cursors on the world map and in cities; a playtest log on every PC.
+- chat, notifications, who paused, spectators, global events;
+- names and banners on every PC; other players' cursors on the maps and minimaps; a session log on every PC.
 
-**Next, for v1:**
-- **Sieges of player cities:** the real-time assault on a player's capital, its outcomes, allied attackers, the notification of an NPC invasion of a capital.
-- **Battles, the rest:** the speed vote, allies joining, spectators' view, resync inside a battle.
-- **Chat and notifications:** chat, notifications (a war in the chat), who paused, elimination and spectating.
-- **Performance:** full speed at 5x and above, the 10,000-person city at 1x, a 30-minute battle with 2,000 units per side.
-- **Release:** a player's install (the distribution card).
+**Still open:**
+- **Before a public release:** a clear message when SOSDET is missing (today the game stops at start-up and calls `SOSGSGMP.jar` corrupt), and a check of the SOSDET and game builds on every PC.
+- **Spec gaps:** debug mode isn't turned off in multiplayer, the code's lowest speed is 0.25× where spec §4 says 0.5×, and each attacker's own bonuses in an assault aren't built.
+- **Tests:** a 2-hour session, a 30-minute battle with 2,000 units per side, the 10,000-person city at 1x, and 300 ms ping.
 
 **Out of scope for v1:** anti-cheat, a world that runs without players, new players joining a campaign in progress, AI running a disconnected player's city, other mods, later game versions, GOG and itch.io, Linux and macOS (spec §2).
 
 ## Playing
 
-You need Songs of Syx V71, **build 71.44**, on Windows through Steam, and both mods: SOSDET and SOS GSG MP. Every player must have the same build of both, or the joining PC can't load the world.
+You need Songs of Syx V71, **build 71.44**, on Windows through Steam, and both mods: SOSDET and SOS GSG MP. Every player must have the same build of both. A different mod version is refused in the lobby; a different SOSDET or game build isn't detected yet, and can crash or desync.
 
 1. Close the game.
 2. Copy the `SOSDET` and `SOSGSGMP` folders into `%APPDATA%\songsofsyx\mods` (create `mods` if it isn't there).

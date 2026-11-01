@@ -1,28 +1,39 @@
 [h1]SOSDET: the deterministic engine for Songs of Syx[/h1]
 
-A deterministic simulation engine for Songs of Syx V71 (build 71.44). The same save, orders and players' actions give a bit-identical game on every PC, so several PCs can run one game in lockstep.
+A deterministic simulation engine for Songs of Syx V71 (build 71.44). The same save, seed, commands and AI log give a bit-identical simulation on every PC, so several PCs can run one game in lockstep.
 
-[b]You need it for SoS GSG MP[/b], the multiplayer mod. On its own it does nothing you can see: until a multiplayer session starts, the game plays as vanilla.
+[b]You need it for SoS GSG MP[/b], the multiplayer mod. On its own it adds nothing you can see. It has no network code: it hands out bytes and takes them in, and a mod carries them.
 
 [h2]Installing[/h2]
 [list]
-[*][b]Songs of Syx V71, build 71.44[/b], on Windows. Other builds aren't supported.
-[*]Subscribe, then enable [b]SOSDET above SOS GSG MP[/b] in the launcher's mod list.
-[*]Every player needs the same version.
-[*][b]Other mods:[/b] SOSDET replaces some of the game's own classes with patched copies. Mods that change the same game code may not work with it; compatibility with other mods isn't supported.
+[*][b]Songs of Syx V71, build 71.44[/b], on Windows. Other builds aren't supported, and it doesn't check the build when the game starts yet.
+[*]Subscribe, and enable it in the launcher's mod list along with SoS GSG MP. Every player needs the same version.
+[*]It replaces some of the game's own classes with patched copies, so mods that change the same code may not work with it. Compatibility with other mods isn't supported.
 [/list]
 
-[h2]What it does[/h2]
+[h2]How it works[/h2]
 [list]
-[*][b]Fixed steps and random streams:[/b] the simulation advances in fixed steps, and every random draw comes from streams seeded alike on every PC.
-[*][b]Lockstep cities, world map and battles:[/b] players' actions become commands applied at the same step on every PC; the battle AI runs on the host and its decisions go to the others.
-[*][b]Several players in one world:[/b] up to 16 players share one world map, each PC running only its own city. The world never reads a live city, and changes one only through transactions applied exactly once.
-[*][b]State hash and recovery:[/b] every PC compares a state hash every few steps. At a difference every PC holds at the same step, and the world can be reloaded from the host while each player keeps their own city.
-[*][b]Battles and city views:[/b] a battle, or another player's city, loads on the PCs that need it at the same step and runs in lockstep there.
+[*][b]Fixed steps:[/b] 1/60 s up to 1x, 1/30 s below 2x and 1/16 s from 2x up, so 25x is 400 steps a second.
+[*][b]Random streams:[/b] the simulation draws from the game's seeded generator, on its own thread and only inside the step. Rendering, UI, sound and every other thread draw from a separate cosmetic stream.
+[*][b]Threads in the step:[/b] path jobs run on worker threads. Each job goes to a fixed share, whatever the PC's core count, and the step waits for every share before the hash.
+[*][b]Commands:[/b] 179 player actions are commands. Each applies at a step the host confirmed, 30 to 400 steps ahead, half a second of real time at every speed.
+[*][b]AI on the host:[/b] the battle AI general runs on one PC and logs its decisions, and the others replay them at the same steps.
+[*][b]City and world:[/b] up to 16 humans share one world, tested with 3. Each PC runs only its own city under a lockstep world. The world reads city reports, never a live city, and changes a city only through transactions with an ID, each applied exactly once.
+[*][b]Battles and views:[/b] a battle, an assault or another player's city loads at one step on the PCs that need it, then runs in lockstep there. Battles against NPCs can run on their own clock on one PC while the world goes on.
+[*][b]Detection and recovery:[/b] every PC hashes its state every 30 steps in 7 sections, and the first difference gives a report naming what differs. Every PC then holds at one step, and the host can reload the world or a battle while each player keeps their own city. It never resyncs by itself.
+[*][b]Pace:[/b] the slowest PC caps the speed, and the governor tells a slow PC from a slow link.
+[/list]
+
+[h2]How it's built[/h2]
+[list]
+[*]An ordinary mod: the launcher puts its jar ahead of the game's on the class path. 36 patches touch 352 game files, and the game folder is never changed.
+[*]The patches apply to the game's own source and compile with ECJ, the game's compiler. The build proves the toolchain by rebuilding the untouched source and matching the shipped jar byte for byte.
+[*]No third-party libraries at run time.
+[*]Tested with 299 unit tests, a rig that runs copies of the game on one or two PCs and compares every hash, two PCs held at 25x, and a three-player session over Steam.
 [/list]
 
 [h2]For modders[/h2]
-Open source under the MIT license (its own code), with the docs for building on it: how a session runs, every known source of desyncs and where it is fixed, and the patch set against the game's source:
+Open source under the MIT license (its own code), with an API guide, every known desync cause and where it's fixed, and the full patch set. The API may still change, and nothing about it is promised yet:
 [url=https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine]github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine[/url]
 
 [h2]About[/h2]

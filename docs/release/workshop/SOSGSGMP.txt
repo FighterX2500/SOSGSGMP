@@ -1,64 +1,57 @@
 [h1]SoS GSG MP: multiplayer for Songs of Syx[/h1]
 
-Each player runs their own city-state on one shared world map. Meet each other and the NPC factions through diplomacy, trade and war, with real-time battles between players. Made for a small group of friends, usually 2 or 3, in long sessions that are saved and resumed.
+Each player runs their own city-state on one shared world map. Meet each other and the NPC factions through diplomacy, trade and war, with real-time battles and sieges between players. Made for a small group of friends, usually 2 or 3, in long sessions that are saved and resumed.
 
-[b]Playtest build.[/b] Most of version 1 works; sieges of player cities and chat are still to come (see the milestone below). Expect bugs, and please send logs (at the bottom).
+[b]Beta.[/b] Every main feature is in, and three players have played it together over Steam. Expect bugs, and please send logs (at the bottom).
 
 [h2]You need[/h2]
 [list]
 [*][b]Songs of Syx V71, build 71.44[/b], on Windows, through Steam. Other builds aren't supported.
-[*][b]SOSDET[/b], the deterministic engine this mod runs on: subscribe to it too.
-[*]In the launcher's mod list, enable [b]SOSDET above SOS GSG MP[/b].
-[*]Every player needs the [b]same versions[/b] of both mods. With a different version the joining PC can't load the world.
+[*][b]SOSDET[/b], the deterministic engine this mod runs on. Subscribe to it too, and enable both in the launcher.
+[*]The [b]same versions[/b] of both mods on every PC. Update both before you play.
 [/list]
 
 [h2]Playing[/h2]
 [list]
-[*]The main menu gets a [b]Multiplayer[/b] button.
-[*][b]Over Steam:[/b] the players are Steam friends. The host chooses Create Lobby, then "create Steam lobby"; the others choose "join through Steam".
-[*][b]By IP:[/b] the host's TCP port 47510 must be reachable (a forwarded port, or a VPN such as Radmin VPN). The host chooses "create (IP)"; the others choose "join by IP".
-[*]The host picks the map. Every player picks a race, a faction and a capital location; NPC realms are generated around you. Then each of you places your landing party, and the game starts.
-[*]The host sets the speed, and the slowest PC caps it for everyone. Menus and popups never pause the game.
+[*][b]Over Steam:[/b] the players are Steam friends. The host chooses Multiplayer, Create Lobby, then "create Steam lobby". The others choose "join through Steam", or accept the invite.
+[*][b]By IP:[/b] the host's TCP port 47510 must be reachable, through a forwarded port or a VPN such as Radmin VPN.
+[*]The host picks the map. Each player picks a race, a faction and a capital location, and NPC realms are generated around you.
+[*]The host sets the speed, up to 250x, and the slowest PC caps it for everyone. Menus and popups never pause the game.
 [/list]
 
-[h2]What you can do[/h2]
+[h2]Completed milestones[/h2]
+[b]Playtest build (2026-10-29)[/b]
 [list]
-[*][b]Your own city, no delay.[/b] Every PC runs only its own city; the world map runs in lockstep on every PC.
-[*][b]Diplomacy between players:[/b] click another player wherever you'd click an NPC. Peace, trade, colleagues and alliance as proposals; money, goods and regions in a deal; vassals with a tribute rate, and protectors.
-[*][b]Trade:[/b] sell to each other in the market across any land at peace, each with your own tariff.
-[*][b]War and real-time battles:[/b] declare war; when your armies meet, each of you commands your own army on the battle map with your own technology and bonuses, while everyone else watches. Besiege another player's region and they can sally out.
-[*][b]Viewing a city:[/b] ask to watch another player's city live; they allow or refuse.
-[*][b]Saves:[/b] Save Campaign in the escape menu, the host's autosave, a save before every battle. The host resumes with Load Saved Lobby.
-[*][b]Drop-outs and desyncs:[/b] if a player drops out, every game stops and the host goes on without them or returns to the last save. If the worlds ever split, the host chooses Resync or Save and exit.
+[*]Your own city with no delay, on one world map in lockstep on every PC
+[*]Lobby and setup, Steam and direct IP, campaign saves and resume
+[*]Diplomacy between players: treaties, money, goods, regions, vassals, passage
+[*]Trade between players, with each player's own tariff
+[*]War, and real-time battles where each player commands their own army
+[*]Watching another player's city live, with their permission
+[*]Going on without a player who drops out, and recovery from a desync
 [/list]
-
-[h2]Milestone: playtest build 0.1 (2026-10-29)[/h2]
-[b]Done:[/b]
+[b]Beta (2026-11-01)[/b]
 [list]
-[*]The lockstep engine, the lobby and setup, Steam and IP play, campaign saves and resume, drop-outs and desync recovery
-[*]Diplomacy between players: treaties, money, goods, regions, vassalage, passage
-[*]Trade between players, with tariffs
-[*]War between players, and real-time battles with each side's commanders, deployment, retreat and spoils
-[*]Viewing another player's city live
-[*]Faction names and banners on every PC, and a session log on every PC for bug reports
+[*]Sieges of player capitals: the wait, the sally, a real-time assault, then sack, vassalage or elimination
+[*]Allies in battles and assaults, and a speed vote between commanders
+[*]Battles against NPCs on their own clock while the world runs on, and watching them
+[*]Chat, event notifications, and other players' cursors on maps and minimaps
+[*]Eliminated players stay on as spectators
+[*]Direct routes between players who start 6 to 15 tiles apart
+[*]Global events, such as an eclipse, that reach every city at once
+[*]25x on two PCs, and three players in one session over Steam
 [/list]
-[b]Planned for version 1:[/b]
-[list]
-[*]Sieges of player cities: the real-time assault on a capital and its outcomes
-[*]Battles: a speed vote, allies joining, a spectator view
-[*]Chat, notifications, cursors in cities, spectating after elimination
-[*]Full speed at 5x and above, and big cities and battles at full speed
-[/list]
-[b]Not planned:[/b] anti-cheat, joining a campaign in progress, AI for a disconnected player's city, compatibility with other mods.
 
 [h2]Known problems[/h2]
 [list]
-[*]Speeds of 5x and above don't reach their full rate yet.
-[*]Capitals can't be taken yet: the assault on a player's city comes later.
-[*]The owner's game pauses for a few seconds when their city's view opens; everyone else's for about a second.
-[*]Goods or people crossing between a city and the world in the last half second before a campaign save can be lost when that save is resumed.
+[*]If SOSDET is off, the game stops at start-up and calls SOSGSGMP.jar corrupt. Enable SOSDET.
+[*]A different game build or SOSDET version isn't detected yet, and can crash or desync.
+[*]At 250x, and at 25x in a big late-game city, the game runs only as fast as the slowest PC.
+[*]The owner's game pauses for a few seconds when their city's view opens, and everyone else's for about a second.
+[*]Goods or people crossing between a city and the world in the last half second before a campaign save can be lost on resume.
 [*]Two players can end up with the same realm name.
 [/list]
+[b]Not planned:[/b] anti-cheat, joining a campaign in progress, AI for a disconnected player's city, compatibility with other mods.
 
 [h2]Bug reports[/h2]
 Every PC writes a log of each session. After a crash, a desync window or anything odd, close the game and send these folders, with a line about what happened and roughly when:
@@ -66,7 +59,6 @@ Every PC writes a log of each session. After a crash, a desync window or anythin
 [*][b]%APPDATA%\songsofsyx\sosgsgmp-logs[/b]: the session logs
 [*][b]%APPDATA%\songsofsyx\logs[/b]: the game's crash files
 [/list]
-Every desync is a bug we want to see.
 
 [h2]About[/h2]
-By FighterX2500, with the Songs of Syx developer's permission. Open source under the MIT license (its own code). Free; it must not be sold. Disable both mods in the launcher and the game is vanilla again.
+By FighterX2500, with the Songs of Syx developer's permission. Open source under the MIT license (its own code): [url=https://github.com/FighterX2500/SOSGSGMP]github.com/FighterX2500/SOSGSGMP[/url]. Free; it must not be sold. Disable both mods in the launcher and the game is vanilla again.
