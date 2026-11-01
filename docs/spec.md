@@ -504,6 +504,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-10-31 | **Battles with allies, built:** the winner's choice on either army, the commanders' speed vote, allies in both kinds of battle | SOS-116 to SOS-119 |
 | 2026-11-01 | Ready for every player, the connection notice while placing, Leave's prompt, market trade at 6 to 15 tiles; a three-player playtest over Steam, about two hours | SOS-105, SOS-120 |
 | 2026-11-01 | The 2026-11-01 playtest's list: **direct links** between players 6 to 15 tiles apart, by land or across water (new worlds); **global events**; other players' cursors on the minimaps; no Resettle; the placing screen's top-right buttons reduced to + and −; the desync that playtest showed (NPC courts differed per PC) is fixed and hashed. | SOS-121 to SOS-125 |
+| 2026-11-01 | Through Steam, a player who never chose a name joins under their Steam name. | SOS-131 |
 
 ### Where each v1 feature stands (2026-11-01)
 
