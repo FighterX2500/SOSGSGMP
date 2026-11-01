@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.campaign.SaveOrder;
+import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
@@ -46,6 +47,8 @@ import sosgsgmp.setup.MapWorld;
  * world in place of the game. Each PC's frame updates its session and, when a build is pending, "rebuilds" at once.
  */
 class LoopbackSetupTest {
+
+    private static final Builds BUILDS = new Builds("0.71.44", 1, 2);
 
     private static final MapOptions A = new MapOptions(256, MapOptions.RANDOM, 50, 11);
     private static final MapOptions B = new MapOptions(256, "Continent", 20, 22);
@@ -155,7 +158,7 @@ class LoopbackSetupTest {
 
     /** Ann hosts, Bob and Cid join, Ann starts the lobby, and every PC hands its lobby over to the setup. */
     private void startSetup() throws Exception {
-        HostedLobby h = new HostedLobby(new LobbySettings("normal", 4), "Ann", "Ann".hashCode(), 0);
+        HostedLobby h = new HostedLobby(new LobbySettings("normal", 4), "Ann", "Ann".hashCode(), BUILDS, 0);
         lobby = h;
         lobbies.add(h);
         JoinedLobby jb = join(h, "Bob");
@@ -172,7 +175,7 @@ class LoopbackSetupTest {
     }
 
     private JoinedLobby join(HostedLobby h, String name) throws IOException {
-        JoinedLobby j = new JoinedLobby("127.0.0.1", h.port(), name, name.hashCode());
+        JoinedLobby j = new JoinedLobby("127.0.0.1", h.port(), name, name.hashCode(), BUILDS);
         lobbies.add(j);
         return j;
     }
@@ -640,7 +643,7 @@ class LoopbackSetupTest {
     void aResumedCampaignKeepsEverySlotAndPlaysWithAnyHostSlot() throws Exception {
         Campaign c = new Campaign(0x1234L, "Ann's campaign", 99, "normal",
                 List.of(new Campaign.Player("Ann".hashCode(), "Ann", 0), new Campaign.Player("Bob".hashCode(), "Bob", 2)));
-        HostedLobby h = new HostedLobby(LobbySettings.resuming(new LobbySettings.Resume(c, 3)), "Bob", "Bob".hashCode(), 0);
+        HostedLobby h = new HostedLobby(LobbySettings.resuming(new LobbySettings.Resume(c, 3)), "Bob", "Bob".hashCode(), BUILDS, 0);
         lobby = h;
         lobbies.add(h);
         JoinedLobby jc = join(h, "Cid");

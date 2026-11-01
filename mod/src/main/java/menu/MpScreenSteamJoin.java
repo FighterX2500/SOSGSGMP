@@ -142,7 +142,7 @@ final class MpScreenSteamJoin extends GUI.Shadower implements SC {
 		SteamNode joining = node;
 		node = null; // the lobby owns it now
 		joining.join(lobby);
-		mp.openLobby(new JoinedLobby(joining, n, mp.prefs.playerKey), null);
+		mp.openLobby(new JoinedLobby(joining, n, mp.prefs.playerKey, mp.builds), null);
 	}
 
 	private void close() {

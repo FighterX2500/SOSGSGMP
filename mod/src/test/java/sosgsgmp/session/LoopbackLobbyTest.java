@@ -17,6 +17,7 @@ import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
@@ -27,6 +28,8 @@ import sosgsgmp.net.Protocol;
 /** A real host and real joining PCs over localhost, driven the way the lobby screen drives them. */
 class LoopbackLobbyTest {
 
+    private static final Builds BUILDS = new Builds("0.71.44", 1, 2);
+
     private final List<LobbySession> sessions = new ArrayList<>();
 
     @AfterEach
@@ -36,13 +39,13 @@ class LoopbackLobbyTest {
     }
 
     private HostedLobby host(int maxPlayers) throws IOException {
-        HostedLobby h = new HostedLobby(new LobbySettings("normal", maxPlayers), "Ann", "Ann".hashCode(), 0);
+        HostedLobby h = new HostedLobby(new LobbySettings("normal", maxPlayers), "Ann", "Ann".hashCode(), BUILDS, 0);
         sessions.add(h);
         return h;
     }
 
     private JoinedLobby join(HostedLobby h, String name) throws IOException {
-        JoinedLobby j = new JoinedLobby("127.0.0.1", h.port(), name, name.hashCode());
+        JoinedLobby j = new JoinedLobby("127.0.0.1", h.port(), name, name.hashCode(), BUILDS);
         sessions.add(j);
         return j;
     }
@@ -129,6 +132,22 @@ class LoopbackLobbyTest {
     }
 
     @Test
+    void aPcOnAnotherBuildIsRefusedAndToldWhichOne() throws Exception {
+        HostedLobby h = host(4);
+        refused(h, new Builds("0.71.45", 1, 2), Refusal.WRONG_GAME);
+        refused(h, new Builds("0.71.44", 9, 2), Refusal.WRONG_ENGINE);
+        refused(h, new Builds("0.71.44", 1, 9), Refusal.WRONG_MOD);
+        assertEquals(List.of("Ann"), names(h));
+    }
+
+    private void refused(HostedLobby h, Builds builds, Refusal refusal) throws Exception {
+        JoinedLobby j = new JoinedLobby("127.0.0.1", h.port(), "Bob", "Bob".hashCode(), builds);
+        sessions.add(j);
+        until("Bob is refused", () -> j.state() == LobbyState.CLOSED);
+        assertEquals(refusal.text, j.closedReason());
+    }
+
+    @Test
     void aFullLobbyRefuses() throws Exception {
         HostedLobby h = host(2);
         JoinedLobby bob = join(h, "Bob");
@@ -156,7 +175,7 @@ class LoopbackLobbyTest {
     void aDroppedConnectionCountsAsLeaving() throws Exception {
         HostedLobby h = host(4);
         try (Socket raw = new Socket("127.0.0.1", h.port())) {
-            send(raw, new Message.Hello("Raw", 7));
+            send(raw, new Message.Hello("Raw", 7, BUILDS));
             until("Raw joined", () -> h.players().size() == 2);
         }
         until("Raw gone", () -> h.players().size() == 1);
@@ -192,7 +211,7 @@ class LoopbackLobbyTest {
         try (ServerSocket s = new ServerSocket(0)) {
             freePort = s.getLocalPort();
         }
-        JoinedLobby j = new JoinedLobby("127.0.0.1", freePort, "Bob", 1);
+        JoinedLobby j = new JoinedLobby("127.0.0.1", freePort, "Bob", 1, BUILDS);
         sessions.add(j);
         until("connection fails", () -> j.state() == LobbyState.CLOSED);
         assertTrue(j.closedReason().startsWith("Could not connect"), j.closedReason());

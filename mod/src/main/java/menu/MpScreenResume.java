@@ -171,11 +171,11 @@ final class MpScreenResume extends GUI.Shadower implements SC {
 		if (steam) {
 			mp.invites.stop(); // Steam runs once in the process (SOS-103)
 			SteamNode node = SteamNode.host(SteamworksPort::new, c.players().size());
-			mp.openLobby(new HostedLobby(settings, mp.prefs.name, mp.prefs.playerKey, node), node);
+			mp.openLobby(new HostedLobby(settings, mp.prefs.name, mp.prefs.playerKey, mp.builds, node), node);
 			return;
 		}
 		try {
-			mp.openLobby(new HostedLobby(settings, mp.prefs.name, mp.prefs.playerKey, mp.prefs.port), null);
+			mp.openLobby(new HostedLobby(settings, mp.prefs.name, mp.prefs.playerKey, mp.builds, mp.prefs.port), null);
 		} catch (IOException e) {
 			error.clear().add("Can't open port ").add(mp.prefs.port).add(": ").add(String.valueOf(e.getMessage()));
 		}

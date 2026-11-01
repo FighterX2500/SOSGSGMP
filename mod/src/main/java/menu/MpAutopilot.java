@@ -379,8 +379,8 @@ public final class MpAutopilot {
 		}
 		try {
 			LobbySession s = host
-					? new HostedLobby(hostSettings(mp), name, mp.prefs.playerKey, port)
-					: new JoinedLobby(address, port, name, mp.prefs.playerKey);
+					? new HostedLobby(hostSettings(mp), name, mp.prefs.playerKey, mp.builds, port)
+					: new JoinedLobby(address, port, name, mp.prefs.playerKey, mp.builds);
 			lobbyOpened = true;
 			mp.openLobby(s, null);
 			event("lobby", "\"role\":\"" + (host ? "host" : "join") + "\"");
@@ -398,7 +398,7 @@ public final class MpAutopilot {
 			SteamNode node = SteamNode.host(SteamworksPort::new, Math.max(players, 2));
 			hostSteam = node;
 			lobbyOpened = true;
-			mp.openLobby(new HostedLobby(hostSettings(mp), name, mp.prefs.playerKey, node), node);
+			mp.openLobby(new HostedLobby(hostSettings(mp), name, mp.prefs.playerKey, mp.builds, node), node);
 			event("lobby", "\"role\":\"host\",\"net\":\"steam\"");
 			return;
 		}
@@ -417,7 +417,7 @@ public final class MpAutopilot {
 		SteamPort.FriendLobby f = browsing.friendLobbies().get(0);
 		browsing.join(f.lobby());
 		lobbyOpened = true;
-		mp.openLobby(new JoinedLobby(browsing, name, mp.prefs.playerKey), null);
+		mp.openLobby(new JoinedLobby(browsing, name, mp.prefs.playerKey, mp.builds), null);
 		event("lobby", "\"role\":\"join\",\"net\":\"steam\",\"friend\":\"" + clean(f.friend()) + "\"");
 	}
 

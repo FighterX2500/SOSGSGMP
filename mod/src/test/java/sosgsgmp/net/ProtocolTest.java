@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.campaign.CampaignStoreTest;
 import sosgsgmp.campaign.SaveOrder;
+import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.Refusal;
@@ -27,7 +28,7 @@ class ProtocolTest {
     @Test
     void everyMessageRoundTrips() throws IOException {
         List<Message> all = List.of(
-            new Message.Hello("Ann", -42L),
+            new Message.Hello("Ann", -42L, new Builds("0.71.44", 1, 2)),
             new Message.Welcome(3, new LobbySettings("hard", 16)),
             new Message.Welcome(4, new LobbySettings("hard", 16).withFullTransferLog(false)),
             new Message.Roster(List.of(new LobbyPlayer(0, "Ann", true), new LobbyPlayer(5, "Bøb", false))),
@@ -222,11 +223,11 @@ class ProtocolTest {
 
     @Test
     void malformedMessagesThrow() {
-        byte[] hello = Protocol.encode(new Message.Hello("Ann", 1));
+        byte[] hello = Protocol.encode(new Message.Hello("Ann", 1, new Builds("0.71.44", 1, 2)));
         assertThrows(IOException.class, () -> Protocol.decode(Arrays.copyOf(hello, hello.length - 1)));
         assertThrows(IOException.class, () -> Protocol.decode(Arrays.copyOf(hello, hello.length + 1)));
         assertThrows(IOException.class, () -> Protocol.decode(new byte[] {0, (byte) Protocol.VERSION, 77}));
-        assertThrows(IOException.class, () -> Protocol.decode(new byte[] {0, (byte) Protocol.VERSION, 4, 9}));
+        assertThrows(IOException.class, () -> Protocol.decode(new byte[] {0, (byte) Protocol.VERSION, 4, 99}));
         byte[] tooMany = Protocol.encode(new Message.Welcome(1, new LobbySettings("hard", 16)));
         tooMany[tooMany.length - 1] = 17;
         assertThrows(IOException.class, () -> Protocol.decode(tooMany));

@@ -3,6 +3,7 @@ package sosgsgmp.session;
 import java.io.IOException;
 import java.util.List;
 
+import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
@@ -18,6 +19,7 @@ public final class JoinedLobby implements LobbySession {
     private final Node node;
     private final String name;
     private final long playerKey;
+    private final Builds builds;
     private LobbyState state = LobbyState.CONNECTING;
     private boolean handedOver;
     private List<LobbyPlayer> players = List.of();
@@ -28,14 +30,15 @@ public final class JoinedLobby implements LobbySession {
     private int changes;
 
     /** Starts connecting to {@code host}:{@code port}; the outcome arrives through {@link #update()}. */
-    public JoinedLobby(String host, int port, String name, long playerKey) throws IOException {
-        this(TcpNode.connect(host, port), name, playerKey);
+    public JoinedLobby(String host, int port, String name, long playerKey, Builds builds) throws IOException {
+        this(TcpNode.connect(host, port), name, playerKey, builds);
     }
 
     /** Joins through a node that is reaching its host (a Steam lobby being entered); hello follows its connect. */
-    public JoinedLobby(Node node, String name, long playerKey) {
+    public JoinedLobby(Node node, String name, long playerKey, Builds builds) {
         this.name = name;
         this.playerKey = playerKey;
+        this.builds = builds;
         this.node = node;
     }
 
@@ -45,7 +48,7 @@ public final class JoinedLobby implements LobbySession {
         Node.Event e;
         while ((state == LobbyState.CONNECTING || state == LobbyState.OPEN) && (e = node.poll()) != null) {
             switch (e) {
-                case Node.Event.Connected c -> node.send(Node.HOST, new Message.Hello(name, playerKey));
+                case Node.Event.Connected c -> node.send(Node.HOST, new Message.Hello(name, playerKey, builds));
                 case Node.Event.Received r -> {
                     received(r.message());
                     changes++;
