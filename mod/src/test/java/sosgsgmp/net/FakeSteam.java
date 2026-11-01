@@ -49,6 +49,11 @@ public final class FakeSteam {
     }
 
     public final class Port implements SteamPort {
+
+        @Override
+        public String personaName() {
+            return "Steam user";
+        }
         private final long self;
         private Listener listener;
         private final Queue<Runnable> callbacks = new ArrayDeque<>();

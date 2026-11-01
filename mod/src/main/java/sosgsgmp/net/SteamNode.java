@@ -67,6 +67,9 @@ public final class SteamNode implements Node {
     private long joinDeadline;
     private final long joinMs;
 
+    /** Written once on the I/O thread: only that thread may call the port. */
+    private volatile String persona;
+
     /** Hosts: creates a lobby for up to {@code maxMembers} friends. Joining PCs appear as they enter it. */
     public static SteamNode host(Supplier<SteamPort> steam, int maxMembers) {
         return new SteamNode(steam, true, maxMembers, 0, JOIN_MS);
@@ -92,6 +95,11 @@ public final class SteamNode implements Node {
         thread = new Thread(() -> run(steam, maxMembers, joinLobby), "SOSGSGMP steam");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    /** This PC's name on Steam, null until Steam has started. */
+    public String personaName() {
+        return persona;
     }
 
     /** The lobby, once created or entered; 0 before (the invite dialog needs it). */
@@ -167,6 +175,7 @@ public final class SteamNode implements Node {
     private void run(Supplier<SteamPort> steam, int maxMembers, long joinLobby) {
         try {
             port = steam.get();
+            persona = port.personaName();
         } catch (RuntimeException | LinkageError e) {
             // Steam not running, the game not owned, the native libraries missing: the screen shows why.
             fail("Steam isn't available: " + e);

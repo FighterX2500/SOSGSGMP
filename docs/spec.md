@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.43 · 2026-11-01
+Version 0.44 · 2026-11-01
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -73,7 +73,7 @@ Every player starts with the same starting resources and difficulty, set by the 
 
 **Lobby**
 
-1. In the main menu, a player opens Multiplayer and chooses Create Lobby, Load Saved Lobby or Join Lobby. A player joins by the host's IP address or through Steam (section 3). A friend's Steam invite accepted anywhere in the main menu joins that lobby too.
+1. In the main menu, a player opens Multiplayer and chooses Create Lobby, Load Saved Lobby or Join Lobby. A player joins by the host's IP address or through Steam (section 3). Through Steam, a player who never chose a name joins under their Steam name. A friend's Steam invite accepted anywhere in the main menu joins that lobby too.
 2. With Create Lobby, the host chooses the difficulty and number of players.
 3. The lobby waits for players to join and shows a list of everyone in it.
 4. The host clicks Start Lobby.
@@ -504,6 +504,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-10-31 | **Battles with allies, built:** the winner's choice on either army, the commanders' speed vote, allies in both kinds of battle | SOS-116 to SOS-119 |
 | 2026-11-01 | Ready for every player, the connection notice while placing, Leave's prompt, market trade at 6 to 15 tiles; a three-player playtest over Steam, about two hours | SOS-105, SOS-120 |
 | 2026-11-01 | The 2026-11-01 playtest's list: **direct links** between players 6 to 15 tiles apart, by land or across water (new worlds); **global events**; other players' cursors on the minimaps; no Resettle; the placing screen's top-right buttons reduced to + and −; the desync that playtest showed (NPC courts differed per PC) is fixed and hashed. | SOS-121 to SOS-125 |
+| 2026-11-01 | Through Steam, a player who never chose a name joins under their Steam name. | SOS-131 |
 
 ### Where each v1 feature stands (2026-11-01)
 

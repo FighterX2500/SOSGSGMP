@@ -35,6 +35,7 @@ final class MpScreenSteamJoin extends GUI.Shadower implements SC {
 	private SteamNode node;
 	private List<SteamPort.FriendLobby> shown = List.of();
 	private String shownFailure;
+	private boolean steamNamed;
 
 	MpScreenSteamJoin(MpMenu mp) {
 		this.mp = mp;
@@ -96,6 +97,7 @@ final class MpScreenSteamJoin extends GUI.Shadower implements SC {
 		node = browsing != null ? browsing : SteamNode.browse(SteamworksPort::new);
 		shown = List.of();
 		shownFailure = null;
+		steamNamed = false;
 		status.clear().add("Starting Steam...");
 	}
 
@@ -108,6 +110,10 @@ final class MpScreenSteamJoin extends GUI.Shadower implements SC {
 	}
 
 	private void update() {
+		if (!steamNamed && node.personaName() != null) {
+			steamNamed = true; // once: after this the field is the player's to edit
+			name.set(Lobby.steamName(name.text(), node.personaName()));
+		}
 		String failure = node.failure();
 		if (failure != null) {
 			if (!failure.equals(shownFailure)) {
@@ -136,7 +142,7 @@ final class MpScreenSteamJoin extends GUI.Shadower implements SC {
 	}
 
 	private void join(long lobby) {
-		String n = Lobby.cleanName(name.text());
+		String n = Lobby.steamName(name.text(), node.personaName()); // an accepted invite comes here before update()
 		mp.prefs.name = n;
 		mp.savePrefs();
 		SteamNode joining = node;

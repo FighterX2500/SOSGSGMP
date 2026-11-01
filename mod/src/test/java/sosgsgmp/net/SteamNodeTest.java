@@ -95,6 +95,11 @@ class SteamNodeTest {
     }
 
     @Test
+    void thePersonaNameReachesTheGameThreadOnceSteamHasStarted() throws Exception {
+        assertEquals("Steam user", host().personaName());
+    }
+
+    @Test
     void membersBecomePeersAndMessagesGoBothWays() throws Exception {
         SteamNode h = host();
         SteamNode bob = join(2, h.lobby());

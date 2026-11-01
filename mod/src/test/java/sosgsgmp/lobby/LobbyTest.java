@@ -105,6 +105,11 @@ class LobbyTest {
         assertEquals("Ann", Lobby.cleanName("  Ann "));
         assertEquals("Player", Lobby.cleanName("   "));
         assertEquals("Player", Lobby.cleanName(null));
+        assertEquals("Ann", Lobby.steamName("Player", "Ann"));
+        assertEquals("Ann", Lobby.steamName("  ", " Ann "));
+        assertEquals("Bob", Lobby.steamName("Bob", "Ann"), "a name the player chose stays");
+        assertEquals("Player", Lobby.steamName("Player", null), "Steam hasn't started yet");
+        assertEquals("Player", Lobby.steamName("Player", "  "), "a blank Steam name");
         assertEquals(Lobby.MAX_NAME, Lobby.cleanName("x".repeat(40)).length());
     }
 

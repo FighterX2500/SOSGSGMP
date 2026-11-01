@@ -57,6 +57,10 @@ final class MpInput extends CLICKABLE.ClickableAbs {
 	}
 
 	/** The text as typed, trimmed. */
+	void set(String text) {
+		input.text().clear().add(text);
+	}
+
 	String text() {
 		return input.text().toString().strip();
 	}

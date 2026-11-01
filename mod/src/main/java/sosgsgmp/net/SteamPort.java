@@ -43,6 +43,9 @@ public interface SteamPort {
     /** This PC's Steam ID. */
     long self();
 
+    /** The name this PC's user goes by on Steam. */
+    String personaName();
+
     /** Creates a lobby for friends with room for {@code maxMembers}; the answer comes as {@link Listener#lobbyCreated}. */
     void createLobby(int maxMembers);
 
