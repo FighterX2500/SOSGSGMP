@@ -317,7 +317,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A player can pick their race, faction and location while others are still picking, and can change them until they press Ready. [PT]
 - Initialize World stays greyed until every player is ready, and a ready player's city can't be moved. [AT]
 - Two players 6–15 tiles apart with a trade agreement are each other's market partners, whatever land lies between them. [AT]
-- In a new world, two players 6–15 tiles apart with no mountains between them walk less than twice the distance between them. [AT]
+- In a new world, the trip between two players 6–15 tiles apart with no mountains between them takes less than twice as long as a straight road would. [AT]
 - A global event that fires on one city starts on every player's city at the same step. [AT]
 - The lobby list shows every joined player within 2 seconds of them joining. [PT]
 - A location that breaks the start location rules can't be confirmed, and the reason is shown. [AT]
