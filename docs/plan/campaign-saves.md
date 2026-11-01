@@ -10,7 +10,7 @@ Spec §11: Saving, Resuming. The owner asked for this before the general playtes
 
 ## How a save runs
 
-1. **Order.** The host picks the save step S = its step + 60 and sends `SaveAt(order)` to every PC, keeping it for itself too. A peer can't run more than 30 steps past the host, the AI log's lead, and the order travels ahead of the log pieces that would take a peer to S. So every PC gets the order before it reaches S. Every PC then calls `Engine.runUntil(S)`.
+1. **Order.** The host picks the save step S = `Engine.stepPastPeers()`, its horizon plus one lockstep window (its step + 60 at 1x, + 400 at speed 25: the window grows with the speed, SOS-90), and sends `SaveAt(order)` to every PC, keeping it for itself too. A peer can't run past the host's horizon, and the window covers the order's way there. So every PC gets the order before it reaches S. While a player views a city the order waits, and no new view begins until the save is done: the viewer's own city isn't loaded, so it couldn't save. A spectator's view doesn't hold it up, a save that ends the session closes the views instead, and the save before a battle can't wait, since a view needs steps to end and the world holds there. Every PC then calls `Engine.runUntil(S)`.
 2. **Save.** At S, between frames, each PC saves its game into vanilla's saves list with vanilla's time stamp: `MP <campaign> <Save|Auto>`. It also writes the campaign record (below) and sends `Saved(number, world hash, problem)`. A PC already past S, or whose save failed, reports the problem instead of a hash.
 3. **Done.** Once every PC has reported, the host sends `SaveDone(number, outcome)`. Every PC then runs freely again and shows the outcome: saved, or which PC failed or differs.
 4. **No save while** a battle runs, the desync window is open, or another save is under way. Saving in a battle is spec §11's "save before battles", which stays open. An autosave that comes due then waits.
@@ -39,6 +39,7 @@ The campaign id is the first game's start id, a SHA-256 of the world save every 
 - **Go.** The city has people, so the panel reports the start spot at once. The host's Go starts the game at step 0 on every PC, as for a new game.
 - **Any player can host.** The host runs the AI and paces the others whatever its slot. Slots stay as they were saved.
 - **Every PC's world must match.** Each PC saved the same world at S, so the hashes agree. If one doesn't, the factions step shows the mismatch as at a new game, and the game can't start.
+- **A save holds all of the world but one value.** The slave recipes' NPC production boosts aren't in a save, and the game draws them as it is built. A process's first game makes draws a later one doesn't, so a PC just started and one that had played loaded different boosts from one save (playtest of 2026-11-01, save 12). In a session they now come from the campaign's seed, so a resume no longer depends on who restarted (SOSDET `Hooks.unsavedBoost`).
 
 ## Not in this card
 

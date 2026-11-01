@@ -18,6 +18,7 @@ import sosdet.OwnBattle;
 import sosdet.Stats;
 import sosdet.View;
 import sosdet.hash.Desync;
+import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.net.StreamKind;
 import sosgsgmp.session.BattleSaves;
 import sosgsgmp.session.EnginePort;
@@ -42,6 +43,9 @@ public final class EnginePlay implements EnginePort {
 
     /** Each hold's step: the engine runs to the earliest, and freely once there is none. */
     private final Map<Hold, Long> holds = new EnumMap<>(Hold.class);
+    /** Host: the last view begun, from the step it was logged to a step past where it applies; -1 before the first. */
+    private long viewBegunAt = -1;
+    private long viewBegunUntil = -1;
 
     /** Battle saves from the BATTLE stream and this PC's own, until its engine loads them (plan 0006). */
     private final BattleSaves battles = new BattleSaves();
@@ -213,6 +217,11 @@ public final class EnginePlay implements EnginePort {
     @Override
     public long step() {
         return Engine.step();
+    }
+
+    /** Host: a step no PC can have passed when word of it arrives, at any speed. */
+    public long stepPastPeers() {
+        return Engine.stepPastPeers();
     }
 
     /** Holds every step past {@code step} for {@code who}, until {@link #release}; another hold may stop it sooner. */
@@ -421,6 +430,27 @@ public final class EnginePlay implements EnginePort {
     /** Host, between steps: the view begins on every PC at a step ahead (the owner allowed it). */
     public void viewBegin(int viewer, int owner) {
         Engine.viewBegin(viewer, owner);
+        viewBegunAt = Engine.step();
+        viewBegunUntil = Engine.stepPastPeers();
+    }
+
+    /** Whether a view is on: it hasn't ended, and wasn't cancelled. */
+    public static boolean viewLive(View v) {
+        return v != null && v.state() != View.ENDED && v.state() != View.CANCELLED;
+    }
+
+    /**
+     * Host: whether a player is viewing a city, or will be: a view just begun isn't in the engine until its log entry
+     * applies. A spectator's view doesn't count: a resume goes on without them (spec §11), and they may watch for hours.
+     */
+    public boolean viewOpen() {
+        long step = Engine.step();
+        if (step >= viewBegunAt && step <= viewBegunUntil)
+            return true; // a battle's load restarts the steps, so an old begin can lie ahead of them
+        for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++)
+            if (viewLive(Engine.view(slot)) && !spectator(slot))
+                return true;
+        return false;
     }
 
     /** Host, between steps: the view of the player in {@code viewer} ends, for {@code why} ({@code View.CLOSED} to {@code View.DESYNC}). */

@@ -74,7 +74,7 @@ final class MpDesync {
 			resyncSent = true;
 		}
 		load();
-		if (exitChosen && shown == null && saves.canSave()) {
+		if (exitChosen && shown == null && saves.canSaveToExit()) {
 			saves.saveAndExit();
 			exitChosen = false;
 		}
