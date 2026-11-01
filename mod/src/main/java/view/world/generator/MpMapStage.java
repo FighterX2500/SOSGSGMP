@@ -17,6 +17,7 @@ import snake2d.util.gui.renderable.RENDEROBJ;
 import snake2d.util.sprite.text.StringInputSprite;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
+import sosgsgmp.game.MinimapAdapter;
 import sosgsgmp.session.SetupSession;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStatus;
@@ -90,6 +91,7 @@ public final class MpMapStage {
 		if (!(VIEW.current() instanceof WorldViewGenerator g))
 			throw new IllegalStateException("SOSGSGMP: the new game shows " + VIEW.current() + ", not the world generator (Songs of Syx V71)");
 		g.reset();
+		new MinimapAdapter().zoomButtonsOnly(g.minimap);
 		// Spec §5: no titles during setup.
 		g.hasSelectedTitles = true;
 		MpMapStage stage = new MpMapStage(g, setup, mapTypes, rebuild);

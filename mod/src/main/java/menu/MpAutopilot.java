@@ -183,6 +183,12 @@ public final class MpAutopilot {
 		return new MpAutopilot(m);
 	}
 
+	/** Whether the variable asks for a GUI preview: read once, by the cursors. */
+	static boolean previewing() {
+		String v = System.getenv(VARIABLE);
+		return v != null && v.contains("guipreview=");
+	}
+
 	/** Over Steam instead of direct IP (net=steam). */
 	private final boolean steam;
 	/** A joining PC's Steam, looking for the host's lobby. */

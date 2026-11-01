@@ -1,0 +1,30 @@
+diff --git a/view/ui/advice/UIAdvice.java b/view/ui/advice/UIAdvice.java
+--- a/view/ui/advice/UIAdvice.java
++++ b/view/ui/advice/UIAdvice.java
+@@ -227,6 +227,8 @@
+ 	}
+ 	
+ 	private static void sendResettle(UIAdvice a) {
++		if (menu.MpPlayers.inGame()) // SOSGSGMP hook M10 (docs/hooks.md)
++			return;
+ 		if (POP.pop() < 200)
+ 			return;
+ 		if (a.hasOffered)
+@@ -531,7 +533,7 @@
+ 			
+ 			@Override
+ 			protected void renAction() {
+-				activeSet(resettlePossible);
++				activeSet(resettlePossible && !menu.MpPlayers.inGame()); // SOSGSGMP hook M10
+ 			}
+ 			
+ 		});
+@@ -700,7 +702,7 @@
+ 				
+ 				@Override
+ 				protected void renAction() {
+-					activeSet(resettlePossible);
++					activeSet(resettlePossible && !menu.MpPlayers.inGame()); // SOSGSGMP hook M10
+ 				}
+ 				
+ 			});

@@ -13,6 +13,7 @@ import snake2d.util.datatypes.COORDINATE;
 import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.renderable.RENDEROBJ;
 import sosgsgmp.game.EnginePlay;
+import sosgsgmp.game.MinimapAdapter;
 import sosgsgmp.game.PlayerSieges;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbyPlayer;
@@ -28,6 +29,7 @@ import util.gui.misc.GHeader;
 import util.gui.misc.GText;
 import util.gui.panel.GPanel;
 import view.interrupter.Interrupter;
+import view.sett.ui.minimap.MpCityMinimap;
 import view.main.VIEW;
 import view.subview.GameWindow;
 
@@ -55,6 +57,7 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 	private double sinceRefresh;
 	private final GuiSection section = new GuiSection();
 	private final MpCursors cursors;
+	private final MinimapAdapter minimap = new MinimapAdapter();
 	/** Deals with the other players (spec §6; SOS-72, SOS-76): their notices and the latest answer. */
 	private final MpDeals deals;
 	/** The siege of this PC's player's capital (spec §9; SOS-92): its notice, and Sally out beside Leave while it lasts. */
@@ -72,7 +75,7 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 	private final GuiSection inner = new GuiSection();
 	private final MpDrag drag = new MpDrag();
 	/** Hidden by the top bar's button (SOS-91). */
-	private boolean hidden;
+	private boolean hidden = MpAutopilot.previewing(); // a preview's shots need the minimap under it
 
 	/** Shows the panel in this view, and the escape menu's multiplayer column (SOS-79). */
 	static void show(SetupSession setup, WorldSetupAdapter game, EnginePlay engine, MpSaves saves, MpExit exit) {
@@ -159,8 +162,10 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 	@Override
 	protected boolean render(Renderer r, float ds) {
 		pump(ds);
-		if (!leaving && cursorPlace() != Cursors.OFF)
+		if (!leaving && cursorPlace() != Cursors.OFF) {
 			cursors.render(r, cursorWindow(), cursorPlace());
+			minimapCursors(r);
+		}
 		if (hidden)
 			return true;
 		drag.follow(section, VIEW.mouse().x(), VIEW.mouse().y());
@@ -192,6 +197,13 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 
 	private static GameWindow cursorWindow() {
 		return VIEW.world().isActive() ? VIEW.world().window : VIEW.s().getWindow();
+	}
+
+	private void minimapCursors(Renderer r) {
+		if (VIEW.s().isActive())
+			cursors.renderCityMinimap(r, MpCityMinimap.map(VIEW.s().mini), cursorWindow(), cursorPlace());
+		else if (minimap.playingMapOpen())
+			cursors.renderWorldMinimap(r, minimap.playingMap());
 	}
 
 	private void pump(float ds) {

@@ -2,17 +2,22 @@ package menu;
 
 import java.util.List;
 
+import init.constant.C;
 import init.sprite.UI.UI;
 import snake2d.SPRITE_RENDERER;
 import snake2d.util.color.COLOR;
 import snake2d.util.color.ColorImp;
+import snake2d.util.datatypes.RECTANGLE;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.session.Cursors;
 import sosgsgmp.session.SetupSession;
 import util.gui.misc.GText;
+import util.gui.panel.GFrame;
 import view.main.VIEW;
 import view.subview.GameWindow;
+import world.WORLD;
+import world.WorldMinimap;
 
 /**
  * SOSGSGMP: the other players' cursors (spec §5 "Other players' cursors", §12): on the setup's location screen, the
@@ -29,6 +34,7 @@ public final class MpCursors {
 			new ColorImp(150, 100, 60), new ColorImp(120, 120, 250), new ColorImp(160, 230, 60), new ColorImp(250, 120, 170),
 			new ColorImp(90, 160, 120), new ColorImp(200, 200, 120), new ColorImp(130, 130, 130), new ColorImp(30, 90, 160) };
 	private static final int ARM = 6;
+	private static final int MINIMAP_ARM = 4;
 
 	/** The n-th player's colour, on cursors and in the chat. */
 	static COLOR colour(int n) {
@@ -36,6 +42,8 @@ public final class MpCursors {
 	}
 
 	private final SetupSession setup;
+	/** A GUI preview has no mouse to move: the cursor stays at the window's centre, for the screenshots. */
+	private final boolean pinned = MpAutopilot.previewing();
 	private final GText[] names = new GText[LobbySettings.MAX_PLAYERS];
 	private final int[] nameIds = new int[LobbySettings.MAX_PLAYERS];
 	private final int[] colorOf = new int[LobbySettings.MAX_PLAYERS];
@@ -55,6 +63,10 @@ public final class MpCursors {
 	public void send(GameWindow window, int place) {
 		if (setup.closed())
 			return;
+		if (pinned && place != Cursors.OFF) {
+			setup.cursor(place, window.pixels().cX(), window.pixels().cY());
+			return;
+		}
 		boolean in = place != Cursors.OFF && window.view().holdsPoint(VIEW.mouse().x(), VIEW.mouse().y());
 		setup.cursor(in ? place : Cursors.OFF, in ? window.pixel().x() : 0, in ? window.pixel().y() : 0);
 	}
@@ -74,15 +86,59 @@ public final class MpCursors {
 				continue;
 			int n = nameIndex(c.playerId(i));
 			COLOR color = n < 0 ? COLOR.WHITE100 : colour(colorOf[n]);
-			color.render(r, x - ARM, x + ARM + 1, y - 1, y + 2);
-			color.render(r, x - 1, x + 2, y - ARM, y + ARM + 1);
-			COLOR.unbind();
+			cross(r, color, x, y, ARM);
 			if (n >= 0) {
 				color.bind();
 				names[n].render(r, x + ARM + 2, y + 2);
 				COLOR.unbind();
 			}
 		}
+	}
+
+	/** Every other player's cursor on the world, on a world minimap (SOS-124); {@code map} is its body. */
+	public void renderWorldMinimap(SPRITE_RENDERER r, RECTANGLE map) {
+		if (setup.changes() != namedChanges)
+			names();
+		Cursors c = setup.cursors();
+		int border = (map.width() - WorldMinimap.WIDTH) / 2;
+		for (int i = 0; i < c.count(); i++) {
+			if (c.place(i) != Cursors.WORLD)
+				continue;
+			int x = map.x1() + border + WorldMinimap.WIDTH * c.x(i) / WORLD.PWIDTH();
+			int y = map.y1() + border + WorldMinimap.HEIGHT * c.y(i) / WORLD.PHEIGHT();
+			cross(r, playerColour(c.playerId(i)), x, y, MINIMAP_ARM);
+		}
+	}
+
+	/**
+	 * Every other player's cursor on {@code place}, on the city minimap (SOS-124): one pixel per tile around
+	 * {@code window}'s centre, as the game's {@code UIMinimapPanel} draws it; {@code map} is its body.
+	 */
+	public void renderCityMinimap(SPRITE_RENDERER r, RECTANGLE map, GameWindow window, int place) {
+		if (setup.changes() != namedChanges)
+			names();
+		Cursors c = setup.cursors();
+		int left = map.x1() + GFrame.MARGIN - (window.tiles().cX() - map.width() / 2);
+		int top = map.y1() + GFrame.MARGIN - (window.tiles().cY() - map.height() / 2);
+		for (int i = 0; i < c.count(); i++) {
+			if (c.place(i) != place)
+				continue;
+			int x = left + c.x(i) / C.TILE_SIZE;
+			int y = top + c.y(i) / C.TILE_SIZE;
+			if (map.holdsPoint(x, y))
+				cross(r, playerColour(c.playerId(i)), x, y, MINIMAP_ARM);
+		}
+	}
+
+	private COLOR playerColour(int playerId) {
+		int n = nameIndex(playerId);
+		return n < 0 ? COLOR.WHITE100 : colour(colorOf[n]);
+	}
+
+	private static void cross(SPRITE_RENDERER r, COLOR color, int x, int y, int arm) {
+		color.render(r, x - arm, x + arm + 1, y - 1, y + 2);
+		color.render(r, x - 1, x + 2, y - arm, y + arm + 1);
+		COLOR.unbind();
 	}
 
 	private void names() {

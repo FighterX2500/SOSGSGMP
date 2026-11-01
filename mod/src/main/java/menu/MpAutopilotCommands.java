@@ -24,6 +24,7 @@ import settlement.entity.humanoid.Humanoid;
 import settlement.main.SETT;
 import settlement.stats.STATS;
 import snake2d.CORE;
+import snake2d.PathTile;
 import sosdet.Engine;
 import sosdet.Hooks;
 import sosdet.game.OwnArmy;
@@ -60,7 +61,7 @@ import world.map.regions.Region;
  * {@code divs} (the city's divisions); {@code attach <division|all>} (the city army screen's send out, to the first army);
  * {@code attack} (the first army intercepts the other player's nearest army); {@code fight}, {@code start}, {@code retreat}
  * (the open battle prompt or battle); {@code speed <x>} (host); {@code view} (ask to view the other player's city) and
- * {@code closeview} (SOS-82); {@code say <text>} (the chat, SOS-110); {@code pause} (as the pause key); {@code pop} (this
+ * {@code closeview} (SOS-82); {@code route} (the walk to the other player's capital, SOS-122); {@code say <text>} (the chat, SOS-110); {@code pause} (as the pause key); {@code pop} (this
  * city's people); {@code besiege} (the first army besieges the other player's capital); {@code siegewait} (test tooling:
  * the siege of the other player's capital has waited long enough); {@code storm} (test tooling for the prompt: the next
  * siege prompt is answered with Storm, and the first army's siege order opens it); {@code sally}; {@code fallback} (the
@@ -302,6 +303,15 @@ final class MpAutopilotCommands {
 				return "refused: no army";
 			Sieges.teleportForTest(w, Integer.parseInt(a[1]), Integer.parseInt(a[2]));
 			return "army " + w.armyIndex() + " teleports, at its step on every PC";
+		}
+		case "route": { // the walk to the other player's capital (SOS-122)
+			Region me = FACTIONS.player().capitolRegion();
+			Region to = other().capitolRegion();
+			double walked = 0;
+			for (PathTile p = WORLD.PATH().path(me.cx(), me.cy(), to.cx(), to.cy()); p != null && p.getParent() != null; p = p.getParent())
+				walked += Math.hypot(p.x() - p.getParent().x(), p.y() - p.getParent().y());
+			return String.format(Locale.ROOT, "route %d,%d to %d,%d: %.1f tiles apart, %.1f walked", me.cx(), me.cy(), to.cx(), to.cy(),
+					Math.hypot(me.cx() - to.cx(), me.cy() - to.cy()), walked);
 		}
 		case "npcarmies": { // the NPC armies with men, for a two-PC test of an ally in an NPC battle
 			StringBuilder b = new StringBuilder();

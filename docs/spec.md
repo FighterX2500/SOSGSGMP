@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.40 · 2026-11-01
+Version 0.41 · 2026-11-01
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -89,7 +89,7 @@ Every player starts with the same starting resources and difficulty, set by the 
 
 1. Each player, at their own pace, picks their race, customizes their faction and picks a location on the world map. A player who is done presses Ready, which needs a location, and doesn't wait for the others to start. While ready, the player can't move their city or change their picks, and every setup button but Ready and Leave is greyed; pressing Ready again undoes this. The chat tells every player who is ready and who no longer is. Customizing works as in vanilla, including saving and loading the faction profile. No titles are given at this stage.
 2. Every player sees the locations the others have picked. There is no maximum distance, but a location closer than 6 tiles to another player's can't be picked. Vanilla's terrain rules for a capital apply, plus one: the capital needs land beyond its square, on at least one side. A capital surrounded by water can end up with no roads on its city map, and that city is unplayable (SOS-75).
-3. When every player is ready, the host can initialize the world; until then Initialize World is greyed. NPC countries and routes are generated around the players. Any two players 6–15 tiles apart are guaranteed a connection: a land or water route their armies and caravans can walk, which may cross NPC land, and, with a trade agreement, market trade along it whatever land lies between them (section 7). While a player places their city, a notice under the top of the screen says so when the spot is in range of another player's city. Players further apart are connected the vanilla way, through NPC states and other players.
+3. When every player is ready, the host can initialize the world; until then Initialize World is greyed. NPC countries and routes are generated around the players. Any two players 6–15 tiles apart get a direct link when the world is built: a new road, or a crossing where water lies between them, unless a route already there is about as direct. Their armies and caravans walk it; it may cross NPC land, and with a trade agreement market trade runs along it whatever land lies between them (section 7). This holds for new worlds; a campaign already under way keeps its routes. While a player places their city, a notice under the top of the screen says so when the spot is in range of another player's city. Players further apart are connected the vanilla way, through NPC states and other players.
 4. Each player then picks their starting spot on their own city map. The game stays paused, and nobody can unpause it, but players can already plan their city.
 5. When the last player picks their starting spot, the game unpauses automatically.
 
@@ -98,6 +98,8 @@ Every player starts with the same starting resources and difficulty, set by the 
 - NPC factions are generated as in vanilla. This may change in a later version.
 - Players use vanilla's 64 faction slots, so each player takes one slot from the NPC factions: 61 NPC factions with 3 players, 48 with 16. With many players on a big map there are fewer NPC kingdoms than in vanilla.
 - The game is a sandbox with no win condition.
+- **Global events.** Some scripted events belong to the whole world. When one fires on any city, it fires on every player's city at the same step, and no player rolls it separately. Eclipse, Comet Sighted, A Year of Crator, Storm of the Age and Rumours of Famine run on every city, and each player answers any choice. Rumors of Raiders, Garthimi hives are suffering, Peaceful underground and Dondorians embark on a new Quest change the world once, and every player gets the message. All other events stay each city's own. The full list: [events-2026-11-01.md](plan/events-2026-11-01.md).
+- **Resettle.** Vanilla's Resettle offer never appears, and its button in the advice panel is greyed: it would abandon a player's city.
 - An eliminated player becomes a spectator (section 11).
 - A name or banner change made during play reaches every player: a player's faction name, ruler name and banner, changed in the profile window or loaded from a saved profile, change on every player's map at the same moment, and the campaign save keeps them.
 
@@ -266,7 +268,7 @@ Players talk through one in-game chat. Every player and spectator reads the same
 - **Event notifications** appear in the chat. Every player sees a war declared, a peace, a vassalage, a siege's start, an assault's start and outcome, an NPC invasion of a capital, a battle between players starting and ending, a player leaving, returning or being eliminated, and a pause with who paused. Deals, gifts, tariffs and view requests appear only for the players involved. Notifications never give army positions or numbers.
 - **Information without a choice** appears as a notification, not a popup.
 - **Prompts that need an answer**, such as a battle invite, appear as popups in the vanilla style.
-- **Other players' cursors.** Every player sees the other players' mouse cursors, each marked with that player's name and color: on the world map, every other player's cursor that is on the world map too; in a city, the cursor of every other player looking at the same city (its owner and its viewers, section 10). A cursor is only shown, never an action.
+- **Other players' cursors.** Every player sees the other players' mouse cursors, each marked with that player's name and color: on the world map, every other player's cursor that is on the world map too; in a city, the cursor of every other player looking at the same city (its owner and its viewers, section 10). The same cursors show as small crosses in their colors on the world minimap, while placing a city too, and on the city minimap. A cursor is only shown, never an action.
 
 ## 13. Performance targets
 
@@ -315,6 +317,8 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A player can pick their race, faction and location while others are still picking, and can change them until they press Ready. [PT]
 - Initialize World stays greyed until every player is ready, and a ready player's city can't be moved. [AT]
 - Two players 6–15 tiles apart with a trade agreement are each other's market partners, whatever land lies between them. [AT]
+- In a new world, the trip between two players 6–15 tiles apart with no mountains between them takes less than twice as long as a straight road would. [AT]
+- A global event that fires on one city starts on every player's city at the same step. [AT]
 - The lobby list shows every joined player within 2 seconds of them joining. [PT]
 - A location that breaks the start location rules can't be confirmed, and the reason is shown. [AT]
 - The game stays paused until the last player picks their city start spot, then unpauses automatically. [PT]
@@ -497,6 +501,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-10-30 | **Watching an NPC battle:** any other player joins without asking; a watcher's PC runs the battle at its own pace from the fighting player's orders and speed, and the watch ends only 3 minutes behind. Joining reloads the battle on both PCs | SOS-109 |
 | 2026-10-31 | The night run: **sieges finished** (the lockstep assault with commanders, Retreat, every outcome, Eliminate, allied attackers), **spectators**, battle resync, one viewer for each city; the Fray2 crash | SOS-92, SOS-111, SOS-114, SOS-109, SOS-112 |
 | 2026-10-31 | **Battles with allies, decided:** allies within 4 tiles are asked Join or Stay out; every player's own bonuses; slots split evenly; each commander retreats their own army, at half their share while an ally stays; spoils split by men brought; both armies get the winner's window; the commanders' speed vote; the world's speed comes back after a battle; an ally can join an NPC battle on two PCs only | [ADR 0009](decisions/0009-several-humans-in-a-battle.md) |
+| 2026-11-01 | The 2026-11-01 playtest's list: **direct links** between players 6 to 15 tiles apart, by land or across water (new worlds); **global events**; other players' cursors on the minimaps; no Resettle; the placing screen's top-right buttons reduced to + and −; the desync that playtest showed (NPC courts differed per PC) is fixed and hashed. |
 
 ### Where each v1 feature stands (2026-10-30; percentages from 2026-10-29)
 
