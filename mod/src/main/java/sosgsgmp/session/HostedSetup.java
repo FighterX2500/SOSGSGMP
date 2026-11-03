@@ -1,5 +1,6 @@
 package sosgsgmp.session;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -20,6 +21,7 @@ import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStatus;
 import sosgsgmp.setup.MapStep;
 import sosgsgmp.setup.MapWorld;
+import sosgsgmp.report.ReportStore;
 
 /** The setup hosted on this PC: the host decides the builds and generations and collects every PC's result. */
 public final class HostedSetup implements SetupSession {
@@ -77,6 +79,10 @@ public final class HostedSetup implements SetupSession {
     /** The world resync this PC sent, until it takes it to load; null otherwise. */
     private WorldResync resync;
     private final Chat chat;
+    /** Where joining PCs' reports go; null until {@link #reportsTo} (SOS-133). */
+    private Path reportsDir;
+    /** Each joining player's reports this session, by player id. */
+    private final Map<Integer, ReportStore> reports = new HashMap<>();
     private final Pauses pauses = new Pauses();
     private boolean closed;
     private String closedReason;
@@ -200,6 +206,10 @@ public final class HostedSetup implements SetupSession {
             case Message.ViewCity v when id != null && views != null -> view(id, v);
             case Message.ViewTape v when id != null && views != null -> view(id, v);
             case Message.ViewHashes v when id != null && views != null -> view(id, v);
+            case Message.Report r when id != null -> {
+                if (link != null)
+                    report(id, r);
+            }
             case Message.Cursor c when id != null -> {
                 cursors.set(id, c.place(), c.x(), c.y());
                 Message relayed = new Message.Cursor(id, c.place(), c.x(), c.y());
@@ -387,6 +397,23 @@ public final class HostedSetup implements SetupSession {
     private String peerName(int peer) {
         Integer id = joined.get(peer);
         return id != null ? name(id) + " (peer " + peer + ")" : "peer " + peer;
+    }
+
+    @Override
+    public void reportsTo(Path dir) {
+        reportsDir = dir;
+    }
+
+    /** A piece of player {@code id}'s files: into their folder of this campaign's reports. */
+    private void report(int id, Message.Report r) {
+        if (reportsDir == null)
+            return;
+        ReportStore store = reports.computeIfAbsent(id, i -> new ReportStore(reportsDir
+                .resolve(campaign == null ? "new game" : String.format("%016x", campaign.id()))
+                .resolve(factions.slotOf(i) + "-" + ReportStore.clean(name(i))), name(i)));
+        String line = store.accept(r);
+        if (line != null)
+            notes.add(line);
     }
 
     private String name(int id) {

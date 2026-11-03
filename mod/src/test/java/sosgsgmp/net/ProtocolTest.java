@@ -91,6 +91,9 @@ class ProtocolTest {
             new Message.ViewHashes(1, new byte[] {1, -2, 3}),
             new Message.ViewTape(1, new byte[] {4, -5, 6}),
             new Message.ViewHashes(15, new byte[Protocol.MAX_STREAM_PIECE]),
+            new Message.Report("20261102-232627-join-Adam_Smith.log", -1, 0, new byte[] {7, 8}),
+            new Message.Report("MP campaign-1a19dc070d3-47002c-ce336261-22d.save", Message.Report.MAX_TOTAL,
+                    Message.Report.MAX_TOTAL - Protocol.MAX_STREAM_PIECE, new byte[Protocol.MAX_STREAM_PIECE]),
             new Message.SaveDone(5, "Bob couldn't save: disk full\nCid's world differs from the host's"),
             new Message.MapResult(3, -1L, MapStatus.OK),
             new Message.MapResult(4, 0L, MapStatus.WRONG_BUILD),
@@ -205,6 +208,14 @@ class ProtocolTest {
 
     /** Encoding doesn't check values (only decoding does), so a bad value reaches the decoder as it would from a bad peer. */
     /** A save order names a quitter only when it ends the session; a decoded one that breaks this is refused (SOS-79). */
+    @Test
+    void reportPiecesWithBadValuesThrow() {
+        assertThrows(IllegalArgumentException.class, () -> new Message.Report("", -1, 0, new byte[0]));
+        assertThrows(IllegalArgumentException.class, () -> new Message.Report("a.save", 1, 0, new byte[2]));
+        assertThrows(IllegalArgumentException.class, () -> new Message.Report("a.log", -2, 0, new byte[0]));
+        assertThrows(IllegalArgumentException.class, () -> new Message.Report("a.log", -1, -1, new byte[0]));
+    }
+
     @Test
     void aQuitterComesOnlyWithAnExit() {
         assertThrows(IllegalArgumentException.class,

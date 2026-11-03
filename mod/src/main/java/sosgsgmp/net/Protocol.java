@@ -31,7 +31,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 21;
+    public static final int VERSION = 22;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -45,6 +45,7 @@ public final class Protocol {
     private static final int PLAYER_GONE = 29, GONE_CHOICE = 30, QUIT_ASK = 31;
     private static final int VIEW_ASK = 32, VIEW_ANSWER = 33, VIEW_CLOSE = 34, VIEW_CITY = 35, VIEW_HASHES = 36;
     private static final int CHAT = 37, PAUSE = 38, VIEW_TAPE = 39, READY = 40;
+    private static final int REPORT = 41;
     /** The largest city a view carries, in bytes ({@link Message.ViewCity}). */
     public static final int MAX_VIEW_CITY = 512 * 1024 * 1024;
     /** The largest reason a viewer's PC ends its view for ({@link Message.ViewClose}): the engine's closed to lost step. */
@@ -299,6 +300,15 @@ public final class Protocol {
                     out.writeInt(data.length);
                     out.write(data);
                 }
+                case Message.Report r -> {
+                    out.writeByte(REPORT);
+                    out.writeUTF(r.name());
+                    out.writeLong(r.total());
+                    out.writeLong(r.offset());
+                    byte[] data = r.bytes();
+                    out.writeInt(data.length);
+                    out.write(data);
+                }
                 case Message.Unsupported u -> throw new IllegalArgumentException("SOSGSGMP: can't send a message of protocol version " + u.version());
             }
         } catch (IOException e) {
@@ -378,6 +388,7 @@ public final class Protocol {
                 int viewer = slot(in);
                 yield new Message.ViewTape(viewer, data(in, MAX_STREAM_PIECE, "a battle's tape"));
             }
+            case REPORT -> report(in);
             default -> throw new IOException("SOSGSGMP: unknown message type " + type);
         };
         if (in.available() > 0)
@@ -643,6 +654,18 @@ public final class Protocol {
             throw new IOException("SOSGSGMP: a view's city piece at " + offset + " of " + total + " bytes");
         byte[] bytes = data(in, Math.min(MAX_STREAM_PIECE, total - offset), "view city piece");
         return new Message.ViewCity(viewer, step, total, offset, bytes);
+    }
+
+    private static Message.Report report(DataInputStream in) throws IOException {
+        String name = text(in, Message.Report.MAX_NAME, "report file name");
+        long total = in.readLong();
+        long offset = in.readLong();
+        byte[] bytes = data(in, MAX_STREAM_PIECE, "report piece");
+        try {
+            return new Message.Report(name, total, offset, bytes);
+        } catch (IllegalArgumentException e) {
+            throw new IOException(e.getMessage(), e);
+        }
     }
 
     private static int cursorPlace(int place) throws IOException {

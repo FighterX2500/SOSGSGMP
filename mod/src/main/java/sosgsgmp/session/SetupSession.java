@@ -1,10 +1,12 @@
 package sosgsgmp.session;
 
+import java.nio.file.Path;
 import java.util.List;
 
 import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.lobby.LobbyPlayer;
+import sosgsgmp.net.Message;
 import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep;
 import sosgsgmp.setup.MapOptions;
@@ -201,6 +203,17 @@ public interface SetupSession {
 
     /** Once every PC reported on order {@code number}: empty, or what went wrong; given once, null before. */
     String takeSaveDone(int number);
+
+    /** A joining PC, once it plays: one piece of its files for the host's reports (SOS-133). */
+    default void report(Message.Report piece) {
+    }
+
+    /**
+     * Host: joining PCs' reports go under {@code dir}, a folder per campaign and per player (SOS-133). Until this is
+     * called, their pieces are dropped.
+     */
+    default void reportsTo(Path dir) {
+    }
 
     /** What carries the session's connections, for the playtest log. */
     String network();

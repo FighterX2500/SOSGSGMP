@@ -72,6 +72,11 @@ public final class CampaignStore {
         return max + 1;
     }
 
+    /** The record file of save {@code number} of {@code campaignId}, written or not. */
+    public Path recordFile(long campaignId, int number) {
+        return file(campaignId, number);
+    }
+
     public void write(CampaignRecord r) {
         try {
             Files.createDirectories(dir);

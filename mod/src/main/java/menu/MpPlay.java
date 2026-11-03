@@ -11,7 +11,8 @@ import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.session.SetupSession;
-import view.main.VIEW;
+
+import view.main.VIEW;
 
 /**
  * SOSGSGMP: the game over the network, once per frame after the game's update, outside the step
@@ -46,8 +47,10 @@ final class MpPlay implements ACTION {
 	private MpAllyJoin ally;
 	/** The pause every PC shares, and who set it (spec §4, SOS-110). */
 	private final MpPause pause;
+	/** A joining PC's logs and saves on their way to the host (SOS-133). */
+	private final MpReports reports;
 
-	MpPlay(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpLog log, MpSaves saves, MpExit exit) {
+	MpPlay(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpLog log, MpSaves saves, MpExit exit, MpReports reports) {
 		this.setup = setup;
 		this.engine = engine;
 		this.desync = new MpDesync(setup, engine, saves);
@@ -58,6 +61,7 @@ final class MpPlay implements ACTION {
 		this.views = new MpViews(setup, engine, log);
 		this.notices = new MpNotices(setup, engine);
 		this.pause = new MpPause(setup, engine);
+		this.reports = reports;
 	}
 
 	@Override
@@ -90,6 +94,7 @@ final class MpPlay implements ACTION {
 				invasions();
 				notices.frame();
 				allyPrompt();
+				reports.frame();
 			}
 		}
 		if (setup.playing()) {
