@@ -98,9 +98,10 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 			autopilot.loaded(game.worldHash());
 			autopilot.roads(game.activeEntries());
 		}
-		MpSaves saves = new MpSaves(setup, engine, game, log);
+		MpReports reports = new MpReports(setup, log);
+		MpSaves saves = new MpSaves(setup, engine, game, log, reports);
 		MpExit exit = new MpExit(setup, engine, game, saves, log);
-		MpPlay play = new MpPlay(setup, engine, game, log, saves, exit);
+		MpPlay play = new MpPlay(setup, engine, game, log, saves, exit, reports);
 		GAME.addAfterUpdate(play);
 		MpSessionPanel.show(setup, game, engine, saves, exit);
 		engine.afterEachLoad(() -> { // a battle's loads build a new game and view (SOSDET plan 0006)

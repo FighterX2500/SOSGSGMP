@@ -310,6 +310,11 @@ final class MpLog {
 		}
 	}
 
+	/** The log's file, for the host's reports (SOS-133). */
+	Path file() {
+		return log.file();
+	}
+
 	/** The session's end on this PC: nothing more to log. */
 	private void end() {
 		ended = true;

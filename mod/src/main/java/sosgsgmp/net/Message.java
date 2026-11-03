@@ -395,6 +395,51 @@ public sealed interface Message {
         }
     }
 
+    /**
+     * A joining PC to the host: {@code bytes} at {@code offset} of one of its files for the host's reports (SOS-133):
+     * a log that still grows ({@code total} -1) or a whole file of {@code total} bytes, a save or a crash file.
+     */
+    record Report(String name, long total, long offset, byte[] bytes) implements Message {
+        /** Longest file name in a report, in characters. */
+        public static final int MAX_NAME = 160;
+        /** Largest whole file in a report, in bytes. */
+        public static final long MAX_TOTAL = 512L * 1024 * 1024;
+
+        public Report {
+            if (name.isEmpty() || name.length() > MAX_NAME || total < -1 || total > MAX_TOTAL || offset < 0
+                    || total >= 0 && offset + bytes.length > total)
+                throw new IllegalArgumentException("SOSGSGMP: a report piece of '" + name + "' at " + offset + "+" + bytes.length
+                        + " of " + total + " bytes");
+            bytes = bytes.clone();
+        }
+
+        @Override
+        public byte[] bytes() {
+            return bytes.clone();
+        }
+
+        /** The byte count without a copy. */
+        public int length() {
+            return bytes.length;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof Report r && name.equals(r.name) && total == r.total && offset == r.offset
+                    && Arrays.equals(bytes, r.bytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name, total, offset, Arrays.hashCode(bytes));
+        }
+
+        @Override
+        public String toString() {
+            return "Report[" + name + ", " + offset + "+" + bytes.length + " of " + total + " bytes]";
+        }
+    }
+
     /** A message from another protocol version; only its version is read. */
     record Unsupported(int version) implements Message {}
 }

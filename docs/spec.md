@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.44 · 2026-11-01
+Version 0.45 · 2026-11-04
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -225,6 +225,8 @@ Any player can view any other player's city, enemies included. This is intended.
 
 **Saving by hand.** In a multiplayer game the escape menu has Save Campaign, which saves the campaign the same way. Only the host can use it; the other players see it greyed out, with the reason. The game's own Quick-save, Save and Load, and the Quick Load key, are gone in a multiplayer game, since their saves can't be resumed. Quit to menu and Exit save the campaign first, on every PC, and then end the session for every player; a joining player's quit asks the host's PC for the save. Such a save closes any open view first. During a battle no save can start, so a player who quits then leaves without one.
 
+**Reports.** So a problem can be studied on the host's PC, every joining player's PC sends the host, in the background, its playtest log and connection log as they are written, its game's crash files from the last week it hasn't sent before, and each of its campaign saves (owner, 2026-11-04; SOS-133). It is on for every player, and the chat says so when the game starts; a player can turn it off on their own PC (`reports=false` in their lobby settings). Chat text and player keys are never sent. The sending is paced so the game's own traffic comes first. The host keeps the files under `sosgsgmp-reports`, a folder per campaign and per player.
+
 **Save before battles.** Before every real-time battle between players or siege assault starts, the campaign is saved the same way. If the connection is lost during the battle, the players can resume from that save. This save can't wait for a view: the world is held at the battle's start, and a view needs the world to run to end. A player viewing a city then has no save from that moment.
 
 **Resuming.** Any player can host when a saved campaign is resumed. If a player is missing, the host can wait for them or start without them; a player left out is removed (see Removing a player).
@@ -424,6 +426,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A saved campaign with a spectator resumes, with them back as a spectator or without them, and nobody waits. [AT]
 - A campaign saved under one host can be resumed with a different host. [PT]
 - The host can start a resume without a missing player, who is then removed. [AT]
+- After a session the host has every joining player's playtest log and campaign saves, and a joiner whose game froze or crashed has its log on the host up to its last lines. [AT + PT]
 - A campaign saved from the escape menu's Save Campaign resumes. A joining player's Exit makes every PC save the campaign before the session ends, and that save resumes too. [AT]
 - Every region a removed player held, their city's included, becomes free with no owner, and they can't rejoin as a player. [AT]
 
@@ -507,6 +510,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-01 | The 2026-11-01 playtest's list: **direct links** between players 6 to 15 tiles apart, by land or across water (new worlds); **global events**; other players' cursors on the minimaps; no Resettle; the placing screen's top-right buttons reduced to + and −; the desync that playtest showed (NPC courts differed per PC) is fixed and hashed. | SOS-121 to SOS-125 |
 | 2026-11-01 | Through Steam, a player who never chose a name joins under their Steam name. | SOS-131 |
 | 2026-11-02 | An autosave or Save Campaign waits until no player is viewing a city. A save that ends the session closes the views instead, and the save before a battle can't wait, so a viewer has no save from that moment. | Batch 4 |
+| 2026-11-04 | **Reports:** every joining PC sends the host its logs, crash files and campaign saves (section 11). | SOS-133 |
 
 ### Where each v1 feature stands (2026-11-01)
 

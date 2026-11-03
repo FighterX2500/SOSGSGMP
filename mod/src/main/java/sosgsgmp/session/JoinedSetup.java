@@ -103,6 +103,12 @@ public final class JoinedSetup implements SetupSession {
     }
 
     @Override
+    public void report(Message.Report piece) {
+        if (link != null)
+            node.send(Node.HOST, piece);
+    }
+
+    @Override
     public Chat chat() {
         return chat;
     }

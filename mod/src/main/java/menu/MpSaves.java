@@ -29,6 +29,8 @@ final class MpSaves {
 	private final EnginePlay engine;
 	private final WorldSetupAdapter game;
 	private final MpLog log;
+	/** A joining PC's saves go to the host's reports too (SOS-133). */
+	private final MpReports reports;
 	private final CampaignStore store = store();
 	/** This PC's open order: held at its step, saved, then waiting for every PC; null otherwise. */
 	private SaveOrder order;
@@ -54,11 +56,12 @@ final class MpSaves {
 	private long autoMillis;
 	private long autoLast = -1;
 
-	MpSaves(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpLog log) {
+	MpSaves(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpLog log, MpReports reports) {
 		this.setup = setup;
 		this.engine = engine;
 		this.game = game;
 		this.log = log;
+		this.reports = reports;
 	}
 
 	/** This PC's campaign records, in its data folder. */
@@ -252,6 +255,7 @@ final class MpSaves {
 					for (CampaignRecord gone : store.rotate(order.campaign().id(), order.keep()))
 						game.deleteSave(gone.file());
 				log.line(String.format("save %d written at step %d: %s, world hash %016x", order.number(), engine.step(), file, hash));
+				reports.saved(game.savePath(file), store.recordFile(order.campaign().id(), order.number()));
 			} catch (RuntimeException e) {
 				// the save's own boundary: every PC reports, so the host releases the hold and names this PC's problem
 				log.error("save " + order.number() + " failed", e);

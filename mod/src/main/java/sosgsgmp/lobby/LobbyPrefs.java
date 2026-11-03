@@ -31,6 +31,8 @@ public final class LobbyPrefs {
     /** The host's last map size; one of the offered sizes. */
     public int mapSize = MapOptions.DEFAULT_SIZE;
     public long playerKey;
+    /** This PC sends its logs and saves to the host when it joins (SOS-133); {@code reports=false} in the file stops it. */
+    public boolean reports = true;
     /**
      * The key was made by this load, not read: it is who this player is in a campaign (SOS-64), so it must be saved
      * before any lobby uses it. Not stored.
@@ -69,6 +71,7 @@ public final class LobbyPrefs {
         String key = props.getProperty("playerKey");
         p.playerKey = key == null ? new SecureRandom().nextLong() : parseLong(key);
         p.keyIsNew = key == null;
+        p.reports = !"false".equals(props.getProperty("reports"));
         return p;
     }
 
@@ -82,6 +85,7 @@ public final class LobbyPrefs {
         props.setProperty("maxPlayers", Integer.toString(maxPlayers));
         props.setProperty("mapSize", Integer.toString(mapSize));
         props.setProperty("playerKey", Long.toString(playerKey));
+        props.setProperty("reports", Boolean.toString(reports));
         Files.createDirectories(file.toAbsolutePath().getParent());
         try (Writer out = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
             props.store(out, "SOS GSG MP lobby settings");
