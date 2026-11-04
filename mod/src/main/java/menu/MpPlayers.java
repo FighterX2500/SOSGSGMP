@@ -124,13 +124,19 @@ public final class MpPlayers {
 	}
 
 	/**
-	 * Hook M12: another player's price for one item of {@code t} in a depot's partner list, as their Goods tab shows it:
-	 * in the Import depot ({@code buying}) what one costs you, their lowest export price and the toll; in the Export
-	 * depot what they pay, their highest import price. 0 when they don't trade it.
+	 * Hook M12: the market's price for one item of {@code t} between this player and another, in a depot's partner list:
+	 * the seller's lowest export price and the toll, as the market prices a sale between players. In the Import depot
+	 * ({@code buying}) the seller is {@code f}; in the Export depot it is this player, and 0 when the price reaches
+	 * {@code f}'s highest import price, so they wouldn't buy. 0 before {@code f}'s first report.
 	 */
 	public static int depotPrice(Faction f, TRADABLE t, boolean buying) {
-		int p = PlayerDeals.price(f.index(), t.index(), buying);
-		return buying && p > 0 ? p + (int) Math.round(toll(f)) : p;
+		int toll = (int) Math.round(toll(f));
+		if (buying) {
+			int p = PlayerDeals.price(f.index(), t.index(), true);
+			return p > 0 ? p + toll : 0;
+		}
+		int p = t.ps().priceCapsI.get() + toll;
+		return p < PlayerDeals.price(f.index(), t.index(), false) ? p : 0;
 	}
 
 	/**

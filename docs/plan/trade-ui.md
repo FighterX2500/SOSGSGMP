@@ -26,8 +26,11 @@ one shared test cycle (spec §7).
 
 ## SOS-136: players in the depots' partner lists (hook M12)
 
-- `UIGoodsTraders` holds any faction; the Export and Import depots price a player as their Goods tab does: in the Export
-  depot their highest import price, in the Import depot their lowest export price plus the toll. The list holds the
+- `UIGoodsTraders` holds any faction; the Export and Import depots price a player as the market prices a sale between
+  players: the seller's lowest export price plus the toll. In the Import depot the seller is the other player; in the
+  Export depot it is this player, and the other player is left out when that price reaches their highest import price.
+  (Their import price itself is no price to list: left at vanilla's default it is 1,000,000, "no cap"; the GUI preview
+  showed it as 1.00M.) The list holds the
   other players trade reaches (SOS-134's rule), highlighted when there is a trade agreement, as an NPC is. A click
   opens the player's window on its Diplomacy tab.
 - **Best** and **Closest** stay NPC-only: they open vanilla's sale screen for an NPC, which has no player version.
