@@ -5,6 +5,7 @@ import game.faction.Faction;
 import game.faction.diplomacy.DIP;
 import game.faction.trade.TradeManager;
 import init.sprite.UI.UI;
+import init.trade.TRADABLE;
 import snake2d.SPRITE_RENDERER;
 import snake2d.util.gui.GUI_BOX;
 import snake2d.util.gui.renderable.RENDEROBJ;
@@ -24,7 +25,8 @@ import world.region.RD;
  * SOSGSGMP: another player in vanilla's faction screens (spec §6; SOS-76). Hooks M2 to M5 call here where vanilla
  * handles only an NPC: the map click, the region's banner, the faction list and the hover box. Each does nothing for an
  * NPC or in single player, so vanilla's own code runs on. Hook M7 adds players to Economy & Trade's partners, with the
- * tariffs between players (SOS-77). Game thread, outside the step.
+ * tariffs between players (SOS-77), and hook M12 adds them to the depots' partner lists (SOS-136). Game thread, outside
+ * the step.
  */
 public final class MpPlayers {
 
@@ -53,12 +55,29 @@ public final class MpPlayers {
 	static void open(Faction f, boolean diplomacy, boolean draft) {
 		if (!PlayerDeals.otherPlayer(f))
 			return;
-		VIEW.world().UI.factions.open(null); // vanilla's list, which also clears the side panels
-		MpPlayerWindow w = new MpPlayerWindow(f);
+		MpPlayerWindow w = window(f);
 		if (draft)
 			w.draftForPreview();
 		else if (diplomacy)
 			w.diplomacy();
+		show(w, f);
+	}
+
+	/** Opens the window for another player on its Goods tab, for the autopilot's GUI preview (SOS-135). */
+	static void openGoodsForPreview(Faction f) {
+		if (!PlayerDeals.otherPlayer(f))
+			return;
+		MpPlayerWindow w = window(f);
+		w.goodsForPreview();
+		show(w, f);
+	}
+
+	private static MpPlayerWindow window(Faction f) {
+		VIEW.world().UI.factions.open(null); // vanilla's list, which also clears the side panels
+		return new MpPlayerWindow(f);
+	}
+
+	private static void show(MpPlayerWindow w, Faction f) {
 		VIEW.world().panels.add(w, false);
 		VIEW.world().window.centererTile.set(f.cx(), f.cy());
 	}
@@ -83,6 +102,49 @@ public final class MpPlayers {
 			if (PlayerDeals.otherPlayer(f))
 				list.add(f);
 		}
+	}
+
+	/** Hook M12: opens another player's window on its Diplomacy tab, from a depot's partner list. */
+	public static void openDiplomacy(Faction f) {
+		open(f, true);
+	}
+
+	/**
+	 * Hook M12, each frame a depot's partner list draws: adds to {@code out} after its first {@code n} the other players
+	 * this player's trade reaches, and returns the new count. No allocation.
+	 */
+	public static int addTraders(Faction[] out, int n) {
+		LIST<Faction> all = FACTIONS.active();
+		for (int i = 0; i < all.size(); i++) {
+			Faction f = all.get(i);
+			if (PlayerDeals.otherPlayer(f) && PlayerDeals.tradeReaches(f.index()))
+				out[n++] = f;
+		}
+		return n;
+	}
+
+	/**
+	 * Hook M12: the market's price for one item of {@code t} between this player and another, in a depot's partner list:
+	 * the seller's lowest export price and the toll, as the market prices a sale between players. In the Import depot
+	 * ({@code buying}) the seller is {@code f}; in the Export depot it is this player, and 0 when the price reaches
+	 * {@code f}'s highest import price, so they wouldn't buy. 0 before {@code f}'s first report.
+	 */
+	public static int depotPrice(Faction f, TRADABLE t, boolean buying) {
+		int toll = (int) Math.round(toll(f));
+		if (buying) {
+			int p = PlayerDeals.price(f.index(), t.index(), true);
+			return p > 0 ? p + toll : 0;
+		}
+		int p = t.ps().priceCapsI.get() + toll;
+		return p < PlayerDeals.price(f.index(), t.index(), false) ? p : 0;
+	}
+
+	/**
+	 * Hooks M4 and M7: whether this player reaches {@code f}, which those lists sort by and darken the rest. An NPC by
+	 * vanilla's rule; another player by the rule their trade walks, across a player's land at peace too (SOS-134).
+	 */
+	public static boolean reachable(Faction f) {
+		return PlayerDeals.otherPlayer(f) ? PlayerDeals.tradeReaches(f.index()) : RD.DIST().reachable(f);
 	}
 
 	/** Vanilla's toll per item between this player and {@code f}: the capital-to-capital distance, less the roads' boost. */

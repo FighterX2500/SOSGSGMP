@@ -1,5 +1,5 @@
 diff --git a/view/world/ui/faction/UIFactionList.java b/view/world/ui/faction/UIFactionList.java
-index 4b2a1ab..d6d8aa2 100644
+index 4b2a1ab..cb6d543 100644
 --- a/view/world/ui/faction/UIFactionList.java
 +++ b/view/world/ui/faction/UIFactionList.java
 @@ -43,7 +43,7 @@ import world.region.RD;
@@ -24,6 +24,15 @@ index 4b2a1ab..d6d8aa2 100644
  			return value(current) > value(cmp);
  		}
  		
+@@ -65,7 +65,7 @@ final class UIFactionList extends ISidePanel{
+ 				return 0+d;
+ 			if (DIP.get(FACTIONS.player(), f).trades)
+ 				return FACTIONS.MAX()+d;
+-			if (RD.DIST().reachable(f))
++			if (menu.MpPlayers.reachable(f)) // SOSGSGMP hook M4 (docs/hooks.md): a player by the trade rule (SOS-134)
+ 				return FACTIONS.MAX()*2+d;
+ 			if (RD.DIST().factionHasRegionBorderingPlayer(f))
+ 				return FACTIONS.MAX()*3+d;
 @@ -83,8 +83,9 @@ final class UIFactionList extends ISidePanel{
  				sorted.clear();
  				for (FactionNPC f : FACTIONS.NPCs())
@@ -122,6 +131,15 @@ index 4b2a1ab..d6d8aa2 100644
  			boolean selected = VIEW.world().UI.factions.openIs(f);
  			boolean active = f.capitolRegion() != null;
  			
+@@ -265,7 +268,7 @@ final class UIFactionList extends ISidePanel{
+ 			super.render(r, ds);
+ 			
+ 			
+-			if (!RD.DIST().reachable(f)) {
++			if (!menu.MpPlayers.reachable(f)) { // SOSGSGMP hook M4 (docs/hooks.md): a player by the trade rule (SOS-134)
+ 				OPACITY.O50.bind();
+ 				COLOR.BLACK.render(r, body(),-4);
+ 				OPACITY.unbind();
 @@ -282,9 +285,9 @@ final class UIFactionList extends ISidePanel{
  		private COLOR cGood = COLOR.NYAN100.makeSaturated(0.75).shade(0.75);
  		

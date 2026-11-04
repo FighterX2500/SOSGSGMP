@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.45 · 2026-11-04
+Version 0.46 · 2026-11-04
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -127,6 +127,8 @@ Players trade through direct contracts and through a shared market.
 - **Shared market.** Players' goods join the market, and prices form as in vanilla. The market is the same for everyone: apart from tariffs between players, no player gets special terms on it. Two players with a trade agreement (trade partners, colleagues, allies) trade in it with each other as a player and an NPC do: the buyer pays the seller's export price plus the toll, which uses the distance from capital to capital. As in vanilla, a trade partner must be reachable: across bordering land, or through a neighbour's land with transit, never across unclaimed land. A player's trade also crosses the land of any player it is at peace with, with no transit treaty (section 6, Passage).
 - **Tariffs between players.** Each player sets their own tariff on what another player sells them, from 0% to 80% in steps of 5%, with Set Tariff in that player's Diplomacy list. It needs a trade agreement and applies at once, with no answer. The tariff is cut from what the seller gets and paid to the buyer's treasury, shown as tariff revenue in Economy & Trade. A tariff nobody set is 20%, for every trade agreement: between players, Become Colleagues and Alliance don't lower it (owner, 2026-10-27).
 - **Caravans** work as in vanilla: they are visible on the map, travel to the other player, and cannot be raided.
+- **Where trade shows another player.** A player that trade can reach, by the rules above, is never shown as out of reach (darkened) in the faction list or in Economy & Trade. The Export and Import depots list such players among their partners, at the market's price between them: the seller's export price plus the toll (in the Export depot, only while that is below the other player's import price); a click opens that player's Diplomacy tab.
+- **Traded goods.** Another player's Goods tab shows, for each item, what this player exported to them and imported from them on the shared market since the start; its hover shows this year, last year and all time, with the average price in denari. Deals don't count. Every PC shows the same figures, and they are kept in the campaign save.
 
 ## 8. Military
 
@@ -361,6 +363,8 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A resent or duplicated trade message never changes the amount delivered. [AT]
 - Two players with a trade agreement buy each other's exports in the shared market, and every PC agrees on every sale. [AT]
 - A player's tariff on another is cut from the seller's proceeds and paid to the buyer's treasury: the trade creates or destroys no money. [AT]
+- The traded figures between two players match on every PC, add up to the market sales between them, and survive a save and load. [AT]
+- Another player that trade reaches is listed in both depots and is not darkened in the faction lists. [PT]
 - Disconnecting mid-delivery never creates goods. Caravans to or from a disconnected city are deleted with their goods. [AT]
 
 ### Field battles
@@ -511,6 +515,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-01 | Through Steam, a player who never chose a name joins under their Steam name. | SOS-131 |
 | 2026-11-02 | An autosave or Save Campaign waits until no player is viewing a city. A save that ends the session closes the views instead, and the save before a battle can't wait, so a viewer has no save from that moment. | Batch 4 |
 | 2026-11-04 | **Reports:** every joining PC sends the host its logs, crash files and campaign saves (section 11). | SOS-133 |
+| 2026-11-04 | Players that trade reaches aren't darkened in the faction lists; the depots list other players; a player's Goods tab shows the goods traded with them (section 7). | SOS-134, SOS-135, SOS-136 |
 
 ### Where each v1 feature stands (2026-11-01)
 

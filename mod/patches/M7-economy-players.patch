@@ -1,5 +1,5 @@
 diff --git a/view/ui/economy/Factions.java b/view/ui/economy/Factions.java
-index 15a42ff..f0873eb 100644
+index 15a42ff..fa0c1a6 100644
 --- a/view/ui/economy/Factions.java
 +++ b/view/ui/economy/Factions.java
 @@ -1,6 +1,7 @@
@@ -37,12 +37,12 @@ index 15a42ff..f0873eb 100644
  		for (FactionNPC f : FACTIONS.NPCs()) {
  			if (RD.DIST().reachable(f)) {
  				all.add(f);
-@@ -81,17 +85,20 @@ final class Factions extends GuiSection{
+@@ -81,23 +85,26 @@ final class Factions extends GuiSection{
  		
  		@Override
  		protected void render(SPRITE_RENDERER r, float ds, boolean isActive, boolean isSelected, boolean isHovered) {
 -			GButt.ButtPanel.renderBG(r, RD.DIST().reachable(f()), DIP.get(f()).trades, isHovered, body);
-+			GButt.ButtPanel.renderBG(r, RD.DIST().reachable(f()), DIP.get(FACTIONS.player(), f()).trades, isHovered, body); // SOSGSGMP hook M7 (docs/hooks.md)
++			GButt.ButtPanel.renderBG(r, menu.MpPlayers.reachable(f()), DIP.get(FACTIONS.player(), f()).trades, isHovered, body); // SOSGSGMP hook M7 (docs/hooks.md): a player by the trade rule (SOS-134)
  			
  			f().banner().BIG.renderCY(r, body.x1()+8, body.cY());
  			
@@ -61,6 +61,13 @@ index 15a42ff..f0873eb 100644
  			
  			t.render(r, body().x2()-48, body.y1()+8+18);
  			
+ 			GButt.ButtPanel.renderFrame(r, body);
+ 			
+-			if (!RD.DIST().reachable(f())) {
++			if (!menu.MpPlayers.reachable(f())) { // SOSGSGMP hook M7 (docs/hooks.md): a player by the trade rule (SOS-134)
+ 				OPACITY.O50.bind();
+ 				COLOR.BLACK.render(r, body, -1);
+ 				OPACITY.unbind();
 @@ -105,7 +112,7 @@ final class Factions extends GuiSection{
  			
  		}

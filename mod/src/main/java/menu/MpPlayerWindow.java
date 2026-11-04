@@ -18,6 +18,7 @@ import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
 import snake2d.util.sprite.SPRITE;
+import sosdet.game.deal.TradeTally;
 import sosgsgmp.game.PlayerDeals;
 import util.colors.GCOLOR;
 import util.data.GETTER.GETTER_IMP;
@@ -50,10 +51,15 @@ final class MpPlayerWindow extends ISidePanel {
 	private static final int WIDTH = C.MIN_WIDTH - C.SG * 264 - 48;
 	private static final int TAB_WIDTH = 140;
 	private static final String PRICE_D = "What one item costs you: their lowest export price, as they last reported it, and the toll.";
+	private static final String EXPORTED = "Exported";
+	private static final String IMPORTED = "Imported";
+	private static final String[] PERIODS = { "This year", "Last year", "All time" }; // TradeTally's periods, in order
+	private static final String TRADED_D = "Exported: what you sold them on the market; imported: what you bought from them. Items @ the average price in denari, tolls and tariffs settled. Deals don't count.";
 	private static final String NO_BOOSTS = "Another player's boosts come from their city, which runs on their PC: not shown yet.";
 
 	private final CLICKABLE.ClickSwitch sw;
 	private final MpPlayerDiplomacy dip;
+	private final CLICKABLE goods;
 
 	MpPlayerWindow(Faction f) {
 		GETTER_IMP<Faction> g = new GETTER_IMP<>(f);
@@ -74,9 +80,10 @@ final class MpPlayerWindow extends ISidePanel {
 		sw = new CLICKABLE.ClickSwitch(realm);
 		sw.setD(DIR.N);
 		dip = new MpPlayerDiplomacy(f, WIDTH, hi);
+		goods = goods(f, hi);
 		GuiSection tabs = new GuiSection();
 		tabs.addRightC(0, tab(Dic.¤¤Realm, realm));
-		tabs.addRightC(0, tab(Dic.¤¤goods, goods(f, hi)));
+		tabs.addRightC(0, tab(Dic.¤¤goods, goods));
 		tabs.addRightC(0, new GButt.ButtPanel(Dic.¤¤Boosts) {
 			@Override
 			protected void renAction() {
@@ -108,6 +115,11 @@ final class MpPlayerWindow extends ISidePanel {
 	void draftForPreview() {
 		diplomacy();
 		dip.draftForPreview();
+	}
+
+	/** On the Goods tab, for the autopilot's GUI preview (SOS-135). */
+	void goodsForPreview() {
+		sw.set(goods);
 	}
 
 	private static CLICKABLE viewButton(int slot) {
@@ -298,8 +310,10 @@ final class MpPlayerWindow extends ISidePanel {
 	}
 
 	/**
-	 * The Goods tab: what the player last reported having of each good, and what one costs from them (SOS-77). Vanilla's
-	 * Rate, Purchasing Power and traded bar describe an NPC's own market, so they're gone.
+	 * The Goods tab: what the player last reported having of each good, what one costs from them (SOS-77), and what this
+	 * player sold them and bought from them on the market since the start, with each year's figures and average price
+	 * in the hover (SOS-135). Vanilla's Rate, Purchasing Power and traded bar describe an NPC's own market, so they're
+	 * gone.
 	 */
 	private static CLICKABLE goods(Faction f, int height) {
 		int slot = f.index();
@@ -310,8 +324,10 @@ final class MpPlayerWindow extends ISidePanel {
 			public void render(SPRITE_RENDERER r, float ds) {
 				GCOLOR.T().H1.bind();
 				UI.FONT().H2.render(r, Dic.¤¤Resource, body.x1() + 40, body.y1());
-				UI.FONT().H2.render(r, Dic.¤¤Stored, body.x1() + rowW / 2, body.y1());
-				UI.FONT().H2.render(r, Dic.¤¤Price, body.x1() + rowW * 3 / 4, body.y1());
+				UI.FONT().H2.render(r, Dic.¤¤Stored, body.x1() + rowW * 2 / 5, body.y1());
+				UI.FONT().H2.render(r, Dic.¤¤Price, body.x1() + rowW * 11 / 20, body.y1());
+				UI.FONT().H2.render(r, EXPORTED, body.x1() + rowW * 7 / 10, body.y1());
+				UI.FONT().H2.render(r, IMPORTED, body.x1() + rowW * 17 / 20, body.y1());
 				COLOR.unbind();
 			}
 		});
@@ -319,6 +335,8 @@ final class MpPlayerWindow extends ISidePanel {
 			rows.add(new GuiSection() {
 				private final GText amount = new GText(UI.FONT().M, 16);
 				private final GText price = new GText(UI.FONT().M, 16);
+				private final GText exported = new GText(UI.FONT().M, 16);
+				private final GText imported = new GText(UI.FONT().M, 16);
 
 				{
 					body().setDim(rowW, Icon.M + 8);
@@ -330,12 +348,17 @@ final class MpPlayerWindow extends ISidePanel {
 					COLOR.WHITE100.bind();
 					UI.FONT().M.render(r, t.name, body().x1() + 40, body().y1() + 4);
 					GFORMAT.i(amount.clear(), PlayerDeals.stock(slot, t.index()));
-					amount.render(r, body().x1() + rowW / 2, body().y1() + 4);
+					amount.render(r, body().x1() + rowW * 2 / 5, body().y1() + 4);
 					int sells = PlayerDeals.price(slot, t.index(), true);
 					if (sells > 0) {
 						GFORMAT.i(price.clear(), sells + toll(f));
-						price.render(r, body().x1() + rowW * 3 / 4, body().y1() + 4);
+						price.render(r, body().x1() + rowW * 11 / 20, body().y1() + 4);
 					}
+					int me = FACTIONS.player().index();
+					GFORMAT.i(exported.clear(), PlayerDeals.traded(me, slot, t.index(), TradeTally.ALL_TIME, false));
+					exported.render(r, body().x1() + rowW * 7 / 10, body().y1() + 4);
+					GFORMAT.i(imported.clear(), PlayerDeals.traded(slot, me, t.index(), TradeTally.ALL_TIME, false));
+					imported.render(r, body().x1() + rowW * 17 / 20, body().y1() + 4);
 					COLOR.unbind();
 				}
 
@@ -356,13 +379,36 @@ final class MpPlayerWindow extends ISidePanel {
 					b.textLL("Their tariff on you");
 					b.tab(6);
 					b.add(b.text().add(PlayerDeals.tariff(slot, FACTIONS.player().index())).add('%'));
+					b.NL(8);
+					int me = FACTIONS.player().index();
+					b.tab(5);
+					b.textLL(EXPORTED);
+					b.tab(9);
+					b.textLL(IMPORTED);
 					b.NL();
+					for (int p = 0; p < PERIODS.length; p++) {
+						b.text(PERIODS[p]);
+						traded(b, 5, me, slot, t, p);
+						traded(b, 9, slot, me, t, p);
+						b.NL();
+					}
+					b.NL(4);
+					b.text(TRADED_D);
 				}
 			});
 		}
 		GuiSection s = new GuiSection();
 		s.add(new GScrollRows(rows, height).view());
 		return s;
+	}
+
+	/** In the Goods tab's hover, at {@code tab}: the items {@code seller} sold {@code buyer} in {@code period}, and at what average price. */
+	private static void traded(GBox b, int tab, int seller, int buyer, TRADABLE t, int period) {
+		long items = PlayerDeals.traded(seller, buyer, t.index(), period, false);
+		b.tab(tab);
+		b.add(GFORMAT.i(b.text(), items));
+		if (items > 0)
+			b.add(b.text().add(" @ ").add(Math.round((double) PlayerDeals.traded(seller, buyer, t.index(), period, true) / items)));
 	}
 
 	private static int toll(Faction f) {
