@@ -55,12 +55,29 @@ public final class MpPlayers {
 	static void open(Faction f, boolean diplomacy, boolean draft) {
 		if (!PlayerDeals.otherPlayer(f))
 			return;
-		VIEW.world().UI.factions.open(null); // vanilla's list, which also clears the side panels
-		MpPlayerWindow w = new MpPlayerWindow(f);
+		MpPlayerWindow w = window(f);
 		if (draft)
 			w.draftForPreview();
 		else if (diplomacy)
 			w.diplomacy();
+		show(w, f);
+	}
+
+	/** Opens the window for another player on its Goods tab, for the autopilot's GUI preview (SOS-135). */
+	static void openGoodsForPreview(Faction f) {
+		if (!PlayerDeals.otherPlayer(f))
+			return;
+		MpPlayerWindow w = window(f);
+		w.goodsForPreview();
+		show(w, f);
+	}
+
+	private static MpPlayerWindow window(Faction f) {
+		VIEW.world().UI.factions.open(null); // vanilla's list, which also clears the side panels
+		return new MpPlayerWindow(f);
+	}
+
+	private static void show(MpPlayerWindow w, Faction f) {
 		VIEW.world().panels.add(w, false);
 		VIEW.world().window.centererTile.set(f.cx(), f.cy());
 	}

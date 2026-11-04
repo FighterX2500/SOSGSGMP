@@ -59,6 +59,7 @@ final class MpPlayerWindow extends ISidePanel {
 
 	private final CLICKABLE.ClickSwitch sw;
 	private final MpPlayerDiplomacy dip;
+	private final CLICKABLE goods;
 
 	MpPlayerWindow(Faction f) {
 		GETTER_IMP<Faction> g = new GETTER_IMP<>(f);
@@ -79,9 +80,10 @@ final class MpPlayerWindow extends ISidePanel {
 		sw = new CLICKABLE.ClickSwitch(realm);
 		sw.setD(DIR.N);
 		dip = new MpPlayerDiplomacy(f, WIDTH, hi);
+		goods = goods(f, hi);
 		GuiSection tabs = new GuiSection();
 		tabs.addRightC(0, tab(Dic.¤¤Realm, realm));
-		tabs.addRightC(0, tab(Dic.¤¤goods, goods(f, hi)));
+		tabs.addRightC(0, tab(Dic.¤¤goods, goods));
 		tabs.addRightC(0, new GButt.ButtPanel(Dic.¤¤Boosts) {
 			@Override
 			protected void renAction() {
@@ -113,6 +115,11 @@ final class MpPlayerWindow extends ISidePanel {
 	void draftForPreview() {
 		diplomacy();
 		dip.draftForPreview();
+	}
+
+	/** On the Goods tab, for the autopilot's GUI preview (SOS-135). */
+	void goodsForPreview() {
+		sw.set(goods);
 	}
 
 	private static CLICKABLE viewButton(int slot) {

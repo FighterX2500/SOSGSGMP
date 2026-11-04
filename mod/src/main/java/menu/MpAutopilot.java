@@ -49,6 +49,7 @@ import sosdet.Stats;
 import sosdet.game.deal.DealBook;
 import sosdet.game.siege.AssaultTerms;
 import view.main.VIEW;
+import view.ui.goods.UIGoodsExport;
 import view.tool.PlacableFixed;
 import world.WORLD;
 
@@ -889,7 +890,11 @@ public final class MpAutopilot {
 		case 9: name = "vanilla-npc-diplomacy"; previewNpc(false); break; // SOS-100: vanilla's deal with an NPC, to compare
 		case 10: name = "vanilla-npc-trade"; previewNpc(true); break;
 		case 11: name = "player-diplomacy"; VIEW.world().panels.clear(); MpPlayers.open(FACTIONS.getByIndex(1), true); break;
+		case 12: name = "faction-list"; VIEW.world().panels.clear(); VIEW.world().UI.factions.open(null); break; // SOS-134
+		case 13: name = "player-goods"; VIEW.world().panels.clear(); MpPlayers.openGoodsForPreview(FACTIONS.getByIndex(1)); break; // SOS-135
+		case 14: name = "export-depot"; VIEW.world().panels.clear(); previewDepot(); break; // SOS-136
 		default:
+			VIEW.inters().popup.close();
 			if (first("guipreviewdone"))
 				event("guipreview", "\"name\":\"done\",\"step\":" + engine.step());
 			return;
@@ -899,6 +904,21 @@ public final class MpAutopilot {
 		previewNanos = System.nanoTime();
 		previewShot = false;
 		event("guipreview", "\"name\":\"" + name + "\",\"step\":" + engine.step());
+	}
+
+	/**
+	 * Vanilla's Export depot window, as Economy & Trade opens it, for the first goods the other player (slot 1) would
+	 * buy, so its partner list shows them (SOS-136).
+	 */
+	private static void previewDepot() {
+		UIGoodsExport ex = new UIGoodsExport(true);
+		for (int i = 0; i < TR.ALL().size(); i++) {
+			if (PlayerDeals.price(1, TR.ALL().get(i).index(), false) > 0) {
+				ex.res.set(TR.ALL().get(i));
+				break;
+			}
+		}
+		VIEW.inters().popup.show(ex, null);
 	}
 
 	/** Vanilla's deal panel with the first NPC that has a capital: its Diplomacy, or with Trade drafted (SOS-100). */
