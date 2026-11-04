@@ -157,12 +157,12 @@ So on a joiner's PC, the header and the purchase check read different values. Th
 - **SOS-143:**
   - `Hooks.invade` sets the report's `INVADING` through the ledger, and gets the invading army. `Engine.RAIDERS` marks a raider in the invasion notice.
   - The mod names raiders and logs when an invasion ends.
-  - Not repeated in the rig: the rig has no action that sends a raider at a capital.
+  - Rig run B6B2 (2 copies, Mogus-72): the new rig action `wraidcapital 600` sent a 600-man raider at human 0's capital at step 940. The raid was still on at every probe to step 6,000, and the copies were identical (200 hashes, 0 desyncs). The first try, B6B, desynced because the test command applied outside the world part; it is now a world command, as the raid answers are.
 - **SOS-140:**
   - `StanceBook`, `GamePassed` (`SOSDET_PASSED`) and `HumanDeals.passStances`, which runs each world part after `expire`. `Notice.STANCE_PASSED` feeds the chat.
   - Added rule: a passed stance that anyone else changes stays theirs until its source ends. Without it, a vassal's court that cancels the agreement (vanilla's low-opinion rule) would be overridden every day, and the cancel message would repeat.
   - Not shown in the faction window yet; the chat tells the player instead.
-- **SOS-142:** not changed.
-  - The header's number and vanilla's purchase check read the same pool, `TechCurr.available()`, so they can't disagree on one PC.
-  - Likely explanation: Gregg was viewing Adam's city (20:28 to 20:31). A view loads the owner's city with its tech, so the window shows Adam's points, and nothing can be bought while viewing.
-  - To confirm with the owner.
+- **SOS-142:**
+  - Cause: the game builds its UI while it loads, when the engine's `FACTIONS.player()` is still slot 0's. The Technology header (`view/ui/tech/Info`) keeps the points objects it was built with, so on every joiner's PC it showed the joiner's own produced points less slot 0's allocated and frozen ones. The tree's buy check reads the player each time, so it refused. The host's header was right.
+  - Fix: the header looks up this PC's player's currency each time it reads one (engine patch 16-humans-world; hooks doc row SOS-142).
+  - Rig run B6C (the three players' 21:5x campaign saves, `wtech`). Gregg's real available points were Administration 15, Innovation 11, Knowledge 7. The old header showed 15, 199 and 137; his screenshot at 22:20 showed 15, 204 and 138. Adam's PC had the same fault (real 15, 14, 35; header 15, 317, 140).
