@@ -2,9 +2,9 @@ package sosgsgmp.trade;
 
 /**
  * SOSGSGMP: one item's price in a market sale between two players, in its parts, as the market reckons it (spec §7;
- * SOS-138). The buyer pays the seller's export price plus the toll; the buyer's tariff is cut from what reaches the
- * seller and goes to the buyer's treasury. Plain Java: the depots' partner lists read it each frame, so nothing here
- * allocates beyond the value itself, made once per hover.
+ * SOS-138). The buyer pays the seller's export price plus the toll, and the toll pays the caravan (owner, 2026-11-04);
+ * the buyer's tariff is cut from what reaches the seller and goes to the buyer's treasury. Plain Java: the depots'
+ * partner lists read it each frame, so nothing here allocates beyond the value itself, made once per hover.
  */
 public final class DepotPrice {
 
@@ -34,8 +34,13 @@ public final class DepotPrice {
         return tariff(asked, tariffPercent);
     }
 
-    /** What reaches the seller, and what the buyer is out once the tariff comes back. */
-    public int net() {
+    /** What reaches the seller: their price less the buyer's tariff. The toll went to the caravan. */
+    public int received() {
+        return asked - tariff();
+    }
+
+    /** What the buyer is out once their tariff comes back to their treasury. */
+    public int cost() {
         return paid() - tariff();
     }
 

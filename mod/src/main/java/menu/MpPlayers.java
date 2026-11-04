@@ -154,14 +154,14 @@ public final class MpPlayers {
 		int percent = buying ? PlayerDeals.tariff(me, f.index()) : PlayerDeals.tariff(f.index(), me);
 		DepotPrice p = new DepotPrice(asked, depotToll(f, buying ? FACTIONS.player() : f), percent);
 		row(b, buying ? "Their export price" : "Your export price", p.asked);
-		row(b, Dic.¤¤Toll, p.toll);
+		row(b, "Toll, to the caravan", p.toll);
 		row(b, buying ? "You pay" : "They pay", p.paid());
 		b.textLL(buying ? "Your tariff, back to you" : "Their tariff");
 		b.tab(7);
 		b.add(GFORMAT.i(b.text(), -p.tariff()));
 		b.add(b.text().add(' ').add('(').add(percent).add('%').add(')'));
 		b.NL();
-		row(b, buying ? "It costs you" : "Reaches you", p.net());
+		row(b, buying ? "It costs you" : "Reaches you", buying ? p.cost() : p.received());
 		b.NL(4);
 		row(b, buying ? "In their Export depot" : "Room in their Import depot",
 				PlayerDeals.depot(f.index(), t.index(), buying, true));

@@ -149,7 +149,7 @@ So on a joiner's PC, the header and the purchase check read different values. Th
   - New reads: `Engine.reportedDepot` and `Engine.reportedTollDivisor`; the arithmetic is in the mod's `DepotPrice`, with unit tests.
   - Hook M12 gains `playerHover`.
   - A player whose import price cap rules out your price stays hidden, as before, and isn't marked "won't buy". That keeps the list to players who would buy.
-  - **Open for the owner:** the market passes the toll on to the seller (the buyer pays the price plus the toll, and the seller gets that, less the tariff). The hover shows the money as it flows today.
+  - **The toll is lost** (owner, 2026-11-04: it pays the caravan). Between humans the seller now gets its export price less the buyer's tariff, through `Hooks.sellerGets` in `TradeSorter.buy` (patch 15-humans); before, the seller got the toll too. Sales to and from NPCs are as vanilla.
 - **SOS-144:**
   - Chat lines can carry a player's slot. The running game's chat shows them in yellow, and a click opens that player's window.
   - The battle notice doesn't name the enemy: the engine's `LocalBattle` exposes no enemy faction.

@@ -14,7 +14,13 @@ class DepotPriceTest {
         DepotPrice p = new DepotPrice(50, 21, 20);
         assertEquals(71, p.paid());
         assertEquals(10, p.tariff(), "20% of the asked price, not of the toll");
-        assertEquals(61, p.net());
+        assertEquals(61, p.cost());
+    }
+
+    @Test
+    void theSellerGetsTheirPriceLessTheTariffNotTheToll() {
+        assertEquals(40, new DepotPrice(50, 21, 20).received());
+        assertEquals(1, new DepotPrice(1, 70, 20).received(), "a price of 1 earns 1, however far the buyer");
     }
 
     @Test
