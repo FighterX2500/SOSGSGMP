@@ -5,6 +5,7 @@ import game.faction.Faction;
 import game.faction.diplomacy.DIP;
 import game.faction.trade.TradeManager;
 import init.sprite.UI.UI;
+import init.trade.TRADABLE;
 import snake2d.SPRITE_RENDERER;
 import snake2d.util.gui.GUI_BOX;
 import snake2d.util.gui.renderable.RENDEROBJ;
@@ -24,7 +25,8 @@ import world.region.RD;
  * SOSGSGMP: another player in vanilla's faction screens (spec §6; SOS-76). Hooks M2 to M5 call here where vanilla
  * handles only an NPC: the map click, the region's banner, the faction list and the hover box. Each does nothing for an
  * NPC or in single player, so vanilla's own code runs on. Hook M7 adds players to Economy & Trade's partners, with the
- * tariffs between players (SOS-77). Game thread, outside the step.
+ * tariffs between players (SOS-77), and hook M12 adds them to the depots' partner lists (SOS-136). Game thread, outside
+ * the step.
  */
 public final class MpPlayers {
 
@@ -83,6 +85,35 @@ public final class MpPlayers {
 			if (PlayerDeals.otherPlayer(f))
 				list.add(f);
 		}
+	}
+
+	/** Hook M12: opens another player's window on its Diplomacy tab, from a depot's partner list. */
+	public static void openDiplomacy(Faction f) {
+		open(f, true);
+	}
+
+	/**
+	 * Hook M12, each frame a depot's partner list draws: adds to {@code out} after its first {@code n} the other players
+	 * this player's trade reaches, and returns the new count. No allocation.
+	 */
+	public static int addTraders(Faction[] out, int n) {
+		LIST<Faction> all = FACTIONS.active();
+		for (int i = 0; i < all.size(); i++) {
+			Faction f = all.get(i);
+			if (PlayerDeals.otherPlayer(f) && PlayerDeals.tradeReaches(f.index()))
+				out[n++] = f;
+		}
+		return n;
+	}
+
+	/**
+	 * Hook M12: another player's price for one item of {@code t} in a depot's partner list, as their Goods tab shows it:
+	 * in the Import depot ({@code buying}) what one costs you, their lowest export price and the toll; in the Export
+	 * depot what they pay, their highest import price. 0 when they don't trade it.
+	 */
+	public static int depotPrice(Faction f, TRADABLE t, boolean buying) {
+		int p = PlayerDeals.price(f.index(), t.index(), buying);
+		return buying && p > 0 ? p + (int) Math.round(toll(f)) : p;
 	}
 
 	/**

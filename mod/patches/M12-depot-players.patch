@@ -1,0 +1,145 @@
+diff --git a/view/ui/goods/UIGoodsExport.java b/view/ui/goods/UIGoodsExport.java
+index b8fc273..673d8a9 100644
+--- a/view/ui/goods/UIGoodsExport.java
++++ b/view/ui/goods/UIGoodsExport.java
+@@ -61,13 +61,13 @@ public class UIGoodsExport extends GuiSection{
+ 		addRelBody(16, DIR.E, new UIGoodsTraders(6) {
+ 
+ 			@Override
+-			protected int price(FactionNPC f) {
+-				return f.res(res.get()).priceBuyP();
++			protected int price(Faction f) { // SOSGSGMP hook M12 (docs/hooks.md): what a player pays
++				return f instanceof FactionNPC ? ((FactionNPC) f).res(res.get()).priceBuyP() : menu.MpPlayers.depotPrice(f, res.get(), false);
+ 			}
+ 
+ 			@Override
+-			protected int sortValue(FactionNPC f) {
+-				return -f.res(res.get()).priceBuyP();
++			protected int sortValue(Faction f) { // SOSGSGMP hook M12 (docs/hooks.md)
++				return -price(f);
+ 			}
+ 			
+ 		});
+diff --git a/view/ui/goods/UIGoodsImport.java b/view/ui/goods/UIGoodsImport.java
+index 2e0d1c3..37b9e48 100644
+--- a/view/ui/goods/UIGoodsImport.java
++++ b/view/ui/goods/UIGoodsImport.java
+@@ -79,13 +79,13 @@ public class UIGoodsImport extends GuiSection{
+ 		addRelBody(16, DIR.E, new UIGoodsTraders(6) {
+ 
+ 			@Override
+-			protected int price(FactionNPC f) {
+-				return f.res(res.get()).priceSellP();
++			protected int price(Faction f) { // SOSGSGMP hook M12 (docs/hooks.md): what one costs from a player
++				return f instanceof FactionNPC ? ((FactionNPC) f).res(res.get()).priceSellP() : menu.MpPlayers.depotPrice(f, res.get(), true);
+ 			}
+ 
+ 			@Override
+-			protected int sortValue(FactionNPC f) {
+-				return f.res(res.get()).priceSellP();
++			protected int sortValue(Faction f) { // SOSGSGMP hook M12 (docs/hooks.md)
++				return price(f);
+ 			}
+ 			
+ 		});
+diff --git a/view/ui/goods/UIGoodsTraders.java b/view/ui/goods/UIGoodsTraders.java
+index 0809f45..d7e0857 100644
+--- a/view/ui/goods/UIGoodsTraders.java
++++ b/view/ui/goods/UIGoodsTraders.java
+@@ -4,6 +4,7 @@ import java.util.Arrays;
+ import java.util.Comparator;
+ 
+ import game.faction.FACTIONS;
++import game.faction.Faction;
+ import game.faction.diplomacy.DIP;
+ import game.faction.npc.FactionNPC;
+ import game.faction.royalty.opinion.ROPINION;
+@@ -28,7 +29,7 @@ import world.region.RD;
+ public abstract class UIGoodsTraders extends GuiSection{
+ 
+ 	private GText buttPrice = new GText(UI.FONT().S, 64);
+-	private final FactionNPC[] facs = new FactionNPC[FACTIONS.MAX()];
++	private final Faction[] facs = new Faction[FACTIONS.MAX()]; // SOSGSGMP hook M12 (docs/hooks.md): players too
+ 	private int max = 0;
+ 	
+ 	private static CharSequence ¤¤TradeYes = "¤You have a trade agreement with this faction, and trade is possible.";
+@@ -74,9 +75,9 @@ public abstract class UIGoodsTraders extends GuiSection{
+ 		
+ 		@Override
+ 		protected void render(SPRITE_RENDERER r, float ds, boolean isActive, boolean isSelected, boolean isHovered) {
+-			FactionNPC f = facs[ier.get()];
++			Faction f = facs[ier.get()]; // SOSGSGMP hook M12 (docs/hooks.md)
+ 			
+-			isSelected |= DIP.get(f).trades;
++			isSelected |= DIP.get(FACTIONS.player(), f).trades; // SOSGSGMP hook M12 (docs/hooks.md)
+ 			
+ 			GButt.ButtPanel.renderBG(r, isActive, isSelected, isHovered, body);
+ 			GButt.ButtPanel.renderFrame(r, body);
+@@ -92,7 +93,7 @@ public abstract class UIGoodsTraders extends GuiSection{
+ 		
+ 		@Override
+ 		public void hoverInfoGet(GUI_BOX text) {
+-			FactionNPC f = facs[ier.get()];
++			Faction f = facs[ier.get()]; // SOSGSGMP hook M12 (docs/hooks.md)
+ 			VIEW.world().UI.factions.hover(text, f);
+ 			GBox b = (GBox) text;
+ 			
+@@ -101,7 +102,7 @@ public abstract class UIGoodsTraders extends GuiSection{
+ 			b.textLL(Dic.¤¤Price);
+ 			b.tab(6).add(GFORMAT.i(b.text(), price(f)));
+ 			b.NL(8);
+-			if (DIP.get(f).trades)
++			if (DIP.get(FACTIONS.player(), f).trades) // SOSGSGMP hook M12 (docs/hooks.md)
+ 				b.text(¤¤TradeYes);
+ 			else
+ 				b.text(¤¤TradeNo);
+@@ -111,7 +112,12 @@ public abstract class UIGoodsTraders extends GuiSection{
+ 		
+ 		@Override
+ 		protected void clickA() {
+-			FactionNPC f = facs[ier.get()];
++			if (!(facs[ier.get()] instanceof FactionNPC)) { // SOSGSGMP hook M12 (docs/hooks.md): a player's Diplomacy tab
++				VIEW.UI().manager.close();
++				menu.MpPlayers.openDiplomacy(facs[ier.get()]);
++				return;
++			}
++			FactionNPC f = (FactionNPC) facs[ier.get()]; // SOSGSGMP hook M12 (docs/hooks.md)
+ 			if (!DIP.get(f).trades && ROPINION.get(f) >= DIP.TRADE().opinionNeeded)
+ 				VIEW.world().UI.factions.openTrade(f);
+ 			else
+@@ -122,10 +128,10 @@ public abstract class UIGoodsTraders extends GuiSection{
+ 		
+ 	}
+ 	
+-	private final Comparator<FactionNPC> comp = new Comparator<FactionNPC>() {
++	private final Comparator<Faction> comp = new Comparator<Faction>() { // SOSGSGMP hook M12 (docs/hooks.md)
+ 
+ 		@Override
+-		public int compare(FactionNPC o1, FactionNPC o2) {
++		public int compare(Faction o1, Faction o2) { // SOSGSGMP hook M12 (docs/hooks.md)
+ 			return sortValue(o1) - sortValue(o2);
+ 		}
+ 		
+@@ -142,6 +148,10 @@ public abstract class UIGoodsTraders extends GuiSection{
+ 				facs[max++] = f;
+ 			}
+ 		}
++		int sosgsgmp = menu.MpPlayers.addTraders(facs, max); // SOSGSGMP hook M12 (docs/hooks.md): the other players trade reaches
++		for (int i = max; i < sosgsgmp; i++)
++			if (price(facs[i]) > 0)
++				facs[max++] = facs[i];
+ 		
+ 		Arrays.sort(facs, 0, max, comp);
+ 		
+@@ -149,9 +159,9 @@ public abstract class UIGoodsTraders extends GuiSection{
+ 		super.render(r, ds);
+ 	}
+ 	
+-	protected abstract int price(FactionNPC f);
++	protected abstract int price(Faction f); // SOSGSGMP hook M12 (docs/hooks.md)
+ 	
+-	protected abstract int sortValue(FactionNPC f);
++	protected abstract int sortValue(Faction f); // SOSGSGMP hook M12 (docs/hooks.md)
+ 	
+ 	
+ }
