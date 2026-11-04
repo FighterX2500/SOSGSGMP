@@ -122,6 +122,20 @@ public final class PlayerDeals {
         return Engine.reportedPrice(slot, tradable, sell);
     }
 
+    /**
+     * The depot of the goods with index {@code tradable} that the player in {@code slot} last reported (SOS-139): their
+     * Export depot ({@code export}) or Import depot, its capacity for them or ({@code amount}) the goods in it, or for the
+     * Import depot the room left; 0 before their first report.
+     */
+    public static int depot(int slot, int tradable, boolean export, boolean amount) {
+        return Engine.reportedDepot(slot, tradable, export, amount);
+    }
+
+    /** The roads' divisor of the toll when the player in {@code slot} buys, as they last reported it (SOS-138). */
+    public static double tollDivisor(int slot) {
+        return Engine.reportedTollDivisor(slot);
+    }
+
     /** Every open proposal between players, oldest first: a live view. */
     public static List<DealBook.Proposal> open() {
         return Engine.deals();

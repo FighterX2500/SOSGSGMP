@@ -14,6 +14,7 @@ import snake2d.util.sets.LIST;
 import snake2d.util.sets.Tree;
 import sosdet.Engine;
 import sosgsgmp.game.PlayerDeals;
+import sosgsgmp.trade.DepotPrice;
 import util.gui.misc.GBox;
 import util.gui.misc.GText;
 import util.info.GFORMAT;
@@ -25,8 +26,8 @@ import world.region.RD;
  * SOSGSGMP: another player in vanilla's faction screens (spec §6; SOS-76). Hooks M2 to M5 call here where vanilla
  * handles only an NPC: the map click, the region's banner, the faction list and the hover box. Each does nothing for an
  * NPC or in single player, so vanilla's own code runs on. Hook M7 adds players to Economy & Trade's partners, with the
- * tariffs between players (SOS-77), and hook M12 adds them to the depots' partner lists (SOS-136). Game thread, outside
- * the step.
+ * tariffs between players (SOS-77), and hook M12 adds them to the depots' partner lists (SOS-136), with their price in
+ * its parts (SOS-138). Game thread, outside the step.
  */
 public final class MpPlayers {
 
@@ -126,17 +127,57 @@ public final class MpPlayers {
 	/**
 	 * Hook M12: the market's price for one item of {@code t} between this player and another, in a depot's partner list:
 	 * the seller's lowest export price and the toll, as the market prices a sale between players. In the Import depot
-	 * ({@code buying}) the seller is {@code f}; in the Export depot it is this player, and 0 when the price reaches
-	 * {@code f}'s highest import price, so they wouldn't buy. 0 before {@code f}'s first report.
+	 * ({@code buying}) the seller is {@code f}, and 0 unless {@code f}'s Export depot takes it; in the Export depot it is
+	 * this player, and 0 unless {@code f}'s Import depot takes it and the price is below {@code f}'s highest import price
+	 * (SOS-139). 0 before {@code f}'s first report. No allocation: the list reads it each frame.
 	 */
 	public static int depotPrice(Faction f, TRADABLE t, boolean buying) {
-		int toll = (int) Math.round(toll(f));
+		int slot = f.index();
+		if (PlayerDeals.depot(slot, t.index(), buying, false) <= 0)
+			return 0; // their depot doesn't take it: they don't trade it with anyone
 		if (buying) {
-			int p = PlayerDeals.price(f.index(), t.index(), true);
-			return p > 0 ? p + toll : 0;
+			int asked = PlayerDeals.price(slot, t.index(), true);
+			return asked > 0 ? DepotPrice.paid(asked, depotToll(f, FACTIONS.player())) : 0;
 		}
-		int p = t.ps().priceCapsI.get() + toll;
-		return p < PlayerDeals.price(f.index(), t.index(), false) ? p : 0;
+		int paid = DepotPrice.paid(t.ps().priceCapsI.get(), depotToll(f, f));
+		return DepotPrice.buys(paid, PlayerDeals.price(slot, t.index(), false)) ? paid : 0;
+	}
+
+	/**
+	 * Hook M12, the hover of another player's row in a depot: the price in its parts, and what their depot holds or has
+	 * room for (SOS-138, SOS-139). In the Import depot ({@code buying}) they sell to this player; in the Export depot
+	 * this player sells to them.
+	 */
+	public static void depotHover(GBox b, Faction f, TRADABLE t, boolean buying) {
+		int me = FACTIONS.player().index();
+		int asked = buying ? PlayerDeals.price(f.index(), t.index(), true) : t.ps().priceCapsI.get();
+		int percent = buying ? PlayerDeals.tariff(me, f.index()) : PlayerDeals.tariff(f.index(), me);
+		DepotPrice p = new DepotPrice(asked, depotToll(f, buying ? FACTIONS.player() : f), percent);
+		row(b, buying ? "Their export price" : "Your export price", p.asked);
+		row(b, "Toll, to the caravan", p.toll);
+		row(b, buying ? "You pay" : "They pay", p.paid());
+		b.textLL(buying ? "Your tariff, back to you" : "Their tariff");
+		b.tab(7);
+		b.add(GFORMAT.i(b.text(), -p.tariff()));
+		b.add(b.text().add(' ').add('(').add(percent).add('%').add(')'));
+		b.NL();
+		row(b, buying ? "It costs you" : "Reaches you", buying ? p.cost() : p.received());
+		b.NL(4);
+		row(b, buying ? "In their Export depot" : "Room in their Import depot",
+				PlayerDeals.depot(f.index(), t.index(), buying, true));
+		b.NL(8);
+	}
+
+	private static void row(GBox b, CharSequence label, int value) {
+		b.textLL(label);
+		b.tab(7);
+		b.add(GFORMAT.i(b.text(), value));
+		b.NL();
+	}
+
+	/** The toll per item between this player and {@code f} when {@code buyer} buys: their roads cut it (SOS-138). */
+	private static int depotToll(Faction f, Faction buyer) {
+		return DepotPrice.toll(RD.DIST().distance(f), TradeManager.tollPerTile, PlayerDeals.tollDivisor(buyer.index()));
 	}
 
 	/**

@@ -180,9 +180,16 @@ public final class EnginePlay implements EnginePort {
         return Engine.noticeTake();
     }
 
-    /** The realm name of the faction at {@code index}; "Rebels" for -1, the invaders with no faction. */
+    /** The realm name of the faction at {@code index}; "Rebels" for -1 and "Raiders" for a raider (SOS-143). */
     public String factionName(int index) {
+        if (index == Engine.RAIDERS)
+            return "Raiders";
         return index < 0 ? "Rebels" : FACTIONS.getByIndex(index).name.toString();
+    }
+
+    /** True while the capital of the player in {@code slot} is invaded, as the world reads it (SOS-143). */
+    public boolean invading(int slot) {
+        return Engine.reportedInvading(slot);
     }
 
     /** Once, as a battle between two players ends: who won and lost, and each side's losses; else null (SOS-83). */

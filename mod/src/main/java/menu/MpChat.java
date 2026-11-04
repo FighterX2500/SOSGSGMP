@@ -1,5 +1,6 @@
 package menu;
 
+import game.faction.FACTIONS;
 import init.constant.C;
 import snake2d.MButt;
 import snake2d.Renderer;
@@ -40,6 +41,7 @@ public final class MpChat extends Interrupter implements MpPanelButton.Panel {
 		super(true, true, false);
 		chat = setup.chat();
 		box = new MpChatBox(WIDTH, ROWS, setup::say);
+		box.opens(slot -> MpPlayers.open(FACTIONS.getByIndex(slot))); // a notice about a player (SOS-144)
 		box.show(chat);
 		GPanel panel = new GPanel(box.body().width(), box.body().height());
 		panel.setTitle("Chat");

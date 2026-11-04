@@ -32,7 +32,17 @@ class ChatTest {
     void aLineCarriesItsSpeakerAndTheirPlace() {
         Chat c = new Chat();
         c.heard(9, PLAYERS, "hi");
-        assertEquals(new Chat.Line(9, "Bob", 1, "hi"), c.line(0));
+        assertEquals(new Chat.Line(9, "Bob", 1, "hi", -1), c.line(0));
+    }
+
+    @Test
+    void aNoticeAboutAPlayerOpensThemAndAPlainOneNothing() {
+        Chat c = new Chat();
+        c.notice("Bob is fighting a battle against NPCs.", 3);
+        c.notice("Saved.");
+        assertEquals(3, c.line(0).opens());
+        assertEquals(Chat.NOTICE, c.line(0).playerId());
+        assertEquals(-1, c.line(1).opens());
     }
 
     @Test

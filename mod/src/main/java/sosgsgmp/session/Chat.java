@@ -25,8 +25,11 @@ public final class Chat {
     static final int BURST = 5;
     static final long BURST_NANOS = 5_000_000_000L;
 
-    /** One line; {@code colour} is the speaker's place in the session when it was said. */
-    public record Line(int playerId, String name, int colour, String text) {}
+    /**
+     * One line; {@code colour} is the speaker's place in the session when it was said. A notice about a player can open
+     * that player's window: {@code opens} is their slot, else -1 (SOS-144).
+     */
+    public record Line(int playerId, String name, int colour, String text, int opens) {}
 
     private static final String TOO_FAST = "You're sending too fast. Wait a moment.";
 
@@ -80,7 +83,7 @@ public final class Chat {
             return;
         for (int i = 0; i < players.size(); i++) {
             if (players.get(i).id() == playerId) {
-                add(new Line(playerId, players.get(i).name(), i, clean));
+                add(new Line(playerId, players.get(i).name(), i, clean, -1));
                 return;
             }
         }
@@ -88,7 +91,12 @@ public final class Chat {
 
     /** A line that no player said, on this PC only. */
     public void notice(String text) {
-        add(new Line(NOTICE, "", 0, text));
+        notice(text, -1);
+    }
+
+    /** A notice about the player in {@code slot}: a click on it opens their window (SOS-144). */
+    public void notice(String text, int slot) {
+        add(new Line(NOTICE, "", 0, text, slot));
     }
 
     /** One line for each player whose Ready differs between two tables of picks; a player who left has no line. */

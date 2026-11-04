@@ -1,5 +1,8 @@
 package menu;
 
+import game.faction.FACTIONS;
+import game.faction.Faction;
+import game.faction.diplomacy.DIP;
 import sosdet.BattleOutcome;
 import sosdet.Notice;
 import sosgsgmp.game.EnginePlay;
@@ -44,6 +47,17 @@ final class MpNotices {
 		return engine.factionName(slot);
 	}
 
+	/** This player and another player's NPC vassal {@code vassal} have a stance through its overlord (SOS-140). */
+	private String passedText(String vassal, Notice n) {
+		Faction overlord = DIP.overlord(FACTIONS.getByIndex(n.second()));
+		String through = overlord == null ? "" : ", through your agreement with " + name(overlord.index());
+		return switch (n.value()) {
+			case 1 -> vassal + " is now your trade partner" + through + ".";
+			case 2 -> vassal + " is now your colleague" + through + ".";
+			default -> vassal + " is no longer your trade partner or colleague: the agreement with its overlord ended.";
+		};
+	}
+
 	/** What {@code n} says on this PC; null when it isn't for this player. */
 	private String text(Notice n) {
 		String a = name(n.first());
@@ -61,6 +75,7 @@ final class MpNotices {
 			case Notice.ALLY_JOINED -> a + " joined the battle of " + b + ".";
 			case Notice.ALLY_OUT -> a + " stayed out of the battle of " + b + ".";
 			case Notice.ARMY_LEFT -> a + " retreated from the battle.";
+			case Notice.STANCE_PASSED -> n.first() == setup.factions().slotOf(setup.localPlayerId()) ? passedText(b, n) : null;
 			default -> throw new IllegalArgumentException("SOSGSGMP: a notice of kind " + n.kind());
 		};
 	}
