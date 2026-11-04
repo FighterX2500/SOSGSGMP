@@ -7,6 +7,7 @@ import game.faction.Faction;
 import game.faction.player.Player;
 import sosdet.Engine;
 import sosdet.game.deal.DealBook;
+import sosdet.game.deal.TradeTally;
 import sosdet.txn.TransferLog;
 
 /**
@@ -163,5 +164,14 @@ public final class PlayerDeals {
      */
     public static boolean tradeReaches(int slot) {
         return Engine.active() && Engine.tradeReaches(slot);
+    }
+
+    /**
+     * What the player in {@code seller} sold the player in {@code buyer} of the goods with index {@code tradable} on the
+     * market: the items, or the denari that reached the seller ({@code denari}), in {@code period}: this year, last
+     * year or all time ({@link TradeTally}). Deals don't count (SOS-135).
+     */
+    public static long traded(int seller, int buyer, int tradable, int period, boolean denari) {
+        return Engine.traded(seller, buyer, tradable, period, denari);
     }
 }
