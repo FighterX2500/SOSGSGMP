@@ -156,4 +156,12 @@ public final class PlayerDeals {
     public static int stock(int slot, int tradable) {
         return Engine.reportedStock(slot, tradable);
     }
+
+    /**
+     * True when this PC's player's trade reaches the player in {@code slot}, agreement or not: the walk caravans take,
+     * across a player's land at peace too (SOS-134). False in single player.
+     */
+    public static boolean tradeReaches(int slot) {
+        return Engine.active() && Engine.tradeReaches(slot);
+    }
 }
