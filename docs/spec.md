@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.46 · 2026-11-04
+Version 0.47 · 2026-11-04
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -518,6 +518,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-02 | An autosave or Save Campaign waits until no player is viewing a city. A save that ends the session closes the views instead, and the save before a battle can't wait, so a viewer has no save from that moment. | Batch 4 |
 | 2026-11-04 | **Reports:** every joining PC sends the host its logs, crash files and campaign saves (section 11). | SOS-133 |
 | 2026-11-04 | Players that trade reaches aren't darkened in the faction lists; the depots list other players; a player's Goods tab shows the goods traded with them (section 7). | SOS-134, SOS-135, SOS-136 |
+| 2026-11-04 | The 2026-11-04 playtest's list: the depots list only players whose depot takes the goods, with the price in its parts; trade and colleague agreements reach a player's NPC vassals; no trespassing for colleagues; another player's battle against NPCs is told in the chat, and notices about a player open their window (sections 6, 7, 12). | SOS-138 to SOS-141, SOS-144 |
 
 ### Where each v1 feature stands (2026-11-01)
 
