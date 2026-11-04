@@ -35,6 +35,8 @@ final class MpPlay implements ACTION {
 	private boolean lastShown;
 	/** The slots whose player fights a battle against NPCs, as last told in the chat (SOS-144). */
 	private final boolean[] fighting = new boolean[game.faction.FACTIONS.MAX()];
+	/** The slots whose capital is invaded, as the log last noted (SOS-143). */
+	private final boolean[] invaded = new boolean[game.faction.FACTIONS.MAX()];
 	/** Steps a spectator's PC may fall behind: 45 s at 25×, 5 minutes at 1×. */
 	private static final long SPECTATOR_LAG = 18000;
 	private Assault assaultShown;
@@ -219,6 +221,15 @@ final class MpPlay implements ACTION {
 				setup.chat().notice(line);
 			else
 				setup.chat().notice(line + " Click here to open their window and View city.", slot);
+		}
+		List<LobbyPlayer> players = setup.players();
+		for (int i = 0; i < players.size(); i++) { // the log notes each invasion's end, as the world reads it (SOS-143)
+			int slot = setup.factions().slotOf(players.get(i).id());
+			if (slot < 0 || engine.invading(slot) == invaded[slot])
+				continue;
+			invaded[slot] = !invaded[slot];
+			if (!invaded[slot])
+				log.line("invasion of " + engine.factionName(slot) + "'s capital over at step " + engine.step());
 		}
 	}
 
