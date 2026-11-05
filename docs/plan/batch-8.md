@@ -132,5 +132,16 @@ Nothing below was run in a game or the rig yet: the causes come from the logs an
   - Unit: `LocalGeneralTest` (on the tape as the AI's, once, coalesced in place, artillery kept), `LocalBattleTest` (routing, dropped after the end).
   - **Rig B8B1:** a 310-man raider, the sally with the player's divisions given orders, copy 2 watching from step 960 to the battle's end at 3,000: 66 battle hashes compared, no desync; the general's time in the step 0.0001 ms a step on both copies (2.1 ms in B8A1); copy 1's only step over 1 s is the battle's generation (B8F).
 - **SOS-152** (mod a1aca32): cursor places `Cursors.battle(slot)` and `Cursors.BATTLE`; protocol 23. Unit: `CursorsTest`, `ProtocolTest`. Not seen on screen yet: GUI preview pending.
-- **SOS-153** (mod 2e47afe): the hover's values at tab 9. Not seen on screen yet: GUI screenshot pending.
-- **SOS-151:** in progress.
+- **SOS-153** (mod 2e47afe, 550e2b2): the hover's values at tab 9. The GUI preview has two more windows, the other player's row's hover in each depot. **Run G8B** (three games on this PC, campaign save 80, `twopc --here --local-joiner --resume --gui-preview 300 --steps 7000`): both hovers clear of their values; PASS, no desync to step 7,000.
+- **SOS-151** (engine 7ce4565, mod b8897bc; spec 0.49): when a view of an owner freezes, every running view of that owner gets `View.rejoinAt` at that step, alike on every PC; each such viewer runs on to it, holds until it has the owner's new save and loads it with `Engine.viewRejoin` (its own city stays as at its first freeze, the hash log and a battle's tape go on). The two "Another player..." refusals are gone. A city under a running assault still takes no new viewer ("An assault is running."): every player already watches it, and a reload would lose the assault's commands. Rig option `--view-join AFTER:J`.
+  - Unit: engine 337 tests, mod 204 tests; `ViewTest` covers rejoinAt alike on three PCs, two joins in order, the viewer's own city untouched, the tape across a rejoin.
+  - **Rig B8C1** (3 humans, a 310-man raider's sally, copy 2 watching from step 930, copy 3 joining at 1,530): copy 2 reloaded at 1,530; both watched to the battle's end at 3,120, 70 and 50 battle hashes compared, identical to step 9,000, no desync.
+  - **Rig B8C2** (3 humans, copy 2 views copy 1's city from step 660, copy 3 joins at 1,560): copy 2 reloaded at 1,560; 125 and 95 city hashes compared, identical to step 6,000, no desync.
+  - Not seen on screen yet: the chat notice, the camera kept, the host-hold notice.
+
+## The batch's other checks (2026-11-06)
+
+- **G8** (the same three games, 3,600 steps): PASS, no desync: campaign save 80, made with batch 7, resumes on batch 8.
+- Full builds: engine `gradlew build` and mod `gradlew build` pass.
+- **Not run:** the laptop (unreachable over Radmin at 00:40); the battle cursors, the join notice and the camera kept on screen (they need a watched battle in a GUI game: the playtest).
+- **Pack** `C:\ClaudeFolder\modpack\SOSGSGMP-playtest-2026-11-06.zip`: SOSDET 7ce4565 (jar sha256 4496823f...), SOSGSGMP 550e2b2 (8a2291c9...); `WORKSHOP-CHANGELOG.txt` has the entry on top.
