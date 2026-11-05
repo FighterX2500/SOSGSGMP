@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.47 · 2026-11-04
+Version 0.48 · 2026-11-05
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -116,6 +116,7 @@ Players use the same agreements that exist between a player and an NPC faction i
 - **Emissaries** work as in vanilla against NPC factions. No emissary mission works against another player, Gather support in their regions included (owner, 2026-10-27).
 - **Passage.** Players at peace can move armies through each other's territory freely, with no penalty, and their trade crosses it too, with no transit treaty (owner, 2026-10-27; section 7).
 - **Agreements reach a player's vassals.** While two players are trade partners or colleagues, each has at least that stance with every NPC vassal of the other, and is told so in the chat. An alliance never passes, and a war between a player and the vassal blocks it until they make peace. When the agreement ends, or the vassal stops being a vassal, the passed stance goes back to what the two had before; a stance they had on their own stays. A passed stance that the vassal or the player changes (a vassal's court cancelling it, as vanilla's NPCs do when their opinion is low, or the player's own diplomacy) is theirs from then on, and isn't passed again until the agreement ends and starts again. Nothing passes between two vassals (owner, 2026-11-04; SOS-140).
+- **A vassal isn't hostile to its overlord's friends.** An NPC vassal of a player never demands tribute from, declares war on, or works against a player who is its overlord's trade partner, colleague or ally: no demands, wars, poisoned opinions, loyalty cuts or bad teachings (owner, 2026-11-05; SOS-146).
 - **No trespassing for colleagues.** Unlike vanilla, an army in the land of an NPC faction that is the army owner's colleague (Become Colleagues) costs no trespassing opinion, as for allies and vassals. This changes vanilla's rule in every game with the mods, single player too (owner, 2026-11-04; SOS-141).
 - **Breaking treaties.** A player can break a treaty with another player at any time, with no penalty: unlike vanilla, NPC factions' opinion of that player doesn't drop either. Treaties with NPC factions keep their vanilla penalties.
 - **Vassalage between players** follows vanilla: the vassal pays tribute, the two share wars, and the vassal has the right to rebel. The sovereign does not join a war its vassal starts. The tribute is a yearly share of the vassal's worth set in the deal, 10% by default. The vassal rebels by cancelling all agreements, which applies at once and leaves the two at peace, or by declaring war (owner, 2026-10-27).
