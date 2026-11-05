@@ -30,7 +30,7 @@ Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-
 - goods and tariffs between players (SOS-77, [goods-tariffs.md](goods-tariffs.md)); names and banners on every PC (SOS-78, [names-banners.md](names-banners.md)); every transfer in the playtest log (SOS-81, [transfer-log.md](transfer-log.md));
 - war between players and real-time battles between two players' armies, with the sally from a besieged region (SOS-74, SOS-83, [war.md](war.md), [battles-between-players.md](battles-between-players.md));
 - city viewing (SOS-82, [city-viewing.md](city-viewing.md));
-- watching another player's NPC battle, without asking: the watcher's PC runs the battle at its own pace from the fighter's tape, and each join reloads the battle on both PCs (SOS-109, SOSDET plan 0017);
+- watching another player's NPC battle, without asking: the watcher's PC runs the battle at its own pace from the fighter's tape, and each join reloads the battle on the fighter's PC and every watcher's, and any number can watch (SOS-109, SOS-151, SOSDET plan 0017);
 - sieges of a player's capital, whole: the wait, Sally out, the lockstep assault with each side's commanders, Retreat, Sack, Vassalage, Eliminate and allied attackers (SOS-92, hook M9, [sieges.md](sieges.md));
 - spectators after elimination (SOS-111); chat, notifications and who paused (SOS-110, [chat-notifications.md](chat-notifications.md));
 - real-time NPC battles on their own clock (SOS-93);
