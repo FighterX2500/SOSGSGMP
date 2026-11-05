@@ -181,6 +181,8 @@ Real-time sieges of player cities are part of v1. A siege runs in three phases:
 
 **Invasions by NPC armies.** When an NPC army (an NPC faction's, rebels' or raiders') invades a player's capital, the invasion runs as in vanilla, inside that player's city and in its own time, on that player's PC only. The world doesn't pause and nobody else has to watch (owner, 2026-10-29). Every player gets a notification that the city is invaded, and any player can ask to view it (section 10); the owner allows or refuses the view as usual. The outcome is vanilla's.
 
+Vanilla's Attack, which meets the invaders outside the city before their assault, is a real-time battle against NPC armies under section 8: it runs on the defender's PC only, the world runs on at 1×, the defender's city is frozen until it ends, and any other player can watch it. The armies near the capital that join it stand still on the world map until its result applies. If the invaders begin their assault before the battle starts, there is no battle and the defender is told (owner, 2026-11-05; SOS-145).
+
 During the siege, the defender can attack the besieging army (sally out) at any time, in every phase before the assault. That creates a real-time field battle under the rules in section 8. When a siege of their capital starts, the defender gets a popup that says the siege has started and that they can sally out at any time. Vanilla's warning when the assault begins, and its offer of one more battle before the city, are left out (owner, 2026-10-29). Allies can lift the siege only by defeating the besieging army.
 
 | City population | Waiting period before assault |
@@ -408,6 +410,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - The assault shows the defender's city in real time to every player, and the attacker's orders work. [PT]
 - A forced assault desync is detected within 2 seconds, recovered from the host's assault state within 10 seconds, and writes a report. [AT]
 - An NPC invasion of a player's capital doesn't pause the world; every player gets a notification of it, and another player can view the invaded city when its owner allows it. [PT]
+- A player can attack an NPC invasion of their capital before its assault; the world keeps running and stays in sync, and another player can watch the battle. [AT]
 - The defender can sally out against the besiegers at any time during a siege of their capital, and the popup at the siege's start says so. [PT]
 - An ally's army within 3 tiles of the capital fights in the assault; one further away doesn't. With allied attackers, the player with the most soldiers chooses the outcome, and the spoils are split by soldiers brought. [AT]
 - In an assault each attacker commands only the soldiers they brought, and the defender the city's. A player in the fight can't close the view. [PT]
