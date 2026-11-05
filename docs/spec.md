@@ -277,7 +277,7 @@ Players talk through one in-game chat. Every player and spectator reads the same
 - **Event notifications** appear in the chat. Every player sees a war declared, a peace, a vassalage, a siege's start, an assault's start and outcome, an NPC invasion of a capital, a battle between players starting and ending, another player's battle against NPCs starting and ending, a player leaving, returning or being eliminated, and a pause with who paused. Deals, gifts, tariffs and view requests appear only for the players involved. Notifications never give army positions or numbers. A notice about another player's invasion or battle against NPCs is a link: a click opens that player's window, where View city or Watch battle starts watching (owner, 2026-11-04; SOS-144).
 - **Information without a choice** appears as a notification, not a popup.
 - **Prompts that need an answer**, such as a battle invite, appear as popups in the vanilla style.
-- **Other players' cursors.** Every player sees the other players' mouse cursors, each marked with that player's name and color: on the world map, every other player's cursor that is on the world map too; in a city, the cursor of every other player looking at the same city (its owner and its viewers, section 10). The same cursors show as small crosses in their colors on the world minimap, while placing a city too, and on the city minimap. A cursor is only shown, never an action.
+- **Other players' cursors.** Every player sees the other players' mouse cursors, each marked with that player's name and color: on the world map, every other player's cursor that is on the world map too; in a city, the cursor of every other player looking at the same city (its owner and its viewers, section 10); in a battle, the cursor of every other player in the same battle (a battle against NPCs: its fighter and its watchers, section 8; a battle between players or an assault: everyone in it). The same cursors show as small crosses in their colors on the world minimap, while placing a city too, and on the city minimap. A cursor is only shown, never an action.
 
 ## 13. Performance targets
 
@@ -525,6 +525,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-04 | Players that trade reaches aren't darkened in the faction lists; the depots list other players; a player's Goods tab shows the goods traded with them (section 7). | SOS-134, SOS-135, SOS-136 |
 | 2026-11-04 | The 2026-11-04 playtest's list: the depots list only players whose depot takes the goods, with the price in its parts; trade and colleague agreements reach a player's NPC vassals; no trespassing for colleagues; another player's battle against NPCs is told in the chat, and notices about a player open their window (sections 6, 7, 12). | SOS-138 to SOS-141, SOS-144 |
 | 2026-11-06 | **Several watchers:** any number of players can watch one NPC battle or view one city; each join reloads the owner's game and every viewer's for a few seconds (spec 0.49; sections 8, 10, 15). | SOS-151 |
+| 2026-11-06 | **Cursors in a battle:** the other players' cursors show on the battle map too (spec 0.49; section 12). | SOS-152 |
 
 ### Where each v1 feature stands (2026-11-01)
 
