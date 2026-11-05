@@ -174,7 +174,7 @@ public final class MpPlayers {
 		row(b, "Toll, to the caravan", p.toll);
 		row(b, buying ? "You pay" : "They pay", p.paid());
 		b.textLL(buying ? "Your tariff, back to you" : "Their tariff");
-		b.tab(7);
+		b.tab(HOVER_TAB);
 		b.add(GFORMAT.i(b.text(), -p.tariff()));
 		b.add(b.text().add(' ').add('(').add(percent).add('%').add(')'));
 		b.NL();
@@ -201,9 +201,12 @@ public final class MpPlayers {
 		b.NL(8);
 	}
 
+	/** The depot hover's value column: past its longest label, "Your import price to buy, at least" (SOS-153). */
+	private static final int HOVER_TAB = 9;
+
 	private static void row(GBox b, CharSequence label, int value) {
 		b.textLL(label);
-		b.tab(7);
+		b.tab(HOVER_TAB);
 		b.add(GFORMAT.i(b.text(), value));
 		b.NL();
 	}

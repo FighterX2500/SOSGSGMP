@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.48 · 2026-11-05
+Version 0.49 · 2026-11-06
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -159,7 +159,7 @@ When two players' armies meet, a real-time battle is mandatory. Battles against 
   - **Saves during the battle.** Campaign saves (Save and exit, autosaves) wait until the battle ends, as during an assault. NPC battles don't get the save before battles (section 11).
   - **Storm during the battle.** Every player watches an assault, and a fighting player can't, so an assault can't start until the last NPC battle has ended (owner, 2026-10-30; SOS-92).
 - **Watching an NPC battle** is optional. Any other player can join it while it runs, enemies included, without asking: their PC loads the battle from the fighting player's PC and runs it from that player's orders and speed, at its own pace. Their own city is frozen while they watch. Leaving ends their view only.
-  - **Joining** reloads the battle on both PCs, so the fighting player's game stops for a few seconds (owner, 2026-10-30).
+  - **Joining** reloads the battle on the fighting player's PC and on every watcher's PC, so their games stop for a few seconds (owner, 2026-10-30). Any number of players can watch at once, and each join reloads it this way again (owner, 2026-11-05; SOS-151).
   - **A slow watcher.** A watcher's PC that can't keep up runs behind the battle and catches up when it can; the fighting player doesn't wait for it. The watch ends with a message only once it is 3 minutes behind (owner, 2026-10-30).
 - **Allies** can join a battle between players as it starts, as in vanilla: an army within 4 tiles of it along the map, allied with one side and at war with the other. An allied player is asked with Join and Stay out as the battle's prompt opens, and no answer in 30 seconds stays out. An ally who is fighting another battle at that moment isn't asked: their army stays out, and the battle doesn't wait for them. Nobody joins a battle that has begun. An NPC ally's army joins as in vanilla, under the host's AI. An assault has its own rule (section 9).
 - **Captives** after a battle between players are handled as in vanilla (capture, execute or release, each changing mercy). Each winning player decides for their own share.
@@ -215,14 +215,14 @@ Any player can view any other player's city, enemies included. This is intended.
 - **Live view:** the viewer's PC loads the city and runs it in step with its owner's city, so it stays the same city, live ([ADR 0006](decisions/0006-lockstep-city-viewing-and-assaults.md)). Nothing in a viewed city can be changed.
 - **The viewer's own city is frozen** while they view another city: it is unloaded from their PC, so it doesn't run and costs nothing, and they can't act in it. It resumes where it stopped when the view closes. The world runs on meanwhile: it sees the frozen city as its last city report showed it, and whatever the world sends that city (deliveries, immigrants, raids) waits and is applied when the view closes.
 - **Watch only.** While viewing, the viewer can only watch and chat. Their armies and regions keep running on their last orders. A battle, or a prompt that needs the viewer's answer, ends the view.
-- **Only the viewer and the owner.** A view is between those two players, and a view never changes the game speed for anyone. The one part the others play: when a view opens and when it closes, every other player's game pauses briefly (about a second) while it reloads its own world, keeping its city, as a world resync does. A load resets some world state that no save holds, so every PC reloads at the same moment and the world stays the same everywhere.
+- **Only the viewers and the owner.** A view is between the city's owner and its viewers, and a view never changes the game speed for anyone. The one part the others play: when a view opens and when it closes, every other player's game pauses briefly (about a second) while it reloads its own world, keeping its city, as a world resync does. A load resets some world state that no save holds, so every PC reloads at the same moment and the world stays the same everywhere.
 - **When the host views.** Every PC follows the host's PC, so while the host's own view opens (the owner's save, the download and the load, a few seconds), the game holds for every player, with the reason shown. Once it is open, nobody waits. Later, the host's role may move to another PC for the view, so nobody waits at all.
 - **Asking.** A view is a request: the viewer asks, and the owner sees the request and allows or refuses it. The view opens only if the owner allows it. A spectator asks like any other player (owner, 2026-10-31; SOS-111).
 - **Opening a view.** The owner saves their city and sends it straight to the viewer; the viewer's PC loads it and runs it fast until it catches up with the owner's city. Target: a 5-second gap closes in about 2 seconds.
 - **Too slow.** If the viewer hasn't caught up 1 minute after catching up started (the owner's save, the download and the load don't count), or their PC can't keep up with the city at the current speed, the view ends with a message to the viewer. Only that view ends; nobody else is affected.
 - **Keeping up.** The same applies after catching up: a view that falls behind its owner's city and doesn't catch up again within 1 minute ends.
-- **The owner is barely slowed.** When the view opens, the owner's game pauses for a few seconds while it saves and reloads its own city, so that both PCs run the same loaded city (a game that reloads a save doesn't run exactly like one that didn't). After that the owner keeps playing their city with zero latency while it is viewed. The owner accepted this pause by allowing the view.
-- **One viewer at a time.** A city has one viewer at a time; a second player is refused with the reason until that view ends, because the owner's reload for a new view would lose the open one (2026-10-31). An assault's viewers are the exception: they all open together, from one save.
+- **The owner is barely slowed.** Each time a view opens, the owner's game pauses for a few seconds while it saves and reloads its own city, so that every PC viewing it runs the same loaded city (a game that reloads a save doesn't run exactly like one that didn't). Between those pauses the owner keeps playing their city with zero latency while it is viewed. The owner accepted this pause by allowing the view.
+- **Any number of viewers.** Several players can view one city at once. Each new viewer reloads the city for its owner and for every player already viewing it, from the one save the owner sends them all, so their games pause for a few seconds; the players already viewing are told who joined, and their camera stays where it was (owner, 2026-11-05; SOS-151). An assault's viewers all open together, from one save. While it runs, a player can join it as any view (a spectator who closed theirs, a player whose view a limit ended); that view is the assault's: it ends with the assault, only a spectator can close it, and an attacker who joins again commands their soldiers again. Nobody joins before the assault starts or after it ends (owner, 2026-11-06).
 - **During a siege assault:** every player watches the city in real time (section 9).
 - **During an NPC invasion** of the owner's city: a view works as at any other time, and needs the owner's Allow (section 9).
 
@@ -277,7 +277,7 @@ Players talk through one in-game chat. Every player and spectator reads the same
 - **Event notifications** appear in the chat. Every player sees a war declared, a peace, a vassalage, a siege's start, an assault's start and outcome, an NPC invasion of a capital, a battle between players starting and ending, another player's battle against NPCs starting and ending, a player leaving, returning or being eliminated, and a pause with who paused. Deals, gifts, tariffs and view requests appear only for the players involved. Notifications never give army positions or numbers. A notice about another player's invasion or battle against NPCs is a link: a click opens that player's window, where View city or Watch battle starts watching (owner, 2026-11-04; SOS-144).
 - **Information without a choice** appears as a notification, not a popup.
 - **Prompts that need an answer**, such as a battle invite, appear as popups in the vanilla style.
-- **Other players' cursors.** Every player sees the other players' mouse cursors, each marked with that player's name and color: on the world map, every other player's cursor that is on the world map too; in a city, the cursor of every other player looking at the same city (its owner and its viewers, section 10). The same cursors show as small crosses in their colors on the world minimap, while placing a city too, and on the city minimap. A cursor is only shown, never an action.
+- **Other players' cursors.** Every player sees the other players' mouse cursors, each marked with that player's name and color: on the world map, every other player's cursor that is on the world map too; in a city, the cursor of every other player looking at the same city (its owner and its viewers, section 10); in a battle, the cursor of every other player in the same battle (a battle against NPCs: its fighter and its watchers, section 8; a battle between players or an assault: everyone in it). The same cursors show as small crosses in their colors on the world minimap, while placing a city too, and on the city minimap. A cursor is only shown, never an action.
 
 ## 13. Performance targets
 
@@ -398,6 +398,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - After an NPC battle, the fighting player's city resumes as it was when the battle began, and receives the deliveries and other changes the world sent it during the battle. [AT]
 - A prompt for the fighting player during an NPC battle appears only after the battle ends, with the 30-second rule from then. [AT]
 - Another player can join a running NPC battle, sees the same battle as the fighting player (battle hash), and returns to their own city when they leave. [AT]
+- Two players join a running NPC battle one after the other; both copies stay equal with the fighting player's to the end. The same for a city view. [AT]
 - A watcher's PC that falls behind an NPC battle doesn't slow the fighting player, and its copy stays the same battle. [AT]
 - A forced battle desync is detected within 2 seconds, recovered from the host's battle state within 10 seconds, and writes a report. [AT]
 
@@ -426,7 +427,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A view never changes the game speed, and the host and other players take no part in it, apart from their world's reload as the view opens and closes; the only other exception is the hold while the host's own view opens. [AT]
 - When a view opens and closes, every other player's game pauses for its world reload only, for no more than about 1 second each time. [PT]
 - If the viewer hasn't caught up 1 minute after catching up started, falls behind for more than 1 minute later, or can't keep up at the current speed, only that view ends, with a message to the viewer. [AT]
-- Viewing a city stutters its owner's game only once, while the view opens, for a few seconds at most (the save and reload); no stutter longer than 1 second after that. [PT]
+- Viewing a city stutters its owner's game, and the game of every player already viewing it, only as a view opens, for a few seconds at most each time (the save and reload); no stutter longer than 1 second otherwise. [PT]
 
 ### Saves and resume
 
@@ -523,6 +524,9 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-04 | **Reports:** every joining PC sends the host its logs, crash files and campaign saves (section 11). | SOS-133 |
 | 2026-11-04 | Players that trade reaches aren't darkened in the faction lists; the depots list other players; a player's Goods tab shows the goods traded with them (section 7). | SOS-134, SOS-135, SOS-136 |
 | 2026-11-04 | The 2026-11-04 playtest's list: the depots list only players whose depot takes the goods, with the price in its parts; trade and colleague agreements reach a player's NPC vassals; no trespassing for colleagues; another player's battle against NPCs is told in the chat, and notices about a player open their window (sections 6, 7, 12). | SOS-138 to SOS-141, SOS-144 |
+| 2026-11-06 | **Several watchers:** any number of players can watch one NPC battle or view one city; each join reloads the owner's game and every viewer's for a few seconds (spec 0.49; sections 8, 10, 15). | SOS-151 |
+| 2026-11-06 | **Cursors in a battle:** the other players' cursors show on the battle map too (spec 0.49; section 12). | SOS-152 |
+| 2026-11-06 | **Joining an assault:** a player can join a running assault's view as any city's; an attacker who joins again commands their soldiers again (spec 0.49; section 10). | SOS-151 |
 
 ### Where each v1 feature stands (2026-11-01)
 
@@ -534,7 +538,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | Trade (section 7) | Built | Done: no trade into or out of a besieged capital (SOS-92). Left: caravans on a disconnect, checked in a playtest |
 | Field battles (section 8) | Built | Done: battles between players with each side's commanders, deployment, retreat, the result for the winner, the sally (SOS-83); watching an NPC battle (SOS-109); resync in a battle (SOS-92); the winner's choice on either army (SOS-116); the commanders' speed vote (SOS-117); allies in a battle between players (SOS-118) and in an NPC battle (SOS-119). Left: section 16's open question on a commander who drops out, and allies seen in a playtest |
 | Sieges of player cities (section 9) | Built | Done: sieges by another player arrive, the sally from a region, the save before an assault (SOS-67, SOS-71, SOS-83); the siege of a capital with its wait, the popup and Sally out (SOS-92 step A); the lockstep assault with each side's commanders, Retreat, the outcomes, Sack, Vassalage and Eliminate with the removed people, the two-minute default, allied attackers and their share, NPC invasions (SOS-92). Left: confirmed by players in a playtest, and each attacker's own bonuses in an assault, which no card covers yet |
-| City viewing (section 10) | Built | Done: the live view on request, catching up, the frozen own city, the other PCs' world reload (SOS-82). Left: a viewer's PC that stopped at a view's load (SOS-85), the catch-up numbers confirmed in playtests (section 16) |
+| City viewing (section 10) | Built | Done: the live view on request, catching up, the frozen own city, the other PCs' world reload (SOS-82); several viewers of one city or battle (SOS-151). Left: a viewer's PC that stopped at a view's load (SOS-85), the catch-up numbers confirmed in playtests (section 16) |
 | Chat, notifications, pause, spectators (sections 4, 11, 12) | Built, apart from debug mode | Done: cursors on the world map and in cities (SOS-58); chat, notifications, who paused, any player unpausing (SOS-110); elimination and spectating (SOS-92, SOS-111). Left: debug mode isn't off in multiplayer (section 4) |
 | Release: performance and distribution (sections 13, 14) | Not done | Done: the README, the license and the Steam Workshop texts. Left: the 10,000-person city at 1×, the 30-minute battle with 2,000 units per side, publishing on the Steam Workshop (SOS-18), the test plan (SOS-19) |
 

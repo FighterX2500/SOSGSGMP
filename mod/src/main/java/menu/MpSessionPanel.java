@@ -185,18 +185,23 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 
 	/**
 	 * Where this PC's player looks (SOS-58): the world map, a city (the owner's or, while viewing, the viewed one:
-	 * {@code FACTIONS.player()} between steps is that city's player), or neither.
+	 * {@code FACTIONS.player()} between steps is that city's player), a battle (SOS-152: a battle against NPCs is its
+	 * fighter's, whom {@code FACTIONS.player()} is on a watcher's PC too; the one every PC runs is shared), or neither.
 	 */
-	private static int cursorPlace() {
+	private int cursorPlace() {
 		if (VIEW.world().isActive())
 			return Cursors.WORLD;
 		if (VIEW.s().isActive())
 			return Cursors.city(FACTIONS.player().index());
+		if (VIEW.b().isActive())
+			return engine.battle() != null ? Cursors.BATTLE : Cursors.battle(FACTIONS.player().index());
 		return Cursors.OFF;
 	}
 
 	private static GameWindow cursorWindow() {
-		return VIEW.world().isActive() ? VIEW.world().window : VIEW.s().getWindow();
+		if (VIEW.world().isActive())
+			return VIEW.world().window;
+		return VIEW.b().isActive() ? VIEW.b().getWindow() : VIEW.s().getWindow();
 	}
 
 	private void minimapCursors(Renderer r) {

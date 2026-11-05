@@ -42,6 +42,19 @@ public final class Cursors {
     }
 
     /**
+     * The place of a battle against NPCs on its fighter's PC, by the fighter's slot: the fighter and its watchers see
+     * the same battle (SOS-152).
+     */
+    public static int battle(int slot) {
+        if (slot < 0)
+            throw new IllegalArgumentException("SOSGSGMP: a battle's place for slot " + slot);
+        return LobbySettings.MAX_PLAYERS + 1 + slot;
+    }
+
+    /** The battle every PC runs: one between players, or an assault (SOS-152). */
+    public static final int BATTLE = 2 * LobbySettings.MAX_PLAYERS + 1;
+
+    /**
      * Whether this PC's cursor, now at pixel {@code x, y} of {@code place} (or {@link #OFF}), should go out now: when it
      * changed, and a moving one at most every {@link #SEND_NANOS}. Going to another place, or off, goes out at once.
      */

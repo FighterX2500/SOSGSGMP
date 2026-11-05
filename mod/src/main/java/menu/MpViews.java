@@ -13,6 +13,7 @@ import sosgsgmp.session.SetupSession;
 import sosgsgmp.session.ViewRequests;
 import view.interrupter.Interrupter;
 import view.main.VIEW;
+import view.subview.GameWindow;
 
 /**
  * SOSGSGMP: city viewing in the running game (spec §10, SOS-82; docs/plan/city-viewing.md §1 to §4). Once per frame
@@ -53,6 +54,9 @@ final class MpViews {
 	private final int[] watchedStates = new int[LobbySettings.MAX_PLAYERS];
 	/** A hold this long at the host's freeze step shows the notice. */
 	private static final long HOLD_NOTICE_NANOS = 500_000_000L;
+	/** The viewer's camera before a rejoin's load, put back once it is set: the battle's or the city's (SOS-151). */
+	private boolean cameraKept, cameraBattle;
+	private int cameraX, cameraY, cameraZoom;
 
 	MpViews(SetupSession setup, EnginePlay engine, MpLog log) {
 		this.setup = setup;
@@ -162,12 +166,14 @@ final class MpViews {
 		byte[] out = engine.viewOut();
 		if (out != null) {
 			int sent = 0;
-			for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++) { // an assault's viewers all freeze at one step
+			// an assault's viewers all freeze at one step, and every viewer already here loads it again (SOS-151)
+			for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++) {
 				View v = engine.view(slot);
-				if (v != null && v.owner == local && v.freeze == engine.step() && v.frozen()) {
-					r.city(v.viewer, v.freeze, out);
-					log.line(String.format(Locale.ROOT, "viewout: this city for %s's view from step %d: %d bytes, saved in %.0f ms",
-							name(v.viewer), v.freeze, out.length, (System.nanoTime() - t0) / 1e6));
+				if (v != null && v.owner == local && v.frozen() && (v.freeze == engine.step() || v.rejoinAt() == engine.step())) {
+					r.city(v.viewer, engine.step(), out);
+					log.line(String.format(Locale.ROOT, "viewout: this city for %s's view from step %d%s: %d bytes, saved in %.0f ms",
+							name(v.viewer), v.freeze, v.freeze == engine.step() ? "" : ", loaded again at step " + engine.step(),
+							out.length, (System.nanoTime() - t0) / 1e6));
 					sent++;
 				}
 			}
@@ -232,6 +238,13 @@ final class MpViews {
 				log.line("viewin: " + name(v.owner) + "'s city, " + city.length + " bytes, loading at step " + engine.step());
 			}
 		}
+		if (engine.viewRejoinDue())
+			rejoin(r, v);
+		if (cameraKept && !engine.viewLoading()) {
+			cameraKept = false;
+			if (engine.viewingHere())
+				putCameraBack();
+		}
 		if (engine.viewingHere()) {
 			for (byte[] t = r.takeTape(); t != null; t = r.takeTape())
 				engine.viewTapeIn(t);
@@ -242,6 +255,52 @@ final class MpViews {
 		bar(v);
 		if (v.state() != seenState)
 			stateChanged(v);
+	}
+
+	/**
+	 * Another player joined the city or battle this PC views, and its owner reloaded its game there: this PC loads the
+	 * same save once it has it, keeping its player's camera (spec §10, SOS-151).
+	 */
+	private void rejoin(ViewRequests r, View v) {
+		byte[] city = r.takeCity(v.rejoinAt());
+		if (city == null)
+			return;
+		keepCamera(v.battle());
+		engine.viewRejoin(city);
+		String joined = joined(v);
+		log.line("viewrejoin: " + name(v.owner) + "'s city again, " + city.length + " bytes, loading at step " + engine.step() + " as "
+				+ joined + " joined");
+		message(joined + " joined " + subject(v) + ". It reloads for a few seconds.");
+	}
+
+	/** The players whose view of the same owner froze at {@code v}'s rejoin step. */
+	private String joined(View v) {
+		StringBuilder names = new StringBuilder();
+		for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++) {
+			View o = engine.view(slot);
+			if (o != null && o != v && o.owner == v.owner && o.freeze == v.rejoinAt()) {
+				if (names.length() > 0)
+					names.append(" and ");
+				names.append(name(o.viewer));
+			}
+		}
+		return names.length() == 0 ? "Another player" : names.toString();
+	}
+
+	private void keepCamera(boolean battle) {
+		GameWindow w = battle ? VIEW.b().getWindow() : VIEW.s().getWindow();
+		cameraBattle = battle;
+		cameraX = w.pixels().cX();
+		cameraY = w.pixels().cY();
+		cameraZoom = w.zoomout();
+		cameraKept = true;
+	}
+
+	/** The load sets the camera the owner's save had: this PC's player's goes back. */
+	private void putCameraBack() {
+		GameWindow w = cameraBattle ? VIEW.b().getWindow() : VIEW.s().getWindow();
+		w.setZoomout(cameraZoom);
+		w.centerAt(cameraX, cameraY);
 	}
 
 	/** While viewing: a lost step or a limit asks the host to end the view, once; catching up is logged. */
@@ -352,7 +411,7 @@ final class MpViews {
 		if (hostSlot < 0)
 			hostSlot = slotOf(hostId());
 		View v = hostSlot == setup.views().local() ? null : engine.view(hostSlot);
-		boolean holding = v != null && v.frozen() && engine.step() == v.freeze;
+		boolean holding = v != null && v.frozen() && (engine.step() == v.freeze || engine.step() == v.rejoinAt());
 		if (!holding) {
 			holdSince = -1;
 			if (hostHold != null) {
@@ -365,8 +424,8 @@ final class MpViews {
 		if (holdSince < 0)
 			holdSince = now;
 		if (now - holdSince >= HOLD_NOTICE_NANOS && !shown(hostHold)) {
-			hostHold = new MpViewNotice("The host is opening a view of " + name(v.owner) + "'s city. The game waits until"
-					+ " it is open, a few seconds.", false);
+			hostHold = new MpViewNotice("The host is " + (engine.step() == v.freeze ? "opening" : "reloading") + " a view of "
+					+ subject(v) + ". The game waits until it is open, a few seconds.", false);
 			hostHold.open();
 		}
 	}
@@ -396,7 +455,7 @@ final class MpViews {
 				return VIEWED;
 		}
 		if (engine.localBattle(owner))
-			return CAN_ASK; // the engine answers when it is starting, ending or watched already
+			return CAN_ASK; // the engine answers when it is starting or ending
 		return open(engine.view(owner)) ? OWNER_VIEWING : CAN_ASK;
 	}
 

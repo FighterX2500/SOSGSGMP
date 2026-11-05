@@ -31,7 +31,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 22;
+    public static final int VERSION = 23;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -669,7 +669,7 @@ public final class Protocol {
     }
 
     private static int cursorPlace(int place) throws IOException {
-        if (place < sosgsgmp.session.Cursors.OFF || place > LobbySettings.MAX_PLAYERS)
+        if (place < sosgsgmp.session.Cursors.OFF || place > sosgsgmp.session.Cursors.BATTLE)
             throw new IOException("SOSGSGMP: cursor place " + place);
         return place;
     }

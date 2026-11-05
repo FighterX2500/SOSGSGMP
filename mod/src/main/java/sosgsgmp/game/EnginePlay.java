@@ -480,6 +480,21 @@ public final class EnginePlay implements EnginePort {
         Engine.viewIn(city);
     }
 
+    /** The viewer's PC: whether its view holds for the owner's city saved as another player joined (SOS-151). */
+    public boolean viewRejoinDue() {
+        return Engine.viewRejoinDue();
+    }
+
+    /** The viewer's PC, at its view's rejoin step: loads the owner's city again, keeping its own. */
+    public void viewRejoin(byte[] city) {
+        Engine.viewRejoin(city);
+    }
+
+    /** Whether a view load runs on this PC. */
+    public boolean viewLoading() {
+        return Engine.viewLoading();
+    }
+
     /** The owner's PC: its view hashes for the viewer in {@code viewer} since the last call. */
     public byte[] viewHashOut(int viewer) {
         return Engine.viewHashOut(viewer);

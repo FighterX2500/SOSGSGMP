@@ -865,6 +865,8 @@ public final class MpAutopilot {
 	 * see them, with preview numbers: a {@code guipreview} event as each opens, for the screenshot tool (SOS-92).
 	 */
 	private void preview(EnginePlay engine) {
+		if (hoverGoods != null) // the hover shows while the mouse is on a row: each frame, until the next window (SOS-153)
+			MpPlayers.depotHover(VIEW.hoverBox(), FACTIONS.getByIndex(1), hoverGoods, hoverImporting);
 		if (previewIndex >= 0 && !previewShot && System.nanoTime() - previewNanos >= PREVIEW_SHOT_NANOS) {
 			previewShot = true;
 			CORE.getGraphics().makeScreenShot(); // into the data folder's screenshots, named by time
@@ -875,6 +877,7 @@ public final class MpAutopilot {
 		if (previewWindow != null)
 			previewWindow.close();
 		previewWindow = null;
+		hoverGoods = null;
 		previewIndex++;
 		String me = engine.factionName(0);
 		String them = engine.factionName(1);
@@ -897,6 +900,8 @@ public final class MpAutopilot {
 		case 14: name = "export-depot"; VIEW.world().panels.clear(); previewDepot(); break; // SOS-136
 		case 15: name = "export-depot-over"; VIEW.world().panels.clear(); previewOverCap(false); break; // SOS-148
 		case 16: name = "import-depot-over"; VIEW.world().panels.clear(); previewOverCap(true); break; // SOS-148
+		case 17: name = "export-depot-hover"; previewHover(false); break; // SOS-153
+		case 18: name = "import-depot-hover"; previewHover(true); break; // SOS-153
 		default:
 			VIEW.inters().popup.close();
 			if (first("guipreviewdone"))
@@ -953,6 +958,23 @@ public final class MpAutopilot {
 		}
 		event("depotover", "\"importing\":" + importing + ",\"goods\":\"none\"");
 	}
+
+	/** The depot hover of the other player's (slot 1) row, for the first goods that row is in (SOS-153). */
+	private void previewHover(boolean importing) {
+		VIEW.inters().popup.close();
+		for (int i = 0; i < TR.ALL().size(); i++) {
+			TRADABLE t = TR.ALL().get(i);
+			if (PlayerDeals.depot(1, t.index(), importing, false) > 0 && PlayerDeals.price(1, t.index(), importing) > 0) {
+				hoverGoods = t;
+				hoverImporting = importing;
+				return;
+			}
+		}
+	}
+
+	/** The goods whose depot hover the preview shows each frame; null for none. */
+	private TRADABLE hoverGoods;
+	private boolean hoverImporting;
 
 	/** Vanilla's deal panel with the first NPC that has a capital: its Diplomacy, or with Trade drafted (SOS-100). */
 	private static void previewNpc(boolean trade) {

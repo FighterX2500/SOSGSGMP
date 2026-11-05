@@ -57,6 +57,8 @@ class ProtocolTest {
             new Message.Go(Integer.MAX_VALUE),
             new Message.Cursor(7, sosgsgmp.session.Cursors.WORLD, -3, Integer.MAX_VALUE),
             new Message.Cursor(3, sosgsgmp.session.Cursors.city(15), 4, 5),
+            new Message.Cursor(4, sosgsgmp.session.Cursors.battle(15), 6, 7),
+            new Message.Cursor(5, sosgsgmp.session.Cursors.BATTLE, 8, 9),
             new Message.Stream(StreamKind.AI_LOG, 0, 0, 0, new byte[0]),
             new Message.Stream(StreamKind.HASHES, 15, Long.MAX_VALUE, 7, new byte[Protocol.MAX_STREAM_PIECE]),
             new Message.Cursor(0, sosgsgmp.session.Cursors.OFF, 0, 0),
@@ -194,6 +196,7 @@ class ProtocolTest {
     void viewMessagesWithBadValuesThrow() {
         assertRefused(new Message.ViewAsk(LobbySettings.MAX_PLAYERS, 0));
         assertRefused(new Message.ViewAsk(0, LobbySettings.MAX_PLAYERS));
+        assertRefused(new Message.Cursor(0, sosgsgmp.session.Cursors.BATTLE + 1, 0, 0));
         assertRefused(new Message.ViewAnswer(1, 2, false, "x".repeat(257)));
         assertRefused(new Message.ViewClose(1, Protocol.MAX_VIEW_CLOSE + 1));
         assertRefused(new Message.ViewHashes(1, new byte[Protocol.MAX_STREAM_PIECE + 1]));

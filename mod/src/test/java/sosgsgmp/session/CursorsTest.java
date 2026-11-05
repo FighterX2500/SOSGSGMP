@@ -77,4 +77,21 @@ class CursorsTest {
         assertThrows(IllegalArgumentException.class, () -> Cursors.city(-1));
         assertThrows(IllegalArgumentException.class, () -> c.own(-2, 0, 0, 30 * MS));
     }
+
+    /** SOS-152: a battle's place is apart from every city's and the world's, and the battle every PC runs is one place. */
+    @Test
+    void battlesHaveTheirOwnPlaces() {
+        java.util.Set<Integer> places = new java.util.HashSet<>();
+        places.add(Cursors.WORLD);
+        for (int slot = 0; slot < sosgsgmp.lobby.LobbySettings.MAX_PLAYERS; slot++) {
+            places.add(Cursors.city(slot));
+            places.add(Cursors.battle(slot));
+        }
+        places.add(Cursors.BATTLE);
+        assertEquals(2 * sosgsgmp.lobby.LobbySettings.MAX_PLAYERS + 2, places.size());
+        assertThrows(IllegalArgumentException.class, () -> Cursors.battle(-1));
+        Cursors c = new Cursors();
+        assertTrue(c.own(Cursors.city(1), 1, 1, 0));
+        assertTrue(c.own(Cursors.battle(1), 1, 1, 10 * MS), "the battle map is another place: at once");
+    }
 }
