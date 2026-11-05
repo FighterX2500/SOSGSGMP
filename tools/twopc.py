@@ -238,7 +238,7 @@ def main():
     ap.add_argument("--steam-p2p", action="store_true",
                     help="with --net steam: both games use the old P2P packets (SOSGSGMP_STEAM_NET=p2p, SOS-105)")
     ap.add_argument("--gui-preview", type=int, default=-1,
-                    help="both PCs hold each setup screen for a screenshot, the joiner settling near the host (SOS-120); the host opens each siege window in turn from this step, 6 s each (SOS-92), then the faction list, a player's Goods tab and the Export depot (SOS-134 to SOS-136), then both depots with the other player's row over the buyer's price (SOS-148)")
+                    help="both PCs hold each setup screen for a screenshot, the joiner settling near the host (SOS-120); the host opens each siege window in turn from this step, 6 s each (SOS-92), then the faction list, a player's Goods tab and the Export depot (SOS-134 to SOS-136), then both depots with the other player's row over the buyer's price (SOS-148), then that row's hover in each depot (SOS-153)")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
     STEAM_NET[0] = "p2p" if args.steam_p2p else ""
