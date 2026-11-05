@@ -1,6 +1,7 @@
 package menu;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,17 +17,23 @@ import game.faction.FACTIONS;
 import game.faction.Faction;
 import game.faction.diplomacy.DIP;
 import game.faction.npc.FactionNPC;
+import game.raiding.Raider;
 import init.constant.C;
 import init.race.RACES;
 import init.resources.RESOURCES;
+import init.trade.TR;
+import init.trade.TRADABLE;
+import init.trade.TRADE_TYPE;
 import settlement.entity.ENTITY;
 import settlement.entity.humanoid.Humanoid;
 import settlement.main.SETT;
 import settlement.stats.STATS;
 import snake2d.CORE;
 import snake2d.PathTile;
+import snake2d.util.sets.LIST;
 import sosdet.Engine;
 import sosdet.Hooks;
+import sosdet.game.AiHooks;
 import sosdet.game.OwnArmy;
 import sosdet.game.cmd.MapBattles;
 import sosdet.game.cmd.Sieges;
@@ -38,6 +45,7 @@ import sosdet.game.siege.AssaultTerms;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.PlayerDeals;
 import sosgsgmp.session.SetupSession;
+import util.data.DOUBLE_O.DOUBLE_OE;
 import view.main.VIEW;
 import world.WORLD;
 import world.army.AD;
@@ -70,7 +78,13 @@ import world.map.regions.Region;
  * outcome, the people being of the city's largest race); {@code order all|<division> <tx> <ty>} (as placing a division in
  * the battle UI, to that tile); {@code teleport <tx> <ty>} (test tooling: the
  * first army stands at that world tile); {@code npcbesiege} (test tooling: the strongest NPC army marches on this
- * city); {@code nudge} (test tooling: a forced desync in a battle or an assault); {@code assaultretreat} (an attacker orders the retreat from the assault).
+ * city); {@code nudge} (test tooling: a forced desync in a battle or an assault); {@code assaultretreat} (an attacker orders the retreat from the assault);
+ * {@code invasionattack} (the invasion message's Attack on this city's oldest invasion, SOS-145); {@code charge} (test
+ * tooling: this PC's divisions in its battle fight on their own); {@code rout} (test tooling: on this PC, the enemy
+ * divisions' morale stays below zero until the battle ends, so they desert; only for a battle nobody watches);
+ * {@code raid} (this city's invasion, this player's raid and its state, the raiders, the treasury, the last messages);
+ * {@code victoryaccept} (the Accept of the newest won invasion's spoils message, with every lot selected);
+ * {@code nextmessage} (the open message closes, as its close button, and the next queued one opens).
  */
 final class MpAutopilotCommands {
 
@@ -89,6 +103,13 @@ final class MpAutopilotCommands {
 	private boolean storm;
 	/** The next sally prompt against a player is answered with Fall Back, not Fight. */
 	private boolean fallBack;
+	/** When the victory or defeat panel was first seen open; -1 before. */
+	private long concludeShotAt = -1;
+	private boolean concludeShot;
+	/** The enemy's morale is held below zero each frame while this PC's battle runs. */
+	private boolean routing;
+	/** The battle's morale of each division ({@code DivFactors.morale}), once {@code rout} needs it. */
+	private DOUBLE_OE<Div> morale;
 
 	MpAutopilotCommands(Path events, boolean host, boolean autoBattles, BiConsumer<String, String> event) {
 		this.file = events.resolveSibling("command.txt");
@@ -100,6 +121,7 @@ final class MpAutopilotCommands {
 	/** Once per frame while playing, outside the step. */
 	void frame(EnginePlay engine, SetupSession setup) {
 		traceDue();
+		rout();
 		if (autoBattles)
 			battles();
 		if (setup.chat().added() != chatSeen) {
@@ -331,6 +353,36 @@ final class MpAutopilotCommands {
 		case "fallback":
 			fallBack = true;
 			return "the next sally prompt falls back";
+		case "invasionattack":
+			for (int ref = 1; ref < 10_000; ref++) {
+				if (SETT.INVADOR().spec(ref) != null)
+					return "attack on invasion " + ref + ": " + Hooks.invasionSally(ref);
+			}
+			return "refused: no invasion runs in this city";
+		case "charge": {
+			int n = 0;
+			for (Div d : GAME.ARMIES().player().divisions()) {
+				if (d.menNrOf() > 0) {
+					AiHooks.running(d, true);
+					AiHooks.guard(d, true);
+					AiHooks.mopUp(d, true);
+					n++;
+				}
+			}
+			return n + " divisions charge";
+		}
+		case "rout":
+			if (VIEW.b().state() == null)
+				return "refused: no battle on this PC";
+			routing = true;
+			return "the enemy's morale stays below zero on this PC until the battle ends";
+		case "raid":
+			return raid();
+		case "victoryaccept":
+			return victoryAccept();
+		case "nextmessage":
+			VIEW.inters().messages.hide();
+			return "message closed";
 		case "sally": {
 			String why = Engine.sallyRefusal();
 			if (why != null)
@@ -416,6 +468,103 @@ final class MpAutopilotCommands {
 		}
 	}
 
+	/** Test tooling: holds every enemy division's morale below zero, so its soldiers desert (vanilla's PlanEscape). */
+	private void rout() {
+		if (!routing)
+			return;
+		if (VIEW.b().state() == null) {
+			routing = false;
+			return;
+		}
+		if (morale == null)
+			morale = moraleOfDivisions();
+		for (Div d : GAME.ARMIES().enemy().divisions())
+			morale.setD(d, -10);
+	}
+
+	// DivFactors.morale is a DataDiv, a DOUBLE_OE<Div>: the cast only names its type
+	@SuppressWarnings("unchecked")
+	private static DOUBLE_OE<Div> moraleOfDivisions() {
+		return (DOUBLE_OE<Div>) field(GAME.ARMIES().factors, "morale");
+	}
+
+	/** What a sally's end changes (SOS-149): this city's invasion, the raid and its state, the raiders, the treasury. */
+	private static String raid() {
+		StringBuilder b = new StringBuilder("invading ").append(SETT.INVADOR().invading());
+		Object current = call(GAME.raiders(), "current");
+		Raider raider = (Raider) call(current, "current");
+		b.append(", raid ").append(raider == null ? "none" : raider.name).append(" state ").append(field(current, "state"));
+		int defeated = 0;
+		for (Raider r : GAME.raiders().ALL()) {
+			if (r.defeated)
+				defeated++;
+		}
+		b.append(", raiders active ").append(GAME.raiders().active().size()).append(" defeated ").append(defeated);
+		b.append(", treasury ").append((long) FACTIONS.player().credits().getD()).append(", messages");
+		LIST<?> all = (LIST<?>) field(VIEW.messages(), "all");
+		for (int i = Math.max(0, all.size() - 4); i < all.size(); i++)
+			b.append(' ').append(all.get(i).getClass().getSimpleName());
+		return b.toString();
+	}
+
+	/**
+	 * The spoils message's Accept ({@code Attack.MVictory2}), with every lot selected: the same calls its button makes,
+	 * which a test can't click.
+	 */
+	private static String victoryAccept() {
+		LIST<?> all = (LIST<?>) field(VIEW.messages(), "all");
+		for (int i = all.size() - 1; i >= 0; i--) {
+			Object m = all.get(i);
+			if (!m.getClass().getSimpleName().equals("MVictory2"))
+				continue;
+			if ((Boolean) field(m, "accepted"))
+				return "refused: already answered";
+			int[] res = (int[]) field(m, "res");
+			StringBuilder b = new StringBuilder("accepted");
+			for (TRADABLE r : TR.ALL()) {
+				int am = res[r.index()];
+				if (am > 0) {
+					FACTIONS.player().buyer(r).addReserveAndDeliver(am, TRADE_TYPE.spoils);
+					b.append(' ').append(am).append(' ').append(r.key());
+				}
+			}
+			set(m, "accepted", true);
+			VIEW.inters().messages.hide();
+			return b.toString();
+		}
+		return "refused: no spoils message";
+	}
+
+	private static void set(Object target, String name, Object value) {
+		try {
+			Field f = target.getClass().getDeclaredField(name);
+			f.setAccessible(true);
+			f.set(target, value);
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("SOSGSGMP: no " + target.getClass().getSimpleName() + "." + name, e);
+		}
+	}
+
+	/** A private field's value: test tooling only. */
+	private static Object field(Object target, String name) {
+		try {
+			Field f = target.getClass().getDeclaredField(name);
+			f.setAccessible(true);
+			return f.get(target);
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("SOSGSGMP: no " + target.getClass().getSimpleName() + "." + name, e);
+		}
+	}
+
+	/** A public method of the engine's patched game classes, which the mod doesn't compile against: test tooling only. */
+	private static Object call(Object target, String name) {
+		try {
+			return target.getClass().getMethod(name).invoke(target);
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("SOSGSGMP: no " + target.getClass().getSimpleName() + "." + name + "()", e);
+		}
+	}
+
 	/** Answers this PC's oldest simulation question yes; false with none. */
 	private boolean question() {
 		long question = Hooks.stepPromptOldest();
@@ -445,6 +594,16 @@ final class MpAutopilotCommands {
 					event.accept("battle", "\"what\":\"start\",\"step\":" + Engine.step());
 			}
 			if (Hooks.battleConcludeOpen() && !concluded) {
+				if (concludeShotAt < 0) // the panel on screen first, for the run's report: a shot once it is drawn
+					concludeShotAt = System.currentTimeMillis();
+				long open = System.currentTimeMillis() - concludeShotAt;
+				if (open < 1500) {
+					if (open >= 500 && !concludeShot) {
+						CORE.getGraphics().makeScreenShot();
+						concludeShot = true;
+					}
+					return;
+				}
 				concluded = MapBattles.conclude();
 				if (concluded)
 					event.accept("battle", "\"what\":\"close\",\"step\":" + Engine.step());
@@ -452,6 +611,8 @@ final class MpAutopilotCommands {
 			return;
 		}
 		started = concluded = false;
+		concludeShotAt = -1;
+		concludeShot = false;
 		if (question())
 			return;
 		Object open = Hooks.worldPromptHere() ? Hooks.worldPrompt() : null;
