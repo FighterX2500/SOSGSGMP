@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.47 · 2026-11-04
+Version 0.48 · 2026-11-05
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -116,6 +116,7 @@ Players use the same agreements that exist between a player and an NPC faction i
 - **Emissaries** work as in vanilla against NPC factions. No emissary mission works against another player, Gather support in their regions included (owner, 2026-10-27).
 - **Passage.** Players at peace can move armies through each other's territory freely, with no penalty, and their trade crosses it too, with no transit treaty (owner, 2026-10-27; section 7).
 - **Agreements reach a player's vassals.** While two players are trade partners or colleagues, each has at least that stance with every NPC vassal of the other, and is told so in the chat. An alliance never passes, and a war between a player and the vassal blocks it until they make peace. When the agreement ends, or the vassal stops being a vassal, the passed stance goes back to what the two had before; a stance they had on their own stays. A passed stance that the vassal or the player changes (a vassal's court cancelling it, as vanilla's NPCs do when their opinion is low, or the player's own diplomacy) is theirs from then on, and isn't passed again until the agreement ends and starts again. Nothing passes between two vassals (owner, 2026-11-04; SOS-140).
+- **A vassal isn't hostile to its overlord's friends.** An NPC vassal of a player never demands tribute from, declares war on, or works against a player who is its overlord's trade partner, colleague or ally: no demands, wars, poisoned opinions, loyalty cuts or bad teachings (owner, 2026-11-05; SOS-146).
 - **No trespassing for colleagues.** Unlike vanilla, an army in the land of an NPC faction that is the army owner's colleague (Become Colleagues) costs no trespassing opinion, as for allies and vassals. This changes vanilla's rule in every game with the mods, single player too (owner, 2026-11-04; SOS-141).
 - **Breaking treaties.** A player can break a treaty with another player at any time, with no penalty: unlike vanilla, NPC factions' opinion of that player doesn't drop either. Treaties with NPC factions keep their vanilla penalties.
 - **Vassalage between players** follows vanilla: the vassal pays tribute, the two share wars, and the vassal has the right to rebel. The sovereign does not join a war its vassal starts. The tribute is a yearly share of the vassal's worth set in the deal, 10% by default. The vassal rebels by cancelling all agreements, which applies at once and leaves the two at peace, or by declaring war (owner, 2026-10-27).
@@ -179,6 +180,8 @@ Real-time sieges of player cities are part of v1. A siege runs in three phases:
 **A player's other regions** (not the capital) are attacked and taken by vanilla rules, including vanilla's choices after a capture. When another player besieges one with soldiers in it, the defender is first asked to sally out: Fight starts a battle between the two players (section 8), built by the defender's PC, and Fall Back, or no answer in 30 seconds, lets the siege go on to the besieger's prompt. A sally against a player can't be auto-resolved (SOS-83).
 
 **Invasions by NPC armies.** When an NPC army (an NPC faction's, rebels' or raiders') invades a player's capital, the invasion runs as in vanilla, inside that player's city and in its own time, on that player's PC only. The world doesn't pause and nobody else has to watch (owner, 2026-10-29). Every player gets a notification that the city is invaded, and any player can ask to view it (section 10); the owner allows or refuses the view as usual. The outcome is vanilla's.
+
+Vanilla's Attack, which meets the invaders outside the city before their assault, is a real-time battle against NPC armies under section 8: it runs on the defender's PC only, the world runs on at 1×, the defender's city is frozen until it ends, and any other player can watch it. The armies near the capital that join it stand still on the world map until its result applies. If the invaders begin their assault before the battle starts, there is no battle and the defender is told (owner, 2026-11-05; SOS-145).
 
 During the siege, the defender can attack the besieging army (sally out) at any time, in every phase before the assault. That creates a real-time field battle under the rules in section 8. When a siege of their capital starts, the defender gets a popup that says the siege has started and that they can sally out at any time. Vanilla's warning when the assault begins, and its offer of one more battle before the city, are left out (owner, 2026-10-29). Allies can lift the siege only by defeating the besieging army.
 
@@ -407,6 +410,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - The assault shows the defender's city in real time to every player, and the attacker's orders work. [PT]
 - A forced assault desync is detected within 2 seconds, recovered from the host's assault state within 10 seconds, and writes a report. [AT]
 - An NPC invasion of a player's capital doesn't pause the world; every player gets a notification of it, and another player can view the invaded city when its owner allows it. [PT]
+- A player can attack an NPC invasion of their capital before its assault; the world keeps running and stays in sync, and another player can watch the battle. [AT]
 - The defender can sally out against the besiegers at any time during a siege of their capital, and the popup at the siege's start says so. [PT]
 - An ally's army within 3 tiles of the capital fights in the assault; one further away doesn't. With allied attackers, the player with the most soldiers chooses the outcome, and the spoils are split by soldiers brought. [AT]
 - In an assault each attacker commands only the soldiers they brought, and the defender the city's. A player in the fight can't close the view. [PT]
