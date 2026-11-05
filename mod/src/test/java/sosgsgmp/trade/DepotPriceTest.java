@@ -46,6 +46,23 @@ class DepotPriceTest {
     }
 
     @Test
+    void theHighestExportPriceThatSellsIsOneBelowTheCapLessTheToll() {
+        assertEquals(50, DepotPrice.highestAsked(72, 21));
+        assertTrue(DepotPrice.buys(DepotPrice.paid(50, 21), 72), "at the highest price they buy");
+        assertFalse(DepotPrice.buys(DepotPrice.paid(51, 21), 72), "one more and they don't");
+        assertEquals(1, DepotPrice.highestAsked(23, 21));
+        assertEquals(-1, DepotPrice.highestAsked(22, 21), "the toll alone reaches the cap: no price sells");
+        assertEquals(-1, DepotPrice.highestAsked(0, 0), "a cap of 0 buys nothing");
+    }
+
+    @Test
+    void theLowestImportPriceThatBuysIsOneAboveWhatTheyPay() {
+        assertEquals(72, DepotPrice.lowestCap(71));
+        assertTrue(DepotPrice.buys(71, DepotPrice.lowestCap(71)));
+        assertFalse(DepotPrice.buys(71, DepotPrice.lowestCap(71) - 1));
+    }
+
+    @Test
     void badPartsAreRefused() {
         assertThrows(IllegalArgumentException.class, () -> new DepotPrice(-1, 0, 0));
         assertThrows(IllegalArgumentException.class, () -> new DepotPrice(1, 0, 101));

@@ -17,6 +17,7 @@ import game.faction.FACTIONS;
 import game.faction.diplomacy.DIP;
 import game.faction.npc.FactionNPC;
 import init.trade.TR;
+import init.trade.TRADABLE;
 import settlement.main.SETT;
 import settlement.stats.POP;
 import snake2d.CORE;
@@ -50,6 +51,7 @@ import sosdet.game.deal.DealBook;
 import sosdet.game.siege.AssaultTerms;
 import view.main.VIEW;
 import view.ui.goods.UIGoodsExport;
+import view.ui.goods.UIGoodsImport;
 import view.tool.PlacableFixed;
 import world.WORLD;
 
@@ -893,6 +895,8 @@ public final class MpAutopilot {
 		case 12: name = "faction-list"; VIEW.world().panels.clear(); VIEW.world().UI.factions.open(null); break; // SOS-134
 		case 13: name = "player-goods"; VIEW.world().panels.clear(); MpPlayers.openGoodsForPreview(FACTIONS.getByIndex(1)); break; // SOS-135
 		case 14: name = "export-depot"; VIEW.world().panels.clear(); previewDepot(); break; // SOS-136
+		case 15: name = "export-depot-over"; VIEW.world().panels.clear(); previewOverCap(false); break; // SOS-148
+		case 16: name = "import-depot-over"; VIEW.world().panels.clear(); previewOverCap(true); break; // SOS-148
 		default:
 			VIEW.inters().popup.close();
 			if (first("guipreviewdone"))
@@ -919,6 +923,35 @@ public final class MpAutopilot {
 			}
 		}
 		VIEW.inters().popup.show(ex, null);
+	}
+
+	/**
+	 * A depot window with slot 1's row darkened (SOS-148): for the first goods slot 1's Import depot takes, this player's
+	 * export price is set one over slot 1's highest import price; with {@code importing}, for the first goods slot 1's
+	 * Export depot holds, this player's highest import price is set to 1. The prices are this PC's own city's settings,
+	 * which the depot's own sliders set the same way.
+	 */
+	private void previewOverCap(boolean importing) {
+		for (int i = 0; i < TR.ALL().size(); i++) {
+			TRADABLE t = TR.ALL().get(i);
+			if (PlayerDeals.depot(1, t.index(), importing, false) <= 0 || PlayerDeals.price(1, t.index(), importing) <= 0)
+				continue;
+			if (importing) {
+				t.pb().priceCapsI.set(1);
+				UIGoodsImport im = new UIGoodsImport();
+				im.res.set(t);
+				VIEW.inters().popup.show(im, null);
+			} else {
+				t.ps().priceCapsI.set(PlayerDeals.price(1, t.index(), false) + 1);
+				UIGoodsExport ex = new UIGoodsExport(true);
+				ex.res.set(t);
+				VIEW.inters().popup.show(ex, null);
+			}
+			event("depotover", "\"importing\":" + importing + ",\"goods\":\"" + t.key() + "\",\"dark\":"
+					+ MpPlayers.depotOverCap(FACTIONS.getByIndex(1), t, importing));
+			return;
+		}
+		event("depotover", "\"importing\":" + importing + ",\"goods\":\"none\"");
 	}
 
 	/** Vanilla's deal panel with the first NPC that has a capital: its Diplomacy, or with Trade drafted (SOS-100). */

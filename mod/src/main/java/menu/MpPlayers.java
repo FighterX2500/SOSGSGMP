@@ -128,8 +128,9 @@ public final class MpPlayers {
 	 * Hook M12: the market's price for one item of {@code t} between this player and another, in a depot's partner list:
 	 * the seller's lowest export price and the toll, as the market prices a sale between players. In the Import depot
 	 * ({@code buying}) the seller is {@code f}, and 0 unless {@code f}'s Export depot takes it; in the Export depot it is
-	 * this player, and 0 unless {@code f}'s Import depot takes it and the price is below {@code f}'s highest import price
-	 * (SOS-139). 0 before {@code f}'s first report. No allocation: the list reads it each frame.
+	 * this player, and 0 unless {@code f}'s Import depot takes it (SOS-139). A price at or over the buyer's highest import
+	 * price is still listed, darkened ({@link #depotOverCap}, SOS-148). 0 before {@code f}'s first report. No allocation:
+	 * the list reads it each frame.
 	 */
 	public static int depotPrice(Faction f, TRADABLE t, boolean buying) {
 		int slot = f.index();
@@ -139,8 +140,24 @@ public final class MpPlayers {
 			int asked = PlayerDeals.price(slot, t.index(), true);
 			return asked > 0 ? DepotPrice.paid(asked, depotToll(f, FACTIONS.player())) : 0;
 		}
-		int paid = DepotPrice.paid(t.ps().priceCapsI.get(), depotToll(f, f));
-		return DepotPrice.buys(paid, PlayerDeals.price(slot, t.index(), false)) ? paid : 0;
+		return DepotPrice.paid(t.ps().priceCapsI.get(), depotToll(f, f));
+	}
+
+	/**
+	 * Hook M12: whether another player's row in a depot is darkened: its price, the toll included, is at or over the
+	 * buyer's highest import price, so the sale doesn't happen (SOS-148). In the Import depot ({@code buying}) the buyer
+	 * is this player, in the Export depot {@code f}. False for an NPC. No allocation: the list reads it each frame.
+	 */
+	public static boolean depotOverCap(Faction f, TRADABLE t, boolean buying) {
+		if (!PlayerDeals.otherPlayer(f))
+			return false;
+		int paid = depotPrice(f, t, buying);
+		return paid > 0 && !DepotPrice.buys(paid, buyerCap(f, t, buying));
+	}
+
+	/** The buyer's highest import price in a depot's row: this player's own in the Import depot, else {@code f}'s reported one. */
+	private static int buyerCap(Faction f, TRADABLE t, boolean buying) {
+		return buying ? t.pb().priceCapsI.get() : PlayerDeals.price(f.index(), t.index(), false);
 	}
 
 	/**
@@ -162,6 +179,22 @@ public final class MpPlayers {
 		b.add(b.text().add(' ').add('(').add(percent).add('%').add(')'));
 		b.NL();
 		row(b, buying ? "It costs you" : "Reaches you", buying ? p.cost() : p.received());
+		b.NL(4);
+		int cap = buyerCap(f, t, buying);
+		row(b, buying ? "Your highest import price" : "Their highest import price", cap);
+		if (buying) {
+			row(b, "Your import price to buy, at least", DepotPrice.lowestCap(p.paid()));
+		} else if (DepotPrice.highestAsked(cap, p.toll) > 0) {
+			row(b, "Your export price to sell, at most", DepotPrice.highestAsked(cap, p.toll));
+		} else {
+			b.textLL("No export price sells to them: the toll alone reaches their highest import price.");
+			b.NL();
+		}
+		if (!DepotPrice.buys(p.paid(), cap)) {
+			b.add(b.text().errorify().add(buying ? "Their price is over what you are willing to pay."
+					: "Your price is over what they are willing to pay."));
+			b.NL();
+		}
 		b.NL(4);
 		row(b, buying ? "In their Export depot" : "Room in their Import depot",
 				PlayerDeals.depot(f.index(), t.index(), buying, true));

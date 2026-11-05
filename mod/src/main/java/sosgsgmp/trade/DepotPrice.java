@@ -68,4 +68,18 @@ public final class DepotPrice {
     public static boolean buys(int paid, int cap) {
         return paid < cap;
     }
+
+    /**
+     * The highest export price at which a buyer with import price cap {@code cap} still buys, with {@code toll} per item,
+     * as {@link #buys} decides (SOS-148); -1 when no export price of 1 or more does, the toll alone reaching the cap.
+     */
+    public static int highestAsked(int cap, int toll) {
+        int most = cap - 1 - toll;
+        return most >= 1 ? most : -1;
+    }
+
+    /** The lowest import price cap at which a buyer buys at {@code paid}, as {@link #buys} decides (SOS-148). */
+    public static int lowestCap(int paid) {
+        return paid + 1;
+    }
 }

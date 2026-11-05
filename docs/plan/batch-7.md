@@ -97,3 +97,11 @@ Spec section 6, after "Agreements reach a player's vassals":
 - **Rig B7C** (the SOS-147 fix): the inbound list counted 22, the caravans to human 0's capital, on human 0's copy, and 0 on human 1's, which had none on their way; identical to step 9,000 with every UI cache refreshing.
 - **Rigs B7D and B7E** (`--no-invade`, a 60-man raider, the sally fought on; B7E gave the player's divisions orders): identical to step 8,000, no crash file. Neither battle ended within the run, so the victory and its after-battle (`SALLY_RESULT`, spoils) are seen in no run yet: a hand test in a game.
 - Mod `gradlew.bat build` against the batch 7 engine: passes.
+
+## SOS-148: depots show a player whose price is too high (owner, 2026-11-05)
+
+- **Before:** the Export depot hid another player when the price they'd pay (the export price plus the toll) reached their highest import price: SOS-139 priced that row at 0 and the list keeps only rows above 0.
+- **Now, both depots:** a player whose depot takes the goods is listed; a price at or over the buyer's highest import price darkens the row (black at 50% over it, as the faction list darkens unreachable factions) and sorts it after the rows that trade. The hover adds the buyer's highest import price and, in the Export depot, the highest export price at which they still buy (`DepotPrice.highestAsked`), or that the toll alone reaches it; in the Import depot the lowest import price at which this player buys (`DepotPrice.lowestCap`); and a line in red when the price is over.
+- **Checked:** `DepotPriceTest` (the two rules agree with `buys`); the autopilot's GUI preview on the 2026-11-04 campaign resumed from save 76 with three players (runs P148R, P148S): stone in the Export depot and rations in the Import depot came out darkened (`depotover` events), and the screenshot shows player 2's row dimmed and last; no desync. The resume also loaded batch 6's save 76 on batch 7 (the same world hash, `8c8f2916c18fe356`, on every PC).
+- **Not checked on screen:** the hover text (the preview moves no mouse), and the Import depot's darkened row, below the list's six visible rows.
+- `tools/twopc.py --resume` now refreshes the host's mods too; before, a resume after a new build put joiners on another build than the host.
