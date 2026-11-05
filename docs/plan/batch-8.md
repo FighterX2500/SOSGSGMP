@@ -145,3 +145,13 @@ Nothing below was run in a game or the rig yet: the causes come from the logs an
 - Full builds: engine `gradlew build` and mod `gradlew build` pass.
 - **Not run:** the laptop (unreachable over Radmin at 00:40); the battle cursors, the join notice and the camera kept on screen (they need a watched battle in a GUI game: the playtest).
 - **Pack** `C:\ClaudeFolder\modpack\SOSGSGMP-playtest-2026-11-06.zip`: SOSDET 7ce4565 (jar sha256 4496823f...), SOSGSGMP 550e2b2 (8a2291c9...); `WORKSHOP-CHANGELOG.txt` has the entry on top.
+
+## The playtest crash, 2026-11-06 02:33
+
+The owner's 3-player game from save 77 crashed on every PC after the won sally, once the host's city loaded back: "SOSDET: cannot read a division's survivors" (`GameInputs.divResolveCount`). That record (SOS-145) ended with a double, the survivors' mean experience, and the game's `FileGetter.d()` refuses a double in a record's last 8 bytes (`remaining() <= 8`). It is read only when a player's world army near the capital joins the sally, which no rig run had. Engine ee9bda2 writes the experience before the count; no other record ends with a double. No unit test: the engine's tests have no game classes.
+
+Autopilot test tooling (mod f1ddc26): `invasionattack`, `charge`, `rout` (the enemy divisions' morale held at -10 on the fighting PC, so they desert; owner's suggestion), `raid`, `victoryaccept`, `nextmessage`; the victory panel is shot before its Close.
+
+- **R8** (three games on this PC, save 77, `twopc --here --local-joiner --resume --battles auto`, 1x, then 5x from step 19,383; laptop unreachable): invaded at 20,405; Attack; battle 20,700 to 23,501; city back at 23,533 with no crash; raid DEFEATED, `MVictory2` and `MessDefeated`, treasury +768,124. Same hashes to 60,000, PASS. Accept wasn't clicked.
+- **R9** (the same at 5x throughout, with Accept): invaded at 6,191; Attack at 6,466; battle 6,510 to 9,284 (0 losses, 199 raiders); city back at 9,316, the invasion over at 9,360; spoils accepted (94 leather armour, 62 plate, 94 bows, 62 hammers, 62 mounts, 94 short swords, 199 captives); Raider Defeated with 761,978 denari; 3 minutes clear after it (raid DEFEATED, no invasion), population 2,210 to 2,394. Same hashes to 45,000, PASS. Screenshots and a step table: `C:\ClaudeFolder\PTreport\R9-raid-sally-2026-11-06`.
+- Not covered: a watched sally with the rout (the rout runs on one PC); the victory screen on a watcher.
