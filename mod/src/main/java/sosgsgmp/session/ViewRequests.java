@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.function.LongSupplier;
 
 import sosgsgmp.net.Message;
@@ -69,9 +70,11 @@ public final class ViewRequests {
     private long cityStep = -1;
     private byte[] city;
     private int cityHave;
-    /** A whole city, until taken: its step and bytes. */
-    private long doneStep = -1;
-    private byte[] done;
+    /**
+     * Whole cities until taken, by step: a viewer behind its view can have two cities waiting, its first or a rejoin's
+     * and the next rejoin's, as other players join the same view one after the other (SOS-151).
+     */
+    private final TreeMap<Long, byte[]> done = new TreeMap<>();
     private final ByteArrayOutputStream hashes = new ByteArrayOutputStream();
     /** The battle's tape, in the pieces it came in: each is whole for the engine (SOS-109). */
     private final ArrayDeque<byte[]> tape = new ArrayDeque<>();
@@ -139,13 +142,16 @@ public final class ViewRequests {
         toHost(new Message.ViewClose(local, why));
     }
 
-    /** The owner's city for the view freezing at {@code step}, once all of it is here; returned once, else null. */
+    /**
+     * The owner's city saved at {@code step}, for the view freezing there or rejoined there, once all of it is here;
+     * returned once, else null. Cities of earlier steps still here go with it: this PC is past them.
+     */
     public byte[] takeCity(long step) {
-        if (done == null || doneStep != step)
-            return null;
-        byte[] c = done;
-        done = null;
-        doneStep = -1;
+        if (done.isEmpty())
+            return null; // every frame of a hold until it comes: nothing boxed
+        byte[] c = done.remove(step);
+        if (c != null)
+            done.headMap(step).clear();
         return c;
     }
 
@@ -448,8 +454,7 @@ public final class ViewRequests {
         System.arraycopy(b, 0, city, cityHave, b.length);
         cityHave += b.length;
         if (cityHave == city.length) {
-            done = city;
-            doneStep = cityStep;
+            done.put(cityStep, city);
             city = null;
         }
         return null;

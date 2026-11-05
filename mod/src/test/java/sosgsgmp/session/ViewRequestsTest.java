@@ -122,6 +122,36 @@ class ViewRequestsTest {
         assertNull(pcs[2].takeCity(900), "only the viewer it is for");
     }
 
+    /**
+     * Spec section 10: other players join one after the other, and the owner's city of each join reaches a viewer
+     * already there, which may run behind and take each at its own step (SOS-151).
+     */
+    @Test
+    void aViewerBehindKeepsEachJoinsCityUntilItReachesThatStep() {
+        host().opened(1, 2);
+        pcs[2].city(1, 900, new byte[] {1});
+        flush();
+        assertArrayEquals(new byte[] {1}, pcs[1].takeCity(900), "its own view's city");
+        byte[] second = new byte[Protocol.MAX_STREAM_PIECE + 3];
+        second[second.length - 1] = 5;
+        pcs[2].city(1, 960, second);
+        pcs[2].city(1, 1020, new byte[] {3});
+        flush();
+        assertArrayEquals(second, pcs[1].takeCity(960), "the next join's doesn't replace it");
+        assertArrayEquals(new byte[] {3}, pcs[1].takeCity(1020));
+        assertNull(pcs[1].takeCity(960), "each taken once");
+    }
+
+    @Test
+    void aCityNeverTakenGoesOnceALaterOneIsTaken() {
+        host().opened(1, 2);
+        pcs[2].city(1, 30, new byte[] {1});
+        pcs[2].city(1, 90, new byte[] {2});
+        flush();
+        assertArrayEquals(new byte[] {2}, pcs[1].takeCity(90));
+        assertNull(pcs[1].takeCity(30), "this PC is past it");
+    }
+
     private void hashesArrive(byte... bytes) {
         assertNull(pcs[1].received(0, new Message.ViewHashes(1, bytes)));
     }
