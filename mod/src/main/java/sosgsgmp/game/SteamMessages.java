@@ -1,5 +1,9 @@
 package sosgsgmp.game;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -8,6 +12,7 @@ import com.sun.jna.Function;
 import com.sun.jna.Memory;
 import com.sun.jna.Native;
 import com.sun.jna.NativeLibrary;
+import com.sun.jna.Platform;
 import com.sun.jna.Pointer;
 
 import sosgsgmp.net.Protocol;
@@ -17,7 +22,7 @@ import sosgsgmp.net.SteamPort;
  * SOSGSGMP: Steam's newer peer-to-peer messages ({@code ISteamNetworkingMessages}, SOS-105) for {@link SteamworksPort},
  * in place of the deprecated {@code ISteamNetworking}. steamworks4j doesn't wrap them, but the {@code steam_api64.dll}
  * it loads from the game jar (Steamworks SDK 1.53) exports their flat API, and the game jar carries JNA, so this calls
- * the DLL steamworks4j already loaded, found by name. Each function is looked up once, here; a missing one fails with
+ * the DLL steamworks4j already loaded, found by name ({@code libsteam_api.so} on Linux, by its path). Each function is looked up once, here; a missing one fails with
  * its name. Only the first three fields of {@code SteamNetworkingMessage_t} are read (data, size, the sender's identity
  * at 16), stable since the API began; identities go through the DLL's own helpers.
  *
@@ -41,6 +46,8 @@ final class SteamMessages {
     /** Steam's send rate is fixed, 256 KB/s unless set; min and max stay equal, as its header says. */
     private static final int SEND_RATE_BYTES = 1024 * 1024;
     private static final String DLL = "steam_api64.dll";
+    /** The same library on Linux, as steamworks4j names it there. */
+    private static final String SO = "libsteam_api.so";
     /** {@code SteamNetConnectionInfo_t}, for the log: {@code m_eEndReason}, {@code m_szEndDebug}, {@code m_szConnectionDescription}. */
     private static final int INFO_BYTES = 696, INFO_END_REASON = 180, INFO_END_DEBUG = 184, INFO_DESCRIPTION = 312;
 
@@ -67,9 +74,7 @@ final class SteamMessages {
      * be initialized.
      */
     SteamMessages(Supplier<SteamPort.Listener> listener, Consumer<String> trace) {
-        Pointer module = NativeLibrary.getInstance("kernel32").getFunction("GetModuleHandleA").invokePointer(new Object[] {DLL});
-        if (module == null)
-            throw new IllegalStateException("SOSGSGMP: " + DLL + " isn't loaded: Steam's messages need steamworks4j started first");
+        Lookup module = Platform.isWindows() ? windows() : linux();
         messages = function(module, "SteamAPI_SteamNetworkingMessages_SteamAPI_v002").invokePointer(new Object[0]);
         utils = function(module, "SteamAPI_SteamNetworkingUtils_SteamAPI_v004").invokePointer(new Object[0]);
         if (messages == null || utils == null)
@@ -107,11 +112,56 @@ final class SteamMessages {
             throw new IllegalStateException("SOSGSGMP: Steam refused networking setting " + value + " = " + setting);
     }
 
-    private static Function function(Pointer module, String name) {
-        Pointer p = NativeLibrary.getInstance("kernel32").getFunction("GetProcAddress").invokePointer(new Object[] {module, name});
-        if (p == null)
-            throw new IllegalStateException("SOSGSGMP: " + DLL + " has no " + name + " (the game's Steamworks SDK 1.53 does)");
-        return Function.getFunction(p);
+    private static Function function(Lookup module, String name) {
+        return module.find(name);
+    }
+
+    /** Finds a function of the Steam API library steamworks4j loaded; a missing one fails with its name. */
+    private interface Lookup {
+        Function find(String name);
+    }
+
+    /** Windows: the loaded DLL by its module name. */
+    private static Lookup windows() {
+        NativeLibrary kernel32 = NativeLibrary.getInstance("kernel32");
+        Pointer module = kernel32.getFunction("GetModuleHandleA").invokePointer(new Object[] {DLL});
+        if (module == null)
+            throw new IllegalStateException("SOSGSGMP: " + DLL + " isn't loaded: Steam's messages need steamworks4j started first");
+        Function address = kernel32.getFunction("GetProcAddress");
+        return name -> {
+            Pointer p = address.invokePointer(new Object[] {module, name});
+            if (p == null)
+                throw missing(DLL, name, null);
+            return Function.getFunction(p);
+        };
+    }
+
+    /**
+     * Linux (SOS-157): steamworks4j loads {@code libsteam_api.so} by its path in an extract folder, so the path comes
+     * from the libraries this process has mapped; opening that same file again gives the copy Steam already started.
+     */
+    private static Lookup linux() {
+        String maps;
+        try {
+            maps = new String(Files.readAllBytes(Paths.get("/proc/self/maps")), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("SOSGSGMP: can't read /proc/self/maps to find " + SO, e);
+        }
+        String path = LoadedLibraries.path(maps, SO);
+        if (path == null)
+            throw new IllegalStateException("SOSGSGMP: " + SO + " isn't loaded: Steam's messages need steamworks4j started first");
+        NativeLibrary library = NativeLibrary.getInstance(path);
+        return name -> {
+            try {
+                return library.getFunction(name);
+            } catch (UnsatisfiedLinkError e) {
+                throw missing(path, name, e);
+            }
+        };
+    }
+
+    private static IllegalStateException missing(String library, String name, Throwable cause) {
+        return new IllegalStateException("SOSGSGMP: " + library + " has no " + name + " (the game's Steamworks SDK 1.53 does)", cause);
     }
 
     private Pointer identity(long user) {

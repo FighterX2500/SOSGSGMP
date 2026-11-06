@@ -6,7 +6,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.HashSet;
 import java.util.Set;
@@ -31,7 +30,6 @@ final class MpReports {
 
 	private final SetupSession setup;
 	private final MpLog log;
-	private final Path data = Paths.get(System.getenv("APPDATA"), "songsofsyx");
 	private final DataLayout layout = DataFolders.layout();
 	private boolean started;
 	/** A joining PC's files on their way; null on the host, or while reports are off here. */
@@ -77,7 +75,7 @@ final class MpReports {
 		Set<String> sent = sent(reports);
 		long now = System.currentTimeMillis();
 		int crashes = 0;
-		try (DirectoryStream<Path> files = Files.newDirectoryStream(data.resolve("logs"), "error*.txt")) {
+		try (DirectoryStream<Path> files = Files.newDirectoryStream(layout.gameLogs(), "error*.txt")) {
 			for (Path f : files)
 				if (!sent.contains(f.getFileName().toString()) && now - Files.getLastModifiedTime(f).toMillis() < CRASH_AGE_MS) {
 					add(f, () -> markSent(reports, f.getFileName().toString()));

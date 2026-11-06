@@ -37,7 +37,8 @@ public final class DataLayout {
     private final Path home;
 
     /**
-     * @param root       the game's data folder, {@code %APPDATA%\songsofsyx}
+     * @param root       the game's data folder: {@code %APPDATA%\songsofsyx} on Windows, {@code ~/.local/share/songsofsyx}
+     *                   on Linux
      * @param oldSaves   the game's saves folder, where older versions kept multiplayer saves
      * @param oldProfile the game's profile folder, where older versions kept the lobby settings
      */
@@ -74,6 +75,11 @@ public final class DataLayout {
 
     public Path engine() {
         return home.resolve("engine");
+    }
+
+    /** The game's own logs and crash files ({@code error*.txt}), outside the mod's folder. */
+    public Path gameLogs() {
+        return root.resolve("logs");
     }
 
     /** The lobby settings, where they are written. */
