@@ -46,8 +46,8 @@ final class MpLoadingWindow extends MpWindow {
 		return switch (kind) {
 			case WORLD_GENERATION -> "World generation";
 			case WORLD_INITIALIZATION -> "World initialization";
-			case BATTLE_START -> "Battle";
-			case VIEW_START, VIEW_END -> "City view";
+			case BATTLE_START, BATTLE_END -> "Battle";
+			case VIEW_START, VIEW_END -> "View";
 		};
 	}
 

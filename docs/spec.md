@@ -280,9 +280,10 @@ Players talk through one in-game chat. Every player and spectator reads the same
 - **Information without a choice** appears as a notification, not a popup. The one exception is the loading window below.
 - **Loading window** (owner, 2026-11-06; SOS-158). While the game freezes or holds every PC for seconds, every PC shows a window that says why and counts the seconds, until every PC is done:
   - **world generation** and **world initialization**: the host's click opens the window on every PC, and the host's work starts only once it shows;
-  - **a battle starting**, **a city view starting** (another viewer joining it too) and **a city view ending**: every PC opens the window at the step the game announces, before the freeze.
+  - **a battle starting**, **a city view starting** (another viewer joining it too) and **a city view ending**: every PC opens the window at the step the game announces, before the freeze (at a high speed a battle against NPCs is announced only a few steps ahead, so the battle's own PC, whose player started it, may see the window only after its load);
+  - **a battle against NPCs ending**: the battle's PC opens the window as its player leaves the battle, every other PC as the result applies.
   
-  The host closes the window on every PC once every PC has passed the freeze; a window closes by itself after 2 minutes. It looks like the game's own popup, has no buttons and stops nothing. The end of a battle has no window yet. Each window's opening and closing, how long it was open and each PC's own longest frame meanwhile go in the playtest log, with every frame over a second and every hold over a second.
+  The host closes the window on every PC once every PC has passed the freeze; a window closes by itself after 2 minutes. It looks like the game's own popup, has no buttons and stops nothing; it opens above the screen's middle, clear of the game's own messages. Each window's opening and closing, how long it was open and each PC's own longest frame meanwhile go in the playtest log, with every frame over a second and every hold over a second.
 - **Prompts that need an answer**, such as a battle invite, appear as popups in the vanilla style.
 - **Other players' cursors.** Every player sees the other players' mouse cursors, each marked with that player's name and color: on the world map, every other player's cursor that is on the world map too; in a city, the cursor of every other player looking at the same city (its owner and its viewers, section 10); in a battle, the cursor of every other player in the same battle (a battle against NPCs: its fighter and its watchers, section 8; a battle between players or an assault: everyone in it). The same cursors show as small crosses in their colors on the world minimap, while placing a city too, and on the city minimap. A cursor is only shown, never an action.
 
@@ -471,7 +472,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - The chat works during a battle, an assault and a pause. [PT]
 - Notifications for the players involved don't reach other players. [AT]
 - Battle invites appear as vanilla-style popups. [PT]
-- The loading window opens on every PC before a world generation, a world initialization, a battle's start and a city view's start and end, and closes on every PC once every PC is done; the playtest log of every PC gives each one's times. [PT]
+- The loading window opens on every PC before a world generation, a world initialization, a battle's start and end and a city view's start and end, and closes on every PC once every PC is done; the playtest log of every PC gives each one's times. [PT]
 - On the world map every player sees the other players' cursors, with their names, where they point. In a viewed city, the owner and the viewer see each other's cursors. [PT]
 
 ### Performance
@@ -535,7 +536,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-06 | **Several watchers:** any number of players can watch one NPC battle or view one city; each join reloads the owner's game and every viewer's for a few seconds (spec 0.49; sections 8, 10, 15). | SOS-151 |
 | 2026-11-06 | **Cursors in a battle:** the other players' cursors show on the battle map too (spec 0.49; section 12). | SOS-152 |
 | 2026-11-06 | **One data folder:** the mod's saves, records, logs, reports and lobby settings live under `songsofsyx\sosgsgmp`; an older version's move there once (spec 0.50; section 11). | SOS-155 |
-| 2026-11-06 | **Loading window:** every PC shows why the game freezes, and for how long, while the world generates or initializes, a battle starts and a city view starts or ends; the playtest log times every freeze and hold (spec 0.51; sections 12, 15). | SOS-158 |
+| 2026-11-06 | **Loading window:** every PC shows why the game freezes, and for how long, while the world generates or initializes, a battle starts or ends and a city view starts or ends; the playtest log times every freeze and hold (spec 0.51; sections 12, 15). | SOS-158 |
 | 2026-11-06 | **Joining an assault:** a player can join a running assault's view as any city's; an attacker who joins again commands their soldiers again (spec 0.49; section 10). | SOS-151 |
 
 ### Where each v1 feature stands (2026-11-01)

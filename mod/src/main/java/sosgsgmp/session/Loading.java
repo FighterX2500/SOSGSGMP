@@ -12,7 +12,7 @@ public final class Loading {
 
     /** What the window waits for. Sent as its ordinal, so only append. */
     public enum Kind {
-        WORLD_GENERATION, WORLD_INITIALIZATION, BATTLE_START, VIEW_START, VIEW_END
+        WORLD_GENERATION, WORLD_INITIALIZATION, BATTLE_START, VIEW_START, VIEW_END, BATTLE_END
     }
 
     /** A window closes by itself after this long, whatever the host does: no window may hold the screen for good. */

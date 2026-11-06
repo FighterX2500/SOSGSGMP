@@ -118,7 +118,7 @@ final class MpPlay implements ACTION {
 		}
 		loading.frame();
 		if (autopilot != null)
-			autopilot.game(setup, engine, desync, saves, gone, exit, views);
+			autopilot.game(setup, engine, desync, saves, gone, exit, views, loading);
 	}
 
 	/** The window asking this PC's player to join an ally's battle, while the battle's prompt waits for them (SOS-118). */

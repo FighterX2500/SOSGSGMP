@@ -513,7 +513,7 @@ public final class MpAutopilot {
 	/** The map step, every frame: the host generates once and confirms; every PC goes on to the factions. */
 	public void map(SetupSession setup, boolean canGoOn, Runnable next) {
 		MapStep step = setup.step();
-		loadingShot(setup, -1);
+		loadingShot(setup, -1, null);
 		if (setup.closed() || stageChat("map", setup::say))
 			return;
 		if (host && step.genId() == 0 && step.canGenerate() && setup.loading().shown() == null) { // once: the generation runs a frame later (SOS-158)
@@ -611,8 +611,9 @@ public final class MpAutopilot {
 	 * The loaded game, every frame after the update: the landing party; while playing, hashes, the test desync and the
 	 * host's choice in the desync window; at the end, quit.
 	 */
-	void game(SetupSession setup, EnginePlay engine, MpDesync desync, MpSaves saves, MpGone gone, MpExit exit, MpViews views) {
-		loadingShot(setup, engine.active() ? engine.step() : -1);
+	void game(SetupSession setup, EnginePlay engine, MpDesync desync, MpSaves saves, MpGone gone, MpExit exit, MpViews views,
+			MpLoading loading) {
+		loadingShot(setup, engine.active() ? engine.step() : -1, loading);
 		if (exit.outcome() != null && first("exit")) {
 			// the engine has ended: a desync's Save and exit, or a player's quit (SOS-79)
 			if (saves.exitedQuitter() == SaveOrder.NO_QUITTER)
@@ -735,7 +736,8 @@ public final class MpAutopilot {
 			}
 			event("identity", "\"step\":" + step + ",\"slots\":{" + ids + "}");
 		}
-		if (step >= steps && !done && (!host || peersReached(engine, MpPlay.otherPcs(setup), steps))) {
+		long last = commands.endAt() >= 0 ? commands.endAt() : steps;
+		if (step >= last && !done && (!host || peersReached(engine, MpPlay.otherPcs(setup), last))) {
 			done = true;
 			event("done", "\"step\":" + step + ",\"desync\":" + engine.desyncStep());
 			CORE.annihilate();
@@ -869,15 +871,16 @@ public final class MpAutopilot {
 	 * thread, so both would wait forever.
 	 *
 	 * @param step the game's step, or -1 in the setup's screens
+	 * @param loading the game's loading window, which knows each freeze's step; null in the setup's screens
 	 */
-	private void loadingShot(SetupSession setup, long step) {
+	private void loadingShot(SetupSession setup, long step, MpLoading loading) {
 		Loading.Window w = setup.loading().shown();
 		if (w != seenLoading) {
 			seenLoading = w;
 			return;
 		}
 		boolean inGame = w != null && w.kind() != Loading.Kind.WORLD_GENERATION && w.kind() != Loading.Kind.WORLD_INITIALIZATION;
-		if (w == null || w == shotLoading || inGame && (step < 0 || step >= w.key()))
+		if (w == null || w == shotLoading || inGame && (step < 0 || loading == null || step >= loading.freezeStep(w)))
 			return;
 		shotLoading = w;
 		CORE.getGraphics().makeScreenShot(); // into the data folder's screenshots, named by time

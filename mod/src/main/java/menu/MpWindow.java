@@ -37,6 +37,11 @@ abstract class MpWindow extends Interrupter {
 		show(VIEW.inters().manager);
 	}
 
+	/** Moves the shown window so its top is at {@code y1}, still centred across. */
+	final void moveTop(int y1) {
+		section.body().moveY1(y1);
+	}
+
 	/** Closes the window. */
 	final void close() {
 		hide();
