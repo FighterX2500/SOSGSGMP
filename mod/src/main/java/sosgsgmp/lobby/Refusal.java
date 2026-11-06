@@ -12,7 +12,8 @@ public enum Refusal {
     TOO_SLOW("Your PC couldn't keep up with the game, so the host dropped it. You can come back to watch at the next resume."),
     WRONG_GAME("Your Songs of Syx isn't the host's build. Everyone needs the same build of the game."),
     WRONG_ENGINE("Your SOSDET isn't the host's build. Everyone needs the same one: let Steam finish updating, then restart the game."),
-    WRONG_MOD("Your SOS GSG MP isn't the host's build. Everyone needs the same one: let Steam finish updating, then restart the game.");
+    WRONG_MOD("Your SOS GSG MP isn't the host's build. Everyone needs the same one: let Steam finish updating, then restart the game."),
+    WRONG_FILES("Your game files or mods aren't the host's. Everyone needs the same game and the same mods, in the same order.");
 
     public final String text;
 

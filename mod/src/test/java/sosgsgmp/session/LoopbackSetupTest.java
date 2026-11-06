@@ -25,6 +25,7 @@ import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.lobby.Builds;
+import sosgsgmp.lobby.GameFiles;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
@@ -48,7 +49,7 @@ import sosgsgmp.setup.MapWorld;
  */
 class LoopbackSetupTest {
 
-    private static final Builds BUILDS = new Builds("0.71.44", 1, 2);
+    private static final Builds BUILDS = new Builds("0.71.44", 1, 2, new GameFiles(3, List.of()));
 
     private static final MapOptions A = new MapOptions(256, MapOptions.RANDOM, 50, 11);
     private static final MapOptions B = new MapOptions(256, "Continent", 20, 22);

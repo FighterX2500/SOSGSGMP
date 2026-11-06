@@ -88,6 +88,18 @@ def data_folder(appdata, size):
     return data
 
 
+def add_mod(data, mod):
+    """One more mod in a data folder, enabled after ours (SOS-159)."""
+    if not (mod / "_Info.txt").is_file():
+        fail("%s has no _Info.txt: not a mod folder" % mod)
+    shutil.copytree(mod, data / "mods" / mod.name)
+    p = data / "settings" / "LauncherSettings.txt"
+    s, n = re.subn(r"(MODS: \[[^\]]*)\]", lambda m: m.group(1) + '\t"%s",\r\n]' % mod.name, p.read_bytes().decode("utf-8"))
+    if n != 1:
+        fail("LauncherSettings.txt has no MODS list")
+    p.write_bytes(s.encode("utf-8"))
+
+
 def send_remote(appdata):
     """The prepared data folder to the second PC, keeping its cache there if it has one."""
     rdir = "%s\\inst\\%d" % (REMOTE_ROOT, REMOTE_K)
@@ -241,8 +253,19 @@ def main():
                     help="with --net steam: both games use the old P2P packets (SOSGSGMP_STEAM_NET=p2p, SOS-105)")
     ap.add_argument("--gui-preview", type=int, default=-1,
                     help="both PCs hold each setup screen for a screenshot, the joiner settling near the host (SOS-120); the host opens each siege window in turn from this step, 6 s each (SOS-92), then the faction list, a player's Goods tab and the Export depot (SOS-134 to SOS-136), then both depots with the other player's row over the buyer's price (SOS-148), then that row's hover in each depot (SOS-153)")
+    ap.add_argument("--joiner-mod", default="",
+                    help="a mod folder the joiner also enables, after ours (SOS-159): with --expect-refused, the lobby refuses it")
+    ap.add_argument("--extra-mod", default="",
+                    help="a mod folder every PC also enables, after ours (SOS-159): allowed, with the unsupported mods' warning")
+    ap.add_argument("--expect-refused", default="",
+                    help="the joiner must be refused with a reason containing this text; then the host is stopped (SOS-159)")
+    ap.add_argument("--same-files", action="store_true",
+                    help="every PC sends the same empty game files (samefiles=1), so --joiner-mod gets past the lobby and"
+                         " both PCs must end the session on the city reports' other sizes, with no crash file (SOS-159)")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
+    if (args.joiner_mod or args.extra_mod or args.expect_refused or args.same_files) and (not args.here or args.resume):
+        fail("--joiner-mod, --extra-mod, --expect-refused and --same-files are for a new game with --here")
     STEAM_NET[0] = "p2p" if args.steam_p2p else ""
     if not args.here and (not REMOTE or not HOST_ADDRESS):
         fail("set SOSGSGMP_REMOTE and SOSGSGMP_HOST_ADDRESS")
@@ -291,6 +314,11 @@ def main():
         local3 = data_folder(INST / "3", (1024, 640)) if args.local_joiner else INST / "3" / "songsofsyx"
         remote_data = data_folder(INST / str(REMOTE_K), (1024, 640) if args.here else (1600, 900))
         local2 = remote_data
+        if args.joiner_mod:
+            add_mod(local2, pathlib.Path(args.joiner_mod))
+        if args.extra_mod:
+            add_mod(local, pathlib.Path(args.extra_mod))
+            add_mod(local2, pathlib.Path(args.extra_mod))
         log("data folders ready; sending the joiner's to the second PC")
         rdir = None if args.here else send_remote(remote_data.parent)
     for v in (args.view, args.host_view):
@@ -299,6 +327,8 @@ def main():
     common = "port=%d,steps=%d,net=%s,viewanswer=%s,battles=%s" % (args.port, args.steps, args.net, args.view_answer, args.battles)
     if args.manual_deals:
         common += ",manualdeals=1"
+    if args.same_files:
+        common += ",samefiles=1"
     host_view = ",view=" + args.host_view if args.host_view else ""
     join_view = ",view=" + args.view if args.view else ""
     host_capital = ",capital=" + args.host_capital if args.host_capital else ""
@@ -345,16 +375,16 @@ def main():
             evs = events(text)
             for e in evs[seen[who]:]:
                 log("%s %s" % (who, json.dumps(e)))
-                if e["event"] in ("done", "closed", "desyncexit", "quitexit", "crash"):
+                if e["event"] in ("done", "closed", "desyncexit", "quitexit", "crash", "mismatch"):
                     done[who] = e
             seen[who] = len(evs)
             (run / ("%s-events.jsonl" % who)).write_text(text, encoding="utf-8")
-        if len(done) == len(who_all):
+        if len(done) == len(who_all) or args.expect_refused and "join" in done:
             break
         if "host" not in done and not running(game_pid):
             # its last event may have landed after this round's read: once more before failing
             last = events((local / EVENTS).read_text(encoding="utf-8")) if (local / EVENTS).exists() else []
-            if not any(e["event"] in ("done", "closed", "desyncexit", "quitexit") for e in last):
+            if not any(e["event"] in ("done", "closed", "desyncexit", "quitexit", "mismatch") for e in last):
                 fail("the host's game ended without finishing; see %s" % (local / "logs"))
             continue
         time.sleep(5)
@@ -362,6 +392,8 @@ def main():
         fail("timed out after %d s" % args.timeout)
 
     evs = {w: events((run / ("%s-events.jsonl" % w)).read_text(encoding="utf-8")) for w in who_all}
+    if args.expect_refused or args.same_files:
+        sys.exit(0 if files_verdict(args, done, game_pid, (local, local2)) else 1)
     if args.crash:
         sys.exit(0 if gone_verdict(args, evs, done, local, crash_who, int(crash_at)) else 1)
     if args.no_joiner or args.local_joiner or (args.resume and players < len(who_all)):
@@ -506,6 +538,28 @@ def gone_verdict(args, evs, done, local, crash_who, crash_at):
         log("host's newest campaign record: %s" % (record.name if record else "none"))
         ok = ok and record is not None and "removed=true" in record.read_text(encoding="utf-8")
     log("RESULT: %s" % ("PASS" if ok else "FAIL"))
+    return bool(ok)
+
+
+def files_verdict(args, done, host_pid, datas):
+    """SOS-159: the joiner refused with the reason expected; or, past the lobby, both PCs ended on the reports' other sizes."""
+    if args.expect_refused:
+        reason = done.get("join", {}).get("reason", "")
+        ok = done.get("join", {}).get("event") == "closed" and args.expect_refused in reason
+        log("joiner refused: %s" % reason)
+        if running(host_pid):
+            subprocess.run(["taskkill", "/PID", str(host_pid), "/F"], capture_output=True)  # the host's lobby waits for a second player
+    else:
+        texts = {w: done[w].get("text", "") for w in done if done[w]["event"] == "mismatch"}
+        for w, t in texts.items():
+            log("%s ended the session: %s" % (w, t))
+        ok = len(texts) == 2 and all(" differ (" in t for t in texts.values())
+    # no crash file in either data folder
+    crashes = [str(p) for d in datas if (d / "logs").is_dir() for p in (d / "logs").glob("error*")]
+    for c in crashes:
+        log("crash file: %s" % c)
+    ok = ok and not crashes
+    log("PASS" if ok else "FAIL")
     return bool(ok)
 
 

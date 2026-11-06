@@ -30,8 +30,24 @@ public sealed interface Message {
         }
     }
 
-    /** Host to a joining PC that can't join; the host then closes the connection. */
-    record Refused(Refusal reason) implements Message {}
+    /**
+     * Host to a joining PC that can't join; the host then closes the connection. {@code detail}: what differs, a line
+     * each, for {@link Refusal#WRONG_FILES} (SOS-159); empty for the others.
+     */
+    record Refused(Refusal reason, List<String> detail) implements Message {
+        public Refused {
+            detail = List.copyOf(detail);
+        }
+
+        public Refused(Refusal reason) {
+            this(reason, List.of());
+        }
+
+        /** The refusal as the joining player reads it. */
+        public String text() {
+            return detail.isEmpty() ? reason.text : reason.text + "\n" + String.join("\n", detail);
+        }
+    }
 
     /** Host to every joined PC: the host pressed Start Lobby. */
     record Start() implements Message {}

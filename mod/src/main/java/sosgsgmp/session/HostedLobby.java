@@ -90,6 +90,11 @@ public final class HostedLobby implements LobbySession {
         switch (m) {
             case Message.Hello h when !isJoined -> {
                 Refusal refusal = builds.mismatch(h.builds());
+                if (refusal == Refusal.WRONG_FILES) {
+                    // what differs, named for the joining player (SOS-159)
+                    refuse(peer, new Message.Refused(refusal, builds.files().differences(h.builds().files())));
+                    return;
+                }
                 if (refusal == null)
                     refusal = lobby.refusal(h.playerKey());
                 if (refusal != null) {
@@ -128,7 +133,11 @@ public final class HostedLobby implements LobbySession {
     }
 
     private void refuse(int peer, Refusal refusal) {
-        node.send(peer, new Message.Refused(refusal));
+        refuse(peer, new Message.Refused(refusal));
+    }
+
+    private void refuse(int peer, Message.Refused refused) {
+        node.send(peer, refused);
         node.disconnect(peer);
     }
 
@@ -197,7 +206,7 @@ public final class HostedLobby implements LobbySession {
         if (state != LobbyState.STARTED || handedOver)
             throw new IllegalStateException("SOSGSGMP: only a started lobby hands over, once (state " + state + ", handed over " + handedOver + ")");
         handedOver = true;
-        return new HostedSetup(node, joined, lobby.players(), lobby.keys(), world, factions, lobby.settings(), chat);
+        return new HostedSetup(node, joined, lobby.players(), lobby.keys(), world, factions, lobby.settings(), chat, builds);
     }
 
     @Override

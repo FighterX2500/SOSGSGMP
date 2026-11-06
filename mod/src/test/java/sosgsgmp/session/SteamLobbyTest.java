@@ -11,6 +11,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import sosgsgmp.lobby.Builds;
+import sosgsgmp.lobby.GameFiles;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
@@ -20,7 +21,7 @@ import sosgsgmp.net.SteamNode;
 /** The lobby over Steam P2P (an in-memory Steam): the same sessions as over direct IP, only the node differs. */
 class SteamLobbyTest {
 
-    private static final Builds BUILDS = new Builds("0.71.44", 1, 2);
+    private static final Builds BUILDS = new Builds("0.71.44", 1, 2, new GameFiles(3, List.of()));
 
     private final FakeSteam steam = new FakeSteam();
     private final List<LobbySession> sessions = new ArrayList<>();

@@ -23,6 +23,7 @@ import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.net.SteamNode;
 import sosgsgmp.session.LobbySession;
 import sosgsgmp.session.SetupSession;
+import util.colors.GCOLOR;
 import util.gui.misc.GText;
 import view.menu.MenuScreen;
 
@@ -52,7 +53,10 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 	private int shownPlayers;
 	private final GText[] rows = new GText[LobbySettings.MAX_PLAYERS];
 	private final GText settings = new GText(UI.FONT().H2, 64);
-	private final GText status = new GText(UI.FONT().M, 256);
+	private final GText status = new GText(UI.FONT().M, 2048);
+	/** This PC's game files code, every PC of the lobby's (SOS-159); and the unsupported mods' warning, if any. */
+	private final GText files = new GText(UI.FONT().M, 64);
+	private final GText unsupported = new GText(UI.FONT().M, 1024);
 	private final CLICKABLE start;
 	private final MpChatBox chat = new MpChatBox(CHAT_WIDTH, CHAT_ROWS, this::say);
 	/** Asks before leaving, over the lobby, which takes no clicks meanwhile: a stray click shouldn't drop a player out. */
@@ -119,6 +123,12 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 
 		for (int i = 0; i < rows.length; i++)
 			rows[i] = new GText(UI.FONT().H2, 64);
+		files.add("Game files: ").add(mp.builds.files().code());
+		files.color(COLORS.label);
+		List<String> others = mp.builds.files().unsupported();
+		if (!others.isEmpty())
+			unsupported.add("Unsupported mods: ").add(String.join(", ", others))
+					.add(". They may cause crashes, desyncs and other problems in multiplayer.");
 
 		int rowH = UI.FONT().H2.height() + 4;
 		GuiSection content = new GuiSection();
@@ -133,8 +143,14 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				settings.render(r, body.x1(), body.y1());
+				int y = body.y1() + settings.height() + 4;
+				files.render(r, body.x1(), y);
+				y += files.height() + 12;
+				if (unsupported.length() > 0) {
+					GCOLOR.T().WARNING.bind();
+					y += UI.FONT().M.render(r, unsupported, body.x1(), y, body.width(), 1.0) + 12;
+				}
 				COLOR.WHITE100.bind();
-				int y = body.y1() + settings.height() + 16;
 				UI.FONT().M.render(r, status, body.x1(), y, body.width(), 1.0);
 				COLOR.unbind();
 			}
