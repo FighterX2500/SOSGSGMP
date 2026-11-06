@@ -63,6 +63,8 @@ class ProtocolTest {
             new Message.Stream(StreamKind.HASHES, 15, Long.MAX_VALUE, 7, new byte[Protocol.MAX_STREAM_PIECE]),
             new Message.Cursor(0, sosgsgmp.session.Cursors.OFF, 0, 0),
             new Message.Pause(7, true),
+            new Message.Loading(sosgsgmp.session.Loading.Kind.VIEW_END.ordinal(), Long.MAX_VALUE, "Bob is returning…", true),
+            new Message.Loading(0, 0, "", false),
             new Message.Chat(7, "Привет, world"),
             new Message.Chat(0, "x".repeat(sosgsgmp.session.Chat.MAX_TEXT)),
             new Message.Resync(1, 0, 0, 1, new byte[0]),
@@ -228,6 +230,14 @@ class ProtocolTest {
         byte[] b = Protocol.encode(new Message.SaveAt(new SaveOrder(1, 0, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, true, 3)));
         b[b.length - 5] = 0; // the exit flag, just before the quitter
         assertThrows(IOException.class, () -> Protocol.decode(b));
+    }
+
+    /** SOS-158: a loading window of an unknown kind, a negative key or too long a text is refused. */
+    @Test
+    void aLoadingWindowWithBadValuesIsRefused() {
+        assertRefused(new Message.Loading(sosgsgmp.session.Loading.Kind.values().length, 1, "x", true));
+        assertRefused(new Message.Loading(0, -1, "x", true));
+        assertRefused(new Message.Loading(0, 1, "x".repeat(257), true));
     }
 
     private static void assertRefused(Message m) {

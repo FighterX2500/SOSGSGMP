@@ -169,6 +169,17 @@ public final class MapStep {
         return true;
     }
 
+    /** Host: every PC has its result for generation {@code genId}, whatever it is (SOS-158: the loading window closes). */
+    public boolean resultsIn(int genId) {
+        requireHost("tell whether the results are in");
+        if (genId == 0 || this.genId != genId || own.resultGenId != genId)
+            return false;
+        for (Progress p : joiners.values())
+            if (p.resultGenId != genId)
+                return false;
+        return true;
+    }
+
     /** Host: locks the map. Check {@link #canConfirm()} first. */
     public void confirm() {
         requireHost("confirm");

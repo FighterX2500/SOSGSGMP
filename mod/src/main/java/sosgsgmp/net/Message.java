@@ -180,6 +180,13 @@ public sealed interface Message {
     record Pause(int playerId, boolean paused) implements Message {}
 
     /**
+     * Host to every joined PC (SOS-158): open or close the loading window of {@code kind} (a
+     * {@code sosgsgmp.session.Loading.Kind} ordinal) and {@code key}, showing {@code text}. Only shown, never an
+     * action, so it carries no tick.
+     */
+    record Loading(int kind, long key, String text, boolean open) implements Message {}
+
+    /**
      * Bytes {@code offset} on of PC {@code pc}'s engine stream {@code kind}, sent at the sender's step {@code step}
      * (game-over-network.md §2). The steps changes apply at are inside the engine's bytes. A receiver drops bytes it
      * already has, so a repeated message changes nothing.

@@ -37,6 +37,7 @@ import sosgsgmp.net.SteamPort;
 import sosgsgmp.session.HostedLobby;
 import sosgsgmp.session.JoinedLobby;
 import sosgsgmp.session.LobbySession;
+import sosgsgmp.session.Loading;
 import sosgsgmp.session.Departures;
 import sosgsgmp.session.SetupSession;
 import sosgsgmp.session.ViewRequests;
@@ -512,9 +513,10 @@ public final class MpAutopilot {
 	/** The map step, every frame: the host generates once and confirms; every PC goes on to the factions. */
 	public void map(SetupSession setup, boolean canGoOn, Runnable next) {
 		MapStep step = setup.step();
+		loadingShot(setup, -1);
 		if (setup.closed() || stageChat("map", setup::say))
 			return;
-		if (host && step.genId() == 0 && step.canGenerate()) {
+		if (host && step.genId() == 0 && step.canGenerate() && setup.loading().shown() == null) { // once: the generation runs a frame later (SOS-158)
 			setup.generate(new MapOptions(step.size(), "", MapOptions.DEFAULT_LATITUDE, seed));
 			event("generated", "\"seed\":" + seed);
 		} else if (host && step.canConfirm()) {
@@ -610,6 +612,7 @@ public final class MpAutopilot {
 	 * host's choice in the desync window; at the end, quit.
 	 */
 	void game(SetupSession setup, EnginePlay engine, MpDesync desync, MpSaves saves, MpGone gone, MpExit exit, MpViews views) {
+		loadingShot(setup, engine.active() ? engine.step() : -1);
 		if (exit.outcome() != null && first("exit")) {
 			// the engine has ended: a desync's Save and exit, or a player's quit (SOS-79)
 			if (saves.exitedQuitter() == SaveOrder.NO_QUITTER)
@@ -853,6 +856,32 @@ public final class MpAutopilot {
 			return false;
 		lastTry = now;
 		return true;
+	}
+
+	/** The loading window seen, and the one last shot (SOS-158). */
+	private Loading.Window seenLoading;
+	private Loading.Window shotLoading;
+
+	/**
+	 * A screenshot of each loading window in the frame after it first drew (SOS-158), with an event: the window on screen,
+	 * which a freeze's own frames can't show. In the game, only before the window's step: the freeze there changes the
+	 * game's state, and then the main thread waits for this frame to end while the game's screenshot waits for the main
+	 * thread, so both would wait forever.
+	 *
+	 * @param step the game's step, or -1 in the setup's screens
+	 */
+	private void loadingShot(SetupSession setup, long step) {
+		Loading.Window w = setup.loading().shown();
+		if (w != seenLoading) {
+			seenLoading = w;
+			return;
+		}
+		boolean inGame = w != null && w.kind() != Loading.Kind.WORLD_GENERATION && w.kind() != Loading.Kind.WORLD_INITIALIZATION;
+		if (w == null || w == shotLoading || inGame && (step < 0 || step >= w.key()))
+			return;
+		shotLoading = w;
+		CORE.getGraphics().makeScreenShot(); // into the data folder's screenshots, named by time
+		event("loadingshot", "\"kind\":\"" + w.kind() + "\",\"key\":" + w.key());
 	}
 
 	/** Seconds each preview window stays open. */

@@ -53,6 +53,8 @@ final class MpPlay implements ACTION {
 	private final MpPause pause;
 	/** A joining PC's logs and saves on their way to the host (SOS-133). */
 	private final MpReports reports;
+	/** The loading window during the freezes every PC waits through (SOS-158). */
+	private final MpLoading loading;
 
 	MpPlay(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpLog log, MpSaves saves, MpExit exit, MpReports reports) {
 		this.setup = setup;
@@ -66,6 +68,7 @@ final class MpPlay implements ACTION {
 		this.notices = new MpNotices(setup, engine);
 		this.pause = new MpPause(setup, engine);
 		this.reports = reports;
+		this.loading = new MpLoading(setup, engine);
 	}
 
 	@Override
@@ -113,6 +116,7 @@ final class MpPlay implements ACTION {
 					pause.frame();
 			}
 		}
+		loading.frame();
 		if (autopilot != null)
 			autopilot.game(setup, engine, desync, saves, gone, exit, views);
 	}

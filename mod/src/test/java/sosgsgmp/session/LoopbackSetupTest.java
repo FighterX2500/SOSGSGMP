@@ -371,7 +371,8 @@ class LoopbackSetupTest {
         cid.ready(true);
         until("everyone ready on the host", host.factions()::canInitialize);
         host.initialize();
-        return host.takeWorld();
+        assertNull(host.takeWorld(), "the build waits until the loading window has shown (SOS-158)");
+        return world(host);
     }
 
     /** Runs the frames until this PC has the whole save, and takes it. */
@@ -395,6 +396,39 @@ class LoopbackSetupTest {
         assertEquals(1, bob.factions().slotOf(1));
         assertEquals(2, cid.factions().slotOf(2));
         assertFalse(host.factions().canInitialize(), "the picks are locked");
+    }
+
+    /** SOS-158: the host's Generate opens the window on every PC, generates once it shows, and closes it with the results. */
+    @Test
+    void theWorldGenerationWindowOpensBeforeTheBuildAndClosesWithEveryResult() throws Exception {
+        startSetup();
+        build(256);
+        host.generate(A);
+        assertEquals(Loading.Kind.WORLD_GENERATION, host.loading().shown().kind());
+        assertTrue(hostWorld.generated.isEmpty(), "the host generates only once its window has been drawn");
+        boolean[] opened = new boolean[2]; // each opening is told once: kept here as it comes
+        until("the window on every joining PC", () -> (opened[0] |= bob.loading().takeOpened() != null)
+                & (opened[1] |= cid.loading().takeOpened() != null));
+        until("matching results", host.step()::canConfirm);
+        until("closed on every PC", () -> host.loading().shown() == null && bob.loading().shown() == null && cid.loading().shown() == null);
+        assertEquals("by the host", bob.loading().takeClosed().how());
+        assertEquals(List.of(A), hostWorld.generated);
+    }
+
+    /** SOS-158: Initialize World opens the window on every PC; it closes once the last PC has loaded the world. */
+    @Test
+    void theWorldInitializationWindowClosesOnceEveryPcLoaded() throws Exception {
+        initialize();
+        until("the window on every joining PC", () -> bob.loading().shown() != null && cid.loading().shown() != null);
+        assertEquals(Loading.Kind.WORLD_INITIALIZATION, cid.loading().shown().kind());
+        world(bob);
+        world(cid);
+        host.worldLoaded(77);
+        bob.worldLoaded(77);
+        until("Bob's load on the host", () -> host.factions().progress(1) == Progress.LANDING);
+        assertEquals(Loading.Kind.WORLD_INITIALIZATION, host.loading().shown().kind(), "Cid is still loading");
+        cid.worldLoaded(78); // a mismatch is loaded too: the setup shows it, the window has nothing more to wait for
+        until("closed on every PC", () -> host.loading().shown() == null && bob.loading().shown() == null && cid.loading().shown() == null);
     }
 
     @Test
@@ -824,8 +858,11 @@ class LoopbackSetupTest {
         startSetup();
         build(256);
         host.generate(A);
-        host.generate(B);
-        until("results for the second", host.step()::canConfirm);
+        host.generate(B); // a click while A waits for its window to show changes nothing (SOS-158)
+        until("A generated on the host", () -> hostWorld.generated.size() == 1);
+        host.generate(B); // before the joining PCs have A's results in
+        until("results for the second", () -> hostWorld.generated.size() == 2 && host.step().canConfirm());
+        assertEquals(List.of(A, B), hostWorld.generated);
         assertEquals(List.of(A, B), bobWorld.loaded);
         assertEquals(List.of(A, B), cidWorld.loaded);
         assertEquals(B, cid.step().options());

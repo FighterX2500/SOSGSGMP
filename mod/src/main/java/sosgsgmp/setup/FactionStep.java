@@ -279,6 +279,17 @@ public final class FactionStep {
         return landed.contains(id) ? Progress.READY : Progress.LANDING;
     }
 
+    /** Host: every PC has loaded the world, whatever its hash (SOS-158: the loading window closes). */
+    public boolean allLoaded() {
+        requireHost("tell whether every PC loaded");
+        if (transfer == 0)
+            return false;
+        for (int id : order)
+            if (!hashes.containsKey(id))
+                return false;
+        return true;
+    }
+
     /** The game starts when every PC loaded the host's world and placed its landing party. */
     public boolean canGo() {
         if (!host || transfer == 0 || go || !hashes.containsKey(localId))

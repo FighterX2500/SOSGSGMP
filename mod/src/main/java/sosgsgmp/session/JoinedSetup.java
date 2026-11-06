@@ -41,6 +41,8 @@ public final class JoinedSetup implements SetupSession {
     private final Cursors cursors = new Cursors();
     private final Chat chat;
     private final Pauses pauses = new Pauses();
+    /** The loading window, as the host opens and closes it, and as this PC opens it for a freeze it sees ahead (SOS-158). */
+    private final Loading loading = new Loading();
     /** Players whose PC left the running game, as the host tells it, and the hold for them (SOS-65). */
     private final Departures departures = new Departures();
     /** The engine's streams once this PC plays; null before. */
@@ -99,7 +101,26 @@ public final class JoinedSetup implements SetupSession {
                         close("Lost the connection to the host. " + d.reason());
                 }
             }
+            if (e instanceof Node.Event.Received r && r.message() instanceof Message.Loading l && l.open())
+                break; // the window draws before what follows it, a terrain or a world that freezes this PC, is read
         }
+        loading.frame(nowMs());
+    }
+
+    @Override
+    public Loading loading() {
+        return loading;
+    }
+
+    /** A joining PC opens a window only for a freeze it sees ahead; the host closes it. */
+    @Override
+    public void announceLoading(Loading.Kind kind, long key, String text, boolean open) {
+        if (open)
+            loading.open(kind, key, text, nowMs());
+    }
+
+    private static long nowMs() {
+        return System.nanoTime() / 1_000_000;
     }
 
     @Override
@@ -132,6 +153,13 @@ public final class JoinedSetup implements SetupSession {
 
     private void received(Message m) {
         switch (m) {
+            case Message.Loading l -> {
+                Loading.Kind kind = Loading.Kind.values()[l.kind()];
+                if (l.open())
+                    loading.open(kind, l.key(), l.text(), nowMs());
+                else
+                    loading.close(kind, l.key(), nowMs(), "by the host");
+            }
             case Message.MapBuild b -> step.onBuild(b.buildId(), b.size());
             case Message.MapGenerate g -> {
                 // A generation of a build this PC doesn't have is answered at once; otherwise its terrain follows.

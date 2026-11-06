@@ -7,6 +7,7 @@ import init.constant.C;
 import init.sprite.UI.UI;
 import game.GAME;
 import menu.MpAutopilot;
+import menu.MpLoading;
 import menu.MpSetupLeave;
 import snake2d.CORE;
 import snake2d.CORE_STATE;
@@ -81,6 +82,8 @@ public final class MpMapStage {
 	private boolean leaving;
 	/** The factions step once Next opened it, pumped every frame through this; null before. */
 	private MpFactions factions;
+	/** The loading window while the world generates or initializes (SOS-158), through both steps. */
+	private final MpLoading loading;
 
 	/**
 	 * Right after GAME.create: replaces the world generator's stage with the map step's panel. The race stage the
@@ -113,6 +116,7 @@ public final class MpMapStage {
 	private void afterUpdate(MpAutopilot autopilot) {
 		if (leaving)
 			return;
+		loading.frame();
 		if (factions != null)
 			factions.afterUpdate(autopilot);
 		else if (autopilot != null)
@@ -124,6 +128,7 @@ public final class MpMapStage {
 		this.setup = setup;
 		this.mapTypes = mapTypes;
 		this.rebuild = rebuild;
+		this.loading = new MpLoading(setup);
 		for (int i = 0; i < rows.length; i++) {
 			rows[i] = new GText(UI.FONT().M, 96).setMaxWidth(LABEL_WIDTH + TEXT_WIDTH);
 			rows[i].setMultipleLines(true);

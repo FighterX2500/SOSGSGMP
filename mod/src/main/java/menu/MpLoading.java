@@ -1,0 +1,142 @@
+package menu;
+
+import java.util.List;
+
+import sosdet.LocalBattle;
+import sosdet.OwnBattle;
+import sosdet.View;
+import sosgsgmp.game.EnginePlay;
+import sosgsgmp.lobby.LobbyPlayer;
+import sosgsgmp.session.Loading;
+import sosgsgmp.session.SetupSession;
+
+/**
+ * SOSGSGMP: the loading window on screen (SOS-158), in the setup's screens and in the game. In the game it also opens
+ * the window for each freeze the lockstep announces, on every PC at the same step, so it is up before the freeze: a
+ * battle's load, a view's start and end. The host closes it on every PC once every PC has passed the freeze step.
+ * Setup's windows open and close in the session. Per frame: it allocates only when a window opens.
+ */
+public final class MpLoading {
+
+	private final SetupSession setup;
+	/** Null in the setup's screens, which only draw the window. */
+	private final EnginePlay engine;
+	/** Every player's slot, and the other PCs, as of {@link #seenChanges}. */
+	private int[] slots = new int[0];
+	private int[] peers = new int[0];
+	private int seenChanges = -1;
+	private Loading.Window drawn;
+	private MpLoadingWindow window;
+
+	/** The setup's screens: the window only. */
+	public MpLoading(SetupSession setup) {
+		this(setup, null);
+	}
+
+	MpLoading(SetupSession setup, EnginePlay engine) {
+		this.setup = setup;
+		this.engine = engine;
+	}
+
+	/** Once per frame, after the session's update. */
+	public void frame() {
+		if (engine != null && setup.playing() && engine.active()) {
+			players();
+			freezesAhead();
+			if (setup.isHost())
+				closeWhenPassed();
+		}
+		show(setup.loading().shown());
+	}
+
+	private void players() {
+		if (setup.changes() == seenChanges)
+			return;
+		seenChanges = setup.changes();
+		List<LobbyPlayer> players = setup.players();
+		slots = new int[players.size()];
+		for (int i = 0; i < slots.length; i++)
+			slots[i] = setup.factions().slotOf(players.get(i).id());
+		peers = MpPlay.otherPcs(setup);
+	}
+
+	/**
+	 * The freezes every PC knows of from the lockstep, each opened once, before its step. The text is made only when a
+	 * window is new, so a frame with nothing new allocates nothing.
+	 */
+	private void freezesAhead() {
+		long step = engine.step();
+		long ahead = engine.battleAhead();
+		if (ahead >= 0 && isNew(Loading.Kind.BATTLE_START, ahead))
+			open(Loading.Kind.BATTLE_START, ahead, "A battle is loading." + WAIT);
+		OwnBattle b = engine.battle();
+		if (b != null && b.awaiting() && isNew(Loading.Kind.BATTLE_START, b.step))
+			open(Loading.Kind.BATTLE_START, b.step, name(b.human) + "'s battle is loading." + WAIT);
+		for (int slot : slots) {
+			if (slot < 0)
+				continue;
+			LocalBattle l = engine.localBattleOf(slot);
+			if (l != null && step <= l.freeze && isNew(Loading.Kind.BATTLE_START, l.freeze))
+				open(Loading.Kind.BATTLE_START, l.freeze, name(slot) + "'s battle is loading." + WAIT);
+			View v = engine.view(slot);
+			if (v == null)
+				continue;
+			if ((v.state() == View.SCHEDULED || v.state() == View.LOADING) && step <= v.freeze
+					&& isNew(Loading.Kind.VIEW_START, v.freeze))
+				open(Loading.Kind.VIEW_START, v.freeze, name(v.viewer) + (v.battle() ? " joins " + name(v.owner) + "'s battle."
+						: " is opening " + name(v.owner) + "'s city.") + WAIT);
+			long rejoin = v.rejoinAt(); // another viewer joins: the owner and this view's viewer load again (SOS-151)
+			if (rejoin >= 0 && step <= rejoin && isNew(Loading.Kind.VIEW_START, rejoin))
+				open(Loading.Kind.VIEW_START, rejoin, "Another player joins " + name(v.owner) + (v.battle() ? "'s battle." : "'s city.") + WAIT);
+			long thaw = v.thaw();
+			if (thaw >= 0 && step <= thaw && isNew(Loading.Kind.VIEW_END, thaw))
+				open(Loading.Kind.VIEW_END, thaw, name(v.viewer) + " is returning from " + name(v.owner)
+						+ (v.battle() ? "'s battle." : "'s city.") + WAIT);
+		}
+	}
+
+	private static final String WAIT = " Every player's game waits until each PC is done.";
+
+	private boolean isNew(Loading.Kind kind, long step) {
+		Loading l = setup.loading();
+		return !l.isOpen(kind, step) && !l.wasClosed(kind, step);
+	}
+
+	private void open(Loading.Kind kind, long step, String text) {
+		setup.announceLoading(kind, step, text, true);
+	}
+
+	private String name(int slot) {
+		for (LobbyPlayer p : setup.players())
+			if (setup.factions().slotOf(p.id()) == slot)
+				return p.name();
+		return "A player";
+	}
+
+	/** Host: a play window closes on every PC once this PC and every other has run past its step. */
+	private void closeWhenPassed() {
+		Loading.Window w = setup.loading().shown();
+		if (w == null || w.kind() == Loading.Kind.WORLD_GENERATION || w.kind() == Loading.Kind.WORLD_INITIALIZATION)
+			return;
+		if (engine.step() <= w.key())
+			return;
+		for (int pc : peers)
+			if (engine.peerStep(pc) <= w.key())
+				return;
+		setup.announceLoading(w.kind(), w.key(), "", false);
+	}
+
+	/** Draws the model's window; again after a whole-game load, which brings a new screen. */
+	private void show(Loading.Window w) {
+		if (w == drawn && (w == null || window.isActivated()))
+			return;
+		if (window != null && window.isActivated())
+			window.close();
+		drawn = w;
+		window = null;
+		if (w == null)
+			return;
+		window = new MpLoadingWindow(w);
+		window.open();
+	}
+}

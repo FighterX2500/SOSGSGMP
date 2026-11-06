@@ -55,6 +55,25 @@ class MapStepTest {
         assertFalse(h.canConfirm());
     }
 
+    /** SOS-158: the World generation window waits for every PC's result, whatever it is, for that generation only. */
+    @Test
+    void theResultsAreInWhenEveryPcAnsweredTheLatestGeneration() {
+        MapStep h = generatedHost();
+        assertFalse(h.resultsIn(0));
+        assertFalse(h.resultsIn(1));
+        h.onResult(1, 1, 100, MapStatus.OK);
+        h.onResult(2, 1, 0, MapStatus.BAD_TERRAIN);
+        assertTrue(h.resultsIn(1), "an error is an answer too");
+        int gen = h.generate(RANDOM_256);
+        assertFalse(h.resultsIn(1), "a newer generation runs");
+        assertFalse(h.resultsIn(gen), "not generated here yet");
+        h.generated(gen, 100, MapStatus.OK);
+        h.onResult(1, gen, 100, MapStatus.OK);
+        assertFalse(h.resultsIn(gen));
+        h.remove(2);
+        assertTrue(h.resultsIn(gen), "a player who left answers nothing more");
+    }
+
     @Test
     void aMismatchOrAnErrorBlocksConfirm() {
         MapStep h = generatedHost();
