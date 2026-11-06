@@ -27,9 +27,12 @@ import init.trade.TRADE_TYPE;
 import settlement.entity.ENTITY;
 import settlement.entity.humanoid.Humanoid;
 import settlement.main.SETT;
+import settlement.room.home.house.HomeInstance;
+import settlement.room.main.Room;
 import settlement.stats.STATS;
 import snake2d.CORE;
 import snake2d.PathTile;
+import snake2d.util.datatypes.DIR;
 import snake2d.util.sets.LIST;
 import sosdet.Engine;
 import sosdet.Hooks;
@@ -458,6 +461,8 @@ final class MpAutopilotCommands {
 				return "no session";
 			MpViews.current().close(sosdet.View.CLOSED);
 			return "closing the view";
+		case "look":
+			return look(a);
 		case "speed":
 			if (!host && !Hooks.speedVoteHere()) // a battle's commanders vote (spec §8)
 				return "refused: the host sets the speed";
@@ -486,6 +491,70 @@ final class MpAutopilotCommands {
 	@SuppressWarnings("unchecked")
 	private static DOUBLE_OE<Div> moraleOfDivisions() {
 		return (DOUBLE_OE<Div>) field(GAME.ARMIES().factors, "morale");
+	}
+
+	/**
+	 * The city's camera to what drawing changed in vanilla (SOS-154), for a screenshot: {@code house} the house whose
+	 * residents have the most furniture, {@code fence} a fence, wall or edge with floor on both sides, {@code heads} the
+	 * death monument; or a tile, {@code look X Y}.
+	 */
+	private static String look(String[] a) {
+		if (a.length == 3)
+			return lookAt(Integer.parseInt(a[1]), Integer.parseInt(a[2]), "tile");
+		String what = a.length > 1 ? a[1] : "";
+		int best = -1;
+		double bestScore = 0;
+		for (int tile = 0; tile < SETT.TAREA; tile++) {
+			int tx = tile % SETT.TWIDTH;
+			int ty = tile / SETT.TWIDTH;
+			double score = lookScore(what, tx, ty, tile);
+			if (score > bestScore) {
+				bestScore = score;
+				best = tile;
+			}
+		}
+		if (best < 0)
+			return "nothing to look at for '" + what + "'";
+		return lookAt(best % SETT.TWIDTH, best / SETT.TWIDTH, what);
+	}
+
+	private static double lookScore(String what, int tx, int ty, int tile) {
+		switch (what) {
+		case "house": {
+			HomeInstance h = SETT.ROOMS().HOME.getter.get(tile);
+			if (h == null || h.occupants() == 0 || h.body().x1() != tx || h.body().y1() != ty)
+				return 0;
+			double am = 0;
+			for (int i = 0; i < h.occupants(); i++) {
+				Humanoid o = h.occupant(i);
+				for (int ri = 0; ri < o.race().home().clas(o).resources().size(); ri++)
+					am += STATS.HOME().current(o, ri);
+			}
+			return am / h.occupants();
+		}
+		case "fence": {
+			if (SETT.ROOMS().map.is(tile) || !SETT.TERRAIN().get(tx, ty).wantsFloorUnderneath(tx, ty))
+				return 0;
+			int floors = 0;
+			for (int di = 0; di < DIR.ORTHO.size(); di++)
+				if (SETT.FLOOR().getter.get(tx, ty, DIR.ORTHO.get(di)) != null)
+					floors++;
+			return floors >= 2 ? floors : 0;
+		}
+		case "heads": {
+			Room r = SETT.ROOMS().map.get(tx, ty);
+			return r != null && "MONUMENT_DEATH".equals(r.blueprint().key) ? 1 : 0;
+		}
+		default:
+			return 0;
+		}
+	}
+
+	private static String lookAt(int tx, int ty, String what) {
+		VIEW.s().activate();
+		VIEW.s().getWindow().setZoomout(0);
+		VIEW.s().getWindow().centerAtTile(tx, ty);
+		return "looking at " + what + " " + tx + "," + ty;
 	}
 
 	/** What a sally's end changes (SOS-149): this city's invasion, the raid and its state, the raiders, the treasury. */
