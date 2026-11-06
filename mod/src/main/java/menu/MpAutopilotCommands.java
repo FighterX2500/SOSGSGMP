@@ -113,12 +113,19 @@ final class MpAutopilotCommands {
 	private boolean routing;
 	/** The battle's morale of each division ({@code DivFactors.morale}), once {@code rout} needs it. */
 	private DOUBLE_OE<Div> morale;
+	/** The step this PC's run ends at instead of its {@code steps}, from {@code endat}; -1 before. */
+	private long endAt = -1;
 
 	MpAutopilotCommands(Path events, boolean host, boolean autoBattles, BiConsumer<String, String> event) {
 		this.file = events.resolveSibling("command.txt");
 		this.host = host;
 		this.autoBattles = autoBattles;
 		this.event = event;
+	}
+
+	/** The step {@code endat} set for this PC's run to end at, or -1. */
+	long endAt() {
+		return endAt;
 	}
 
 	/** Once per frame while playing, outside the step. */
@@ -456,6 +463,9 @@ final class MpAutopilotCommands {
 			views.ask(slot);
 			return "asked to view " + other().name + "'s city";
 		}
+		case "endat": // a driver ends the run early, at the same step on every PC
+			endAt = Long.parseLong(a[1]);
+			return "the run ends at step " + endAt;
 		case "closeview":
 			if (MpViews.current() == null)
 				return "no session";

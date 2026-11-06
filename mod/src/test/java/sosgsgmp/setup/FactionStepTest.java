@@ -197,6 +197,18 @@ class FactionStepTest {
         assertFalse(h.canGo());
     }
 
+    /** SOS-158: the World initialization window waits until every PC has loaded, a different world too. */
+    @Test
+    void everyPcLoadedWhenEachSentItsHash() {
+        FactionStep h = initialized();
+        assertFalse(h.allLoaded());
+        h.onLoaded(5, 1, 77);
+        h.onLoaded(9, 1, 78);
+        assertFalse(h.allLoaded(), "the host hasn't loaded");
+        h.loaded(77);
+        assertTrue(h.allLoaded());
+    }
+
     @Test
     void aWorldThatDiffersBlocksTheStart() {
         FactionStep h = initialized();

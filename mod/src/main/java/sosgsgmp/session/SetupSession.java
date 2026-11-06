@@ -160,6 +160,15 @@ public interface SetupSession {
     /** Who paused the game, and the pauses every PC heard (spec §4). */
     Pauses pauses();
 
+    /** The loading window on this PC (SOS-158), for drawing and the log. */
+    Loading loading();
+
+    /**
+     * Opens or closes a loading window (SOS-158). The host does it on every PC, once per window, however often it is
+     * called; a joining PC opens one on its own only, for a freeze it sees ahead, and the host closes it.
+     */
+    void announceLoading(Loading.Kind kind, long key, String text, boolean open);
+
     /** This PC's player paused or unpaused the game; every PC hears it, this one too, in the host's order. */
     void pause(boolean paused);
 

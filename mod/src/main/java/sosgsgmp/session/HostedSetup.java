@@ -84,6 +84,15 @@ public final class HostedSetup implements SetupSession {
     /** Each joining player's reports this session, by player id. */
     private final Map<Integer, ReportStore> reports = new HashMap<>();
     private final Pauses pauses = new Pauses();
+    /** The loading window on every PC (SOS-158). */
+    private final Loading loading = new Loading();
+    /** The number of the setup's latest loading window: its key. */
+    private int loadingKey;
+    /** The generation the open World generation window waits for; 0 until it runs. */
+    private int loadingGenId;
+    /** Generate or Initialize, run once the loading window has been drawn, so it shows during the freeze; else null. */
+    private Runnable deferred;
+    private int deferFrames;
     private boolean closed;
     private String closedReason;
     private int changes;
@@ -113,6 +122,7 @@ public final class HostedSetup implements SetupSession {
             // whoever of the campaign is missing is removed at the start (spec §11 Resuming), and saves say so from now
             campaign = campaign.removing(Campaign.missingSlots(campaign, slots.values()));
             factions = FactionStep.resumed(players.get(0).id(), slots);
+            announceLoading(Loading.Kind.WORLD_INITIALIZATION, ++loadingKey, "Loading the campaign. Every PC loads the world.", true);
             sendAll(new Message.SlotMap(factions.transfer(), factions.slotMap()));
         }
     }
@@ -133,6 +143,53 @@ public final class HostedSetup implements SetupSession {
                 }
             }
         }
+        if (deferred != null && --deferFrames <= 0) {
+            Runnable r = deferred;
+            deferred = null;
+            r.run();
+        }
+        closeSetupLoading();
+        loading.frame(nowMs());
+    }
+
+    /** The setup's loading window closes on every PC once every PC is done: results in, or the world loaded. */
+    private void closeSetupLoading() {
+        Loading.Window w = loading.shown();
+        if (w == null)
+            return;
+        boolean done = switch (w.kind()) {
+            case WORLD_GENERATION -> loadingGenId != 0 && step.resultsIn(loadingGenId);
+            case WORLD_INITIALIZATION -> factions != null && factions.allLoaded();
+            default -> false; // play's windows close in the game, by the steps every PC has passed
+        };
+        if (done)
+            announceLoading(w.kind(), w.key(), "", false);
+    }
+
+    @Override
+    public Loading loading() {
+        return loading;
+    }
+
+    @Override
+    public void announceLoading(Loading.Kind kind, long key, String text, boolean open) {
+        if (loading.wasClosed(kind, key) || open && loading.isOpen(kind, key))
+            return;
+        if (open)
+            loading.open(kind, key, text, nowMs());
+        else
+            loading.close(kind, key, nowMs(), "by the host");
+        sendAll(new Message.Loading(kind.ordinal(), key, text, open));
+    }
+
+    /** Runs {@code action} after the loading window has been drawn: two updates later, a frame between them. */
+    private void afterLoadingShows(Runnable action) {
+        deferred = action;
+        deferFrames = 2;
+    }
+
+    private static long nowMs() {
+        return System.nanoTime() / 1_000_000;
     }
 
     @Override
@@ -640,18 +697,28 @@ public final class HostedSetup implements SetupSession {
         if (waiting != null) {
             MapOptions o = waiting;
             waiting = null;
-            generate(o);
+            generateNow(o);
         }
     }
 
     /**
-     * At the current size, generates here and sends the generation and its terrain to every joining PC. At another
-     * size, every PC rebuilds its game first, and the generation runs when this PC's rebuild is done ({@link #built}).
+     * Opens the World generation window on every PC, then, once it shows: at the current size, generates here and sends
+     * the generation and its terrain to every joining PC. At another size, every PC rebuilds its game first, and the
+     * generation runs when this PC's rebuild is done ({@link #built}). A Generate while one waits to run changes nothing.
      */
     @Override
     public void generate(MapOptions options) {
         if (!options.isRandom() && !MapOptions.presetsAllowed(options.size()))
             throw new IllegalArgumentException("SOSGSGMP: map type '" + options.mapType() + "' at size " + options.size() + "; presets only at " + MapOptions.DEFAULT_SIZE);
+        if (deferred != null)
+            return;
+        choices = options; // the panel shows the choices at once
+        loadingGenId = 0;
+        announceLoading(Loading.Kind.WORLD_GENERATION, ++loadingKey, "The host is generating the world.", true);
+        afterLoadingShows(() -> generateNow(options));
+    }
+
+    private void generateNow(MapOptions options) {
         choices = options;
         if (options.size() != step.size()) {
             waiting = options;
@@ -659,6 +726,7 @@ public final class HostedSetup implements SetupSession {
             return;
         }
         int genId = step.generate(options);
+        loadingGenId = genId;
         sendAll(new Message.MapGenerate(genId, step.buildId(), options.mapType(), options.latitude(), options.seed()));
         MapWorld.Terrain terrain = world.generate(options);
         step.generated(genId, terrain.hash(), MapStatus.OK);
@@ -721,13 +789,26 @@ public final class HostedSetup implements SetupSession {
     }
 
     /**
-     * Builds the world here (the game holds this thread for a few seconds; nothing arrives meanwhile), then locks the
-     * picks and sends every joining PC the slots and the save in pieces. A build that fails locks nothing.
+     * Opens the World initialization window on every PC, then, once it shows: builds the world here (the game holds
+     * this thread for a few seconds; nothing arrives meanwhile), locks the picks and sends every joining PC the slots and
+     * the save in pieces. A build that fails locks nothing. An Initialize while one waits to run changes nothing.
      */
     @Override
     public void initialize() {
         if (factions == null || !factions.canInitialize())
             throw new IllegalStateException("SOSGSGMP: the world can't be initialized now");
+        if (deferred != null)
+            return;
+        int key = ++loadingKey;
+        announceLoading(Loading.Kind.WORLD_INITIALIZATION, key, "Initializing the world. Every PC loads it.", true);
+        afterLoadingShows(() -> initializeNow(key));
+    }
+
+    private void initializeNow(int key) {
+        if (factions == null || !factions.canInitialize()) { // a player left meanwhile: the host initializes again
+            announceLoading(Loading.Kind.WORLD_INITIALIZATION, key, "", false);
+            return;
+        }
         byte[] built = factionWorld.buildWorld(factions.humans(), difficulty);
         int transfer = factions.initialize();
         List<Campaign.Player> inCampaign = new ArrayList<>();

@@ -23,6 +23,8 @@ import sosgsgmp.log.PlayLog;
 import sosgsgmp.net.Protocol;
 import sosgsgmp.session.Chat;
 import sosgsgmp.session.EngineLink;
+import sosgsgmp.session.Loading;
+import sosgsgmp.session.Pauses;
 import sosgsgmp.session.SetupSession;
 
 /**
@@ -64,6 +66,12 @@ final class MpLog {
 	private long resyncedStep = -1;
 	private final MpDiplomacyLog diplomacy;
 	private final MpTransferLog transfers;
+	/** A frame or a hold this long is a freeze worth a line (SOS-158). */
+	private static final long FREEZE_NANOS = 1_000_000_000L;
+	private long lastFrameNanos;
+	/** The step last seen to move, and since when: a step that stands still while the game runs is a hold. */
+	private long heldStep = -1;
+	private long heldSinceNanos;
 
 	private MpLog(PlayLog log, SetupSession setup, EnginePlay engine) {
 		this.log = log;
@@ -155,6 +163,7 @@ final class MpLog {
 			closed = true;
 			line("session closed: " + setup.closedReason());
 		}
+		loading();
 		if (!setup.playing())
 			return;
 		if (!engine.active()) {
@@ -169,6 +178,7 @@ final class MpLog {
 			statusFrames = frames;
 			line("Go: the game runs from step " + engine.step() + String.format(Locale.ROOT, ", game speed %.2f", GAME.SPEED.speed()));
 		}
+		freezes();
 		battle();
 		assault();
 		desync(desync);
@@ -182,6 +192,45 @@ final class MpLog {
 			statusAt = at;
 			status(at);
 		}
+	}
+
+	/**
+	 * The loading windows (SOS-158): each opening, and each closing with how long it was open and this PC's longest frame
+	 * meanwhile, its own freeze. The setup's windows, before this log opened, come at its start.
+	 */
+	private void loading() {
+		Loading.Window w;
+		while ((w = setup.loading().takeOpened()) != null)
+			line("loading opened: " + w.kind() + " " + w.key() + (setup.playing() ? " at step " + engine.step() : "") + ": " + w.text());
+		Loading.Closed c;
+		while ((c = setup.loading().takeClosed()) != null)
+			line(String.format(Locale.ROOT, "loading closed %s: %s %d, open %.1f s, this PC's longest frame meanwhile %d ms", c.how(),
+					c.kind(), c.key(), c.openMs() / 1000.0, c.longestFrameMs()));
+	}
+
+	/**
+	 * Freezes as this PC lives them (SOS-158): a frame over a second, this PC's own; and a step that stood still over a
+	 * second while the game ran, waiting for another PC.
+	 */
+	private void freezes() {
+		long now = System.nanoTime();
+		if (lastFrameNanos != 0 && now - lastFrameNanos > FREEZE_NANOS)
+			line(String.format(Locale.ROOT, "freeze: a frame of %d ms at step %d%s", (now - lastFrameNanos) / 1_000_000, engine.step(),
+					during()));
+		lastFrameNanos = now;
+		long step = engine.step();
+		boolean paused = GAME.SPEED.speed() == 0 || setup.pauses().pausedBy() != Pauses.NOBODY;
+		if (step == heldStep && !paused)
+			return;
+		if (!paused && heldStep >= 0 && now - heldSinceNanos > FREEZE_NANOS)
+			line(String.format(Locale.ROOT, "freeze: held %.1f s at step %d%s", (now - heldSinceNanos) / 1e9, heldStep, during()));
+		heldStep = step;
+		heldSinceNanos = now;
+	}
+
+	private String during() {
+		Loading.Window w = setup.loading().shown();
+		return w == null ? "" : ", during " + w.kind() + " " + w.key();
 	}
 
 	private int chatLines;

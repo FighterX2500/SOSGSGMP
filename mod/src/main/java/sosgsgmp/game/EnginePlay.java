@@ -14,6 +14,7 @@ import sosdet.Assault;
 import sosdet.DesyncHold;
 import sosdet.Engine;
 import sosdet.BattleOutcome;
+import sosdet.LocalBattle;
 import sosdet.OwnBattle;
 import sosdet.Stats;
 import sosdet.View;
@@ -115,6 +116,11 @@ public final class EnginePlay implements EnginePort {
     /** True while the player in {@code slot} fights a battle against NPCs. */
     public boolean localBattle(int slot) {
         return Engine.localBattle(slot) != null;
+    }
+
+    /** The battle against NPCs of the player in {@code slot}, the same on every PC, or null (SOS-158 reads its freeze). */
+    public LocalBattle localBattleOf(int slot) {
+        return Engine.localBattle(slot);
     }
 
     /** True during any battle: one on every PC, or one on its player's PC alone. */
