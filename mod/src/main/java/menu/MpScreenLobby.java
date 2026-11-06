@@ -4,7 +4,6 @@ import java.nio.file.Files;
 import java.util.List;
 
 import init.constant.C;
-import init.paths.PATHS;
 import init.sprite.UI.UI;
 import menu.GUI.COLORS;
 import snake2d.SPRITE_RENDERER;
@@ -16,6 +15,7 @@ import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
 import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.lobby.LobbyPlayer;
+import sosgsgmp.game.DataFolders;
 import sosgsgmp.game.WorldGenAdapter;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbySettings;
@@ -240,7 +240,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 			return;
 		LobbySettings.Resume r = ls.resume();
 		CampaignRecord own = MpSaves.store().find(r.campaign().id(), r.number());
-		if (own != null && Files.exists(PATHS.local().save().get(own.file()))) {
+		if (own != null && Files.exists(DataFolders.layout().save(own.file()))) {
 			resumed = own;
 			return;
 		}

@@ -1,6 +1,7 @@
 package menu;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.function.IntConsumer;
 
@@ -17,6 +18,8 @@ import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
 import snake2d.util.misc.ACTION;
 import snake2d.util.sprite.SPRITE;
+import sosgsgmp.campaign.DataLayout;
+import sosgsgmp.game.DataFolders;
 import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPrefs;
 import sosgsgmp.net.SteamNode;
@@ -51,6 +54,7 @@ final class MpMenu {
 	 * keeps the Steam invite watch going there (SOS-103); the test autopilot drives the menu from it instead.
 	 */
 	static CLICKABLE button(Menu menu) {
+		moveOldData();
 		CLICKABLE b = GUI.getNavButt("multiplayer");
 		MpInviteWatch invites = new MpInviteWatch();
 		MpMenu[] mp = new MpMenu[1];
@@ -86,11 +90,33 @@ final class MpMenu {
 		};
 	}
 
+	/**
+	 * Moves an older version's files into {@code songsofsyx\sosgsgmp}, once (SOS-155); a later start retries what
+	 * couldn't move, which every lookup still finds where it was.
+	 */
+	private static void moveOldData() {
+		DataLayout.Migration m;
+		try {
+			m = DataFolders.layout().migrate();
+		} catch (UncheckedIOException e) {
+			// a folder that can't be listed: the main menu still opens, and the lookups read both places
+			LOG.err("SOSGSGMP: moving an older version's files stopped: " + e.getMessage() + ": " + e.getCause());
+			return;
+		}
+		if (m.moved() > 0 || m.done())
+			LOG.ln("SOSGSGMP: moved " + m.moved() + " of an older version's files and folders into sosgsgmp" + (m.done() ? ", all done" : ""));
+		for (String left : m.left())
+			LOG.err("SOSGSGMP: stays in the old place for now: " + left);
+		for (String note : m.notes())
+			LOG.ln("SOSGSGMP: " + note);
+	}
+
 	private MpMenu(Menu menu, MpInviteWatch invites) {
 		this.menu = menu;
 		this.invites = invites;
-		prefsFile = PATHS.local().PROFILE.get().resolve("SOSGSGMP-lobby.properties");
-		prefs = loadPrefs(prefsFile);
+		DataLayout layout = DataFolders.layout();
+		prefsFile = layout.lobbyPrefs();
+		prefs = loadPrefs(layout.lobbyPrefsToRead()); // an older version's file until it moves; saved to the new one (SOS-155)
 		if (prefs.keyIsNew)
 			savePrefs(); // a joining PC may never press a button that saves: its key must outlive this game (SOS-64)
 		modes = new Modes(menu);

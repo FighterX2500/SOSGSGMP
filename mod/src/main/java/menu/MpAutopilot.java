@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.List;
@@ -25,6 +24,7 @@ import snake2d.LOG;
 import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.campaign.SaveOrder;
+import sosgsgmp.game.DataFolders;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.FactionIdentity;
 import sosgsgmp.game.PlayerDeals;
@@ -60,7 +60,7 @@ import world.WORLD;
  * game for the two-PC test (game-over-network.md §6). It calls the session methods the buttons call, from the same
  * per-frame points, and never from inside a render. Each call looks at the session's state and acts on it, so the
  * driver keeps no state of its own beyond throttles. Every milestone goes to
- * {@code %APPDATA%/songsofsyx/sosgsgmp-autopilot/events.jsonl} for the runner.
+ * {@code %APPDATA%/songsofsyx/sosgsgmp/autopilot/events.jsonl} for the runner.
  *
  * <p>The variable is {@code key=value} pairs separated by commas: {@code role=host|join}, {@code name}, {@code port},
  * {@code address} (join), {@code players} (host: start with this many), {@code seed} (host: the map's),
@@ -249,7 +249,7 @@ public final class MpAutopilot {
 		if (!net.equals("ip") && !net.equals("steam"))
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " net '" + net + "', not ip or steam");
 		steam = net.equals("steam");
-		events = Paths.get(System.getenv("APPDATA"), "songsofsyx", "sosgsgmp-autopilot", "events.jsonl");
+		events = DataFolders.layout().autopilot().resolve("events.jsonl");
 		if (!host && !steam && address.isEmpty())
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " role=join needs address=");
 		commands = new MpAutopilotCommands(events, host, m.getOrDefault("battles", "").equals("auto"), this::event);

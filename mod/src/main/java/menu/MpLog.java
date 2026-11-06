@@ -16,6 +16,7 @@ import sosdet.Assault;
 import sosdet.DesyncHold;
 import sosdet.OwnBattle;
 import sosdet.Stats;
+import sosgsgmp.game.DataFolders;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.log.PlayLog;
@@ -26,7 +27,7 @@ import sosgsgmp.session.SetupSession;
 
 /**
  * SOSGSGMP: the playtest log's game side (SOS-63). From the world's load to the session's end it writes, to
- * {@code %APPDATA%/songsofsyx/sosgsgmp-logs}: the session, the network's notes, the players, every 600 steps the step,
+ * {@code %APPDATA%/songsofsyx/sosgsgmp/logs} (SOS-155): the session, the network's notes, the players, every 600 steps the step,
  * the state hash, the engine's counters and this player's treasury, the battles, the desyncs with the engine's report,
  * the resyncs, the deals, treaties, tariffs and realms between players ({@link MpDiplomacyLog}), and every
  * exception {@link MpPlay} and {@link MpWorldLoad} see. Each frame only compares a few values; it builds text only when it
@@ -74,7 +75,7 @@ final class MpLog {
 
 	/** A new log for this PC's session, with the session's facts first. */
 	static MpLog open(SetupSession setup, EnginePlay engine) {
-		Path dir = Paths.get(System.getenv("APPDATA"), "songsofsyx", "sosgsgmp-logs");
+		Path dir = DataFolders.layout().logs();
 		String name = (setup.isHost() ? "host-" : "join-") + localName(setup);
 		MpLog l = new MpLog(PlayLog.open(dir, name, Clock.systemDefaultZone()), setup, engine);
 		if (l.log.failure() == null)

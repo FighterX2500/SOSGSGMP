@@ -7,47 +7,66 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /**
  * This PC's campaign records (SOS-64): one file per save, {@code <campaign id>-<number>.txt}, in one folder. A record
  * that can't be read is left out of the list with the reason kept in {@link #problems()}, so one broken file doesn't
- * hide the others. Plain Java; the game's save files are the caller's.
+ * hide the others. An older version's folder, if given, is read too; a record in both counts once, the new one (SOS-155).
+ * Plain Java; the game's save files are the caller's.
  */
 public final class CampaignStore {
 
     private static final String ENDING = ".txt";
 
     private final Path dir;
+    /** An older version's folder, read and cleaned but never written; null when there is none. */
+    private final Path old;
     private final List<String> problems = new ArrayList<>();
 
     public CampaignStore(Path dir) {
+        this(dir, null);
+    }
+
+    public CampaignStore(Path dir, Path old) {
         this.dir = dir;
+        this.old = old;
     }
 
     /** Every record that reads, newest first. */
     public List<CampaignRecord> all() {
         problems.clear();
         List<CampaignRecord> all = new ArrayList<>();
-        if (!Files.isDirectory(dir))
-            return all;
-        try (Stream<Path> files = Files.list(dir)) {
+        Set<String> names = new HashSet<>();
+        read(dir, all, names);
+        if (old != null)
+            read(old, all, names);
+        all.sort(Comparator.comparingLong(CampaignRecord::time).reversed().thenComparing(CampaignRecord::number,
+                Comparator.reverseOrder()));
+        return all;
+    }
+
+    /** Reads the records in {@code folder} whose file names {@code names} doesn't hold yet. */
+    private void read(Path folder, List<CampaignRecord> all, Set<String> names) {
+        if (!Files.isDirectory(folder))
+            return;
+        try (Stream<Path> files = Files.list(folder)) {
             for (Path f : (Iterable<Path>) files::iterator) {
-                if (!f.getFileName().toString().endsWith(ENDING))
+                String name = f.getFileName().toString();
+                if (!name.endsWith(ENDING) || !names.add(name))
                     continue;
                 try {
                     all.add(CampaignRecord.fromText(Files.readString(f, StandardCharsets.UTF_8)));
                 } catch (IOException | IllegalArgumentException e) {
-                    problems.add(f.getFileName() + ": " + e.getMessage());
+                    problems.add(name + ": " + e.getMessage());
                 }
             }
         } catch (IOException e) {
-            throw new UncheckedIOException("SOSGSGMP: can't list the campaign records in " + dir, e);
+            throw new UncheckedIOException("SOSGSGMP: can't list the campaign records in " + folder, e);
         }
-        all.sort(Comparator.comparingLong(CampaignRecord::time).reversed().thenComparing(CampaignRecord::number,
-                Comparator.reverseOrder()));
-        return all;
     }
 
     /** Why records were left out of the last {@link #all()}, one line each. */
@@ -102,6 +121,8 @@ public final class CampaignStore {
             }
             try {
                 Files.deleteIfExists(file(campaignId, r.number()));
+                if (old != null)
+                    Files.deleteIfExists(old.resolve(file(campaignId, r.number()).getFileName()));
             } catch (IOException e) {
                 throw new UncheckedIOException("SOSGSGMP: can't delete campaign record " + r.number() + " in " + dir, e);
             }

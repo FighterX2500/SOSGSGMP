@@ -1,7 +1,6 @@
 package sosgsgmp.game;
 
 import java.nio.ByteBuffer;
-import java.nio.file.Paths;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -103,7 +102,7 @@ public final class SteamworksPort implements SteamPort {
     /** Opens the trace, once: the main menu's invite watch runs a port on every start and has no lobby to trace. */
     private void traceLobby(String text) {
         if (trace == null) {
-            trace = PlayLog.open(Paths.get(System.getenv("APPDATA"), "songsofsyx", "sosgsgmp-logs"), "steam", Clock.systemDefaultZone());
+            trace = PlayLog.open(DataFolders.layout().logs(), "steam", Clock.systemDefaultZone());
             trace("Steam connection, protocol " + Protocol.VERSION + ", this user " + self() + ", transport "
                     + (messages != null ? "messages" : "P2P packets"));
         }

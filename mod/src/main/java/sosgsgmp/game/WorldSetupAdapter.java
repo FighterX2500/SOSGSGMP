@@ -10,7 +10,6 @@ import game.GAME;
 import game.faction.FACTIONS;
 import game.faction.player.Player;
 import game.save.SaveFile;
-import init.paths.PATHS;
 import settlement.main.SETT;
 import settlement.stats.POP;
 import snake2d.LOG;
@@ -133,30 +132,38 @@ public final class WorldSetupAdapter implements FactionWorld {
         Engine.localPc(pc);
         Engine.ownCity();
         Engine.localBattles(true); // a battle against NPCs runs on its player's PC, the world running on (spec §8)
+        Engine.workFolder(DataFolders.layout().engine()); // the battle and view saves stay out of the player's saves (SOS-155)
         Engine.armLoadSeed(loadSeed(seed));
     }
 
     /**
-     * Saves this PC's game into vanilla's saves list as {@code name} with vanilla's time stamp (spec §11, Save and exit
-     * at a world desync): the world and this PC's city. Returns the save's file name.
+     * Saves this PC's game into the mod's saves folder as {@code name} with vanilla's time stamp (spec §11, Save and
+     * exit at a world desync; SOS-155): the world and this PC's city. Returns the save's file name.
      */
     public String saveGame(String name) {
-        Path file = GAME.saver().save(SaveFile.stamp(name));
+        Path dir = DataFolders.layout().saves();
+        try {
+            Files.createDirectories(dir);
+        } catch (IOException e) {
+            throw new UncheckedIOException("SOSGSGMP: can't make the saves folder " + dir, e);
+        }
+        Path file = GAME.saver().save(dir, SaveFile.stamp(name), false);
         if (file == null)
-            throw new IllegalStateException("SOSGSGMP: the game couldn't save '" + name + "'");
+            throw new IllegalStateException("SOSGSGMP: the game couldn't save '" + name + "' in " + dir);
         LOG.ln("SOSGSGMP: saved " + file);
         return file.getFileName().toString();
     }
 
-    /** A save in vanilla's saves list by its file name, as {@link #saveGame} returns it (SOS-64). */
+    /** A campaign save by its file name, as {@link #saveGame} returns it (SOS-64): the mod's folder, else the game's (SOS-155). */
     public Path savePath(String file) {
-        return PATHS.local().save().get(file);
+        return DataFolders.layout().save(file);
     }
 
-    /** Deletes a save from vanilla's saves list: an autosave the campaign's rotation dropped. */
+    /** Deletes a campaign save wherever it is: an autosave the campaign's rotation dropped. */
     public void deleteSave(String file) {
         try {
-            Files.deleteIfExists(savePath(file));
+            for (Path p : DataFolders.layout().saveCandidates(file))
+                Files.deleteIfExists(p);
         } catch (IOException e) {
             throw new UncheckedIOException("SOSGSGMP: can't delete the old campaign autosave " + file, e);
         }
