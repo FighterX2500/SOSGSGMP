@@ -6,7 +6,7 @@ on a second PC (joiner), through the menu, the map, the factions, the load, the 
     python tools\\twopc.py --steps 3600 --tag T1
 
 Each PC gets its own data folder (both mods on, its own settings), as SOSDET's rig makes them; the games run with
-SOSGSGMP_AUTOPILOT set, write their milestones to sosgsgmp-autopilot\\events.jsonl and quit at the last step. The runner
+SOSGSGMP_AUTOPILOT set, write their milestones to sosgsgmp\\autopilot\\events.jsonl and quit at the last step. The runner
 prints both PCs' events as they come and says whether both reached the end with the same hashes. Test tooling only:
 nothing here is part of the mod.
 """
@@ -33,7 +33,8 @@ KEY = os.environ.get("SOSGSGMP_REMOTE_KEY", str(pathlib.Path.home() / ".ssh" / "
 SSH = ["ssh", "-i", KEY, "-o", "BatchMode=yes", "-o", "ConnectTimeout=20", "-o", "LogLevel=ERROR"]
 REMOTE_ROOT = r"C:\SOSTest"
 REMOTE_K = int(os.environ.get("SOSGSGMP_REMOTE_K", "2"))  # the remote data folder C:\SOSTest\inst\2 (its cache stays between runs)
-EVENTS = pathlib.PurePath("sosgsgmp-autopilot") / "events.jsonl"
+EVENTS = pathlib.PurePath("sosgsgmp") / "autopilot" / "events.jsonl"
+CAMPAIGNS = ("sosgsgmp/campaigns", "sosgsgmp-campaigns")  # the records; sosgsgmp-campaigns: older versions (SOS-155)
 STEAM_APP_ID = "1162750"  # Songs of Syx; Steam reads it from SteamAppId when the game is not started by Steam
 
 
@@ -65,7 +66,8 @@ def data_folder(appdata, size):
     (data / "settings").mkdir(parents=True)
     (data / "saves" / "saves").mkdir(parents=True)
     shutil.copytree(REAL / "saves" / "profile", data / "saves" / "profile")
-    # each instance makes its own player key: two PCs with the same key can't be in one lobby
+    # each instance makes its own player key: two PCs with the same key can't be in one lobby (the profile holds only
+    # an older version's lobby settings; the new sosgsgmp\lobby.properties isn't copied, SOS-155)
     (data / "saves" / "profile" / "SOSGSGMP-lobby.properties").unlink(missing_ok=True)
     if (REAL / "cache").is_dir():
         shutil.copytree(REAL / "cache", data / "cache")
@@ -263,7 +265,7 @@ def main():
         local = INST / "1" / "songsofsyx"
         local3 = INST / "3" / "songsofsyx"
         rdir = "%s\\inst\\%d" % (REMOTE_ROOT, REMOTE_K)
-        if not (local / "sosgsgmp-campaigns").is_dir():
+        if not any((local / c).is_dir() for c in CAMPAIGNS):
             fail("no campaign records in %s: run with --save first" % local)
         (local / EVENTS).unlink(missing_ok=True)
         (local3 / EVENTS).unlink(missing_ok=True)
@@ -527,8 +529,8 @@ def resume_without_verdict(evs, done, who_all, joiner_missing):
 
 
 def newest_record(data):
-    folder = data / "sosgsgmp-campaigns"
-    records = sorted((p for p in folder.rglob("*") if p.is_file()), key=lambda p: p.stat().st_mtime) if folder.is_dir() else []
+    records = sorted((p for c in CAMPAIGNS if (data / c).is_dir() for p in (data / c).rglob("*") if p.is_file()),
+                     key=lambda p: p.stat().st_mtime)
     return records[-1] if records else None
 
 

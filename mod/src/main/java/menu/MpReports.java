@@ -11,7 +11,8 @@ import java.nio.file.StandardOpenOption;
 import java.util.HashSet;
 import java.util.Set;
 
-import init.paths.PATHS;
+import sosgsgmp.campaign.DataLayout;
+import sosgsgmp.game.DataFolders;
 import sosgsgmp.lobby.LobbyPrefs;
 import sosgsgmp.net.Message;
 import sosgsgmp.report.ReportOutbox;
@@ -20,7 +21,7 @@ import sosgsgmp.session.SetupSession;
 /**
  * SOSGSGMP: reports (SOS-133). A joining PC sends the host, in the background, its playtest log and Steam log as they
  * grow, the game's crash files of the last week it hasn't sent before, and each campaign save with its record. The
- * host keeps them in {@code %APPDATA%/songsofsyx/sosgsgmp-reports}. {@code reports=false} in a PC's lobby settings
+ * host keeps them in {@code %APPDATA%/songsofsyx/sosgsgmp/reports} (SOS-155). {@code reports=false} in a PC's lobby settings
  * stops its sending.
  */
 final class MpReports {
@@ -31,6 +32,7 @@ final class MpReports {
 	private final SetupSession setup;
 	private final MpLog log;
 	private final Path data = Paths.get(System.getenv("APPDATA"), "songsofsyx");
+	private final DataLayout layout = DataFolders.layout();
 	private boolean started;
 	/** A joining PC's files on their way; null on the host, or while reports are off here. */
 	private ReportOutbox outbox;
@@ -55,7 +57,7 @@ final class MpReports {
 
 	private void start() {
 		started = true;
-		Path reports = data.resolve("sosgsgmp-reports");
+		Path reports = layout.reports();
 		if (setup.isHost()) {
 			setup.reportsTo(reports);
 			log.line("reports: joining PCs' logs and saves go to " + reports);
@@ -68,7 +70,7 @@ final class MpReports {
 		outbox = new ReportOutbox();
 		outbox.follow(log.file());
 		if (setup.network().startsWith("Steam")) {
-			Path steam = newest(data.resolve("sosgsgmp-logs"), "*-steam.log");
+			Path steam = newest(layout.logs(), "*-steam.log");
 			if (steam != null)
 				outbox.follow(steam);
 		}
@@ -107,9 +109,9 @@ final class MpReports {
 	}
 
 	/** Whether this PC's lobby settings let it send reports; on when they can't be read. */
-	private static boolean on() {
+	private boolean on() {
 		try {
-			return LobbyPrefs.load(PATHS.local().PROFILE.get().resolve("SOSGSGMP-lobby.properties")).reports;
+			return LobbyPrefs.load(layout.lobbyPrefsToRead()).reports;
 		} catch (IOException e) {
 			return true;
 		}

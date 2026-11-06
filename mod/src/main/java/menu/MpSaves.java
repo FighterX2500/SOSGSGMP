@@ -1,7 +1,5 @@
 package menu;
 
-import java.nio.file.Paths;
-
 import game.GAME;
 import init.settings.S;
 import snake2d.CORE;
@@ -10,6 +8,7 @@ import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.campaign.CampaignStore;
 import sosgsgmp.campaign.SaveOrder;
+import sosgsgmp.game.DataFolders;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbySettings;
@@ -64,9 +63,9 @@ final class MpSaves {
 		this.reports = reports;
 	}
 
-	/** This PC's campaign records, in its data folder. */
+	/** This PC's campaign records, in its data folder (an older version's read too, SOS-155). */
 	static CampaignStore store() {
-		return new CampaignStore(Paths.get(System.getenv("APPDATA"), "songsofsyx", "sosgsgmp-campaigns"));
+		return DataFolders.layout().campaignStore();
 	}
 
 	void frame() {

@@ -8,7 +8,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
-import init.paths.PATHS;
 import init.sprite.UI.UI;
 import menu.GUI.COLORS;
 import snake2d.SPRITE_RENDERER;
@@ -18,6 +17,7 @@ import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
 import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.CampaignRecord;
+import sosgsgmp.game.DataFolders;
 import sosgsgmp.game.SteamworksPort;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.net.SteamNode;
@@ -133,7 +133,7 @@ final class MpScreenResume extends GUI.Shadower implements SC {
 			if (records.size() == ROWS)
 				break;
 			records.add(r);
-			present.add(Files.exists(PATHS.local().save().get(r.file())));
+			present.add(Files.exists(DataFolders.layout().save(r.file())));
 		}
 		for (int i = 0; i < ROWS; i++) {
 			rows[i].clear();

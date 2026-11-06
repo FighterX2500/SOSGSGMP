@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.49 · 2026-11-06
+Version 0.50 · 2026-11-06
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -232,7 +232,9 @@ Any player can view any other player's city, enemies included. This is intended.
 
 **Saving by hand.** In a multiplayer game the escape menu has Save Campaign, which saves the campaign the same way. Only the host can use it; the other players see it greyed out, with the reason. The game's own Quick-save, Save and Load, and the Quick Load key, are gone in a multiplayer game, since their saves can't be resumed. Quit to menu and Exit save the campaign first, on every PC, and then end the session for every player; a joining player's quit asks the host's PC for the save. Such a save closes any open view first. During a battle no save can start, so a player who quits then leaves without one.
 
-**Reports.** So a problem can be studied on the host's PC, every joining player's PC sends the host, in the background, its playtest log and connection log as they are written, its game's crash files from the last week it hasn't sent before, and each of its campaign saves (owner, 2026-11-04; SOS-133). It is on for every player, and the chat says so when the game starts; a player can turn it off on their own PC (`reports=false` in their lobby settings). Chat text and player keys are never sent. The sending is paced so the game's own traffic comes first. The host keeps the files under `sosgsgmp-reports`, a folder per campaign and per player.
+**Reports.** So a problem can be studied on the host's PC, every joining player's PC sends the host, in the background, its playtest log and connection log as they are written, its game's crash files from the last week it hasn't sent before, and each of its campaign saves (owner, 2026-11-04; SOS-133). It is on for every player, and the chat says so when the game starts; a player can turn it off on their own PC (`reports=false` in their lobby settings). Chat text and player keys are never sent. The sending is paced so the game's own traffic comes first. The host keeps the files under `sosgsgmp\reports`, a folder per campaign and per player.
+
+**Where the files are.** Everything the mod keeps on a PC is in one folder, `%APPDATA%\songsofsyx\sosgsgmp`: the multiplayer saves (the host's and every player's), the campaign records, the logs, the reports and the lobby settings (owner, 2026-11-06; SOS-155). Multiplayer saves are not in the game's own Load list, where they can't be resumed anyway, and Steam Cloud doesn't sync them. A PC that played an older version gets its files moved there once, at the main menu; a file that can't move yet is still found where it was, so every campaign resumes. Every player needs the same version, so an older one never looks for the moved files.
 
 **Save before battles.** Before every real-time battle between players or siege assault starts, the campaign is saved the same way. If the connection is lost during the battle, the players can resume from that save. This save can't wait for a view: the world is held at the battle's start, and a view needs the world to run to end. A player viewing a city then has no save from that moment.
 
@@ -526,6 +528,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-04 | The 2026-11-04 playtest's list: the depots list only players whose depot takes the goods, with the price in its parts; trade and colleague agreements reach a player's NPC vassals; no trespassing for colleagues; another player's battle against NPCs is told in the chat, and notices about a player open their window (sections 6, 7, 12). | SOS-138 to SOS-141, SOS-144 |
 | 2026-11-06 | **Several watchers:** any number of players can watch one NPC battle or view one city; each join reloads the owner's game and every viewer's for a few seconds (spec 0.49; sections 8, 10, 15). | SOS-151 |
 | 2026-11-06 | **Cursors in a battle:** the other players' cursors show on the battle map too (spec 0.49; section 12). | SOS-152 |
+| 2026-11-06 | **One data folder:** the mod's saves, records, logs, reports and lobby settings live under `songsofsyx\sosgsgmp`; an older version's move there once (spec 0.50; section 11). | SOS-155 |
 | 2026-11-06 | **Joining an assault:** a player can join a running assault's view as any city's; an attacker who joins again commands their soldiers again (spec 0.49; section 10). | SOS-151 |
 
 ### Where each v1 feature stands (2026-11-01)

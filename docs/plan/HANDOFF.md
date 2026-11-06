@@ -73,7 +73,7 @@ Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-
 ## 5. Playtesting with logs
 
 Every PC writes its own log of each multiplayer session, with no setup:
-- **Where:** `%APPDATA%\songsofsyx\sosgsgmp-logs\<date>-<time>-<host|join>-<name>.log`.
+- **Where:** `%APPDATA%\songsofsyx\sosgsgmp\logs\<date>-<time>-<host|join>-<name>.log` (`sosgsgmp-logs` before SOS-155).
 - **What's in it:** the players and the network; every 600 steps a status line with the step, the world hash, speed, fps, treasury and each peer's step; proposals, treaties, tariffs and realms between players; every goods and money transfer of every player (`transfer step ...` lines; the host's lobby switch picks every transfer or only those between players; SOS-81); desyncs with the engine's report; resyncs, battles, saves and loads; and any exception with its stack trace.
 - **Comparing PCs:** the hashes in the status lines are at the same steps on every PC, so two logs side by side show where a desync began.
 

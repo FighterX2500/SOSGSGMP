@@ -19,7 +19,8 @@ Fill these in and keep them current. Agents must not guess them.
 *   **Tests:** `gradlew.bat test`.
 *   **Install for manual testing:** `gradlew.bat installMod` → copies the mod folder to `%APPDATA%\songsofsyx\mods\SOSGSGMP\`; enable it in the launcher after SOSDET. `uninstallMod` removes it.
 *   **Game log / crash output:** `%APPDATA%\songsofsyx\logs\` (error files `error<date>.txt`); also `<game>/errorLogs/`.
-*   **Playtest log (SOS-63):** `%APPDATA%\songsofsyx\sosgsgmp-logs\`, one file per PC per session; `python tools\collect.py --remote user@address` zips both PCs' logs and crash files.
+*   **Mod data (SOS-155):** `%APPDATA%\songsofsyx\sosgsgmp\`: `saves\` (every multiplayer save), `campaigns\`, `logs\`, `reports\`, `autopilot\`, `engine\` (the engine's battle and view saves), `lobby.properties`, `layout.txt`. Older versions' files (`sosgsgmp-*` folders, `saves\saves\MP *.save`, `saves\profile\SOSGSGMP-lobby.properties`) move there at the main menu once; anything that can't move is still read where it is.
+*   **Playtest log (SOS-63):** `%APPDATA%\songsofsyx\sosgsgmp\logs\`, one file per PC per session; `python tools\collect.py --remote user@address` zips both PCs' logs and crash files.
 
 ## Design Review: KISS, DRY, SRP, Cohesion, and Coupling
 Apply these criteria to the touched behavior before declaring a change complete. Explain concrete tradeoffs when a criterion is only partially met; passing tests alone does not establish design quality.

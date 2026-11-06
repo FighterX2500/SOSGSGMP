@@ -20,7 +20,7 @@ The simulation runs in lockstep on every PC through the deterministic engine [SO
 - **Chat and spectators:** one chat for every player, with wars, sieges and battles announced in it. An eliminated player stays in the session and watches.
 - **Routes:** in a new world, players who start 6 to 15 tiles apart get a direct road or sea crossing.
 - **Global events:** eclipses, comets, storms and similar events reach every city at the same step, and world news applies once.
-- **Session log:** every PC logs its session in `%APPDATA%\songsofsyx\sosgsgmp-logs`, including every transfer of goods and money, for bug reports.
+- **Session log:** every PC logs its session in `%APPDATA%\songsofsyx\sosgsgmp\logs`, including every transfer of goods and money, for bug reports.
 
 The rules are in [docs/spec.md](docs/spec.md).
 

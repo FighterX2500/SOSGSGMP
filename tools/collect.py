@@ -3,7 +3,8 @@
     python tools\\collect.py                          this PC only
     python tools\\collect.py --remote user@address    and the second PC (ssh with the key below)
 
-From each PC it takes the mod's playtest logs (%APPDATA%\\songsofsyx\\sosgsgmp-logs) and the game's logs and crash
+From each PC it takes the mod's playtest logs (%APPDATA%\\songsofsyx\\sosgsgmp\\logs, and sosgsgmp-logs where older
+versions kept them, SOS-155) and the game's logs and crash
 files (%APPDATA%\\songsofsyx\\logs), changed in the last --hours, and on this PC the game folder's errorLogs too. The
 second PC's data folder is its %APPDATA% unless --remote-appdata names another (a twopc.py run's is
 C:\\SOSTest\\inst\\2). Test tooling only: nothing here is part of the mod.
@@ -21,7 +22,7 @@ import zipfile
 
 KEY = os.environ.get("SOSGSGMP_REMOTE_KEY", str(pathlib.Path.home() / ".ssh" / "sosdet_laptop"))
 SSH = ["ssh", "-i", KEY, "-o", "BatchMode=yes", "-o", "ConnectTimeout=20", "-o", "LogLevel=ERROR"]
-FOLDERS = ("sosgsgmp-logs", "logs")  # under <APPDATA>\songsofsyx
+FOLDERS = ("sosgsgmp/logs", "sosgsgmp-logs", "logs")  # under <APPDATA>\songsofsyx; sosgsgmp-logs: older versions (SOS-155)
 
 
 def local_files(appdata, game, since):
