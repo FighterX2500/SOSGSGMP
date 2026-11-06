@@ -5,6 +5,7 @@ import java.util.List;
 
 import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.SaveOrder;
+import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.net.Message;
 import sosgsgmp.setup.FactionPick;
@@ -226,6 +227,9 @@ public interface SetupSession {
 
     /** What carries the session's connections, for the playtest log. */
     String network();
+
+    /** This PC's builds and game files, which every PC of the session shares (SOS-128, SOS-159), for the playtest log. */
+    Builds builds();
 
     /**
      * Something on the network worth a line in the playtest log that nothing else shows, such as why a PC's connection

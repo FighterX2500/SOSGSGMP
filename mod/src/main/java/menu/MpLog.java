@@ -6,6 +6,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Clock;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 import game.GAME;
@@ -18,6 +20,7 @@ import sosdet.OwnBattle;
 import sosdet.Stats;
 import sosgsgmp.game.DataFolders;
 import sosgsgmp.game.EnginePlay;
+import sosgsgmp.lobby.GameFiles;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.log.PlayLog;
 import sosgsgmp.net.Protocol;
@@ -94,7 +97,20 @@ final class MpLog {
 				+ jar(OwnBattle.class) + ", protocol " + Protocol.VERSION + "\ngame " + VERSION.VERSION_STRING + ", Java "
 				+ System.getProperty("java.version") + ", " + System.getProperty("os.name") + ", memory "
 				+ Runtime.getRuntime().maxMemory() / (1 << 20) + " MB");
+		l.files(setup.builds().files());
 		return l;
+	}
+
+	/** The game files every PC shares (SOS-159): their code, the mods in load order, and the unsupported ones. */
+	private void files(GameFiles f) {
+		List<String> mods = new ArrayList<>();
+		for (GameFiles.Mod m : f.mods())
+			mods.add(m.name() + " " + m.version());
+		StringBuilder b = new StringBuilder("game files ").append(f.code()).append(", mods: ").append(String.join(", ", mods));
+		List<String> unsupported = f.unsupported();
+		if (!unsupported.isEmpty())
+			b.append("\nunsupported mods: ").append(String.join(", ", unsupported));
+		line(b.toString());
 	}
 
 	private static String localName(SetupSession setup) {

@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.51 · 2026-11-06
+Version 0.52 · 2026-11-07
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -34,7 +34,7 @@ Version 1 includes six features:
 - Anti-cheat
 - A persistent world that runs without players
 - GOG and itch.io versions
-- Compatibility with other mods
+- Compatibility with other mods. They are allowed when every player has the same ones (section 5), but untested.
 - Updating the mod for new game versions
 - Linux and macOS
 - New players joining a campaign in progress
@@ -52,6 +52,7 @@ Version 1 includes six features:
 | Hosting | Listen server: the host plays and hosts |
 | Networking | Two modes: direct IP (an open port, or a VPN such as Radmin VPN), or Steam P2P under Songs of Syx's own App ID (1162750) |
 | Game version | The version in the working folder, pinned. The mod is not updated for later game versions. |
+| Game files and mods | Every player needs the same game files and the same mods, in the same load order. The lobby checks this (section 5). |
 
 ## 4. Session and time
 
@@ -78,6 +79,7 @@ Every player starts with the same starting resources and difficulty, set by the 
 3. The lobby waits for players to join and shows a list of everyone in it.
 4. The host clicks Start Lobby.
 5. Leaving the lobby asks Confirm or Cancel first.
+6. **Same game files.** A PC whose game files or mods differ from the host's can't join the lobby, a resumed campaign's too. The refusal names what differs: a mod the joining player has and the host doesn't, or the other way round, another version of a mod, a mod whose files differ, the game's own files, or the mods' order. What counts is what changes the game's state: the game's jar, its data under `assets/init` and its script jars, and for each enabled mod in load order its name, its version, its `assets/init` data and its script jars. Languages, sprites and sounds don't count, so players may play in different languages. The lobby shows a four-character code of these files, the same for every player in it. Mods other than SOSDET and SOS GSG MP are allowed when every player has them, and every player's lobby warns: "Unsupported mods: X, Y. They may cause crashes, desyncs and other problems in multiplayer." If two PCs' game data still differ in play, the session ends on every PC with what differs, and no crash (owner, 2026-11-06; SOS-159).
 
 **Map**
 
@@ -337,6 +339,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - In a new world, the trip between two players 6–15 tiles apart with no mountains between them takes less than twice as long as a straight road would. [AT]
 - A global event that fires on one city starts on every player's city at the same step. [AT]
 - The lobby list shows every joined player within 2 seconds of them joining. [PT]
+- A joining PC with an extra mod, a missing mod, another version of a mod or a changed `assets/init` file is refused, and the refusal names it; two PCs with the same game files and mods join, whatever their languages. [AT]
 - A location that breaks the start location rules can't be confirmed, and the reason is shown. [AT]
 - The game stays paused until the last player picks their city start spot, then unpauses automatically. [PT]
 - Every player starts with the same resources and difficulty. [AT]
@@ -537,6 +540,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-06 | **Cursors in a battle:** the other players' cursors show on the battle map too (spec 0.49; section 12). | SOS-152 |
 | 2026-11-06 | **One data folder:** the mod's saves, records, logs, reports and lobby settings live under `songsofsyx\sosgsgmp`; an older version's move there once (spec 0.50; section 11). | SOS-155 |
 | 2026-11-06 | **Loading window:** every PC shows why the game freezes, and for how long, while the world generates or initializes, a battle starts or ends and a city view starts or ends; the playtest log times every freeze and hold (spec 0.51; sections 12, 15). | SOS-158 |
+| 2026-11-07 | **Same game files:** a PC whose game files or mods differ from the host's can't join, and the lobby names what differs; other mods are allowed when every player has them, with a warning; game data that still differ in play end the session with a message instead of a crash (spec 0.52; sections 2, 3, 5, 15). | SOS-159 |
 | 2026-11-06 | **Joining an assault:** a player can join a running assault's view as any city's; an attacker who joins again commands their soldiers again (spec 0.49; section 10). | SOS-151 |
 
 ### Where each v1 feature stands (2026-11-01)

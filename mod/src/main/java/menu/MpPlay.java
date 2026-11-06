@@ -55,6 +55,8 @@ final class MpPlay implements ACTION {
 	private final MpReports reports;
 	/** The loading window during the freezes every PC waits through (SOS-158). */
 	private final MpLoading loading;
+	/** Another PC's game data isn't this one's: the session ends with what differs (SOS-159). */
+	private final MpMismatch mismatch;
 
 	MpPlay(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpLog log, MpSaves saves, MpExit exit, MpReports reports) {
 		this.setup = setup;
@@ -69,6 +71,7 @@ final class MpPlay implements ACTION {
 		this.pause = new MpPause(setup, engine);
 		this.reports = reports;
 		this.loading = new MpLoading(setup, engine);
+		this.mismatch = new MpMismatch(setup, engine, game, log);
 	}
 
 	@Override
@@ -106,8 +109,10 @@ final class MpPlay implements ACTION {
 			}
 		}
 		if (setup.playing()) {
-			gone.frame();
-			if (!gone.ended()) { // Return to the last save ended the engine
+			mismatch.frame();
+			if (!mismatch.ended()) // the session ended here: the connections it closed are no players gone
+				gone.frame();
+			if (!gone.ended() && !mismatch.ended()) { // Return to the last save, or other game data, ended the engine
 				desync.frame();
 				views.frame();
 				saves.frame();
@@ -117,6 +122,8 @@ final class MpPlay implements ACTION {
 			}
 		}
 		loading.frame();
+		if (autopilot != null && mismatch.ended())
+			autopilot.mismatch(mismatch.text());
 		if (autopilot != null)
 			autopilot.game(setup, engine, desync, saves, gone, exit, views, loading);
 	}

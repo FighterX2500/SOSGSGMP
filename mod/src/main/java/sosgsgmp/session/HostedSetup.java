@@ -8,6 +8,7 @@ import java.util.Map;
 
 import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.SaveOrder;
+import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.Refusal;
@@ -96,16 +97,18 @@ public final class HostedSetup implements SetupSession {
     private boolean closed;
     private String closedReason;
     private int changes;
+    private final Builds builds;
 
     /**
      * Takes over a started lobby's connection, its joined peers (peer to player id), its players (the host first), their
-     * keys, its settings and its chat. A resume starts at the world-loaded step: every player has the campaign's slot, and every
+     * keys, its settings, its chat and this PC's builds. A resume starts at the world-loaded step: every player has the campaign's slot, and every
      * PC loads its own save (SOS-64).
      */
     HostedSetup(Node node, Map<Integer, Integer> joined, List<LobbyPlayer> players, Map<Integer, Long> keys, MapWorld world,
-            FactionWorld factionWorld, LobbySettings settings, Chat chat) {
+            FactionWorld factionWorld, LobbySettings settings, Chat chat, Builds builds) {
         this.node = node;
         this.chat = chat;
+        this.builds = builds;
         this.world = world;
         this.factionWorld = factionWorld;
         this.difficulty = settings.difficulty();
@@ -881,6 +884,11 @@ public final class HostedSetup implements SetupSession {
     @Override
     public String network() {
         return node.describe();
+    }
+
+    @Override
+    public Builds builds() {
+        return builds;
     }
 
     @Override

@@ -193,6 +193,15 @@ public final class MpAutopilot {
 		return v != null && v.contains("guipreview=");
 	}
 
+	/**
+	 * Whether the variable asks every PC to send the same empty game files (samefiles=1), so a PC with other game data
+	 * gets past the lobby and the engine's report check is reached (SOS-159). Read once, by the builds.
+	 */
+	static boolean sameFiles() {
+		String v = System.getenv(VARIABLE);
+		return v != null && v.contains("samefiles=1");
+	}
+
 	/** Over Steam instead of direct IP (net=steam). */
 	private final boolean steam;
 	/** A joining PC's Steam, looking for the host's lobby. */
@@ -605,6 +614,15 @@ public final class MpAutopilot {
 			if (setup.chat().line(i).text().endsWith(" is no longer ready."))
 				return true;
 		return false;
+	}
+
+	/** Another PC's game data ended the session here (SOS-159): the window's text, then quit. */
+	void mismatch(String text) {
+		if (!first("mismatch"))
+			return;
+		first("closed"); // the session closed for this, not for a reason of its own
+		event("mismatch", "\"text\":\"" + clean(text) + "\"");
+		CORE.annihilate();
 	}
 
 	/**

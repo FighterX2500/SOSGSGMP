@@ -18,6 +18,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import sosgsgmp.lobby.Builds;
+import sosgsgmp.lobby.GameFiles;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
@@ -28,7 +29,7 @@ import sosgsgmp.net.Protocol;
 /** A real host and real joining PCs over localhost, driven the way the lobby screen drives them. */
 class LoopbackLobbyTest {
 
-    private static final Builds BUILDS = new Builds("0.71.44", 1, 2);
+    private static final Builds BUILDS = new Builds("0.71.44", 1, 2, new GameFiles(3, List.of()));
 
     private final List<LobbySession> sessions = new ArrayList<>();
 
@@ -134,17 +135,32 @@ class LoopbackLobbyTest {
     @Test
     void aPcOnAnotherBuildIsRefusedAndToldWhichOne() throws Exception {
         HostedLobby h = host(4);
-        refused(h, new Builds("0.71.45", 1, 2), Refusal.WRONG_GAME);
-        refused(h, new Builds("0.71.44", 9, 2), Refusal.WRONG_ENGINE);
-        refused(h, new Builds("0.71.44", 1, 9), Refusal.WRONG_MOD);
+        refused(h, new Builds("0.71.45", 1, 2, new GameFiles(3, List.of())), Refusal.WRONG_GAME);
+        refused(h, new Builds("0.71.44", 9, 2, new GameFiles(3, List.of())), Refusal.WRONG_ENGINE);
+        refused(h, new Builds("0.71.44", 1, 9, new GameFiles(3, List.of())), Refusal.WRONG_MOD);
+        assertEquals(List.of("Ann"), names(h));
+    }
+
+    /** SOS-159: a PC with another mod is refused, and its player reads which mod differs. */
+    @Test
+    void aPcWithOtherGameFilesIsRefusedAndToldWhatDiffers() throws Exception {
+        HostedLobby h = host(4);
+        Builds extra = new Builds("0.71.44", 1, 2, new GameFiles(3, List.of(new GameFiles.Mod("Region rework", "0.17", 5))));
+        refused(h, extra, Refusal.WRONG_FILES.text + "\nMod 'Region rework' 0.17: you have it enabled, the host doesn't.");
+        refused(h, new Builds("0.71.44", 1, 2, new GameFiles(4, List.of())), Refusal.WRONG_FILES.text + "\n"
+                + new GameFiles(3, List.of()).differences(new GameFiles(4, List.of())).get(0));
         assertEquals(List.of("Ann"), names(h));
     }
 
     private void refused(HostedLobby h, Builds builds, Refusal refusal) throws Exception {
+        refused(h, builds, refusal.text);
+    }
+
+    private void refused(HostedLobby h, Builds builds, String reason) throws Exception {
         JoinedLobby j = new JoinedLobby("127.0.0.1", h.port(), "Bob", "Bob".hashCode(), builds);
         sessions.add(j);
         until("Bob is refused", () -> j.state() == LobbyState.CLOSED);
-        assertEquals(refusal.text, j.closedReason());
+        assertEquals(reason, j.closedReason());
     }
 
     @Test

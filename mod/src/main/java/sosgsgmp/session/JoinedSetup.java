@@ -5,6 +5,7 @@ import java.util.List;
 
 import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.SaveOrder;
+import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.net.Message;
@@ -60,15 +61,17 @@ public final class JoinedSetup implements SetupSession {
     private boolean closed;
     private String closedReason;
     private int changes;
+    private final Builds builds;
 
     /**
-     * Takes over a started lobby's connection to the host, this PC's player id, the players and the chat. A resume ({@code resume}
+     * Takes over a started lobby's connection to the host, this PC's player id, the players, the chat and this PC's builds. A resume ({@code resume}
      * not null) starts at the world-loaded step: the host's slot map follows, and every PC loads its own save (SOS-64).
      */
     JoinedSetup(Node node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld,
-            LobbySettings.Resume resume, boolean fullTransferLog, Chat chat) {
+            LobbySettings.Resume resume, boolean fullTransferLog, Chat chat, Builds builds) {
         this.node = node;
         this.chat = chat;
+        this.builds = builds;
         this.fullTransferLog = fullTransferLog;
         this.world = world;
         this.factionWorld = factionWorld;
@@ -501,6 +504,11 @@ public final class JoinedSetup implements SetupSession {
     @Override
     public String network() {
         return node.describe();
+    }
+
+    @Override
+    public Builds builds() {
+        return builds;
     }
 
     /** The host's player id: the roster's host. */

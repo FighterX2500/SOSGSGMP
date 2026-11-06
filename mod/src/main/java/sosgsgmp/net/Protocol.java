@@ -16,6 +16,7 @@ import sosgsgmp.lobby.Lobby;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.Builds;
+import sosgsgmp.lobby.GameFiles;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep;
@@ -31,7 +32,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 24;
+    public static final int VERSION = 25;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -54,6 +55,10 @@ public final class Protocol {
     public static final int MAX_VIEW_CLOSE = 5;
     /** Largest piece of an engine stream in one message, in bytes: well under {@link #MAX_MESSAGE}. */
     public static final int MAX_STREAM_PIECE = 48 * 1024;
+    /** The most mods a hello lists, and the longest name or version of one, in characters (SOS-159). */
+    private static final int MAX_MODS = 255, MAX_MOD_TEXT = 256;
+    /** The most lines of a refusal's detail, and the longest one, in characters (SOS-159). */
+    private static final int MAX_REFUSAL_LINES = 16, MAX_REFUSAL_LINE = 1024;
     /** Longest reason a location was cleared, in characters. */
     private static final int MAX_REASON = 256;
     /** Longest outcome of a campaign save, in characters: a line per PC that didn't save. */
@@ -73,6 +78,7 @@ public final class Protocol {
                     out.writeUTF(h.builds().game());
                     out.writeLong(h.builds().engine());
                     out.writeLong(h.builds().mod());
+                    writeFiles(out, h.builds().files());
                 }
                 case Message.Welcome w -> {
                     out.writeByte(WELCOME);
@@ -99,6 +105,11 @@ public final class Protocol {
                 case Message.Refused f -> {
                     out.writeByte(REFUSED);
                     out.writeByte(f.reason().ordinal());
+                    if (f.detail().size() > MAX_REFUSAL_LINES)
+                        throw new IllegalArgumentException("SOSGSGMP: a refusal of " + f.detail().size() + " lines");
+                    out.writeByte(f.detail().size());
+                    for (String line : f.detail())
+                        out.writeUTF(line);
                 }
                 case Message.Start s -> out.writeByte(START);
                 case Message.Leave l -> out.writeByte(LEAVE);
@@ -336,10 +347,10 @@ public final class Protocol {
             return new Message.Unsupported(version);
         int type = in.readUnsignedByte();
         Message m = switch (type) {
-            case HELLO -> new Message.Hello(name(in), in.readLong(), new Builds(in.readUTF(), in.readLong(), in.readLong()));
+            case HELLO -> new Message.Hello(name(in), in.readLong(), new Builds(in.readUTF(), in.readLong(), in.readLong(), files(in)));
             case WELCOME -> new Message.Welcome(in.readInt(), settings(in));
             case ROSTER -> roster(in);
-            case REFUSED -> new Message.Refused(refusal(in.readUnsignedByte()));
+            case REFUSED -> new Message.Refused(refusal(in.readUnsignedByte()), refusalDetail(in));
             case START -> new Message.Start();
             case LEAVE -> new Message.Leave();
             case MAP_BUILD -> new Message.MapBuild(number(in, "build"), size(in));
@@ -425,6 +436,38 @@ public final class Protocol {
         } catch (IllegalArgumentException e) {
             throw new IOException(e.getMessage(), e);
         }
+    }
+
+    /** A PC's game files (SOS-159): the game's hash, then each mod's name, version and hash, in load order. */
+    private static void writeFiles(DataOutputStream out, GameFiles files) throws IOException {
+        if (files.mods().size() > MAX_MODS)
+            throw new IllegalArgumentException("SOSGSGMP: " + files.mods().size() + " mods, over the " + MAX_MODS + " a hello lists");
+        out.writeLong(files.game());
+        out.writeByte(files.mods().size());
+        for (GameFiles.Mod m : files.mods()) {
+            out.writeUTF(m.name());
+            out.writeUTF(m.version());
+            out.writeLong(m.hash());
+        }
+    }
+
+    private static GameFiles files(DataInputStream in) throws IOException {
+        long game = in.readLong();
+        int n = in.readUnsignedByte();
+        List<GameFiles.Mod> mods = new ArrayList<>(n);
+        for (int i = 0; i < n; i++)
+            mods.add(new GameFiles.Mod(text(in, MAX_MOD_TEXT, "mod name"), text(in, MAX_MOD_TEXT, "mod version"), in.readLong()));
+        return new GameFiles(game, mods);
+    }
+
+    private static List<String> refusalDetail(DataInputStream in) throws IOException {
+        int n = in.readUnsignedByte();
+        if (n > MAX_REFUSAL_LINES)
+            throw new IOException("SOSGSGMP: a refusal of " + n + " lines");
+        List<String> lines = new ArrayList<>(n);
+        for (int i = 0; i < n; i++)
+            lines.add(text(in, MAX_REFUSAL_LINE, "refusal line"));
+        return lines;
     }
 
     private static String text(DataInputStream in, int max, String what) throws IOException {

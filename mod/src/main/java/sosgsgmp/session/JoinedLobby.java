@@ -82,7 +82,7 @@ public final class JoinedLobby implements LobbySession {
             }
             case Message.Roster r -> players = r.players();
             case Message.Chat c -> chat.heard(c.playerId(), players, c.text());
-            case Message.Refused f -> close(f.reason().text);
+            case Message.Refused f -> close(f.text());
             case Message.Start s -> state = LobbyState.STARTED;
             case Message.Leave l -> close("The host closed the lobby.");
             case Message.Unsupported u -> close("The host runs another version of the mod (protocol " + u.version() + ").");
@@ -146,7 +146,7 @@ public final class JoinedLobby implements LobbySession {
         if (state != LobbyState.STARTED || handedOver)
             throw new IllegalStateException("SOSGSGMP: only a started lobby hands over, once (state " + state + ", handed over " + handedOver + ")");
         handedOver = true;
-        return new JoinedSetup(node, localId, players, world, factions, settings.resume(), settings.fullTransferLog(), chat);
+        return new JoinedSetup(node, localId, players, world, factions, settings.resume(), settings.fullTransferLog(), chat, builds);
     }
 
     @Override

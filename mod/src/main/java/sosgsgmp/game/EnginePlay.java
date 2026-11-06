@@ -19,6 +19,7 @@ import sosdet.OwnBattle;
 import sosdet.Stats;
 import sosdet.View;
 import sosdet.hash.Desync;
+import sosdet.report.ReportMismatch;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.net.StreamKind;
 import sosgsgmp.session.BattleSaves;
@@ -336,6 +337,11 @@ public final class EnginePlay implements EnginePort {
     /** The world desync every PC holds for (SOS-53), or null. */
     public DesyncHold desyncHold() {
         return Engine.desyncHold();
+    }
+
+    /** The first report from a PC whose game data isn't this one's, or null (SOS-159): the session can't go on. */
+    public ReportMismatch reportMismatch() {
+        return Engine.reportMismatch();
     }
 
     /**
