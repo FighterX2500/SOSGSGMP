@@ -105,6 +105,12 @@ public class DataLayoutTest {
     }
 
     @Test
+    void theGamesCrashFilesAreInItsOwnLogsFolderOutsideTheMods() {
+        assertEquals(root.resolve("logs"), layout.gameLogs());
+        assertFalse(layout.gameLogs().startsWith(layout.home()));
+    }
+
+    @Test
     void withNothingAnywhereLookupsPointToTheNewFolders() {
         assertEquals(layout.saves().resolve("x.save"), layout.save("x.save"));
         assertEquals(layout.lobbyPrefs(), layout.lobbyPrefsToRead());
