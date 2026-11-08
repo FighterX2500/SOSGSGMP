@@ -352,6 +352,13 @@ def prep_war(run):
     """P-WAR: BASE; L cancels its treaties with H and J and declares war on both; H and J each get a second
     template army. L's army stands 6 tiles from its capital; H's and J's first armies next to it, their second ones
     next to L's capital."""
+    war_on_l(run)
+    lx, ly = capital(run, "L")
+    return place_war(run, lx, ly)
+
+
+def war_on_l(run):
+    """H and J each get a second template army; L cancels its treaties with H and J and declares war on both."""
     for w in ("H", "J"):
         template(run, w)
     for t in ("H", "J"):
@@ -363,7 +370,11 @@ def prep_war(run):
         r = run.wait(lambda: (lambda r: r if r.startswith("war") else None)(run.cmd("L", "war")) or run.sleep(3), 300,
                      "L's war on %s" % t)
         say("L:", r)
-    lx, ly = capital(run, "L")
+
+
+def place_war(run, lx, ly):
+    """P-WAR's armies: L's 6 tiles from its capital, H's and J's first armies next to it, their second ones next to L's
+    capital; returns the position's facts."""
     field = place(run, "L", lx + 6, ly)
     m = {"lcap": [lx, ly], "lfield": [field[2], field[3]]}
     for i, w in enumerate(("H", "J")):
@@ -393,7 +404,7 @@ def place_picked(run, w, x, y):
     raise Failed("%s's army %d isn't at %d,%d after the teleport: %s" % (w, index, tx, ty, armies(run, w)))
 
 
-PREPS = {"ALLIES": ("BASE", prep_allies), "WAR": ("BASE", prep_war), "REGIONS": ("WAR", lambda run: prep_regions(run))}
+PREPS = {"ALLIES": ("BASE", prep_allies), "WAR": ("BASE", prep_war), "REGIONS": ("BASE", lambda run: prep_regions(run))}
 
 
 def prep(name):
@@ -918,7 +929,7 @@ def pick_army(run, w, index):
 def pvp_battle(run, attackers, joiners, outcome, answers=True, start_answers=True, stay=()):
     """attackers[0]'s field army attacks L's field army; `joiners` answer Join (or never, answers=False); the battle
     runs on every PC; H's side wins (L's morale held) or L wins (H's side's)."""
-    m = meta("WAR")
+    m = meta("REGIONS" if getattr(run, "position", None) == "REGIONS" else "WAR")  # REGIONS has its own armies
     first = attackers[0]
     lx, ly = [a for a in armies(run, "L")][0][2:4]
     for w, dx in (("H", -2), ("J", 2)):  # both within reach of the battle, so J is asked (prep's places can be 4 tiles off)
@@ -1042,8 +1053,9 @@ def besiege(run, besiegers):
     run.shot("L", "L's capital besieged: the siege notice")
 
 
-def sally(run, with_army, outcome):
-    """L sallies out of its capital (with a garrison raised first when with_army); the besiegers win or lose."""
+def sally(run, with_army, outcome, joiners=()):
+    """L sallies out of its capital (with a garrison raised first when with_army); the besiegers win or lose. The
+    besiegers other than H (`joiners`) are asked Join and answer it (chain10 B6: J was asked, never answered, stayed out)."""
     if with_army:
         # a garrison: no army can reach the capital's side once it's besieged (chain9 B6: every tile within 2 taken)
         run.check("join" in run.cmd("L", "recruit 120"), "L's city raises a garrison of 120")
@@ -1051,6 +1063,9 @@ def sally(run, with_army, outcome):
     r = run.wait(lambda: (lambda r: r if not r.startswith("refused") else None)(run.cmd("L", "sally")) or run.sleep(3), 120,
                  "L's sally accepted")
     run.check(r.startswith("sallying"), "L sallies out: %s" % r)
+    for w in joiners:
+        wait_state(run, w, "ally asked true", 120, "%s's Join prompt" % w)
+        run.check("Join" in run.cmd(w, "join"), "%s answered Join" % w)
     try:
         wait_state(run, "H", "battle deploying", 240, "the sally's battle at deployment")
     except Failed:
@@ -1119,7 +1134,7 @@ def b_siege(name, title, besiegers, sally_outcome=None, with_army=False, terms=N
             l_before = status(run, "L")
             besiege(run, besiegers)
             if sally_outcome:
-                sally(run, with_army, sally_outcome)
+                sally(run, with_army, sally_outcome, [w for w in besiegers if w != "H"])
                 if sally_outcome == "win":
                     for w in besiegers:
                         run.check(got_spoils(run, w), "%s, a winner of the sally, received spoils or captives" % w)
@@ -1187,8 +1202,11 @@ SCENARIOS.update({
 
 
 def prep_regions(run):
-    """P-REGIONS: P-WAR, and every player gets the NPC region nearest its capital and the nearest free NPC faction as
-    a vassal; then H's and J's first armies stand next to L's new region town."""
+    """P-REGIONS: P-WAR's war, and every player gets the NPC region nearest its capital and the nearest free NPC faction
+    as a vassal; then H's and J's first armies stand next to L's new region town. Built from BASE: P-WAR's armies stand
+    next to L's, so its battle started at once and held the gifts (chain10: L's region not given, J's vassal given to L
+    too)."""
+    war_on_l(run)
     facts = {}
     for w in WHO:
         r = run.cmd(w, "giveregion %d" % SLOT[w])
@@ -1202,7 +1220,9 @@ def prep_regions(run):
         if not m:
             raise Failed("%s's vassal: %s" % (w, r))
         facts["vassal" + w] = int(m.group(1))
-        run.sleep(3)
+        run.sleep(5)  # applied before the next player's nearest free NPC is chosen
+    if len({facts["vassal" + w] for w in WHO}) < len(WHO):
+        raise Failed("one NPC faction was given to two players: %s" % {w: facts["vassal" + w] for w in WHO})
     run.sleep(5)
     say("relations:", run.cmd("H", "diplo"))
     town = run.cmd("L", "regionat %d" % facts["regionL"])
@@ -1211,10 +1231,12 @@ def prep_regions(run):
         raise Failed("L's region town: %s" % town)
     tx, ty = int(m.group(1)), int(m.group(2))
     facts["townL"] = [tx, ty]
-    wm = meta("WAR")
     for i, w in enumerate(("H", "J")):
-        pick_army(run, w, wm[w][0])
+        mine = armies(run, w)
+        by = sorted(mine, key=lambda a: -a[1])[:2]  # the two template armies, as P-WAR's
+        run.cmd(w, "pick %d" % mine.index(by[0]))
         place_picked(run, w, tx + 2, ty + 2 * i - 1)
+        facts[w] = [by[0][0], by[1][0]]
     return facts
 
 
@@ -1344,6 +1366,11 @@ def a_town(name, title):
             say("the town:", town)
             for w, (dx, dy) in zip(WHO, ((2, 0), (-2, 0), (0, 2))):
                 place(run, w, tx + dx, ty + dy)
+            # chain10: the three largest armies (about 700 men) lost the Storm to a 947-man garrison; vanilla counts
+            # every army within 4 tiles on the attackers' side, so each player adds a template army beside its first
+            for w, (dx, dy) in zip(WHO, ((3, 0), (-3, 0), (0, 3))):
+                template(run, w)
+                place_picked(run, w, tx + dx, ty + dy)
             # H last, its Storm armed just before: chain9 stormed at H's own first prompt, before J and L besieged
             for w in ("J", "L", "H"):
                 if w == "H":
@@ -1394,7 +1421,9 @@ def b5():
         cands = [a for a in npc_armies(run) if a[1] >= 1000 and a[0] not in taken and power(run, a[4]) > mine * 1.3]
         if not cands:
             raise Failed("no NPC army stronger than J's (vanilla lets a weaker one withdraw at once)")
-        f, men, x, y, idx = min(cands, key=lambda a: (a[2] - jx) ** 2 + (a[3] - jy) ** 2)
+        # the strongest: armypower isn't vanilla's measure, and a weaker army withdraws with no prompt (chain10: J's 200
+        # men beat 1023 five times over); it is set beside J anyway
+        f, men, x, y, idx = max(cands, key=lambda a: a[1])
         say("J's NPC army: faction %d, %d men at %d,%d" % (f, men, x, y))
         run.cmd("J", "npcwar %d" % f)
         run.sleep(5)
@@ -1408,7 +1437,10 @@ def b5():
         if resolved(run):
             raise Failed("the battle was resolved at once, with no prompt: %s" % resolved(run))
         try:
-            wait_state(run, "J", "battle running", 240, "J's NPC battle started")
+            run.wait(lambda: "battle running" in state(run, "J") or run.events("J", "battle", what="victory accept")
+                     or run.sleep(1), 240, "J's NPC battle started")
+            if run.events("J", "battle", what="victory accept"):
+                raise Failed("the NPC army withdrew from J with no battle: vanilla found it the weaker")
         except Failed:
             # chain8: J never met the army; where both stood tells a chase from a block
             say("J's armies", armies(run, "J"), "the NPC's", [a for a in npc_armies(run) if a[0] == f])
