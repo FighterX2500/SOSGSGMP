@@ -1,7 +1,6 @@
 package sosgsgmp.net;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -11,6 +10,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +22,7 @@ class ConditionedNodeTest {
         final List<Message> sent = new CopyOnWriteArrayList<>();
         final List<Integer> dropped = new CopyOnWriteArrayList<>();
         final List<Integer> silenced = new CopyOnWriteArrayList<>();
+        final AtomicInteger cuts = new AtomicInteger();
         final Queue<Event> events = new ConcurrentLinkedQueue<>();
         volatile boolean closed;
 
@@ -59,6 +60,11 @@ class ConditionedNodeTest {
         @Override
         public void silence(int seconds) {
             silenced.add(seconds);
+        }
+
+        @Override
+        public void cutAll() {
+            cuts.incrementAndGet();
         }
 
         @Override
@@ -134,20 +140,19 @@ class ConditionedNodeTest {
         n.close();
     }
 
+    /** A cut breaks the real node's connections, which come back by themselves (SOS-178): no drop, no event here. */
     @Test
-    void aCutClosesEveryConnectionAndTellsThisPc() throws InterruptedException {
+    void aCutBreaksTheRealNodesConnections() throws InterruptedException {
         Recorder r = new Recorder();
         ConditionedNode n = new ConditionedNode(r, NetConditions.parse(""));
         n.send(1, chat(1));
         n.send(2, chat(2));
         waitFor(() -> r.sent.size() == 2, 1000);
         n.cutAll();
-        List<Node.Event> got = events(n, 2, 1000);
-        assertEquals(2, got.size());
-        assertInstanceOf(Node.Event.Disconnected.class, got.get(0));
-        assertEquals(1, ((Node.Event.Disconnected) got.get(0)).peer());
-        assertEquals(2, ((Node.Event.Disconnected) got.get(1)).peer());
-        assertEquals(List.of(1, 2), r.dropped);
+        waitFor(() -> r.cuts.get() == 1, 1000);
+        assertEquals(1, r.cuts.get());
+        assertTrue(events(n, 1, 300).isEmpty(), "the sessions hear nothing of it");
+        assertEquals(List.of(), r.dropped);
         n.close();
     }
 

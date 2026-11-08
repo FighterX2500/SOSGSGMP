@@ -105,6 +105,8 @@ public final class JoinedSetup implements SetupSession {
                 case Node.Event.Disconnected d -> {
                     if (d.peer() == Node.HOST)
                         close("Lost the connection to the host. " + d.reason());
+                    else if (d.peer() < 0)
+                        notes.add(d.reason()); // the network's own news, such as a broken line it waits for (SOS-178)
                 }
             }
             if (e instanceof Node.Event.Received r && r.message() instanceof Message.Loading l && l.open())

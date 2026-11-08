@@ -111,7 +111,7 @@ import world.map.regions.Region;
  * {@code fillarmy <army>} (any army's supplies full, which its power counts);
  * {@code battlemen} (the men on each side of the battle this PC runs);
  * {@code netoutage <seconds>} (this PC's connections carry nothing either way for up to 60 s), {@code netcut} (this
- * PC's internet drops: every connection closes as a lost one) and {@code netstats}, all only with
+ * PC's internet drops: every connection breaks and comes back by itself, SOS-178) and {@code netstats}, all only with
  * {@code SOSGSGMP_NETEM} set (SOS-175);
  * {@code state} (the prompts, battle, view and terms open on this PC); {@code save} (host: the escape menu's Save
  * Campaign, at any time, a battle included).
@@ -549,7 +549,7 @@ final class MpAutopilotCommands {
 			n.outage(Integer.parseInt(a[1]));
 			return "outage of " + a[1] + " s from step " + engine.step();
 		}
-		case "netcut": { // test tooling (SOS-175): this PC's internet drops; every connection closes as a lost one
+		case "netcut": { // test tooling (SOS-175): this PC's internet drops; every connection breaks, then comes back (SOS-178)
 			ConditionedNode n = setup.testNetwork();
 			if (n == null)
 				return "refused: no test network (" + NetConditions.VARIABLE + " unset)";

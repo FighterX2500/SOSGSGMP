@@ -312,9 +312,32 @@ public sealed interface Message {
      * Each way on every connection, about once a second, from the network's I/O thread (SOS-177): the connection is
      * alive even while the game sends nothing. {@code sentMs} is the sender's clock; {@code echoMs} the last
      * {@code sentMs} it heard from the other side, {@code heldMs} after hearing it (-1 before any): the other side
-     * gets its round trip. The transports consume it; it never reaches the game.
+     * gets its round trip. {@code received}: how many {@link Sequenced} messages the sender has had from the other side
+     * (SOS-178), which the other side then stops keeping. The transports consume it; it never reaches the game.
      */
-    record Heartbeat(long sentMs, long echoMs, int heldMs) implements Message {}
+    record Heartbeat(long sentMs, long echoMs, int heldMs, long received) implements Message {}
+
+    /**
+     * Each way on every connection (SOS-178): {@code message}, the {@code seq}-th the sender sent the other side (from
+     * 1). The sender keeps it until a {@link Heartbeat} says it arrived, and sends it again after a broken connection;
+     * the receiver takes each number once, in order. The transports unwrap it; the game gets {@code message} only.
+     */
+    record Sequenced(long seq, Message message) implements Message {}
+
+    /**
+     * The first message on a new connection, and an ask for what is missing (SOS-178): the PC whose connection token is
+     * {@code token} (a direct-IP joining PC's own random number; 0 over Steam, where the Steam ID says who) has had
+     * {@code received} {@link Sequenced} messages from the other side. The other side sends again those after it and
+     * answers {@link Resumed}. The transports consume it.
+     */
+    record Resume(long token, long received) implements Message {}
+
+    /**
+     * The answer to {@link Resume} (SOS-178): the answering PC has had {@code received} {@link Sequenced} messages from
+     * the asking one, which sends again those after it; -1: it doesn't know the asking PC's connection any more (it
+     * started again, or removed that player). The transports consume it.
+     */
+    record Resumed(long received) implements Message {}
 
     /**
      * A joined PC to the host: its player chose Quit to menu or Exit (SOS-79). The host saves the campaign on every PC as

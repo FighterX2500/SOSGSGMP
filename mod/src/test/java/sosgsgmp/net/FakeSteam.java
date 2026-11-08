@@ -41,6 +41,26 @@ public final class FakeSteam {
         lostPackets = true;
     }
 
+    /** Users whose internet is down: what they send and what is sent to them vanishes, though Steam takes it. */
+    private final Set<Long> down = new HashSet<>();
+
+    /** Test (SOS-178): {@code user}'s internet goes down, or comes back. */
+    public synchronized void down(long user, boolean isDown) {
+        if (isDown)
+            down.add(user);
+        else
+            down.remove(user);
+    }
+
+    /**
+     * Test (SOS-178): the session between {@code a} and {@code b} fails, as past Steam's timeout: what either sent the
+     * other and wasn't read yet is lost, both hear it failed, and the next packet asks for a new session.
+     */
+    public synchronized void failSession(long a, long b) {
+        users.get(a).failed(b);
+        users.get(b).failed(a);
+    }
+
     /** A user's port; each call to the node's supplier should make a new one for a new user id. */
     public synchronized Port port(long user) {
         Port p = new Port(user);
@@ -194,10 +214,27 @@ public final class FakeSteam {
                 Port to = users.get(user);
                 if (to == null || to.closed)
                     return false;
-                if (!lostPackets)
+                if (!lostPackets && !down.contains(self) && !down.contains(user))
                     to.deliver(self, bytes.clone());
                 return true;
             }
+        }
+
+        /** The session with {@code user} failed: its unread packets are lost, and it is told. */
+        private void failed(long user) {
+            accepted.remove(user);
+            waiting.remove(user);
+            java.util.Iterator<long[]> o = order.iterator();
+            java.util.Iterator<byte[]> p = packets.iterator();
+            while (o.hasNext()) {
+                long from = o.next()[0];
+                p.next();
+                if (from == user) {
+                    o.remove();
+                    p.remove();
+                }
+            }
+            later(() -> listener.sessionFailed(user, "timed out"));
         }
 
         private void deliver(long from, byte[] bytes) {

@@ -32,7 +32,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 26;
+    public static final int VERSION = 27;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -48,6 +48,11 @@ public final class Protocol {
     private static final int CHAT = 37, PAUSE = 38, VIEW_TAPE = 39, READY = 40;
     private static final int REPORT = 41, LOADING = 42;
     private static final int PLAYER_LOST = 43, PLAYER_BACK = 44, HEARTBEAT = 45;
+    private static final int SEQUENCED = 46, RESUME = 47, RESUMED = 48;
+    /** The bytes {@link Message.Sequenced} adds in front of its message: version, type and sequence number. */
+    private static final int SEQUENCED_HEADER = 2 + 1 + 8;
+    /** Largest frame on a connection: a message, or one wrapped in {@link Message.Sequenced} (SOS-178). */
+    public static final int MAX_FRAME = MAX_MESSAGE + SEQUENCED_HEADER;
     /** The longest text of a loading window, in characters. */
     private static final int MAX_LOADING_TEXT = 256;
     /** The largest city a view carries, in bytes ({@link Message.ViewCity}). */
@@ -296,6 +301,21 @@ public final class Protocol {
                     out.writeLong(h.sentMs());
                     out.writeLong(h.echoMs());
                     out.writeInt(h.heldMs());
+                    out.writeLong(h.received());
+                }
+                case Message.Sequenced q -> {
+                    out.writeByte(SEQUENCED);
+                    out.writeLong(q.seq());
+                    out.write(encode(q.message()));
+                }
+                case Message.Resume r -> {
+                    out.writeByte(RESUME);
+                    out.writeLong(r.token());
+                    out.writeLong(r.received());
+                }
+                case Message.Resumed r -> {
+                    out.writeByte(RESUMED);
+                    out.writeLong(r.received());
                 }
                 case Message.ViewAsk a -> {
                     out.writeByte(VIEW_ASK);
@@ -355,15 +375,44 @@ public final class Protocol {
         return bytes.toByteArray();
     }
 
+    /**
+     * {@code encoded}, one message's bytes from {@link #encode}, as the {@link Message.Sequenced} with number {@code seq}:
+     * the same bytes {@code encode} would make, without encoding the message again (SOS-178).
+     */
+    public static byte[] sequenced(long seq, byte[] encoded) {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream(SEQUENCED_HEADER + encoded.length);
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.writeShort(VERSION);
+            out.writeByte(SEQUENCED);
+            out.writeLong(seq);
+            out.write(encoded);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return bytes.toByteArray();
+    }
+
     /** Reads one message; throws {@link IOException} when it is malformed. */
     public static Message decode(byte[] bytes) throws IOException {
-        if (bytes.length > MAX_MESSAGE)
-            throw new IOException("SOSGSGMP: message of " + bytes.length + " bytes is over the limit of " + MAX_MESSAGE);
+        if (bytes.length > MAX_FRAME)
+            throw new IOException("SOSGSGMP: message of " + bytes.length + " bytes is over the limit of " + MAX_FRAME);
         DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes));
         int version = in.readUnsignedShort();
         if (version != VERSION)
             return new Message.Unsupported(version);
         int type = in.readUnsignedByte();
+        if (type == SEQUENCED) {
+            long seq = in.readLong();
+            if (seq < 1)
+                throw new IOException("SOSGSGMP: sequence number " + seq);
+            byte[] inner = java.util.Arrays.copyOfRange(bytes, SEQUENCED_HEADER, bytes.length);
+            if (inner.length > MAX_MESSAGE)
+                throw new IOException("SOSGSGMP: message of " + inner.length + " bytes is over the limit of " + MAX_MESSAGE);
+            Message m = decode(inner);
+            if (m instanceof Message.Sequenced || m instanceof Message.Unsupported)
+                throw new IOException("SOSGSGMP: sequenced message " + seq + " holds " + m);
+            return new Message.Sequenced(seq, m);
+        }
         Message m = switch (type) {
             case HELLO -> new Message.Hello(name(in), in.readLong(), new Builds(in.readUTF(), in.readLong(), in.readLong(), files(in)));
             case WELCOME -> new Message.Welcome(in.readInt(), settings(in));
@@ -410,7 +459,14 @@ public final class Protocol {
             case GONE_CHOICE -> new Message.GoneChoice(step(in, "gone choice hold"), in.readBoolean());
             case PLAYER_LOST -> new Message.PlayerLost(playerId(in), step(in, "player lost hold"), step(in, "player lost silence"));
             case PLAYER_BACK -> new Message.PlayerBack(playerId(in), step(in, "player back hold"));
-            case HEARTBEAT -> new Message.Heartbeat(in.readLong(), in.readLong(), in.readInt());
+            case HEARTBEAT -> new Message.Heartbeat(in.readLong(), in.readLong(), in.readInt(), received(in));
+            case RESUME -> new Message.Resume(in.readLong(), received(in));
+            case RESUMED -> {
+                long received = in.readLong();
+                if (received < -1)
+                    throw new IOException("SOSGSGMP: resumed after " + received + " messages");
+                yield new Message.Resumed(received);
+            }
             case QUIT_ASK -> new Message.QuitAsk();
             case VIEW_ASK -> new Message.ViewAsk(slot(in), slot(in));
             case VIEW_ANSWER -> new Message.ViewAnswer(slot(in), slot(in), in.readBoolean(), text(in, MAX_REASON, "view answer"));
@@ -593,6 +649,14 @@ public final class Protocol {
         int n = in.readInt();
         if (n < 1)
             throw new IOException("SOSGSGMP: " + what + " number " + n);
+        return n;
+    }
+
+    /** A count of {@link Message.Sequenced} messages had (SOS-178). */
+    private static long received(DataInputStream in) throws IOException {
+        long n = in.readLong();
+        if (n < 0)
+            throw new IOException("SOSGSGMP: " + n + " messages received");
         return n;
     }
 
