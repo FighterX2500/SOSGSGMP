@@ -1,6 +1,6 @@
 # Handoff: the next session starts here
 
-Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-11-01 (release docs audit). It covers both repositories. SOSDET's own `docs/plan/HANDOFF.md` keeps the engine-only notes (rig, patches, the engine's open items).
+Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-11-01 (release docs audit), batch 10 added on 2026-11-08. It covers both repositories. SOSDET's own `docs/plan/HANDOFF.md` keeps the engine-only notes (rig, patches, the engine's open items).
 
 ## 1. Read first
 
@@ -38,7 +38,14 @@ Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-
 - the 2026-11-01 playtest's list: direct links, global events, cursors on the minimaps, no Resettle, and the NPC courts' desync (SOS-121 to SOS-125);
 - playtest fixes: no capital without roads (SOS-75), the panel's status text and hide button (SOS-84, SOS-91), the host's lead of 1000 steps (SOS-86), the governor's reasons in the log (SOS-94), and batch 1 (PR #66): the ruler name (SOS-98), cursors in cities (SOS-58), a Steam invite from the main menu (SOS-103) and compressed streams with network figures in the log (SOS-96). Protocol 20; city report protocol 7.
 
-**Open PRs:** none in either repository (2026-11-01).
+**Batch 10, the overnight three-player battle tests (2026-11-08).** Plan: `C:\ClaudeFolder\Test List.txt`; report and per-scenario PDFs: `C:\ClaudeFolder\PTreport\2026-11-08-battles\` (REPORT.txt).
+- Feature: every allied player near a battle against NPCs is asked Join, and each who joins fights on their own PC (SOS-160 engine, SOS-161 mod; SOSDET plan 0019).
+- Fixes: SOS-163 to SOS-172 and SOS-174. Not fixed: SOS-173 (a region town's sally can bring no soldiers when the ally question waits its full 30 s; the fix options need the owner).
+- Test tooling (SOS-162): test-only lockstep commands (`morale`, `recruit`, `giveregion`, `givevassal`, `battlemen`, teleports, ...) and `tools\battles3.py`: `prep BASE|ALLIES|WAR|REGIONS`, then `run <scenario>` or `all`, three games on this PC from a scratch APPDATA, like raid3.
+- On the final builds every scenario passed (A1 to A8 without A5, B1 to B11, C1 to C4). A5 is blocked: vanilla V71 auto-resolves a town's storm.
+- Owner decisions open: SOS-173's fix, A5, and an eliminated player's UI showing the host's realm (B8).
+
+**Open PRs (2026-11-08):** SOSDET #85 (merge first), then SOSGSGMP batch-10-battle-tests.
 
 **GUI changelog, SOS-80** (the owner checks GUI changes in-game; no tests for pure layout). Keep these conventions in new screens:
 - **Leave** goes in the bottom-right corner of every setup panel: add the panel's other buttons as its last row, then call `MpSetupLeave.addBottomRight(panel, buttonsRow, MpSetupLeave.button(...))`. Never add Leave inline with other buttons.
@@ -50,7 +57,7 @@ Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-
 
 **Jira.** The board holds each card's state; this file doesn't track it. A card goes to In Review when its PR opens. When the PR merges, comment with it and move the card to Done.
 
-**Installed for play.** The newest playtest pack is `C:\ClaudeFolder\SOSGSGMP-playtest-2026-11-01.zip`, with a README and `send-logs.cmd`. It holds main plus SOS-120, from before SOS-121 to SOS-125, so build a new one before the next playtest.
+**Installed for play.** The newest playtest pack is `C:\ClaudeFolder\modpack\SOSGSGMP-playtest-2026-11-08.zip` (both batch-10 branches, before their merge), with CHANGELOG.txt and `send-logs.cmd`; its Workshop entry is on top of `C:\ClaudeFolder\modpack\WORKSHOP-CHANGELOG.txt`.
 
 ## 3. Next
 
