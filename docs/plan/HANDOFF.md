@@ -45,7 +45,7 @@ Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-
 - On the final builds every scenario passed (A1 to A8 without A5, B1 to B11, C1 to C4). A5 is blocked: vanilla V71 auto-resolves a town's storm.
 - Owner decisions open: SOS-173's fix, A5, and an eliminated player's UI showing the host's realm (B8).
 
-**Open PRs (2026-11-08):** SOSDET #85 (merge first), then SOSGSGMP batch-10-battle-tests.
+**Open PRs (2026-11-08):** SOSDET #85 (merge first), then SOSGSGMP #97.
 
 **GUI changelog, SOS-80** (the owner checks GUI changes in-game; no tests for pure layout). Keep these conventions in new screens:
 - **Leave** goes in the bottom-right corner of every setup panel: add the panel's other buttons as its last row, then call `MpSetupLeave.addBottomRight(panel, buttonsRow, MpSetupLeave.button(...))`. Never add Leave inline with other buttons.
