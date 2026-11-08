@@ -862,6 +862,26 @@ class LoopbackSetupTest {
     }
 
     /**
+     * SOS-180: a peer may run past the host's step plus the lead, up to the AI log's horizon (N1-jcuts: Joiner was 65
+     * steps ahead and crashed on a hold it had passed). The hold then starts past the furthest a peer may have run.
+     */
+    @Test
+    void aHoldStartsPastTheFurthestAPeerMayHaveRun() throws Exception {
+        System.setProperty(NetConditions.PROPERTY, "delay=0");
+        EngineLinkTest.FakePort hp = new EngineLinkTest.FakePort();
+        playing(hp, new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        int cidId = idOf(host, "Cid");
+        hp.step = 500;
+        hp.pastPeers = 600;
+        cid.testNetwork().outage(8);
+        playUntil("Bob holds for Cid, lost", 10_000, () -> bob.departures().lost(cidId));
+        assertEquals(600, host.departures().holdStep());
+        assertEquals(600, bob.departures().holdStep(), "one hold step on every PC");
+        playUntil("the hold over on every PC", 10_000, () -> !host.departures().waiting() && !bob.departures().waiting()
+                && !cid.departures().waiting());
+    }
+
+    /**
      * SOS-177: the host continues without a lost player: they are removed as one who left, and their PC, heard again,
      * is told so and its session ends.
      */

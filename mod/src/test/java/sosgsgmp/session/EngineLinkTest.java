@@ -54,6 +54,14 @@ class EngineLinkTest {
         public long step() {
             return step;
         }
+
+        /** As far as a peer may have run; the host's own step unless a test sets it. */
+        long pastPeers = -1;
+
+        @Override
+        public long stepPastPeers() {
+            return pastPeers < 0 ? step : pastPeers;
+        }
     }
 
     @Test

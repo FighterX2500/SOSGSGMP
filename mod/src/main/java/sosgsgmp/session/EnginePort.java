@@ -13,4 +13,7 @@ public interface EnginePort {
 
     /** The last step this PC completed, for the pieces' log field. */
     long step();
+
+    /** Host: a step no PC can have passed when word of it arrives (SOSDET's AI log horizon and its delay). */
+    long stepPastPeers();
 }

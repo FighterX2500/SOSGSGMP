@@ -239,6 +239,7 @@ public final class EnginePlay implements EnginePort {
     }
 
     /** Host: a step no PC can have passed when word of it arrives, at any speed. */
+    @Override
     public long stepPastPeers() {
         return Engine.stepPastPeers();
     }
@@ -261,8 +262,8 @@ public final class EnginePlay implements EnginePort {
             until = Math.min(until, step);
         if (until == Long.MAX_VALUE)
             Engine.runFreely();
-        else
-            Engine.runUntil(until);
+        else // a hold this PC has passed stops it where it is: a hold changes nothing but when steps run (SOS-180)
+            Engine.runUntil(Math.max(until, Engine.step()));
     }
 
     /**
