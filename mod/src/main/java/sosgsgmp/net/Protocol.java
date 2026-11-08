@@ -312,6 +312,7 @@ public final class Protocol {
                     out.writeByte(RESUME);
                     out.writeLong(r.token());
                     out.writeLong(r.received());
+                    out.writeInt(r.attempt());
                 }
                 case Message.Resumed r -> {
                     out.writeByte(RESUMED);
@@ -460,7 +461,14 @@ public final class Protocol {
             case PLAYER_LOST -> new Message.PlayerLost(playerId(in), step(in, "player lost hold"), step(in, "player lost silence"));
             case PLAYER_BACK -> new Message.PlayerBack(playerId(in), step(in, "player back hold"));
             case HEARTBEAT -> new Message.Heartbeat(in.readLong(), in.readLong(), in.readInt(), received(in));
-            case RESUME -> new Message.Resume(in.readLong(), received(in));
+            case RESUME -> {
+                long token = in.readLong();
+                long received = received(in);
+                int attempt = in.readInt();
+                if (attempt < 0)
+                    throw new IOException("SOSGSGMP: connection attempt " + attempt);
+                yield new Message.Resume(token, received, attempt);
+            }
             case RESUMED -> {
                 long received = in.readLong();
                 if (received < -1)

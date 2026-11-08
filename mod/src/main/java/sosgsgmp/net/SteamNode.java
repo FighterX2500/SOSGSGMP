@@ -415,7 +415,7 @@ public final class SteamNode implements Node {
         broken.put(peer, now + RESUME_MS);
         Long user = users.get(peer);
         if (user != null)
-            port.send(user, Protocol.encode(new Message.Resume(0, resend.received(peer))));
+            port.send(user, Protocol.encode(new Message.Resume(0, resend.received(peer), 0)));
     }
 
     /**
@@ -441,7 +441,7 @@ public final class SteamNode implements Node {
             if (user == null || now < e.getValue())
                 continue;
             e.setValue(now + RESUME_MS);
-            port.send(user, Protocol.encode(new Message.Resume(0, resend.received(e.getKey()))));
+            port.send(user, Protocol.encode(new Message.Resume(0, resend.received(e.getKey()), 0)));
         }
     }
 
