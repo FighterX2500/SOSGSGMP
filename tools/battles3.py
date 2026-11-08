@@ -567,8 +567,19 @@ def finish(name, title, run, ok):
     with RESULTS.open("a", encoding="utf-8") as f:
         f.write("%s %s %s: %s; %s\n" % (time.strftime("%Y-%m-%d %H:%M"), name, "PASS" if passed else "FAIL", title,
                                         "; ".join(t for o, t in run.notes if not o) or "all checks passed"))
+    keep_logs(name, run)
     say("RESULT:", name, "PASS" if passed else "FAIL")
     return passed
+
+
+def keep_logs(name, run):
+    """Each game's playtest log, kept in build/battles3/logs/<scenario>: the next run's start wipes the data folders."""
+    for w in WHO:
+        folder = OUT / "logs" / name / w
+        shutil.rmtree(folder, ignore_errors=True)
+        folder.mkdir(parents=True)
+        for p in (run.home(w) / "logs").glob("*.log"):
+            shutil.copy2(p, folder / p.name)
 
 
 SCENARIOS = {}
@@ -631,6 +642,17 @@ def place_near(run, w, x, y, reach=3):
         if max(abs(a[2] - x), abs(a[3] - y)) <= reach and (a[2], a[3]) not in ((x, y), (x + 1, y)):
             return a
     raise Failed("%s's army found no tile within %d of %d,%d (last %s)" % (w, reach, x, y, a))
+
+
+def place_beside(run, w, x, y):
+    """w's template army stands within 2 tiles of x,y, a capital's centre: its siege counts armies 4 path tiles off
+    (WArmy.reinforceTiles). chain8 B6: L's army landed on 64,92 beside 62,95, too far, and the sally found nobody."""
+    a = None
+    for dx, dy in ((1, 1), (-1, 1), (1, -1), (-1, -1), (2, 0), (-2, 0), (0, 2), (0, -2), (2, 1), (-2, 1), (1, 2), (-1, 2)):
+        a = place(run, w, x + dx, y + dy)
+        if max(abs(a[2] - x), abs(a[3] - y)) <= 2:
+            return a
+    raise Failed("%s's army found no tile within 2 of %d,%d (last %s)" % (w, x, y, a))
 
 
 def resolved(run):
@@ -1030,11 +1052,17 @@ def sally(run, with_army, outcome):
     m = meta("WAR")
     if with_army:
         pick_army(run, "L", armies(run, "L")[0][0])
-        place_picked(run, "L", m["lcap"][0] + 1, m["lcap"][1] + 1)
+        place_beside(run, "L", *m["lcap"])
     r = run.wait(lambda: (lambda r: r if not r.startswith("refused") else None)(run.cmd("L", "sally")) or run.sleep(3), 120,
                  "L's sally accepted")
     run.check(r.startswith("sallying"), "L sallies out: %s" % r)
-    wait_state(run, "H", "battle deploying", 240, "the sally's battle at deployment")
+    try:
+        wait_state(run, "H", "battle deploying", 240, "the sally's battle at deployment")
+    except Failed:
+        for w in WHO:  # chain8 B6: no battle after "sallying out"; whose prompt waits tells why
+            say(w, "at the sally's time-out:", state(run, w))
+            run.shot(w, "%s when the sally's battle never came" % w)
+        raise
     for w in WHO:
         run.shot(w, "%s at the sally's deployment" % w)
     run.wait(lambda: "battle running" in state(run, "H") or run.sleep(1), 240, "the sally's battle started")
@@ -1349,7 +1377,12 @@ def b5():
         run.check("intercepting" in run.cmd("J", "attacknpc"), "J attacks the NPC army")
         if resolved(run):
             raise Failed("the battle was resolved at once, with no prompt: %s" % resolved(run))
-        wait_state(run, "J", "battle running", 240, "J's NPC battle started")
+        try:
+            wait_state(run, "J", "battle running", 240, "J's NPC battle started")
+        except Failed:
+            # chain8: J never met the army; where both stood tells a chase from a block
+            say("J's armies", armies(run, "J"), "the NPC's", [a for a in npc_armies(run) if a[0] == f])
+            raise
         run.cmd("J", "auto off")
         jx2, jy2 = pick_army(run, "J", m["J"][1])[2:4]
         pick_army(run, "L", armies(run, "L")[0][0])

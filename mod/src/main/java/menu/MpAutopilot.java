@@ -910,9 +910,39 @@ public final class MpAutopilot {
 				? engine.localBattleOf(setup.factions().slotOf(setup.localPlayerId())) : null;
 		if (own != null && own.resultStep() >= 0)
 			return;
+		if (CoreState.changing())
+			return; // a whole-game load was asked this frame (B7: the assault's end overtook the window's step)
 		shotLoading = w;
 		CORE.getGraphics().makeScreenShot(); // into the data folder's screenshots, named by time
 		event("loadingshot", "\"kind\":\"" + w.kind() + "\",\"key\":" + w.key());
+	}
+
+	/**
+	 * snake2d's pending state change, read by reflection: from {@code CORE.setCurrentState} until the new state runs, the
+	 * main thread waits for this updater thread to end and runs no GL job, so a screenshot asked meanwhile waits forever.
+	 * A holder, resolved on the autopilot's first loading shot only, never in a player's game.
+	 */
+	private static final class CoreState {
+
+		private static final java.lang.reflect.Field NEW_STATE = field();
+
+		private static java.lang.reflect.Field field() {
+			try {
+				java.lang.reflect.Field f = CORE.class.getDeclaredField("newState");
+				f.setAccessible(true);
+				return f;
+			} catch (NoSuchFieldException e) {
+				throw new IllegalStateException("SOSGSGMP autopilot: no snake2d.CORE.newState (V71, build 71.44)", e);
+			}
+		}
+
+		static boolean changing() {
+			try {
+				return NEW_STATE.get(null) != null;
+			} catch (IllegalAccessException e) {
+				throw new IllegalStateException("SOSGSGMP autopilot: snake2d.CORE.newState unreadable (V71, build 71.44)", e);
+			}
+		}
 	}
 
 	/** Seconds each preview window stays open. */
