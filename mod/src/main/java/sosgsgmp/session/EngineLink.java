@@ -63,6 +63,11 @@ public final class EngineLink {
         return port.step();
     }
 
+    /** Host: a step no PC can have passed when word of it arrives. */
+    long stepPastPeers() {
+        return port.stepPastPeers();
+    }
+
     /** Whether this PC makes stream {@code kind}. */
     boolean makes(StreamKind kind) {
         return switch (kind) {
