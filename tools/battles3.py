@@ -927,7 +927,7 @@ def pick_army(run, w, index):
     return mine[at]
 
 
-def pvp_battle(run, attackers, joiners, outcome, answers=True, start_answers=True, stay=()):
+def pvp_battle(run, attackers, joiners, outcome, answers=True, start_answers=True, stay=(), before_attack=None):
     """attackers[0]'s field army attacks L's field army; `joiners` answer Join (or never, answers=False); the battle
     runs on every PC; H's side wins (L's morale held) or L wins (H's side's)."""
     m = meta("REGIONS" if getattr(run, "position", None) == "REGIONS" else "WAR")  # REGIONS has its own armies
@@ -938,6 +938,8 @@ def pvp_battle(run, attackers, joiners, outcome, answers=True, start_answers=Tru
         place_picked(run, w, lx + dx, ly)
     pick_army(run, first, m[first][0])
     run.cmd(first, "target 2")
+    if before_attack:
+        before_attack()
     r = run.cmd(first, "attack")
     run.check("intercepting" in r, "%s attacks L's army: %s" % (first, r))
     if not answers:
@@ -1521,12 +1523,12 @@ def c4():
         if not va:
             raise Failed("H's vassal %d has no army" % v)
         va = max(va, key=lambda a: a[1])
-        lx, ly = armies(run, "L")[0][2:4]
-        r = run.cmd("H", "teleportarmy %d %d %d" % (va[4], lx, ly + 2))
-        say("the vassal's army:", va, r)
-        run.sleep(3)
+        def beside_l():  # right before H's attack: set beside L at the load, it had walked off to 74,71 (chain13)
+            lx, ly = armies(run, "L")[0][2:4]
+            say("the vassal's army:", va, run.cmd("H", "teleportarmy %d %d %d" % (va[4], lx, ly + 2)))
+            run.sleep(2)
         before = va[1]
-        pvp_battle(run, ["H"], ["J"], "win")
+        pvp_battle(run, ["H"], ["J"], "win", before_attack=beside_l)
         after = [a for a in npc_armies(run) if a[4] == va[4]]
         say("the vassal's army after:", after)
         run.check(not after or after[0][1] != before, "the vassal's army fought: %d men to %s" % (before, after[0][1] if after else "none"))
