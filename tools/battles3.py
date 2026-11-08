@@ -127,7 +127,9 @@ class Run:
                 break
             self.poll()
             time.sleep(0.2)
-        cmd.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        tmp = cmd.with_suffix(".tmp")  # renamed in whole: the game once read a half-written, empty file (chain14 B5)
+        tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        tmp.replace(cmd)
         say("sent to", w, lines)
 
     def cmd(self, w, line, timeout=60):

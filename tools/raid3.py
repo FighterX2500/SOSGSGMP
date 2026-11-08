@@ -113,7 +113,9 @@ class Games:
             if not cmd.exists():
                 break
             time.sleep(0.2)
-        cmd.write_text("\n".join(cmds) + "\n", encoding="utf-8")
+        tmp = cmd.with_suffix(".tmp")  # renamed in whole: the game once read a half-written, empty file (battles3 B5)
+        tmp.write_text("\n".join(cmds) + "\n", encoding="utf-8")
+        tmp.replace(cmd)
         say("sent to game", k, cmds)
 
     def events(self, k):
