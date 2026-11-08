@@ -478,7 +478,8 @@ def screenshots(run):
         mine = [(t, n) for who, t, n in run.shots if who == w]
         for f in files:
             t = f.stat().st_mtime
-            note = next((n for st, n in mine if -4 <= t - st < 8), None)  # the file can be written before the command's answer
+            near = [(abs(t - st), n) for st, n in mine if -4 <= t - st < 8]  # the file can be written before the command's answer
+            note = min(near)[1] if near else None  # the nearest: two shots 3 s apart (C1) took the first one's note
             if note is None:
                 ls = [e for e in auto if abs(e["t"] / 1000.0 - t) < 8]
                 ps = [e for e in prompts if abs(e["t"] / 1000.0 - t) < 4]
@@ -1207,7 +1208,9 @@ def prep_regions(run):
     next to L's, so its battle started at once and held the gifts (chain10: L's region not given, J's vassal given to L
     too)."""
     war_on_l(run)
-    facts = {}
+    lx, ly = capital(run, "L")
+    field = place(run, "L", lx + 6, ly)  # L's field army out of its capital, as P-WAR's (C4 attacks it)
+    facts = {"lcap": [lx, ly], "lfield": [field[2], field[3]]}
     for w in WHO:
         r = run.cmd(w, "giveregion %d" % SLOT[w])
         m = re.search(r"region (\d+) ", r)
@@ -1253,6 +1256,8 @@ def c_region_siege(name, title, answer):
                 run.cmd("L", "fallback")
             if answer == "none":
                 run.cmd("L", "auto off")
+            if answer != "fight":
+                run.cmd("H", "stormnext")  # chain11 C3: waited out, the low-order region rebelled before any capture
             for w in ("H", "J"):
                 pick_army(run, w, m[w][0])
                 r = run.cmd(w, "besiegeregion %d" % m["regionL"])
@@ -1260,6 +1265,8 @@ def c_region_siege(name, title, answer):
             run.wait(lambda: re.search(r"prompt (?!none)", state(run, "L")) or run.sleep(1), 240, "L's sally prompt")
             run.shot("L", "L's sally prompt for its region town")
             if answer == "fight":
+                wait_state(run, "J", "ally asked true", 120, "J's Join prompt")  # chain11 C2: J never answered, stayed out
+                run.check("Join" in run.cmd("J", "join"), "J answered Join")
                 wait_state(run, "H", "battle deploying", 240, "the sally battle at deployment")
                 for w in WHO:
                     run.shot(w, "%s at the region sally's deployment" % w)
@@ -1279,7 +1286,8 @@ def c_region_siege(name, title, answer):
                     run.cmd("L", "auto on")
             owner = run.wait(lambda: (lambda r: r if not re.search(r"of Mordor", r) else None)(run.cmd("H", "regionat %d" % m["regionL"]))
                              or run.sleep(5), 900, "L's region town taken")
-            run.check("Mordor" not in owner, "L's region town changed hands: %s" % owner)
+            # a besieger's: chain11 C3 passed on "of nobody", the region having rebelled
+            run.check(re.search(r"of (Ukorina|Petrovich)", owner), "L's region town is a besieger's: %s" % owner)
             run.sleep(5)
             for w in WHO:
                 run.shot(w, "%s after the region town's capture" % w)
@@ -1367,10 +1375,13 @@ def a_town(name, title):
             for w, (dx, dy) in zip(WHO, ((2, 0), (-2, 0), (0, 2))):
                 place(run, w, tx + dx, ty + dy)
             # chain10: the three largest armies (about 700 men) lost the Storm to a 947-man garrison; vanilla counts
-            # every army within 4 tiles on the attackers' side, so each player adds a template army beside its first
-            for w, (dx, dy) in zip(WHO, ((3, 0), (-3, 0), (0, 3))):
-                template(run, w)
-                place_picked(run, w, tx + dx, ty + dy)
+            # every army within 4 tiles on the attackers' side, so each player adds two template armies beside its
+            # first (chain11: one each, 3 tiles out, made 853 against 955; no mercenaries: their pay ran short)
+            for _ in range(2):
+                for w, (dx, dy) in zip(WHO, ((2, 0), (-2, 0), (0, 2))):
+                    template(run, w, merc=False)
+                    place_picked(run, w, tx + dx, ty + dy)
+                    run.cmd(w, "fill")
             # H last, its Storm armed just before: chain9 stormed at H's own first prompt, before J and L besieged
             for w in ("J", "L", "H"):
                 if w == "H":
@@ -1457,6 +1468,8 @@ def b5():
             for w in ("J", "L"):
                 if re.search(r"prompt (Spec|WBattle)", state(run, w)):  # a Fight prompt, not J's own result window
                     early.append(w)
+            if "battle over" in state(run, "J") and not run.events("J", "battle", what="close"):
+                run.cmd("J", "close")  # J's battles answer by their time-outs: nothing else presses Close (chain11 B5)
             return run.events("J", "battle", what="close")
         run.sleep(20)
         run.shot("L", "L while J's NPC battle runs, its attack under way")

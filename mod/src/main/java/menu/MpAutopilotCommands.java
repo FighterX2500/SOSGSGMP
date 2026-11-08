@@ -570,6 +570,13 @@ final class MpAutopilotCommands {
 			return raid();
 		case "victoryaccept":
 			return victoryAccept();
+		case "close": // the battle panel's Close while battles answer by their time-outs (B5, SOS-162)
+			if (!Hooks.battleConcludeOpen())
+				return "refused: no battle panel to close";
+			if (!MapBattles.conclude())
+				return "refused: the Close wasn't taken";
+			event.accept("battle", "\"what\":\"close\",\"step\":" + Engine.step());
+			return "battle closed";
 		case "nextmessage":
 			VIEW.inters().messages.hide();
 			return "message closed";
