@@ -196,6 +196,23 @@ class Run:
             subprocess.run(["taskkill", "/PID", str(pid), "/F"], capture_output=True)
 
 
+def close_error_windows():
+    """Vanilla's error window, which a game opens on exit after anything reached its stderr (B7: the battle planner's
+    "nay1" lines), waits for a click and holds the data folders: closed after each run and before a restore."""
+    subprocess.run(["powershell", "-NoProfile", "-Command",
+                    "Get-CimInstance Win32_Process -Filter \"Name='java.exe'\" | Where-Object { $_.CommandLine -like '*ErrorMessage*%s*' }"
+                    " | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" % str(twopc.INST)], capture_output=True)
+
+
+def error_output(w):
+    """The ERROR LOG part of the dump a game wrote on exit when its stderr had output; empty when none."""
+    f = twopc.INST / GAME[w] / "songsofsyx" / "logs" / "UnhandledDump.txt"
+    if not f.exists():
+        return []
+    text = f.read_text(encoding="utf-8", errors="replace").split("|      STD OUT      |")[0]
+    return [l.strip() for l in text.splitlines() if l.strip() and "|" not in l]
+
+
 def game_pids():
     """The games running from the game folder on this PC."""
     out = subprocess.run(["powershell", "-NoProfile", "-Command",
@@ -211,6 +228,8 @@ def restore(name):
     src = raid3.SNAPSHOT if name == "78" else SNAP / name
     if not src.is_dir():
         sys.exit("battles3: no position %s in %s: prep it first" % (name, src))
+    close_error_windows()
+    time.sleep(1)
     for w in WHO:
         shutil.rmtree(twopc.INST / GAME[w], ignore_errors=True)
         shutil.copytree(src / GAME[w], twopc.INST / GAME[w])
@@ -553,6 +572,13 @@ def finish(name, title, run, ok):
     lines = ["Scenario %s: %s" % (name, title), "Run %s, %s to %s." % (run.tag, time.strftime("%H:%M", time.localtime(run.started)), time.strftime("%H:%M"))]
     run.check(ok, "twopc: the run reached its end step on every game with the same hashes, no desync")
     run.check(not (run.crash_files() - run.crashes0), "no crash file")
+    time.sleep(2)  # the games' exit writes the dump
+    for w in WHO:
+        err = error_output(w)
+        if err:  # vanilla's own diagnostics pass; an exception fails
+            run.check(not any("Exception" in l or l.startswith("at ") for l in err),
+                      "%s: no exception in the game's error output (%d lines: %s)" % (w, len(err), " / ".join(err[:4])))
+    close_error_windows()
     for w in WHO:
         log = run.log(w)
         opened = re.findall(r"loading opened: (\w+ \d+)", log)
