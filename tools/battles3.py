@@ -93,7 +93,7 @@ class Run:
                 self.ev[w].append(e)
                 if e.get("event") in ("cmd", "battle", "loadingshot", "desynchold", "viewstate", "save", "saveorder",
                                       "chatline", "gone", "retired") :
-                    say(w, json.dumps(e)[:260])
+                    say(w, json.dumps(e)[:1500 if e.get("event") == "cmd" else 260])
             self.seen[w] = len(lines)
         new = self.crash_files() - self.crashes0
         if new:
@@ -319,7 +319,7 @@ def prep_allies(run):
     cands = [a for a in npc_armies(run) if 450 <= a[1] <= 900 and a[0] not in taken]
     if not cands:
         raise Failed("no NPC army of 450 to 900 men")
-    f, men, x, y = min(cands, key=lambda a: (a[2] - hx) ** 2 + (a[3] - hy) ** 2)
+    f, men, x, y, _ = min(cands, key=lambda a: (a[2] - hx) ** 2 + (a[3] - hy) ** 2)
     say("the NPC army: faction %d, %d men at %d,%d" % (f, men, x, y))
     for w in WHO:
         run.cmd(w, "npcwar %d" % f)
@@ -357,15 +357,20 @@ def prep_war(run):
 
 def place_picked(run, w, x, y):
     """The picked army stands at x,y or a tile next to it."""
-    for dx, dy in ((0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, -1), (2, 0), (0, 2)):
-        run.cmd(w, "teleport %d %d" % (x + dx, y + dy))
-        run.sleep(2)
-        if re.search(r"mine \d+ men \d+ at %d,%d " % (x + dx, y + dy), status(run, w)):
-            return x + dx, y + dy
-    raise Failed("%s's army can't stand near %d,%d" % (w, x, y))
+    r = run.cmd(w, "teleportnear %d %d" % (x, y))
+    m = re.search(r"army (\d+) teleports to (\d+),(\d+)", r)
+    if not m:
+        raise Failed("%s's army can't stand near %d,%d: %s" % (w, x, y, r))
+    index, tx, ty = (int(v) for v in m.groups())
+    run.sleep(2)
+    for a in armies(run, w):
+        if a[0] == index and (a[2], a[3]) == (tx, ty):
+            say(w, "army", index, "at", tx, ty)
+            return a
+    raise Failed("%s's army %d isn't at %d,%d after the teleport: %s" % (w, index, tx, ty, armies(run, w)))
 
 
-PREPS = {"ALLIES": ("BASE", prep_allies), "WAR": ("BASE", prep_war)}
+PREPS = {"ALLIES": ("BASE", prep_allies), "WAR": ("BASE", prep_war), "REGIONS": ("WAR", lambda run: prep_regions(run))}
 
 
 def prep(name):
@@ -556,8 +561,8 @@ def template_army(run, w):
 
 
 def npc_armies(run):
-    """The NPC armies with men, as (faction, men, x, y)."""
-    return [tuple(int(v) for v in m) for m in re.findall(r"(\d+) (\d+) (\d+) (\d+);", run.cmd("H", "npcarmies"))]
+    """The NPC armies with men, as (faction, men, x, y, army)."""
+    return [tuple(int(v) for v in m) for m in re.findall(r"(\d+) (\d+) (\d+) (\d+) (\d+);", run.cmd("H", "npcarmies"))]
 
 
 def npc_army(run, faction):
@@ -569,14 +574,8 @@ def npc_army(run, faction):
 
 def place(run, w, x, y):
     """The template army stands at x,y, or the nearest tile it can stand on around it."""
-    for dx, dy in ((0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1), (2, 0), (0, 2)):
-        run.cmd(w, "teleport %d %d" % (x + dx, y + dy))
-        run.sleep(2)
-        a = template_army(run, w)
-        if (a[2], a[3]) == (x + dx, y + dy):
-            say(w, "army at", a[2], a[3])
-            return a
-    raise Failed("%s's army can't stand near %d,%d" % (w, x, y))
+    template_army(run, w)
+    return place_picked(run, w, x, y)
 
 
 def state(run, w):
@@ -612,7 +611,7 @@ def npc_battle(run, joiners, watcher=None, outcome="win", retreat=None, save=Fal
     """H attacks the position's NPC army; `joiners` are asked Join and answer it (or not, answer=False); `watcher`
     views H's battle for 20 s; the side wins (the enemy's morale held) or loses (its own); `retreat` leaves halfway."""
     m = meta(run.position)
-    x, y = npc_army(run, m["npc"])[2:]
+    x, y = npc_army(run, m["npc"])[2:4]
     say("the NPC army of faction %d stands at %d,%d" % (m["npc"], x, y))
     place(run, "H", x + 2, y)
     for i, w in enumerate(joiners):
@@ -851,6 +850,262 @@ SCENARIOS.update({
            "H attacks L's army alone; J watches; H wins"),
     "B4": ("WAR", b_battle("B4", "nobody answers: L's Fight and J's Start time out", ["H"], ["J"], answers=False,
                            start_answers=False), "L never presses Fight; J never presses Start"),
+})
+
+
+# ------------------------------------------------------------------ B6-B10: sieges, sallies and assaults (P-WAR)
+
+
+def besiege(run, besiegers):
+    """Each besieger's second army besieges L's capital; returns when every PC sees it besieged."""
+    m = meta("WAR")
+    for w in besiegers:
+        pick_army(run, w, m[w][1])
+        run.cmd(w, "target 2")
+        r = run.cmd(w, "besiege")
+        run.check("besieging" in r, "%s besieges L's capital: %s" % (w, r))
+    run.wait(lambda: "my capital besieged true" in status(run, "L") or run.sleep(2), 240, "L's capital besieged")
+    run.sleep(3)
+    run.shot("L", "L's capital besieged: the siege notice")
+
+
+def sally(run, with_army, outcome):
+    """L sallies out of its capital (with its field army beside it when with_army); the besiegers win or lose."""
+    m = meta("WAR")
+    if with_army:
+        pick_army(run, "L", armies(run, "L")[0][0])
+        place_picked(run, "L", m["lcap"][0] + 1, m["lcap"][1] + 1)
+    r = run.wait(lambda: (lambda r: r if not r.startswith("refused") else None)(run.cmd("L", "sally")) or run.sleep(3), 120,
+                 "L's sally accepted")
+    run.check(r.startswith("sallying"), "L sallies out: %s" % r)
+    wait_state(run, "H", "battle deploying", 240, "the sally's battle at deployment")
+    for w in WHO:
+        run.shot(w, "%s at the sally's deployment" % w)
+    run.wait(lambda: "battle running" in state(run, "H") or run.sleep(1), 240, "the sally's battle started")
+    run.sleep(5)
+    for w in WHO:
+        run.cmd(w, "charge")
+    run.sleep(10)
+    run.shot("H", "the sally's battle on H")
+    r = run.cmd("H", "morale %s" % ("theirs" if outcome == "win" else "mine"))
+    run.check("held" in r, "morale: %s" % r)
+    run.wait(lambda: run.events("H", "battle", what="close") or run.sleep(2), 600, "the sally over")
+    back_in_cities(run)
+    run.sleep(5)
+
+
+def assault(run, stormer, terms, wait=75):
+    """The siege waits `wait` s of real time, then siegewait and Storm; the assault runs until the throne is taken,
+    and the chooser picks `terms`."""
+    run.sleep(wait)
+    run.cmd(stormer, "target 2")
+    run.cmd(stormer, "siegewait")
+    run.sleep(5)
+    m = meta("WAR")
+    pick_army(run, stormer, m[stormer][1])
+    r = run.wait(lambda: (lambda r: r if not r.startswith("refused") else None)(run.cmd(stormer, "storm")) or run.sleep(3), 180,
+                 "%s's Storm accepted" % stormer)
+    run.check("Storm" in r, "%s storms L's capital: %s" % (stormer, r))
+    run.wait(lambda: "now " in run.cmd("H", "assault") and "now null" not in run.cmd("H", "assault") or run.sleep(3), 300,
+             "the assault running")
+    run.sleep(15)
+    for w in WHO:
+        run.shot(w, "%s during the assault" % w)
+    taken = run.wait(lambda: (lambda r: r if "awaiting terms null" not in r else None)(run.cmd("H", "assault")) or run.sleep(5),
+                     900, "the throne taken")
+    say("assault:", taken)
+    chooser = next((w for w in WHO if "terms true" in state(run, w)), None)
+    run.check(chooser is not None, "a winner chooses the terms: %s" % chooser)
+    if chooser is None:
+        return None
+    run.sleep(3)
+    run.shot(chooser, "%s's assault terms window" % chooser)
+    r = run.cmd(chooser, "terms " + terms)
+    run.check(r == "terms chosen", "%s chose %s: %s" % (chooser, terms, r))
+    run.sleep(10)
+    for w in WHO:
+        run.shot(w, "%s after the terms" % w)
+    run.wait(lambda: all("terms false" in state(run, w) for w in WHO) and "now null" in run.cmd("H", "assault") or run.sleep(5), 600,
+             "the assault over")
+    run.sleep(10)
+    return chooser
+
+
+def b_siege(name, title, besiegers, sally_outcome=None, with_army=False, terms=None):
+    def go():
+        run = start("WAR", "b3-" + name)
+        run.position = "WAR"
+        ok = False
+        try:
+            l_before = status(run, "L")
+            besiege(run, besiegers)
+            if sally_outcome:
+                sally(run, with_army, sally_outcome)
+                if sally_outcome == "win":
+                    for w in besiegers:
+                        run.check(spoils(run, w), "%s, a winner of the sally, received spoils or captives" % w)
+            if terms:
+                chooser = assault(run, besiegers[0], terms)
+                diplo = {w: run.cmd(w, "diplo") for w in WHO}
+                if terms.startswith("vassalage"):
+                    run.check(all(re.search(r"0 [^:]*:[^;]*2=vassal", d) for d in diplo.values()),
+                              "L is H's vassal on every PC: %s" % diplo["H"])
+                if terms.startswith("eliminate"):
+                    run.check("spectating true" in status(run, "L"), "L can only spectate: %s" % status(run, "L")[:200])
+                for w in besiegers:
+                    say(w, "transfers:", [l for l in run.log(w).splitlines() if "transfer step" in l][-8:])
+                say("L before:", l_before[:200], "after:", status(run, "L")[:200])
+            ok = run.end()
+        except Failed as e:
+            run.check(False, str(e))
+            run.stop()
+        finish(name, title, run, ok)
+    return go
+
+
+SCENARIOS.update({
+    "B6": ("WAR", b_siege("B6", "siege and sally: L's garrison and army sally; H and J win", ["H", "J"], "win", with_army=True),
+           "H and J besiege L's capital; L sallies with its army; H and J win"),
+    "B7": ("WAR", b_siege("B7", "assault, Sack", ["H", "J"], terms="sack 60 40:20:20"),
+           "H and J besiege, siegewait, storm and Sack"),
+    "B8": ("WAR", b_siege("B8", "assault, Eliminate", ["H", "J"], terms="eliminate 90 50:20:20"),
+           "as B7, Eliminate"),
+    "B9": ("WAR", b_siege("B9", "assault, Vassalage", ["H", "J"], terms="vassalage 25"), "as B7, Vassalage"),
+    "B10": ("WAR", b_siege("B10", "1 against a city: L's sally loses, H storms and sacks", ["H"], "win", terms="sack 50 30:10:10"),
+            "H alone besieges; L sallies and loses; H storms (Sack)"),
+})
+
+
+# ------------------------------------------------------------------ C: regions and NPC vassals (P-REGIONS)
+
+
+def prep_regions(run):
+    """P-REGIONS: P-WAR, and every player gets the NPC region nearest its capital and the nearest free NPC faction as
+    a vassal; then H's and J's first armies stand next to L's new region town."""
+    facts = {}
+    for w in WHO:
+        r = run.cmd(w, "giveregion %d" % SLOT[w])
+        m = re.search(r"region (\d+) ", r)
+        if not m:
+            raise Failed("%s's region: %s" % (w, r))
+        facts["region" + w] = int(m.group(1))
+        run.sleep(3)
+        r = run.cmd(w, "givevassal %d" % SLOT[w])
+        m = re.search(r"\((\d+)\) becomes", r)
+        if not m:
+            raise Failed("%s's vassal: %s" % (w, r))
+        facts["vassal" + w] = int(m.group(1))
+        run.sleep(3)
+    run.sleep(5)
+    say("relations:", run.cmd("H", "diplo"))
+    town = run.cmd("L", "regionat %d" % facts["regionL"])
+    m = re.search(r"at (\d+),(\d+)", town)
+    if not m:
+        raise Failed("L's region town: %s" % town)
+    tx, ty = int(m.group(1)), int(m.group(2))
+    facts["townL"] = [tx, ty]
+    wm = meta("WAR")
+    for i, w in enumerate(("H", "J")):
+        pick_army(run, w, wm[w][0])
+        place_picked(run, w, tx + 2, ty + 2 * i - 1)
+    return facts
+
+
+def c_region_siege(name, title, answer):
+    """H and J besiege L's region town; L is asked to sally: Fight (answer 'fight'), Fall Back ('fallback') or no
+    answer ('none'). H and J win the sally battle or the siege goes on; then the besiegers' prompt and the capture."""
+    def go():
+        run = start("REGIONS", "b3-" + name)
+        run.position = "REGIONS"
+        ok = False
+        m = meta("REGIONS")
+        try:
+            if answer == "fallback":
+                run.cmd("L", "fallback")
+            if answer == "none":
+                run.cmd("L", "auto off")
+            for w in ("H", "J"):
+                pick_army(run, w, m[w][0])
+                r = run.cmd(w, "besiegeregion %d" % m["regionL"])
+                run.check("besieging" in r, "%s besieges L's region town: %s" % (w, r))
+            run.wait(lambda: "prompt WBattle" in state(run, "L") or run.sleep(1), 240, "L's sally prompt")
+            run.shot("L", "L's sally prompt for its region town")
+            if answer == "fight":
+                wait_state(run, "H", "battle deploying", 240, "the sally battle at deployment")
+                for w in WHO:
+                    run.shot(w, "%s at the region sally's deployment" % w)
+                run.wait(lambda: "battle running" in state(run, "H") or run.sleep(1), 240, "the sally battle started")
+                run.sleep(5)
+                for w in WHO:
+                    run.cmd(w, "charge")
+                run.sleep(10)
+                run.check("held" in run.cmd("H", "morale theirs"), "L's side's morale held")
+                run.wait(lambda: run.events("H", "battle", what="close") or run.sleep(2), 600, "the sally battle over")
+                back_in_cities(run)
+            else:
+                asked = time.time()
+                run.wait(lambda: "prompt none" in state(run, "L") or run.sleep(1), 120, "L's prompt closed")
+                if answer == "none":
+                    run.check(time.time() - asked >= 25, "L's unanswered prompt closed after %.0f s" % (time.time() - asked))
+                    run.cmd("L", "auto on")
+            owner = run.wait(lambda: (lambda r: r if not re.search(r"of Mordor", r) else None)(run.cmd("H", "regionat %d" % m["regionL"]))
+                             or run.sleep(5), 900, "L's region town taken")
+            run.check("Mordor" not in owner, "L's region town changed hands: %s" % owner)
+            run.sleep(5)
+            for w in WHO:
+                run.shot(w, "%s after the region town's capture" % w)
+            ok = run.end()
+        except Failed as e:
+            run.check(False, str(e))
+            run.stop()
+        finish(name, title, run, ok)
+    return go
+
+
+def c1():
+    run = start("REGIONS", "b3-C1")
+    run.position = "REGIONS"
+    ok = False
+    m = meta("REGIONS")
+    try:
+        diplo = {w: run.cmd(w, "diplo") for w in WHO}
+        run.check(len(set(diplo.values())) == 1, "the relations are the same on every PC: %s" % diplo["H"])
+        for w in WHO:
+            v = m["vassal" + w]
+            run.check(re.search(r"(?:^|; )%d [^:]*:[^;]*\b%d=vassal" % (SLOT[w], v), diplo["H"]),
+                      "%s's vassal %d shows in diplomacy" % (w, v))
+            r = run.cmd(w, "regionat %d" % m["region" + w])
+            run.check(re.search(r"of (Ukorina|Petrovich|Mordor)", r), "%s's region %d: %s" % (w, m["region" + w], r))
+            run.cmd(w, "ui region %d" % m["region" + w])
+            run.sleep(2)
+            run.shot(w, "%s's region panel" % w)
+            run.cmd(w, "ui diplomacy")
+            run.sleep(2)
+            run.shot(w, "%s's diplomacy window" % w)
+        # a vassal acts against nobody its overlord allies or trades with: no war between it and the overlord's allies
+        for w in WHO:
+            v = m["vassal" + w]
+            line = re.search(r"(?:^|; )%d [^:]*:([^;]*)" % SLOT[w], diplo["H"]).group(1)
+            friends = [int(o) for o, rel in re.findall(r"(\d+)=(Allies|Trade|Colleagues)", line)]
+            for f in friends:
+                fl = re.search(r"(?:^|; )%d [^:]*:([^;]*)" % f, diplo["H"])
+                run.check(not (fl and re.search(r"\b%d=war" % v, fl.group(1))), "%s's vassal %d isn't at war with %s's friend %d" % (w, v, w, f))
+        run.sleep(30)
+        ok = run.end()
+    except Failed as e:
+        run.check(False, str(e))
+        run.stop()
+    finish("C1", "every player has a region and an NPC vassal", run, ok)
+
+
+SCENARIOS.update({
+    "C1": ("REGIONS", c1, "every player has a region and an NPC vassal, the same on every PC"),
+    "C2": ("REGIONS", c_region_siege("C2", "L's region town: L sallies, H and J win, then the capture", "fight"),
+           "H and J besiege L's region town; L sallies and loses"),
+    "C3": ("REGIONS", c_region_siege("C3", "L's region town: L falls back; H and J take it", "fallback"),
+           "L presses Fall Back; the siege goes on, H and J take the town"),
+    "C3b": ("REGIONS", c_region_siege("C3b", "L's region town: no answer; H and J take it", "none"),
+            "L doesn't answer for 30 s; H and J take the town"),
 })
 
 

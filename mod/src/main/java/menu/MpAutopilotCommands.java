@@ -101,6 +101,9 @@ import world.map.regions.Region;
  * {@code recruit <n>} (n of this city's citizens join a new division at once, trained and equipped; then {@code attach});
  * {@code giveregion <slot>} (the NPC region nearest that player's capital, not a capital, becomes theirs: a world command);
  * {@code givevassal <slot>} (the nearest NPC faction with no overlord becomes that player's vassal: a world command);
+ * {@code teleportnear <x> <y>} and {@code teleportarmy <army> <x> <y>} (the first army, or any army, an NPC's included,
+ * stands on the passable tile nearest x, y); {@code besiegeregion <region>} (the first army besieges that region);
+ * {@code regionat <region>} (its owner, centre and garrison); {@code ui region <region>} (its panel);
  * {@code state} (the prompts, battle, view and terms open on this PC); {@code save} (host: the escape menu's Save
  * Campaign, at any time, a battle included).
  */
@@ -229,6 +232,12 @@ final class MpAutopilotCommands {
 			if (a[1].equals("city")) {
 				VIEW.s().activate();
 				return "city view";
+			}
+			if (a[1].equals("region") && a.length > 2) { // a region's panel, as clicking it on the map (SOS-162)
+				Region r = WORLD.REGIONS().getByIndex(Integer.parseInt(a[2]));
+				VIEW.world().activate();
+				VIEW.world().UI.regions.open(r);
+				return "region " + r.index() + "'s panel";
 			}
 			if (a[1].equals("profile")) {
 				VIEW.UI().profile.activate();
@@ -436,6 +445,41 @@ final class MpAutopilotCommands {
 			Sieges.teleportForTest(w, Integer.parseInt(a[1]), Integer.parseInt(a[2]));
 			return "army " + w.armyIndex() + " teleports, at its step on every PC";
 		}
+		case "teleportnear": { // test tooling: the first army stands on the passable tile nearest X Y (SOS-162)
+			WArmy w = firstArmy();
+			if (w == null)
+				return "refused: no army";
+			int[] at = passableNear(Integer.parseInt(a[1]), Integer.parseInt(a[2]));
+			if (at == null)
+				return "refused: no passable tile near " + a[1] + "," + a[2];
+			Sieges.teleportForTest(w, at[0], at[1]);
+			return "army " + w.armyIndex() + " teleports to " + at[0] + "," + at[1] + ", at its step on every PC";
+		}
+		case "teleportarmy": { // test tooling: any army, an NPC's included, stands on the passable tile nearest X Y (SOS-162)
+			WArmy w = WORLD.ENTITIES().armies.tryGet(Integer.parseInt(a[1]));
+			if (w == null)
+				return "refused: no army " + a[1];
+			int[] at = passableNear(Integer.parseInt(a[2]), Integer.parseInt(a[3]));
+			if (at == null)
+				return "refused: no passable tile near " + a[2] + "," + a[3];
+			Sieges.teleportForTest(w, at[0], at[1]);
+			return "army " + w.armyIndex() + " of " + w.faction().name + " teleports to " + at[0] + "," + at[1] + ", at its step on every PC";
+		}
+		case "regionat": { // a region's owner, centre and garrison (SOS-162)
+			Region r = WORLD.REGIONS().getByIndex(Integer.parseInt(a[1]));
+			if (r == null)
+				return "refused: no region " + a[1];
+			return "region " + r.index() + " " + r.info.name() + " of " + (r.faction() == null ? "nobody" : r.faction().name) + " at "
+					+ r.cx() + "," + r.cy() + ", garrison " + world.region.RD.MILITARY().garrison.get(r) + ", capital " + r.capitol();
+		}
+		case "besiegeregion": { // the first army besieges the region with this index (SOS-162)
+			WArmy w = firstArmy();
+			Region r = WORLD.REGIONS().getByIndex(Integer.parseInt(a[1]));
+			if (w == null || r == null)
+				return "refused: no army or no region " + a[1];
+			w.besiege(r);
+			return "besieging region " + r.index() + " of " + (r.faction() == null ? "nobody" : r.faction().name);
+		}
 		case "route": { // the walk to the other player's capital (SOS-122)
 			Region me = FACTIONS.player().capitolRegion();
 			Region to = other().capitolRegion();
@@ -450,7 +494,7 @@ final class MpAutopilotCommands {
 			for (int i = 0; i < WORLD.ENTITIES().armies.max(); i++) {
 				WArmy e = WORLD.ENTITIES().armies.tryGet(i);
 				if (e != null && e.faction() instanceof FactionNPC && AD.men(null).get(e) > 0)
-					b.append(e.faction().index()).append(' ').append(AD.men(null).get(e)).append(' ').append(e.ctx()).append(' ').append(e.cty()).append("; ");
+					b.append(e.faction().index()).append(' ').append(AD.men(null).get(e)).append(' ').append(e.ctx()).append(' ').append(e.cty()).append(' ').append(e.armyIndex()).append("; ");
 			}
 			return b.toString();
 		}
@@ -810,7 +854,7 @@ final class MpAutopilotCommands {
 		if (shown >= 500 && !promptShot && setup.loading().shown() == null) { // never at a loading window's freeze (SOS-158)
 			CORE.getGraphics().makeScreenShot();
 			promptShot = true;
-			event.accept("battle", "\"what\":\"prompt shot\",\"prompt\":\"" + open.getClass().getSimpleName() + "\",\"step\":" + Engine.step());
+			event.accept("battle", "\"what\":\"prompt shot\",\"prompt\":\"" + open.getClass().getName() + "\",\"step\":" + Engine.step());
 		}
 		if (shown < 1500 || !promptShot && shown < 20_000)
 			return;
@@ -877,6 +921,33 @@ final class MpAutopilotCommands {
 				return w;
 		}
 		return null;
+	}
+
+	/**
+	 * The tile nearest x, y, by rings, that an army can walk on, that is no settlement's centre and has no other army on
+	 * it or next to it, so a teleport starts no battle by itself; null for none.
+	 */
+	private static int[] passableNear(int x, int y) {
+		for (int r = 0; r < 8; r++)
+			for (int dy = -r; dy <= r; dy++)
+				for (int dx = -r; dx <= r; dx++) {
+					if (Math.max(Math.abs(dx), Math.abs(dy)) != r)
+						continue;
+					int tx = x + dx, ty = y + dy;
+					Region reg = WORLD.REGIONS().map.get(tx, ty);
+					if (WORLD.PATH().map.is.is(tx, ty) && (reg == null || reg.cx() != tx || reg.cy() != ty) && !armyNear(tx, ty))
+						return new int[] { tx, ty };
+				}
+		return null;
+	}
+
+	private static boolean armyNear(int tx, int ty) {
+		for (int i = 0; i < WORLD.ENTITIES().armies.max(); i++) {
+			WArmy w = WORLD.ENTITIES().armies.tryGet(i);
+			if (w != null && Math.abs(w.ctx() - tx) <= 1 && Math.abs(w.cty() - ty) <= 1)
+				return true;
+		}
+		return false;
 	}
 
 	/** A tile of the capital's region next to its centre that an army can stand on; -1, -1 for the engine's choice. */
