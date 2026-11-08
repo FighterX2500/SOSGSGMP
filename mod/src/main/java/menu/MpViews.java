@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Locale;
 
 import snake2d.util.color.COLOR;
+import sosdet.LocalBattle;
 import sosdet.View;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.lobby.LobbyPlayer;
@@ -52,6 +53,8 @@ final class MpViews {
 	/** Each slot's view and its state as last logged ({@link #watch}). */
 	private final View[] watched = new View[LobbySettings.MAX_PLAYERS];
 	private final int[] watchedStates = new int[LobbySettings.MAX_PLAYERS];
+	/** Each slot's battle view as an ally of this PC's battle, not a plain watcher (SOS-165). */
+	private final boolean[] watchedAllies = new boolean[LobbySettings.MAX_PLAYERS];
 	/** A hold this long at the host's freeze step shows the notice. */
 	private static final long HOLD_NOTICE_NANOS = 500_000_000L;
 	/** The viewer's camera before a rejoin's load, put back once it is set: the battle's or the city's (SOS-151). */
@@ -96,10 +99,13 @@ final class MpViews {
 			watched[slot] = v;
 			watchedStates[slot] = state;
 			if (v != null && v.battle() && v.owner == setup.views().local()) {
-				if (state == View.RUNNING)
-					message(name(v.viewer) + " joined to watch your battle. It reloads for a few seconds.");
-				else if (state == View.ENDED)
-					message(name(v.viewer) + " stopped watching your battle.");
+				if (state == View.RUNNING) {
+					LocalBattle b = engine.localBattleOf(v.owner);
+					watchedAllies[slot] = b != null && b.ally(v.viewer);
+					message(name(v.viewer) + (watchedAllies[slot] ? " fights in your battle with their army. Their game reloads"
+							+ " for a few seconds." : " joined to watch your battle. It reloads for a few seconds."));
+				} else if (state == View.ENDED)
+					message(name(v.viewer) + (watchedAllies[slot] ? " left your battle." : " stopped watching your battle."));
 			}
 			if (v != null)
 				log.line(String.format(Locale.ROOT, "viewstate: %s viewing %s's city: %s at step %d (freeze %d, thaw %d)%s; this PC's"
@@ -392,8 +398,9 @@ final class MpViews {
 		}
 		if (!shown(bar)) {
 			boolean attacker = engine.assault() != null && engine.assault().attacks(setup.views().local());
-			bar = new MpViewBar(this, (attacker ? "Assault on " : v.battle() ? "Watching " : "Viewing ") + subject(v),
-					attacker ? "You command the invaders." : null);
+			boolean ally = !attacker && v.battle() && engine.localCommander(); // its orders go to the fighter's PC (SOS-165)
+			bar = new MpViewBar(this, (attacker ? "Assault on " : ally ? "Fighting in " : v.battle() ? "Watching " : "Viewing ")
+					+ subject(v), attacker ? "You command the invaders." : ally ? "You command your army." : null, attacker);
 			bar.open();
 			if (attacker)
 				VIEW.s().battle.activate(); // the battle UI: the attacker's soldiers are theirs to order

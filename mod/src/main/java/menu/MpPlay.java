@@ -256,6 +256,8 @@ final class MpPlay implements ACTION {
 			if (slot < 0 || slot == me || engine.localBattle(slot) == fighting[slot])
 				continue;
 			fighting[slot] = !fighting[slot];
+			if (fighting[slot] && engine.localBattleOf(slot).ally(me))
+				continue; // an ally answered Join already: the battle comes to its screen (SOS-165)
 			if (fighting[slot])
 				setup.chat().notice(notices.name(slot) + " is fighting a battle against NPCs. Click here to open their window,"
 						+ " then Watch battle to join it.", slot);

@@ -119,6 +119,11 @@ public final class EnginePlay implements EnginePort {
         return Engine.localBattle(slot) != null;
     }
 
+    /** True on this PC while its player fights in a battle against NPCs, theirs or as an ally (SOS-165). */
+    public boolean localCommander() {
+        return sosdet.Hooks.localCommander();
+    }
+
     /** The battle against NPCs of the player in {@code slot}, the same on every PC, or null (SOS-158 reads its freeze). */
     public LocalBattle localBattleOf(int slot) {
         return Engine.localBattle(slot);
