@@ -41,6 +41,7 @@ public final class TcpNode implements Node {
     private final Queue<Command> commands = new ConcurrentLinkedQueue<>();
     private final Thread thread;
     private volatile boolean closing;
+    private final Liveness liveness = new Liveness();
 
     // Owned by the I/O thread.
     private final Map<Integer, Peer> peers = new HashMap<>();
@@ -87,11 +88,16 @@ public final class TcpNode implements Node {
 
     @Override
     public void send(int peer, Message m) {
+        commands.add(new Command.Send(peer, frame(m)));
+        selector.wakeup();
+    }
+
+    /** {@code m} as it goes on the wire: its length, then its bytes. */
+    private static ByteBuffer frame(Message m) {
         byte[] payload = Protocol.encode(m);
         ByteBuffer frame = ByteBuffer.allocate(4 + payload.length);
         frame.putInt(payload.length).put(payload).flip();
-        commands.add(new Command.Send(peer, frame));
-        selector.wakeup();
+        return frame;
     }
 
     @Override
@@ -109,6 +115,21 @@ public final class TcpNode implements Node {
     public String describe() {
         return server != null ? "direct IP, listening on port " + server.socket().getLocalPort()
                 : "direct IP to " + connectTo.getHostString() + ":" + connectTo.getPort();
+    }
+
+    @Override
+    public long silentMs(int peer) {
+        return liveness.silentMs(peer, Liveness.now());
+    }
+
+    @Override
+    public int rttMs(int peer) {
+        return liveness.rttMs(peer);
+    }
+
+    @Override
+    public void silence(int seconds) {
+        liveness.silence(Liveness.now() + seconds * 1000L);
     }
 
     /** Sends what is queued (for up to a second), then closes every connection. No events after this. */
@@ -149,6 +170,7 @@ public final class TcpNode implements Node {
             while (!closing) {
                 selector.select(100);
                 runCommands();
+                beat();
                 for (SelectionKey key : selector.selectedKeys())
                     handle(key);
                 selector.selectedKeys().clear();
@@ -201,6 +223,7 @@ public final class TcpNode implements Node {
 
     private void connected(Peer p) {
         p.connected = true;
+        liveness.add(p.id, Liveness.now());
         events.add(new Event.Connected(p.id));
     }
 
@@ -232,6 +255,18 @@ public final class TcpNode implements Node {
                             updateInterest(p);
                     }
                 }
+            }
+        }
+    }
+
+    /** A heartbeat to every connected peer whose beat is due (SOS-177), behind what is queued for it. */
+    private void beat() {
+        long now = Liveness.now();
+        for (Peer p : peers.values()) {
+            Message.Heartbeat h = p.connected && !p.dropWhenSent ? liveness.due(p.id, now) : null;
+            if (h != null) {
+                p.out.add(frame(h));
+                updateInterest(p);
             }
         }
     }
@@ -286,10 +321,13 @@ public final class TcpNode implements Node {
     }
 
     private void read(Peer p) throws IOException {
-        if (p.channel.read(p.in) < 0) {
+        int read = p.channel.read(p.in);
+        if (read < 0) {
             drop(p, "The other side closed the connection.");
             return;
         }
+        if (read > 0)
+            liveness.heard(p.id, Liveness.now()); // a big message counts while its bytes arrive
         p.in.flip();
         while (p.in.remaining() >= 4) {
             int length = p.in.getInt(p.in.position());
@@ -309,7 +347,10 @@ public final class TcpNode implements Node {
                 drop(p, "Malformed data: " + e.getMessage());
                 return;
             }
-            events.add(new Event.Received(p.id, m));
+            if (m instanceof Message.Heartbeat h)
+                liveness.beat(p.id, h, Liveness.now());
+            else
+                events.add(new Event.Received(p.id, m));
         }
         p.in.compact();
     }
@@ -363,6 +404,7 @@ public final class TcpNode implements Node {
 
     private void closeQuietly(Peer p) {
         peers.remove(p.id);
+        liveness.remove(p.id);
         if (p.key != null)
             p.key.cancel();
         try {

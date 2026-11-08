@@ -30,7 +30,8 @@ import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.lobby.Refusal;
-import sosgsgmp.net.Message;
+import sosgsgmp.net.Message;
+import sosgsgmp.net.NetConditions;
 import sosgsgmp.net.Pieces;
 import sosgsgmp.net.Protocol;
 import sosgsgmp.net.StreamKind;
@@ -155,6 +156,7 @@ class LoopbackSetupTest {
             s.leave();
         for (LobbySession s : lobbies)
             s.leave();
+        System.clearProperty(NetConditions.PROPERTY);
     }
 
     /** Ann hosts, Bob and Cid join, Ann starts the lobby, and every PC hands its lobby over to the setup. */
@@ -195,7 +197,11 @@ class LoopbackSetupTest {
 
     /** Runs every PC's frame, as the map stage would, until the condition holds. */
     private void until(String what, BooleanSupplier condition) throws InterruptedException {
-        long deadline = System.currentTimeMillis() + 5_000;
+        until(what, 5_000, condition);
+    }
+
+    private void until(String what, long ms, BooleanSupplier condition) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + ms;
         while (System.currentTimeMillis() < deadline) {
             for (SetupSession s : setups) {
                 s.update();
@@ -721,7 +727,11 @@ class LoopbackSetupTest {
 
     /** {@link #until}, with every playing PC sending what its engine made each round. */
     private void playUntil(String what, BooleanSupplier condition) throws InterruptedException {
-        until(what, () -> {
+        playUntil(what, 5_000, condition);
+    }
+
+    private void playUntil(String what, long ms, BooleanSupplier condition) throws InterruptedException {
+        until(what, ms, () -> {
             for (SetupSession s : setups)
                 if (s.playing())
                     s.exchange();
@@ -770,6 +780,54 @@ class LoopbackSetupTest {
             assertFalse(s.departures().waiting());
             assertEquals(List.of(g), s.departures().removed());
         }
+        assertFalse(bob.closed());
+    }
+
+    /**
+     * SOS-177: Cid's PC goes silent with its connection open. Once silent for {@link Departures#LOST_MS}, every PC
+     * holds at one step with Cid lost, and Cid stays a player; heard again, the hold ends on every PC by itself and
+     * nobody is removed.
+     */
+    @Test
+    void aSilentPlayerIsLostThenBackAndTheHoldEndsByItself() throws Exception {
+        System.setProperty(NetConditions.PROPERTY, "delay=0"); // every node gets the test outages
+        EngineLinkTest.FakePort hp = new EngineLinkTest.FakePort();
+        playing(hp, new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        int cidId = idOf(host, "Cid");
+        hp.step = 500;
+        cid.testNetwork().outage(8);
+        playUntil("Bob holds for Cid, lost", 10_000, () -> bob.departures().lost(cidId));
+        assertTrue(host.departures().lost(cidId));
+        assertEquals(500 + Departures.LEAD, host.departures().holdStep());
+        assertEquals(500 + Departures.LEAD, bob.departures().holdStep(), "one hold step on every PC");
+        assertEquals(List.of("Ann", "Bob", "Cid"), names(host.players()), "a lost player stays");
+        assertNull(bob.departures().choice(), "nobody chose");
+        playUntil("the hold over on every PC", 10_000, () -> !host.departures().waiting() && !bob.departures().waiting()
+                && !cid.departures().waiting() && !host.departures().lost(cidId));
+        assertEquals(-1, bob.departures().holdStep());
+        assertEquals(List.of(), host.departures().removed());
+        assertEquals(List.of(), bob.departures().removed());
+        assertFalse(cid.closed());
+        assertEquals(List.of("Ann", "Bob", "Cid"), names(bob.players()));
+    }
+
+    /**
+     * SOS-177: the host continues without a lost player: they are removed as one who left, and their PC, heard again,
+     * is told so and its session ends.
+     */
+    @Test
+    void theHostCanContinueWithoutALostPlayerWhoIsToldSo() throws Exception {
+        System.setProperty(NetConditions.PROPERTY, "delay=0");
+        playing(new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        int cidId = idOf(host, "Cid");
+        cid.testNetwork().outage(12);
+        playUntil("every PC holds for Cid, lost", 10_000, () -> host.departures().lost(cidId) && bob.departures().lost(cidId));
+        host.chooseGone(Departures.Choice.CONTINUE);
+        playUntil("Bob hears Continue", () -> bob.departures().choice() == Departures.Choice.CONTINUE);
+        assertTrue(host.campaign().players().get(2).removed(), "the next save marks Cid removed");
+        assertEquals(List.of("Ann", "Bob"), names(host.players()));
+        playUntil("Cid told it was removed", 15_000, () -> cid.closed());
+        assertEquals(Refusal.REMOVED.text, cid.closedReason());
         assertFalse(bob.closed());
     }
 

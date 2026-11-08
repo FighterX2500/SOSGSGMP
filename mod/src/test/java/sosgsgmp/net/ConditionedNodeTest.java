@@ -21,6 +21,7 @@ class ConditionedNodeTest {
         final List<Integer> sentTo = new CopyOnWriteArrayList<>();
         final List<Message> sent = new CopyOnWriteArrayList<>();
         final List<Integer> dropped = new CopyOnWriteArrayList<>();
+        final List<Integer> silenced = new CopyOnWriteArrayList<>();
         final Queue<Event> events = new ConcurrentLinkedQueue<>();
         volatile boolean closed;
 
@@ -43,6 +44,21 @@ class ConditionedNodeTest {
         @Override
         public String describe() {
             return "recorder";
+        }
+
+        @Override
+        public long silentMs(int peer) {
+            return 0;
+        }
+
+        @Override
+        public int rttMs(int peer) {
+            return -1;
+        }
+
+        @Override
+        public void silence(int seconds) {
+            silenced.add(seconds);
         }
 
         @Override
@@ -105,6 +121,7 @@ class ConditionedNodeTest {
         Recorder r = new Recorder();
         ConditionedNode n = new ConditionedNode(r, NetConditions.parse(""));
         n.outage(1);
+        assertEquals(List.of(1), r.silenced, "the real node's heartbeats stop too (SOS-177)");
         n.send(0, chat(1));
         r.events.add(new Node.Event.Received(0, chat(2)));
         Thread.sleep(500);

@@ -358,7 +358,8 @@ final class MpLog {
 			int pc = setup.factions().slotOf(p.id());
 			if (p.id() != setup.localPlayerId())
 				peers.append(peers.length() == 0 ? "" : ", ").append(p.name()).append(' ').append(engine.peerStep(pc))
-						.append(" (capacity ").append(engine.capacity(pc)).append(')');
+						.append(" (capacity ").append(engine.capacity(pc))
+						.append(setup.rttMs(p.id()) < 0 ? "" : ", round trip " + setup.rttMs(p.id()) + " ms").append(')');
 		}
 		EngineLink.Traffic n = setup.traffic();
 		line(String.format(Locale.ROOT,

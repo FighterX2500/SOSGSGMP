@@ -68,6 +68,10 @@ public final class SteamNode implements Node {
     private long joinDeadline;
     private final long joinMs;
 
+    private final Liveness liveness = new Liveness();
+    /** When the I/O thread next looks for heartbeats due. */
+    private long beatAt;
+
     /** Written once on the I/O thread: only that thread may call the port. */
     private volatile String persona;
 
@@ -162,6 +166,21 @@ public final class SteamNode implements Node {
     }
 
     @Override
+    public long silentMs(int peer) {
+        return liveness.silentMs(peer, Liveness.now());
+    }
+
+    @Override
+    public int rttMs(int peer) {
+        return liveness.rttMs(peer);
+    }
+
+    @Override
+    public void silence(int seconds) {
+        liveness.silence(Liveness.now() + seconds * 1000L);
+    }
+
+    @Override
     public void close() {
         closing = true;
         try {
@@ -200,6 +219,7 @@ public final class SteamNode implements Node {
                     acceptAt = System.currentTimeMillis() + ACCEPT_MS;
                 }
                 readPackets();
+                beat();
                 joinTimeout();
                 if (!hosting && !entering && System.currentTimeMillis() >= friendsAt) {
                     friendLobbies = List.copyOf(port.friendLobbies());
@@ -271,6 +291,7 @@ public final class SteamNode implements Node {
                 }
                 case Command.Drop d -> {
                     Long user = users.remove(d.peer());
+                    liveness.remove(d.peer());
                     if (user != null) {
                         peers.remove(user);
                         port.closeSession(user);
@@ -288,11 +309,30 @@ public final class SteamNode implements Node {
             if (peer == null)
                 continue; // not a member of this lobby: dropped
             joinDeadline = 0;
+            long now = Liveness.now();
+            liveness.heard(peer, now);
             try {
-                events.add(new Event.Received(peer, Protocol.decode(bytes)));
+                Message m = Protocol.decode(bytes);
+                if (m instanceof Message.Heartbeat h)
+                    liveness.beat(peer, h, now);
+                else
+                    events.add(new Event.Received(peer, m));
             } catch (IOException e) {
                 drop(peer, "It sent a broken message: " + e.getMessage());
             }
+        }
+    }
+
+    /** A heartbeat to every peer whose beat is due (SOS-177). */
+    private void beat() {
+        long now = Liveness.now();
+        if (now < beatAt)
+            return;
+        beatAt = now + 100;
+        for (int peer : users.keySet().toArray(new Integer[0])) {
+            Message.Heartbeat h = liveness.due(peer, now);
+            if (h != null && !port.send(users.get(peer), Protocol.encode(h)))
+                drop(peer, "Steam refused a message to this player.");
         }
     }
 
@@ -301,12 +341,14 @@ public final class SteamNode implements Node {
         Long user = users.remove(peer);
         if (user == null)
             return;
+        liveness.remove(peer);
         peers.remove(user);
         port.closeSession(user);
         events.add(new Event.Disconnected(peer, reason));
     }
 
     private void added(int peer, long user) {
+        liveness.add(peer, Liveness.now());
         users.put(peer, user);
         peers.put(user, peer);
         events.add(new Event.Connected(peer));

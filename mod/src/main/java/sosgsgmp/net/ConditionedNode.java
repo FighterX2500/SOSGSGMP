@@ -73,11 +73,15 @@ public final class ConditionedNode implements Node {
         return conditions;
     }
 
-    /** Nothing passes either way for {@code seconds} from now, then everything due passes at once. */
+    /**
+     * Nothing passes either way for {@code seconds} from now, then everything due passes at once. The real node's
+     * heartbeats stop too, so both sides hear the silence (SOS-177).
+     */
     public void outage(int seconds) {
         if (seconds < 1 || seconds > NetConditions.MAX_OUTAGE_SECONDS)
             throw new IllegalArgumentException("SOSGSGMP: an outage of " + seconds + " s, not 1 to " + NetConditions.MAX_OUTAGE_SECONDS);
         outageUntil = Math.max(outageUntil, nowMs() + seconds * 1000L);
+        inner.silence(seconds);
         outages.incrementAndGet();
     }
 
@@ -112,6 +116,23 @@ public final class ConditionedNode implements Node {
     @Override
     public String describe() {
         return inner.describe() + " (test network: " + conditions.describe() + ")";
+    }
+
+    @Override
+    public long silentMs(int peer) {
+        return inner.silentMs(peer);
+    }
+
+    /** The real node's round trip plus the delay these conditions add to it; the heartbeats pass under them. */
+    @Override
+    public int rttMs(int peer) {
+        int rtt = inner.rttMs(peer);
+        return rtt < 0 ? rtt : rtt + conditions.delayMs();
+    }
+
+    @Override
+    public void silence(int seconds) {
+        inner.silence(seconds);
     }
 
     /** Sends everything still held at once, then closes the real node. */

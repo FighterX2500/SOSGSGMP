@@ -35,6 +35,18 @@ public interface Node extends AutoCloseable {
     /** What carries the connections, for the playtest log: the transport and its address or lobby. */
     String describe();
 
+    /**
+     * How long {@code peer}'s connection has carried nothing, heartbeats included (SOS-177): seconds of it mean that
+     * PC or its line went silent while the connection stayed open. 0 for a peer this node doesn't know. Any thread.
+     */
+    long silentMs(int peer);
+
+    /** {@code peer}'s round trip from the heartbeats, in ms, or -1 before the first. Any thread. */
+    int rttMs(int peer);
+
+    /** Test outages only (SOS-175): for {@code seconds}, no heartbeat goes and none counts, as if the line were down. */
+    void silence(int seconds);
+
     /** Sends what is queued (briefly), then closes every connection. No events after this. */
     @Override
     void close();

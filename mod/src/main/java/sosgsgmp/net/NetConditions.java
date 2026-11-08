@@ -40,9 +40,14 @@ public record NetConditions(int delayMs, int jitterMs, double lossPercent, long 
             throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " steamreorder " + steamReorderPercent + " %, not 0 to 50");
     }
 
+    /** Unit tests' stand-in for {@link #VARIABLE}, which a running JVM can't set (SOS-177). */
+    public static final String PROPERTY = "sosgsgmp.netem";
+
     /** The conditions in the environment, or null when the variable is unset or empty. */
     public static NetConditions fromEnvironment() {
         String v = System.getenv(VARIABLE);
+        if (v == null || v.isBlank())
+            v = System.getProperty(PROPERTY);
         return v == null || v.isBlank() ? null : parse(v);
     }
 
