@@ -154,8 +154,10 @@ final class MpGone {
 					+ " or returns to the last save." : "Waiting for the host to continue without them, or to return to the"
 					+ " last save.");
 		String refusal = refusal(d);
-		return who + (someLost ? "The game goes on by itself when they are heard again. You can wait as long as you like.\n" : "")
-				+ "Continue without them: they are removed from the campaign; their regions become free and their"
+		if (someLost) // the window has room for a few lines: the buttons say the rest
+			return who + "The game goes on by itself when they are heard again; you can wait as long as you like."
+					+ (refusal == null ? "" : "\n" + refusal);
+		return who + "Continue without them: they are removed from the campaign; their regions become free and their"
 				+ " armies disband.\nReturn to the last save: the session ends, and Load Saved Lobby resumes the campaign"
 				+ " with them." + (refusal == null ? "" : "\n" + refusal);
 	}
