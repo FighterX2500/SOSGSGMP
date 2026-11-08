@@ -570,11 +570,12 @@ def wrap(text, n):
     return out + [line]
 
 
-def finish(name, title, run, ok):
-    """The pass conditions every scenario shares (Test List §6), the report and the result line; True on a pass."""
+def finish(name, title, run, ok, ended="twopc: the run reached its end step on every game with the same hashes, no desync"):
+    """The pass conditions every scenario shares (Test List §6), the report and the result line; True on a pass.
+    `ended` says what `ok` means, for a scenario whose run doesn't end the usual way (N3: a game leaves)."""
     name += LABEL[0]
     lines = ["Scenario %s: %s" % (name, title), "Run %s, %s to %s." % (run.tag, time.strftime("%H:%M", time.localtime(run.started)), time.strftime("%H:%M"))]
-    run.check(ok, "twopc: the run reached its end step on every game with the same hashes, no desync")
+    run.check(ok, ended)
     run.check(not (run.crash_files() - run.crashes0), "no crash file")
     time.sleep(2)  # the games' exit writes the dump
     for w in WHO:
@@ -1613,6 +1614,54 @@ def agreed_speeds(run):
     return (min(agreed), agreed[-1]) if agreed else (-1.0, -1.0)
 
 
+def hashes(run, w):
+    """w's world hashes so far, by step."""
+    return {e["step"]: e["hash"] for e in run.events(w, "hash")}
+
+
+def n_leave(name, title):
+    """SOS-179: H's connection breaks inside a 20 s outage. J presses Leave the game in its lost-host window and quits;
+    L waits and comes back by itself; H, back, sees J lost, continues without J, and H and L play on with the same
+    hashes. The run is stopped once that is seen: J is gone, so it can't reach a common end step."""
+    def go():
+        run = start("ALLIES", "b3-" + name)
+        run.position = "ALLIES"
+        ok = False
+        try:
+            run.sleep(20)
+            r = run.cmd("J", "leavelost")
+            run.check("leaves" in r, "J will leave from the lost-host window: %s" % r)
+            cut_at = run.step("H")
+            r = link_down(run, "H", 20, True)
+            run.check("outage" in r and "cut" in r, "H's link carries nothing for 20 s, its connection cut, from step %d: %s"
+                      % (cut_at, r))
+            run.wait(lambda: run.events("J", "lefthostlost"), 40, "J leaving from the lost-host window")
+            left = run.events("J", "lefthostlost")[0]
+            run.check(True, "J left from the lost-host window at step %d" % left["step"])
+            run.wait(lambda: run.events("J", "closed"), 30, "J's game closing")
+            run.wait(lambda: run.events("L", "hostback"), 60, "L hearing H again")
+            run.check(True, "L heard H again by itself, at step %d" % run.events("L", "hostback")[0]["step"])
+            run.shot("H", "H back, J lost")
+            run.shot("L", "L back, H holding for J")
+            r = run.cmd("H", "chooselost")
+            run.check("chooses" in r, "H chooses for J, lost: %s" % r)
+            run.wait(lambda: run.events("H", "retired") and run.events("L", "retired"), 120, "J removed on H and L")
+            run.check(run.events("H", "retired")[0]["slot"] == run.events("L", "retired")[0]["slot"],
+                      "J's slot retired on H and L: %s" % run.events("H", "retired")[0])
+            run.sleep(30)
+            h, l = hashes(run, "H"), hashes(run, "L")
+            common = sorted(set(h) & set(l))
+            after = [s for s in common if s > cut_at]
+            run.check(after and all(h[s] == l[s] for s in common),
+                      "H and L agree on every hash, %d of them after the cut, up to step %d" % (len(after), common[-1] if common else -1))
+            ok = True
+        except Failed as e:
+            run.check(False, str(e))
+        run.stop()
+        finish(name, title, run, ok, ended="J left, L came back, H continued without J, all by the scenario's checks")
+    return go
+
+
 def n_world(name, title, cut=None):
     """SOS-176's world under --netem's conditions: the world at speed, J views H's city, H saves the campaign; then each
     --outage in turn, or `cut`'s game loses its connection. Today's behaviour is the baseline the reconnect work beats."""
@@ -1666,6 +1715,8 @@ SCENARIOS.update({
            "SOS-176: the world at speed under --netem, J views H's city, H saves, then each --outage"),
     "N2": ("ALLIES", n_world("N2", "the world under --netem, then J's connection is cut", cut="J"),
            "SOS-176: as N1, then J's connection is cut (netcut; needs --netem join=...)"),
+    "N3": ("ALLIES", n_leave("N3", "H's connection breaks for 20 s; J leaves from the lost-host window, L waits"),
+           "SOS-179: H cut inside a 20 s outage; J leaves, L comes back, H continues without J (needs --netem host=...)"),
 })
 
 

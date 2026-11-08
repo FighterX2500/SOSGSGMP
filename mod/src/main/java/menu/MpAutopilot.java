@@ -763,9 +763,17 @@ public final class MpAutopilot {
 			event("gone", "\"holdStep\":" + d.holdStep() + ",\"names\":\"" + clean(d.names()) + "\",\"step\":" + step);
 		}
 		lost(setup, d, step);
+		if (commands.leaveLost() && gone.canLeaveWithoutHost()) { // SOS-179: the window's button, then the test game quits
+			event("lefthostlost", "\"step\":" + step);
+			gone.leaveWithoutHost();
+			if (first("closed"))
+				event("closed", "\"reason\":\"left while the host was lost\"");
+			CORE.annihilate();
+			return;
+		}
 		// the host reads the window first, as a player would: every other PC shows the hold before the choice arrives;
 		// a hold of players only lost is waited out, as they may come back (SOS-177)
-		if (host && gone.waiting() && now - goneSeenAt > CHOOSE_AFTER_NANOS && anyLeft(d))
+		if (host && gone.waiting() && now - goneSeenAt > CHOOSE_AFTER_NANOS && (anyLeft(d) || commands.chooseLost()))
 			gone.choose(onGone.equals("continue"));
 		// every removed player of the campaign, by Continue or missing at a resume
 		if (setup.campaign() != null)

@@ -27,7 +27,8 @@ import view.main.VIEW;
  *
  * <p>A lost player (SOS-177), whose PC went silent with its connection open, holds every PC the same way, with the time
  * they have been lost; the host can wait as long as it likes. Once every player of the hold is back, before the host
- * chose, the hold ends by itself. A joining PC whose host went silent says so, with the time, until it is heard again.
+ * chose, the hold ends by itself. A joining PC whose host went silent says so, with the time, until it is heard again;
+ * its player can leave the session from there (SOS-179).
  */
 final class MpGone {
 
@@ -183,12 +184,37 @@ final class MpGone {
 			LOG.ln("SOSGSGMP: the host is silent for " + silent / 1000 + " s");
 		}
 		String text = "Lost the connection to the host: waiting, " + clock(silent) + ".\nThe game goes on when the host is"
-				+ " heard again. If it doesn't come back, the host can resume the campaign from its last save.";
+				+ " back. Leave the game: this PC leaves the session; the host can continue without you or return to the"
+				+ " last save.";
 		if (!text.equals(shownText) || !VIEW.inters().fullScreen.isActivated()) {
 			shownText = text;
-			VIEW.inters().fullScreen.activate(text, COLOR.WHITE100, null);
+			VIEW.inters().fullScreen.activate(text, COLOR.WHITE100, null, new GButt.ButtPanel("Leave the game") {
+				@Override
+				protected void clickA() {
+					leaveWithoutHost();
+				}
+			});
 		}
 		return true;
+	}
+
+	/** Whether the lost-host window is up, with its Leave the game button (SOS-179). */
+	boolean canLeaveWithoutHost() {
+		return !ended && hostLostShown;
+	}
+
+	/** A joining PC whose host is lost leaves the session (SOS-179): the session and the engine end here. */
+	void leaveWithoutHost() {
+		if (!canLeaveWithoutHost())
+			return;
+		ended = true;
+		VIEW.inters().fullScreen.deactivate();
+		if (!setup.closed())
+			setup.leave();
+		game.endSession();
+		GAME.SPEED.speedSet(0);
+		LOG.ln("SOSGSGMP: left the session while the host was lost");
+		CORE.setCurrentState(Menu::make);
 	}
 
 	/** The chat tells once who of the open hold left, who was lost, and who of those lost is back. */
