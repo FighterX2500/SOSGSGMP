@@ -672,6 +672,10 @@ public final class MpAutopilot {
 			exit.save(); // the escape menu's Save Campaign
 			event("saveorder", "\"step\":" + engine.step());
 		}
+		if (host && commands.takeSave()) { // a driver's save (SOS-162): pressed whatever the escape menu would refuse
+			exit.save();
+			event("saveorder", "\"step\":" + engine.step() + ",\"refusal\":\"" + clean(String.valueOf(exit.saveRefusal())) + "\"");
+		}
 		if (quit >= 0 && engine.step() >= quit && first("quit")) {
 			exit.quitConfirmed(true); // the escape menu's Exit, confirmed
 			event("quit", "\"step\":" + engine.step());

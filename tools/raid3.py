@@ -1,10 +1,10 @@
 """SOSGSGMP's standard three-game raider test (SOS-158): three games on this PC (host, joiner, local joiner) play the
 owner's 2026-11-04 campaign from just before the raiders invade the host's capital, at 25x.
 
-    python tools\\raid3.py prep      once: the three data folders from campaign save 77, played to step 6000 and saved
+    python tools\\raid3.py prep      once: the three data folders from campaign save 77, played to step 5600 and saved
                                      there; a copy of them is kept in build\\raid3\\snapshot
     python tools\\raid3.py run       each test: the copy back, then the raid:
-        - the raiders invade the host's capital (about step 6190) and the host attacks them (a sally);
+        - the raiders invade the host's capital (about step 6190, some 400 steps after the start) and the host attacks them (a sally);
         - the battle loads on the host; the joiner watches it for 30 s and leaves;
         - the host charges, routs the raiders (a test change on the host's PC only, so only while nobody watches)
           and closes the battle; it accepts the spoils;
@@ -32,7 +32,8 @@ import twopc  # noqa: E402
 SNAPSHOT = twopc.ROOT / "build" / "raid3" / "snapshot"
 CAMPAIGN = "84ed6e7b50de7fff"
 NUMBER = "77"
-SAVE_STEP = 6000
+# the save takes up to ~280 steps at 25x and must be written before the raid begins at about step 6190 (SOS-162)
+SAVE_STEP = 5600
 # each game's data folder, the player in it, and where the campaign keeps that player's records in the source folder
 PLAYERS = [("1", "e8986bac0a03f6c2", None, (1280, 720)),
            ("2", "a268a7e661719cf7", "1-Adam Smith", (1024, 640)),
@@ -84,6 +85,11 @@ def prep(source):
         if not records or records[-1].stem.endswith("-" + NUMBER):
             sys.exit("raid3: game %s wrote no campaign save at step %d" % (folder, SAVE_STEP))
         say("game", folder, "saved", records[-1].name)
+    events = [json.loads(l) for l in (twopc.RUNS / "raid3prep" / "host-events.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+    saved = min((e["step"] for e in events if e["event"] == "save" and e["status"].startswith("Campaign saved")), default=-1)
+    raided = min((e["step"] for e in events if e["event"] == "chatline" and "invaded by Raiders" in e["text"]), default=-1)
+    if 0 <= raided <= saved:
+        sys.exit("raid3: the raid began at step %d, before the save was written at step %d: save earlier" % (raided, saved))
     shutil.rmtree(SNAPSHOT, ignore_errors=True)
     for folder, *_ in PLAYERS:
         shutil.copytree(twopc.INST / folder, SNAPSHOT / folder,

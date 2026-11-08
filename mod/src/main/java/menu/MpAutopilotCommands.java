@@ -88,17 +88,40 @@ import world.map.regions.Region;
  * {@code raid} (this city's invasion, this player's raid and its state, the raiders, the treasury, the last messages);
  * {@code victoryaccept} (the Accept of the newest won invasion's spoils message, with every lot selected);
  * {@code nextmessage} (the open message closes, as its close button, and the next queued one opens).
+ *
+ * <p>Three-player test tooling (SOS-162), each applied at a step the host stamps, on every PC that runs what it changes:
+ * {@code target <slot>} (the player that {@code war}, {@code peace}, {@code ally}, {@code trade}, {@code cancel},
+ * {@code attack}, {@code besiege}, {@code siegewait}, {@code storm} and {@code view} act on; by default slot 1, or 0 on
+ * slot 1's PC); {@code cancel} (every treaty with that player ends at once); {@code pick <n>} (the n-th of this player's
+ * armies, from 0, is "the first army" of the army commands); {@code auto on|off} (battles=auto answers this PC's prompts,
+ * or leaves them to their time-outs); {@code attacknpc} (the first army intercepts the nearest NPC army at war with this
+ * player); {@code diplo} (the relations between the players, their NPC wars and vassals); {@code morale player|enemy|mine|theirs}
+ * (from its step, that side's morale is held below zero until the battle ends, on every PC that runs the battle; it
+ * replaces {@code rout} wherever a battle runs on more than one PC, and a view opened after it would desync);
+ * {@code recruit <n>} (n of this city's citizens join a new division at once, trained and equipped; then {@code attach});
+ * {@code giveregion <slot>} (the NPC region nearest that player's capital, not a capital, becomes theirs: a world command);
+ * {@code givevassal <slot>} (the nearest NPC faction with no overlord becomes that player's vassal: a world command);
+ * {@code state} (the prompts, battle, view and terms open on this PC); {@code save} (host: the escape menu's Save
+ * Campaign, at any time, a battle included).
  */
 final class MpAutopilotCommands {
 
 	private final Path file;
 	private long traceAt = -1;
 	private final boolean host;
-	private final boolean autoBattles;
+	private boolean autoBattles;
+	/** The player the two-player commands act on, from {@code target}; -1 for the default. */
+	private int target = -1;
+	/** Which of this player's armies the army commands use, from {@code pick}. */
+	private int armyPick;
 	/** The last simulation question answered, by its key. */
 	private long answeredQuestion = -1;
 	private final BiConsumer<String, String> event;
 	private Object answeredPrompt;
+	/** The prompt last seen open, when, and whether its screenshot was taken (SOS-162). */
+	private Object shotPrompt;
+	private long promptSeenAt;
+	private boolean promptShot;
 	private boolean started;
 	private boolean concluded;
 	private int chatSeen;
@@ -123,6 +146,16 @@ final class MpAutopilotCommands {
 		this.event = event;
 	}
 
+	/** The host's escape menu Save Campaign is due, from {@code save}. */
+	private boolean saveWanted;
+
+	/** True once after {@code save}: the host presses Save Campaign. */
+	boolean takeSave() {
+		boolean due = saveWanted;
+		saveWanted = false;
+		return due;
+	}
+
 	/** The step {@code endat} set for this PC's run to end at, or -1. */
 	long endAt() {
 		return endAt;
@@ -133,7 +166,7 @@ final class MpAutopilotCommands {
 		traceDue();
 		rout();
 		if (autoBattles)
-			battles();
+			battles(setup);
 		if (setup.chat().added() != chatSeen) {
 			chatSeen = setup.chat().added();
 			event.accept("chatline", "\"added\":" + chatSeen + ",\"step\":" + engine.step() + ",\"text\":\""
@@ -163,7 +196,7 @@ final class MpAutopilotCommands {
 	}
 
 	private Faction other() {
-		return FACTIONS.getByIndex(Engine.local() == 0 ? 1 : 0);
+		return FACTIONS.getByIndex(target >= 0 ? target : Engine.local() == 0 ? 1 : 0);
 	}
 
 	private String run(String[] a, EnginePlay engine, SetupSession setup) {
@@ -178,6 +211,8 @@ final class MpAutopilotCommands {
 		case "status":
 			return status(engine);
 		case "shot":
+			if (setup.loading().shown() != null) // a shot at a loading window's freeze would deadlock the game (SOS-158)
+				return "refused: a loading window is open";
 			CORE.getGraphics().makeScreenShot();
 			return "screenshot taken";
 		case "ui":
@@ -229,12 +264,77 @@ final class MpAutopilotCommands {
 			return "accepted " + n;
 		}
 		case "army": {
-			if (!World.armyCreate(-1, -1))
+			int[] at = armyTile(); // the engine picks a tile itself only for a player with no army yet
+			if (!World.armyCreate(at[0], at[1]))
 				return "refused: no session";
 			return "army ordered at the capital";
 		}
 		case "pop":
 			return "population " + STATS.POP().POP.data().get(null);
+		case "target":
+			target = Integer.parseInt(a[1]);
+			return "acting on " + other().name + " (slot " + target + ")";
+		case "pick":
+			armyPick = Integer.parseInt(a[1]);
+			return firstArmy() == null ? "no army " + armyPick : "army " + firstArmy().armyIndex();
+		case "auto":
+			autoBattles = a[1].equals("on");
+			return "battles answered " + (autoBattles ? "by the autopilot" : "by their time-outs");
+		case "cancel": {
+			String why = PlayerDeals.cancelRefusal(slot);
+			if (why != null)
+				return "refused: " + why;
+			PlayerDeals.cancel(slot);
+			return "treaties with " + other().name + " cancelled";
+		}
+		case "diplo":
+			return diplo();
+		case "state":
+			return state(engine);
+		case "save":
+			if (!host)
+				return "refused: the host saves the campaign";
+			saveWanted = true;
+			return "Save Campaign pressed";
+		case "morale": {
+			if (VIEW.b().state() == null)
+				return "refused: no battle on this PC";
+			game.battle.Army mine = OwnArmy.own();
+			game.battle.Army side = a[1].equals("enemy") ? GAME.ARMIES().enemy()
+					: a[1].equals("player") ? GAME.ARMIES().player()
+					: a[1].equals("mine") ? mine : mine == GAME.ARMIES().player() ? GAME.ARMIES().enemy() : GAME.ARMIES().player();
+			MapBattles.moraleForTest(side == GAME.ARMIES().player() ? 0 : 1);
+			return "army " + (side == GAME.ARMIES().player() ? 0 : 1) + "'s morale held below zero from its step";
+		}
+		case "recruit":
+			sosdet.game.cmd.Military.recruitForTest(Integer.parseInt(a[1]));
+			return a[1] + " citizens join an empty division, at its step in this city";
+		case "giveregion": {
+			Faction to = FACTIONS.getByIndex(Integer.parseInt(a[1]));
+			Region r = nearestNpcRegion(to);
+			if (r == null)
+				return "refused: no NPC region";
+			Sieges.regionGiveForTest(to.index(), r.index());
+			return "region " + r.index() + " " + r.info.name() + " of " + r.faction().name + " goes to " + to.name;
+		}
+		case "givevassal": {
+			Faction to = FACTIONS.getByIndex(Integer.parseInt(a[1]));
+			FactionNPC f = nearestFreeNpc(to);
+			if (f == null)
+				return "refused: no NPC faction";
+			Sieges.npcVassalForTest(to.index(), f.index());
+			return f.name + " (" + f.index() + ") becomes " + to.name + "'s vassal";
+		}
+		case "attacknpc": {
+			WArmy w = firstArmy();
+			if (w == null)
+				return "refused: no army";
+			WArmy target = nearestNpcEnemy(w);
+			if (target == null)
+				return "refused: no NPC army at war with this player";
+			World.armyIntercept(w, target);
+			return "intercepting " + target.faction().name + "'s army " + target.armyIndex() + " (" + AD.men(null).get(target) + " men)";
+		}
 		case "divs": {
 			StringBuilder b = new StringBuilder();
 			for (Div d : GAME.ARMIES().player().divisions())
@@ -658,7 +758,7 @@ final class MpAutopilotCommands {
 	}
 
 	/** The battles on their own (battles=auto): Fight, Start, fight on, Close, and accept the result. */
-	private void battles() {
+	private void battles(SetupSession setup) {
 		BattleState b = VIEW.b().state();
 		if (Engine.viewing() != null) {
 			question(); // a watcher only watches, but a question holds its view open
@@ -700,6 +800,19 @@ final class MpAutopilotCommands {
 			return;
 		}
 		if (open == answeredPrompt)
+			return;
+		if (open != shotPrompt) { // the prompt on screen first, for the run's report: a shot once it is drawn (SOS-162)
+			shotPrompt = open;
+			promptSeenAt = System.currentTimeMillis();
+			promptShot = false;
+		}
+		long shown = System.currentTimeMillis() - promptSeenAt;
+		if (shown >= 500 && !promptShot && setup.loading().shown() == null) { // never at a loading window's freeze (SOS-158)
+			CORE.getGraphics().makeScreenShot();
+			promptShot = true;
+			event.accept("battle", "\"what\":\"prompt shot\",\"prompt\":\"" + open.getClass().getSimpleName() + "\",\"step\":" + Engine.step());
+		}
+		if (shown < 1500 || !promptShot && shown < 20_000)
 			return;
 		answeredPrompt = open;
 		String what;
@@ -756,13 +869,115 @@ final class MpAutopilotCommands {
 		return best;
 	}
 
-	private static WArmy firstArmy() {
+	private WArmy firstArmy() {
+		int n = 0;
 		for (int i = 0; i < WORLD.ENTITIES().armies.max(); i++) {
 			WArmy w = WORLD.ENTITIES().armies.tryGet(i);
-			if (w != null && w.faction() == FACTIONS.player())
+			if (w != null && w.faction() == FACTIONS.player() && n++ == armyPick)
 				return w;
 		}
 		return null;
+	}
+
+	/** A tile of the capital's region next to its centre that an army can stand on; -1, -1 for the engine's choice. */
+	private static int[] armyTile() {
+		Region c = FACTIONS.player().capitolRegion();
+		if (c == null || FACTIONS.player().armies().all().size() == 0)
+			return new int[] { -1, -1 };
+		for (int r = 1; r < 6; r++)
+			for (int dy = -r; dy <= r; dy++)
+				for (int dx = -r; dx <= r; dx++) {
+					int x = c.cx() + dx, y = c.cy() + dy;
+					if (WORLD.PATH().map.is.is(x, y) && WORLD.REGIONS().map.get(x, y) == c)
+						return new int[] { x, y };
+				}
+		return new int[] { -1, -1 };
+	}
+
+	/** The NPC region nearest {@code f}'s capital that is no faction's capital: what {@code giveregion} gives. */
+	private static Region nearestNpcRegion(Faction f) {
+		Region best = null;
+		long bestD = Long.MAX_VALUE;
+		Region c = f.capitolRegion();
+		for (Region r : WORLD.REGIONS().active()) {
+			if (!(r.faction() instanceof FactionNPC) || r.capitol() || c == null)
+				continue;
+			long dx = r.cx() - c.cx(), dy = r.cy() - c.cy();
+			if (dx * dx + dy * dy < bestD) {
+				bestD = dx * dx + dy * dy;
+				best = r;
+			}
+		}
+		return best;
+	}
+
+	/** The active NPC faction nearest {@code f}'s capital with no overlord: what {@code givevassal} makes a vassal. */
+	private static FactionNPC nearestFreeNpc(Faction f) {
+		FactionNPC best = null;
+		long bestD = Long.MAX_VALUE;
+		Region c = f.capitolRegion();
+		for (int i = 0; i < FACTIONS.MAX(); i++) {
+			Faction n = FACTIONS.getByIndex(i);
+			if (!(n instanceof FactionNPC) || !n.isActive() || n.capitolRegion() == null || DIP.overlord(n) != null || c == null)
+				continue;
+			long dx = n.capitolRegion().cx() - c.cx(), dy = n.capitolRegion().cy() - c.cy();
+			if (dx * dx + dy * dy < bestD) {
+				bestD = dx * dx + dy * dy;
+				best = (FactionNPC) n;
+			}
+		}
+		return best;
+	}
+
+	/** The NPC army with men nearest {@code from} whose faction is at war with this player. */
+	private static WArmy nearestNpcEnemy(WArmy from) {
+		WArmy best = null;
+		long bestD = Long.MAX_VALUE;
+		for (int i = 0; i < WORLD.ENTITIES().armies.max(); i++) {
+			WArmy w = WORLD.ENTITIES().armies.tryGet(i);
+			if (w == null || !(w.faction() instanceof FactionNPC) || AD.men(null).get(w) == 0 || !DIP.WAR().is(FACTIONS.player(), w.faction()))
+				continue;
+			long dx = w.ctx() - from.ctx(), dy = w.cty() - from.cty();
+			if (dx * dx + dy * dy < bestD) {
+				bestD = dx * dx + dy * dy;
+				best = w;
+			}
+		}
+		return best;
+	}
+
+	/** What waits for this PC's player: the prompts, the battle and its panel, a view, an assault's terms. */
+	private static String state(EnginePlay engine) {
+		BattleState b = VIEW.b().state();
+		Object prompt = Hooks.worldPromptHere() ? Hooks.worldPrompt() : null;
+		return "prompt " + (prompt == null ? "none" : prompt.getClass().getSimpleName()) + ", sally " + Hooks.worldPromptSally()
+				+ ", ally asked " + engine.allyAsked() + ", battle " + (b == null ? "none" : b.deploying() ? "deploying"
+						: Hooks.battleConcludeOpen() ? "over" : "running")
+				+ ", viewing " + (Engine.viewing() != null) + ", terms " + (Engine.assaultTaken() != null)
+				+ ", notice " + VIEW.inters().fullScreen.isActivated() + ", step " + engine.step();
+	}
+
+	/** Each human's relations with the others, their NPC wars and vassals, for a test's log. */
+	private static String diplo() {
+		StringBuilder b = new StringBuilder();
+		for (int i = 0; i < FACTIONS.MAX(); i++) {
+			Faction h = FACTIONS.getByIndex(i);
+			if (!(h instanceof game.faction.player.Player) || !h.isActive())
+				continue;
+			b.append(h.index()).append(' ').append(h.name).append(":");
+			for (int j = 0; j < FACTIONS.MAX(); j++) {
+				Faction o = FACTIONS.getByIndex(j);
+				if (o == h || o == null || !o.isActive())
+					continue;
+				boolean human = o instanceof game.faction.player.Player;
+				String rel = DIP.WAR().is(h, o) ? "war" : DIP.overlord(o) == h ? "vassal" : DIP.overlord(h) == o ? "overlord"
+						: human && DIP.get(h, o) != null ? DIP.get(h, o).name.toString() : null;
+				if (rel != null)
+					b.append(' ').append(o.index()).append('=').append(rel);
+			}
+			b.append(" regions ").append(h.realm().regions()).append("; ");
+		}
+		return b.toString();
 	}
 
 	private static WArmy nearestOf(Faction f, WArmy from) {
