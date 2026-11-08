@@ -177,6 +177,8 @@ class Run:
         while self.p.poll() is None:
             self.poll_quiet()
             time.sleep(1)
+        if self.p.returncode != 0:  # a game the runner gave up on would hold its data folder for the next run
+            self.stop()
         return self.p.returncode == 0
 
     def poll_quiet(self):
