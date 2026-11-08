@@ -34,6 +34,8 @@ OUT = twopc.ROOT / "build" / "battles3"
 SNAP = OUT / "snapshot"
 RESULTS = OUT / "results.txt"
 REPORTS = pathlib.Path(r"C:\ClaudeFolder\PTreport\2026-11-08-battles")
+OUTAGE = []  # (who, seconds) from --outage: that game's link carries nothing once the battle runs (SOS-176)
+LABEL = [""]  # --label: added to the scenario's name in its report, logs and result line, one per condition (SOS-176)
 GAME = {"H": "1", "J": "2", "L": "3"}  # each player's data folder
 SLOT = {"H": 0, "J": 1, "L": 2}
 FIELD = (66, 93)  # open ground between the three capitals, where the NPC battles are fought
@@ -569,6 +571,7 @@ def wrap(text, n):
 
 def finish(name, title, run, ok):
     """The pass conditions every scenario shares (Test List §6), the report and the result line; True on a pass."""
+    name += LABEL[0]
     lines = ["Scenario %s: %s" % (name, title), "Run %s, %s to %s." % (run.tag, time.strftime("%H:%M", time.localtime(run.started)), time.strftime("%H:%M"))]
     run.check(ok, "twopc: the run reached its end step on every game with the same hashes, no desync")
     run.check(not (run.crash_files() - run.crashes0), "no crash file")
@@ -754,6 +757,14 @@ def met(run, joiners, seconds):
     return False
 
 
+def battle_outage(run):
+    """--outage's games lose their link for its seconds, as the battle runs (SOS-176)."""
+    for w, seconds in OUTAGE:
+        r = run.cmd(w, "netoutage %d" % seconds)
+        say(w, "outage:", r)
+        run.notes.append((True, "%s's link carried nothing for %d s once the battle ran: %s" % (w, seconds, r)))
+
+
 def npc_battle(run, joiners, watcher=None, outcome="win", retreat=None, save=False, answer=True, fight=True):
     """H attacks the position's NPC army; `joiners` are asked Join and answer it (or not, answer=False); `watcher`
     views the battle for 20 s; the side wins (the enemy's morale held) or loses (its own); `retreat` leaves halfway.
@@ -817,6 +828,7 @@ def npc_battle(run, joiners, watcher=None, outcome="win", retreat=None, save=Fal
     run.shot(lead, "%s's deployment" % lead)
     run.wait(lambda: "battle running" in state(run, lead) or run.sleep(1), 180, "the battle started")
     run.sleep(5)
+    battle_outage(run)
     for i, w in enumerate([lead] + joiners):
         before = speed_of(run, lead)
         r = run.cmd(w, "speed 3")
@@ -1016,6 +1028,7 @@ def pvp_battle(run, attackers, joiners, outcome, answers=True, start_answers=Tru
     run.check("own army 1" in st, "L commands army 1 once the battle runs: %s" % st)
     if in_battle:
         in_battle()
+    battle_outage(run)
     for w in WHO:
         say(w, "speed vote:", run.cmd(w, "speed 3"))
     run.sleep(3)
@@ -1583,13 +1596,88 @@ SCENARIOS.update({
 })
 
 
+def agreed_speeds(run):
+    """H's agreed speed over the run, from its status events: (lowest, last); the governor lowers it for a slow peer."""
+    agreed = [e["agreed"] for e in run.events("H", "status") if not e.get("paused") and e.get("agreed", 0) > 0]
+    agreed = agreed[next((i for i, v in enumerate(agreed) if v > 1.0), len(agreed)):]  # from the host's --speed on
+    return (min(agreed), agreed[-1]) if agreed else (-1.0, -1.0)
+
+
+def n_world(name, title, cut=None):
+    """SOS-176's world under --netem's conditions: the world at speed, J views H's city, H saves the campaign; then each
+    --outage in turn, or `cut`'s game loses its connection. Today's behaviour is the baseline the reconnect work beats."""
+    def go():
+        run = start("ALLIES", "b3-" + name)
+        run.position = "ALLIES"
+        ok = False
+        try:
+            run.sleep(20)
+            run.cmd("J", "target 0")
+            r = run.cmd("J", "view")
+            run.check("asked" in r, "J asked to view H's city: %s" % r)
+            run.wait(lambda: run.events("J", "viewstate", state=2), 180, "J viewing H's city")
+            run.sleep(15)
+            run.shot("J", "J viewing H's city")
+            run.cmd("J", "closeview")
+            run.wait(lambda: [e for e in run.events("J", "viewstate") if e.get("state") in (3, 4)], 180, "J's view over")
+            run.sleep(5)
+            run.cmd("H", "save")
+            run.wait(lambda: any(e["status"].startswith("Campaign saved") for e in run.events("H", "save")), 600,
+                     "H's campaign save")
+            run.check(True, "the campaign save went through")
+            for w, seconds in OUTAGE:
+                r = run.cmd(w, "netoutage %d" % seconds)
+                run.check("outage" in r, "%s's link carries nothing for %d s from step %d: %s" % (w, seconds, run.step(w), r))
+                run.sleep(min(5, seconds / 2))
+                for v in WHO:
+                    run.shot(v, "%s during %s's %d s outage" % (v, w, seconds))
+                run.sleep(seconds + 25)
+            if cut:
+                r = run.cmd(cut, "netcut")
+                run.check("cut" in r, "%s's connection is cut at step %d: %s" % (cut, run.step(cut), r))
+                run.sleep(10)
+                for v in WHO:
+                    run.shot(v, "%s 10 s after %s's cut" % (v, cut))
+                run.sleep(50)
+            low, last = agreed_speeds(run)
+            run.check(True, "H's agreed speed: lowest %.1f, last %.1f (the host asked 25)" % (low, last))
+            ok = run.end()
+        except Failed as e:
+            run.check(False, str(e))
+            run.stop()
+        finish(name, title, run, ok)
+    return go
+
+
+SCENARIOS.update({
+    "N1": ("ALLIES", n_world("N1", "the world under --netem: a view, a save, then each --outage"),
+           "SOS-176: the world at speed under --netem, J views H's city, H saves, then each --outage"),
+    "N2": ("ALLIES", n_world("N2", "the world under --netem, then J's connection is cut", cut="J"),
+           "SOS-176: as N1, then J's connection is cut (netcut; needs --netem join=...)"),
+})
+
+
 def main():
+    global REPORTS
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("what", choices=("prep", "run", "all", "list", "probe"))
     ap.add_argument("name", nargs="?", default="")
     ap.add_argument("--netem", action="append", default=[], metavar="WHO=SPEC",
                     help="test network conditions, passed to twopc.py (SOS-175): WHO host, join or local")
+    ap.add_argument("--outage", action="append", default=[], metavar="WHO:SECONDS",
+                    help="once the battle runs, WHO's (H, J or L) link carries nothing for SECONDS, 60 at most (SOS-176);"
+                         " needs --netem for that game. Repeatable")
+    ap.add_argument("--reports", default="", help="the PDF reports' folder instead of %s" % REPORTS)
+    ap.add_argument("--label", default="", help="added to the scenario's name in its report, logs and result line")
     args = ap.parse_args()
+    LABEL[0] = args.label
+    if args.reports:
+        REPORTS = pathlib.Path(args.reports)
+    for item in args.outage:
+        who, _, seconds = item.partition(":")
+        if who not in WHO or not seconds.isdigit():
+            sys.exit("battles3: --outage is WHO:SECONDS with WHO H, J or L: '%s'" % item)
+        OUTAGE.append((who, int(seconds)))
     TWOPC.extend(x for item in args.netem for x in ("--netem", item))
     OUT.mkdir(parents=True, exist_ok=True)
     if args.what == "prep":
