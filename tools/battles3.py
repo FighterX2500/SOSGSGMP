@@ -36,6 +36,7 @@ RESULTS = OUT / "results.txt"
 REPORTS = pathlib.Path(r"C:\ClaudeFolder\PTreport\2026-11-08-battles")
 OUTAGE = []  # (who, seconds, cut) from --outage/--cut: that game's link carries nothing once the battle runs (SOS-176);
 # with cut, its connections also break and must come back by themselves after the seconds (SOS-178)
+AT = {}  # N1/N2's awkward moments (SOS-180): "view" or "save" -> (who, seconds), a cut with no link that long
 LABEL = [""]  # --label: added to the scenario's name in its report, logs and result line, one per condition (SOS-176)
 GAME = {"H": "1", "J": "2", "L": "3"}  # each player's data folder
 SLOT = {"H": 0, "J": 1, "L": 2}
@@ -757,6 +758,16 @@ def met(run, joiners, seconds):
             return True
         run.sleep(1)
     return False
+
+
+def awkward(run, moment):
+    """--viewcut / --savecut: at that moment of N1/N2, a cut with no link for its seconds (SOS-180)."""
+    if moment not in AT:
+        return
+    w, seconds = AT[moment]
+    r = link_down(run, w, seconds, True)
+    run.check("cut" in r, "%s's connection cut at the %s's start, no link for %d s, at step %d: %s"
+              % (w, moment, seconds, run.step(w), r))
 
 
 def link_down(run, w, seconds, cut):
@@ -1675,12 +1686,18 @@ def n_world(name, title, cut=None):
             r = run.cmd("J", "view")
             run.check("asked" in r, "J asked to view H's city: %s" % r)
             run.wait(lambda: run.events("J", "viewstate", state=2), 180, "J viewing H's city")
+            awkward(run, "view")
             run.sleep(15)
             run.shot("J", "J viewing H's city")
             run.cmd("J", "closeview")
             run.wait(lambda: [e for e in run.events("J", "viewstate") if e.get("state") in (3, 4)], 180, "J's view over")
+            if "view" in AT:  # a view may end by itself when its viewer falls behind in the cut: recorded, not failed
+                over = [e for e in run.events("J", "viewstate") if e.get("state") in (3, 4)][0]
+                run.check(True, "J's view ended with state %d, why %d (0: closed as asked), %s"
+                          % (over["state"], over.get("why", -1), over.get("reason") or "no reason"))
             run.sleep(5)
             run.cmd("H", "save")
+            awkward(run, "save")
             run.wait(lambda: any(e["status"].startswith("Campaign saved") for e in run.events("H", "save")), 600,
                      "H's campaign save")
             run.check(True, "the campaign save went through")
@@ -1730,6 +1747,10 @@ def main():
     ap.add_argument("--outage", action="append", default=[], metavar="WHO:SECONDS",
                     help="once the battle runs, WHO's (H, J or L) link carries nothing for SECONDS, 60 at most (SOS-176);"
                          " needs --netem for that game. Repeatable")
+    ap.add_argument("--viewcut", default="", metavar="WHO:SECONDS",
+                    help="N1/N2: WHO's connection breaks once J views H's city, no link for SECONDS (SOS-180)")
+    ap.add_argument("--savecut", default="", metavar="WHO:SECONDS",
+                    help="N1/N2: WHO's connection breaks as H's campaign save starts, no link for SECONDS (SOS-180)")
     ap.add_argument("--cut", action="append", default=[], metavar="WHO:SECONDS",
                     help="that game's connections break once the battle runs (or in N1/N2's outage turn), with no link for SECONDS (0-60) first; SOS-178")
     ap.add_argument("--reports", default="", help="the PDF reports' folder instead of %s" % REPORTS)
@@ -1748,6 +1769,13 @@ def main():
         if who not in WHO or not seconds.isdigit() or int(seconds) > 60:
             sys.exit("battles3: --cut is WHO:SECONDS with WHO H, J or L and SECONDS 0 to 60: '%s'" % item)
         OUTAGE.append((who, int(seconds), True))
+    for moment, item in (("view", args.viewcut), ("save", args.savecut)):
+        if not item:
+            continue
+        who, _, seconds = item.partition(":")
+        if who not in WHO or not seconds.isdigit() or int(seconds) > 60:
+            sys.exit("battles3: --%scut is WHO:SECONDS with WHO H, J or L and SECONDS 0 to 60: '%s'" % (moment, item))
+        AT[moment] = (who, int(seconds))
     TWOPC.extend(x for item in args.netem for x in ("--netem", item))
     OUT.mkdir(parents=True, exist_ok=True)
     if args.what == "prep":
