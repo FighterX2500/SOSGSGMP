@@ -41,6 +41,7 @@ The fix goes into the nodes (`TcpNode`, `SteamNode`), below the sessions. A brok
     - `Resume` with a new token is a new peer;
     - anything else is a PC of another version, delivered as today, so the version check still refuses it with a clear reason.
   - A connection that sends nothing within 10 s is closed.
+  - Each attempt is numbered, so the host refuses an attempt older than the one it holds. A socket closed before it carried anything past its `Resume` is an attempt the joining PC gave up on: it only breaks the line. Both matter after the host's own outage, when the abandoned attempts wait in its queue with the newest (found in the SOS-180 pass).
 - **Steam.**
   - A failed session, or a message Steam refuses, detaches the line instead of dropping the peer. The node sends `Resume` every 2 s, which reopens the session, until it hears `Resumed`.
   - A real Left from the lobby is still a disconnect.
