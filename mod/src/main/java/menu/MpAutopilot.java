@@ -814,6 +814,10 @@ public final class MpAutopilot {
 		if (step >= last && !done && (!host || peersReached(engine, MpPlay.otherPcs(setup), last))) {
 			done = true;
 			event("done", "\"step\":" + step + ",\"desync\":" + engine.desyncStep());
+			// a joining PC leaves as a player does: what it queued reaches the host first, then its Leave; a process that
+			// just ends resets its connection, which now reads as a broken line the host waits for (SOS-178)
+			if (!host)
+				setup.leave();
 			CORE.annihilate();
 		}
 	}
