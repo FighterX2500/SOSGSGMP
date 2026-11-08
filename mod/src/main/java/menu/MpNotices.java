@@ -76,6 +76,8 @@ final class MpNotices {
 			case Notice.ALLY_OUT -> a + " stayed out of the battle of " + b + ".";
 			case Notice.ARMY_LEFT -> a + " retreated from the battle.";
 			case Notice.STANCE_PASSED -> n.first() == setup.factions().slotOf(setup.localPlayerId()) ? passedText(b, n) : null;
+			case Notice.SALLY_EMPTY -> n.first() == setup.factions().slotOf(setup.localPlayerId())
+					? "Nobody sallies out: no soldiers stand in your capital or within 4 tiles of it." : null;
 			default -> throw new IllegalArgumentException("SOSGSGMP: a notice of kind " + n.kind());
 		};
 	}
