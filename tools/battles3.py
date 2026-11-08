@@ -632,27 +632,22 @@ def place(run, w, x, y):
 
 def place_near(run, w, x, y, reach=3):
     """w's template army stands within `reach` tiles of x,y: the spots around it in turn, as a teleport to a tile no
-    army can stand on lands on the nearest free one, which can be far off."""
-    a = None
+    army can stand on lands on the nearest free one, which can be far off. An army already on a good spot stays: in
+    ALLIES L's stands on 63,94, and with H on 65,94 and J on 64,92 no other good tile is left (chain9 A3, A4)."""
+    def good(a):
+        # x,y and the tile east of it stay free: the NPC army is teleported there last (A3: L on 67,93 sent it to 64,90)
+        # and no more than a tile north: 64,90 lies across a river (chain9 A3: within 3, but L wasn't asked Join)
+        return max(abs(a[2] - x), abs(a[3] - y)) <= reach and a[3] >= y - 1 and (a[2], a[3]) not in ((x, y), (x + 1, y))
+    a = template_army(run, w)
+    if good(a):
+        return a
     # first the spots where B1's armies stood around L's army at 67,93, all within 4 tiles along the map
     # 63,94 (-3,+1): L's army there in ALLIES was asked Join with the NPC army on 67,93 (A1); 64,90 was not (a river)
     for dx, dy in ((-2, 1), (-3, 1), (-1, 2), (-2, -1), (0, 2), (0, -2), (2, 0), (2, 2), (2, -2), (-2, 2), (-2, -2)):
         a = place(run, w, x + dx, y + dy)
-        # x,y and the tile east of it stay free: the NPC army is teleported there last (A3: L on 67,93 sent it to 64,90)
-        if max(abs(a[2] - x), abs(a[3] - y)) <= reach and (a[2], a[3]) not in ((x, y), (x + 1, y)):
+        if good(a):
             return a
     raise Failed("%s's army found no tile within %d of %d,%d (last %s)" % (w, reach, x, y, a))
-
-
-def place_beside(run, w, x, y):
-    """w's template army stands within 2 tiles of x,y, a capital's centre: its siege counts armies 4 path tiles off
-    (WArmy.reinforceTiles). chain8 B6: L's army landed on 64,92 beside 62,95, too far, and the sally found nobody."""
-    a = None
-    for dx, dy in ((1, 1), (-1, 1), (1, -1), (-1, -1), (2, 0), (-2, 0), (0, 2), (0, -2), (2, 1), (-2, 1), (1, 2), (-1, 2)):
-        a = place(run, w, x + dx, y + dy)
-        if max(abs(a[2] - x), abs(a[3] - y)) <= 2:
-            return a
-    raise Failed("%s's army found no tile within 2 of %d,%d (last %s)" % (w, x, y, a))
 
 
 def resolved(run):
@@ -1048,11 +1043,11 @@ def besiege(run, besiegers):
 
 
 def sally(run, with_army, outcome):
-    """L sallies out of its capital (with its field army beside it when with_army); the besiegers win or lose."""
-    m = meta("WAR")
+    """L sallies out of its capital (with a garrison raised first when with_army); the besiegers win or lose."""
     if with_army:
-        pick_army(run, "L", armies(run, "L")[0][0])
-        place_beside(run, "L", *m["lcap"])
+        # a garrison: no army can reach the capital's side once it's besieged (chain9 B6: every tile within 2 taken)
+        run.check("join" in run.cmd("L", "recruit 120"), "L's city raises a garrison of 120")
+        run.sleep(10)
     r = run.wait(lambda: (lambda r: r if not r.startswith("refused") else None)(run.cmd("L", "sally")) or run.sleep(3), 120,
                  "L's sally accepted")
     run.check(r.startswith("sallying"), "L sallies out: %s" % r)
@@ -1147,7 +1142,34 @@ def b_siege(name, title, besiegers, sally_outcome=None, with_army=False, terms=N
     return go
 
 
+def b11():
+    """B11: L sallies with nobody: no garrison, its army far off. L hears why, and no battle prompt opens (SOS-170)."""
+    run = start("WAR", "b3-B11")
+    run.position = "WAR"
+    ok = False
+    try:
+        besiege(run, ["H"])
+        t0 = time.time() * 1000
+        r = run.wait(lambda: (lambda r: r if not r.startswith("refused") else None)(run.cmd("L", "sally")) or run.sleep(3), 120,
+                     "L's sally accepted")
+        run.check(r.startswith("sallying"), "L sallies out: %s" % r)
+        run.wait(lambda: any("Nobody sallies out" in e.get("text", "") and e.get("t", 0) >= t0
+                             for e in run.events("L", "chatline")) or run.sleep(1), 60, "L's notice of a sally with nobody")
+        run.check(True, "L hears that nobody sallies out")
+        run.check(not any("Nobody sallies out" in e.get("text", "") for w in ("H", "J") for e in run.events(w, "chatline")),
+                  "only L hears it")
+        run.check("battle none" in state(run, "L") and "sally -1" in state(run, "L"), "no battle for L: %s" % state(run, "L"))
+        for w in WHO:
+            run.shot(w, "%s after L's sally with nobody" % w)
+        ok = run.end()
+    except Failed as e:
+        run.check(False, str(e))
+        run.stop()
+    finish("B11", "a sally with nobody", run, ok)
+
+
 SCENARIOS.update({
+    "B11": ("WAR", b11, "H besieges L's capital; L sallies with no soldiers in or beside it and is told why"),
     "B6": ("WAR", b_siege("B6", "siege and sally: L's garrison and army sally; H and J win", ["H", "J"], "win", with_army=True),
            "H and J besiege L's capital; L sallies with its army; H and J win"),
     "B7": ("WAR", b_siege("B7", "assault, Sack", ["H", "J"], terms="sack 60 40:20:20"),
@@ -1155,7 +1177,8 @@ SCENARIOS.update({
     "B8": ("WAR", b_siege("B8", "assault, Eliminate", ["H", "J"], terms="eliminate 90 50:20:20"),
            "as B7, Eliminate"),
     "B9": ("WAR", b_siege("B9", "assault, Vassalage", ["H", "J"], terms="vassalage 25"), "as B7, Vassalage"),
-    "B10": ("WAR", b_siege("B10", "1 against a city: L's sally loses, H storms and sacks", ["H"], "win", terms="sack 50 30:10:10"),
+    "B10": ("WAR", b_siege("B10", "1 against a city: L's sally loses, H storms and sacks", ["H"], "win", with_army=True,
+                                terms="sack 50 30:10:10"),
             "H alone besieges; L sallies and loses; H storms (Sack)"),
 })
 
@@ -1311,6 +1334,7 @@ def a_town(name, title):
         ok = False
         try:
             f = meta("ALLIES")["npc"]
+            run.position = None  # each player's largest army: the small ones of ALLIES lose to a 947-man garrison
             template_army(run, "H")
             town = run.cmd("H", "townof %d" % f)
             m = re.search(r"region (\d+) at (\d+),(\d+)", town)
@@ -1320,8 +1344,11 @@ def a_town(name, title):
             say("the town:", town)
             for w, (dx, dy) in zip(WHO, ((2, 0), (-2, 0), (0, 2))):
                 place(run, w, tx + dx, ty + dy)
-            run.cmd("H", "stormnext")
-            for w in WHO:
+            # H last, its Storm armed just before: chain9 stormed at H's own first prompt, before J and L besieged
+            for w in ("J", "L", "H"):
+                if w == "H":
+                    run.sleep(5)
+                    run.cmd("H", "stormnext")
                 template_army(run, w)
                 r = run.cmd(w, "besiegeregion %d" % reg)
                 run.check("besieging" in r, "%s besieges the town: %s" % (w, r))
@@ -1367,12 +1394,15 @@ def b5():
         cands = [a for a in npc_armies(run) if a[1] >= 1000 and a[0] not in taken and power(run, a[4]) > mine * 1.3]
         if not cands:
             raise Failed("no NPC army stronger than J's (vanilla lets a weaker one withdraw at once)")
-        f, men, x, y, _ = min(cands, key=lambda a: (a[2] - jx) ** 2 + (a[3] - jy) ** 2)
+        f, men, x, y, idx = min(cands, key=lambda a: (a[2] - jx) ** 2 + (a[3] - jy) ** 2)
         say("J's NPC army: faction %d, %d men at %d,%d" % (f, men, x, y))
         run.cmd("J", "npcwar %d" % f)
         run.sleep(5)
         pick_army(run, "J", m["J"][0])
-        place_picked(run, "J", x + 2, y)
+        a = place_picked(run, "J", x + 2, y)
+        # the NPC army walks off while J's intercept chases it (chain9: 45,103 to 34,107 in 240 s): set it beside J last
+        run.cmd("H", "fillarmy %d" % idx)
+        say(run.cmd("H", "teleportarmy %d %d %d" % (idx, a[2] - 1, a[3])))
         run.cmd("L", "auto off")
         run.check("intercepting" in run.cmd("J", "attacknpc"), "J attacks the NPC army")
         if resolved(run):
