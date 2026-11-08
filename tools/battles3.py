@@ -929,7 +929,7 @@ def pick_army(run, w, index):
     return mine[at]
 
 
-def pvp_battle(run, attackers, joiners, outcome, answers=True, start_answers=True, stay=(), before_attack=None):
+def pvp_battle(run, attackers, joiners, outcome, answers=True, start_answers=True, stay=(), before_attack=None, in_battle=None):
     """attackers[0]'s field army attacks L's field army; `joiners` answer Join (or never, answers=False); the battle
     runs on every PC; H's side wins (L's morale held) or L wins (H's side's)."""
     m = meta("REGIONS" if getattr(run, "position", None) == "REGIONS" else "WAR")  # REGIONS has its own armies
@@ -988,6 +988,8 @@ def pvp_battle(run, attackers, joiners, outcome, answers=True, start_answers=Tru
     run.sleep(5)
     st = state(run, "L")
     run.check("own army 1" in st, "L commands army 1 once the battle runs: %s" % st)
+    if in_battle:
+        in_battle()
     for w in WHO:
         say(w, "speed vote:", run.cmd(w, "speed 3"))
     run.sleep(3)
@@ -1529,11 +1531,16 @@ def c4():
             lx, ly = armies(run, "L")[0][2:4]
             say("the vassal's army:", va, run.cmd("H", "teleportarmy %d %d %d" % (va[4], lx, ly + 2)))
             run.sleep(2)
-        before = va[1]
-        pvp_battle(run, ["H"], ["J"], "win", before_attack=beside_l)
-        after = [a for a in npc_armies(run) if a[4] == va[4]]
-        say("the vassal's army after:", after)
-        run.check(not after or after[0][1] != before, "the vassal's army fought: %d men to %s" % (before, after[0][1] if after else "none"))
+        theirs = {}
+        def sides():  # H's side holds H's and J's armies and the vassal's: a win by morale may cost the vassal no men
+            hj = sum(x[1] for w in ("H", "J") for x in armies(run, w) if x[0] == m[w][0])  # the battle's two armies
+            r = run.cmd("H", "battlemen")
+            got = re.search(r"player (\d+)", r)
+            theirs["hj"], theirs["side"] = hj, int(got.group(1)) if got else 0
+            run.check(theirs["side"] >= hj + va[1] // 2, "the vassal's army fights on H's side: H's side %d men, H's and J's "
+                      "armies %d, the vassal's %d (%s)" % (theirs["side"], hj, va[1], r))
+        pvp_battle(run, ["H"], ["J"], "win", before_attack=beside_l, in_battle=sides)
+        say("the vassal's army after:", [a for a in npc_armies(run) if a[4] == va[4]])
         for w in ("H", "J"):
             run.check(got_spoils(run, w), "%s, a winner, received spoils or captives" % w)
         run.check(not captives(run, "L"), "L, beaten, received no captives")

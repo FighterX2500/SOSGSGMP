@@ -107,6 +107,7 @@ import world.map.regions.Region;
  * the first army, not its capital); {@code stormnext} (the next siege prompt is answered with Storm); {@code ui region <region>} (its panel);
  * {@code armypower <army>} (its power, as vanilla weighs a world battle's sides: the weaker NPC side withdraws at once);
  * {@code fillarmy <army>} (any army's supplies full, which its power counts);
+ * {@code battlemen} (the men on each side of the battle this PC runs);
  * {@code state} (the prompts, battle, view and terms open on this PC); {@code save} (host: the escape menu's Save
  * Campaign, at any time, a battle included).
  */
@@ -534,6 +535,8 @@ final class MpAutopilotCommands {
 			WArmy w = WORLD.ENTITIES().armies.tryGet(Integer.parseInt(a[1]));
 			return w == null ? "refused: no army " + a[1] : "power " + (long) AD.power().get(w);
 		}
+		case "battlemen": // the men on each side of the battle this PC runs: an NPC ally's count in it (SOS-162, C4)
+			return "player " + GAME.ARMIES().player().men() + ", enemy " + GAME.ARMIES().enemy().men();
 		case "npcwar":
 			Sieges.npcWarForTest(FACTIONS.player().index(), Integer.parseInt(a[1]));
 			return "at war with " + a[1] + ", at its step on every PC";
