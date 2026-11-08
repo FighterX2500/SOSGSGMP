@@ -47,6 +47,8 @@ public final class JoinedSetup implements SetupSession {
     private final Loading loading = new Loading();
     /** Players whose PC left the running game, as the host tells it, and the hold for them (SOS-65). */
     private final Departures departures = new Departures();
+    /** For the playtest log: players lost and heard again (SOS-177). */
+    private final Notes notes = new Notes();
     /** The engine's streams once this PC plays; null before. */
     private EngineLink link;
     /** City viewing's requests once this PC plays; null before (SOS-82). */
@@ -242,6 +244,11 @@ public final class JoinedSetup implements SetupSession {
                     cursors.set(c.playerId(), c.place(), c.x(), c.y());
             }
             case Message.PlayerGone g when link != null -> gone(g.playerId(), g.holdStep());
+            case Message.PlayerLost l when link != null -> lost(l.playerId(), l.holdStep(), l.silentMs());
+            case Message.PlayerBack b when link != null -> {
+                if (departures.heardBack(b.playerId(), b.holdStep()))
+                    notes.add(nameOf(b.playerId()) + " is heard again");
+            }
             case Message.Refused f -> close(f.reason().text); // a spectator's PC too far behind (spec §11)
             case Message.GoneChoice c when link != null -> {
                 Departures.Choice choice = c.continued() ? Departures.Choice.CONTINUE : Departures.Choice.RETURN;
@@ -267,16 +274,43 @@ public final class JoinedSetup implements SetupSession {
             close("The host said a player who is still here left (player " + id + ").");
             return;
         }
-        String name = "A player";
-        for (LobbyPlayer p : players)
-            if (p.id() == id)
-                name = p.name();
-        if (!departures.heard(new Departures.Gone(id, name, factions.slotOf(id)), hold))
+        if (!departures.heard(new Departures.Gone(id, nameOf(id), factions.slotOf(id)), hold))
             return;
         List<LobbyPlayer> left = new ArrayList<>(players);
         left.removeIf(p -> p.id() == id);
         players = List.copyOf(left);
         cursors.retain(players);
+    }
+
+    /**
+     * The host says player {@code id}'s PC went silent {@code silentMs} ago (SOS-177): this PC holds at {@code hold} as
+     * for one gone, and they may come back. This PC's own player is held too, without a window: the host only hears it
+     * again once it is back.
+     */
+    private void lost(int id, long hold, long silentMs) {
+        if (id == hostId()) {
+            close("The host said it lost itself (player " + id + ").");
+            return;
+        }
+        if (departures.heardLost(new Departures.Gone(id, nameOf(id), factions.slotOf(id)), hold, nowMs() - silentMs))
+            notes.add(nameOf(id) + " silent for " + silentMs / 1000 + " s at the host; holding at " + hold);
+    }
+
+    private String nameOf(int id) {
+        for (LobbyPlayer p : players)
+            if (p.id() == id)
+                return p.name();
+        return "A player";
+    }
+
+    @Override
+    public int rttMs(int playerId) {
+        return playerId == hostId() ? node.rttMs(Node.HOST) : -1;
+    }
+
+    @Override
+    public long hostSilentMs() {
+        return link == null ? 0 : node.silentMs(Node.HOST);
     }
 
     @Override
@@ -569,9 +603,9 @@ public final class JoinedSetup implements SetupSession {
         return o;
     }
 
-    /** None: every network problem of a joining PC closes its session, and {@link #closedReason()} says why. */
+    /** Players lost and heard again; any other network problem of a joining PC closes its session ({@link #closedReason()}). */
     @Override
     public String takeNote() {
-        return null;
+        return notes.take();
     }
 }

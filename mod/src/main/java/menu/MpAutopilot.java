@@ -153,6 +153,10 @@ public final class MpAutopilot {
 	private long seenGone = -1;
 	private long goneSeenAt;
 	private static final long CHOOSE_AFTER_NANOS = 3_000_000_000L;
+	/** The players this PC saw lost and not back yet (SOS-177). */
+	private final java.util.Set<Integer> lostSeen = new java.util.HashSet<>();
+	/** This joining PC saw its host silent and not heard again yet. */
+	private boolean hostSilentSeen;
 	private final boolean resume;
 	private final Path events;
 	private int shownSaves;
@@ -629,6 +633,44 @@ public final class MpAutopilot {
 	 * The loaded game, every frame after the update: the landing party; while playing, hashes, the test desync and the
 	 * host's choice in the desync window; at the end, quit.
 	 */
+	/** Events for the players lost and back, and for a joining PC's host gone silent and heard again (SOS-177). */
+	private void lost(SetupSession setup, Departures d, long step) {
+		for (Departures.Gone g : d.gone())
+			if (d.lost(g.playerId()) && lostSeen.add(g.playerId()))
+				event("lost", "\"player\":" + g.playerId() + ",\"name\":\"" + clean(g.name()) + "\",\"holdStep\":" + d.holdStep()
+						+ ",\"step\":" + step);
+		for (java.util.Iterator<Integer> i = lostSeen.iterator(); i.hasNext();) {
+			int id = i.next();
+			if (!d.lost(id)) {
+				i.remove();
+				event("back", "\"player\":" + id + ",\"left\":" + inHold(d, id) + ",\"step\":" + step);
+			}
+		}
+		long silent = setup.hostSilentMs();
+		if (!hostSilentSeen && silent >= Departures.LOST_MS) {
+			hostSilentSeen = true;
+			event("hostsilent", "\"ms\":" + silent + ",\"step\":" + step);
+		} else if (hostSilentSeen && silent < Departures.BACK_MS) {
+			hostSilentSeen = false;
+			event("hostback", "\"step\":" + step);
+		}
+	}
+
+	private static boolean inHold(Departures d, int id) {
+		for (Departures.Gone g : d.gone())
+			if (g.playerId() == id)
+				return true;
+		return false;
+	}
+
+	/** Whether a player of the open hold left, not only lost. */
+	private static boolean anyLeft(Departures d) {
+		for (Departures.Gone g : d.gone())
+			if (!d.lost(g.playerId()))
+				return true;
+		return false;
+	}
+
 	void game(SetupSession setup, EnginePlay engine, MpDesync desync, MpSaves saves, MpGone gone, MpExit exit, MpViews views,
 			MpLoading loading) {
 		loadingShot(setup, engine, engine.active() ? engine.step() : -1, loading);
@@ -720,8 +762,10 @@ public final class MpAutopilot {
 			goneSeenAt = now;
 			event("gone", "\"holdStep\":" + d.holdStep() + ",\"names\":\"" + clean(d.names()) + "\",\"step\":" + step);
 		}
-		// the host reads the window first, as a player would: every other PC shows the hold before the choice arrives
-		if (host && gone.waiting() && now - goneSeenAt > CHOOSE_AFTER_NANOS)
+		lost(setup, d, step);
+		// the host reads the window first, as a player would: every other PC shows the hold before the choice arrives;
+		// a hold of players only lost is waited out, as they may come back (SOS-177)
+		if (host && gone.waiting() && now - goneSeenAt > CHOOSE_AFTER_NANOS && anyLeft(d))
 			gone.choose(onGone.equals("continue"));
 		// every removed player of the campaign, by Continue or missing at a resume
 		if (setup.campaign() != null)
