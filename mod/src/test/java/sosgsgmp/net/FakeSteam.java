@@ -113,7 +113,22 @@ public final class FakeSteam {
                 if (members == null || !members.remove(self))
                     return;
                 for (long m : members)
-                    users.get(m).later(() -> users.get(m).listener.memberLeft(lobby, self));
+                    users.get(m).later(() -> users.get(m).listener.memberLeft(lobby, self, false));
+            }
+        }
+
+        /**
+         * Test: this user loses its connection to Steam for a while (SOS-177): Steam takes it out of the lobby, tells the
+         * others it disconnected and tells it it was kicked; its packets still go, as a session that outlives the blip.
+         */
+        public void loseSteam(long lobby) {
+            synchronized (FakeSteam.this) {
+                Set<Long> members = lobbies.get(lobby);
+                if (members == null || !members.remove(self))
+                    return;
+                for (long m : members)
+                    users.get(m).later(() -> users.get(m).listener.memberLeft(lobby, self, true));
+                later(() -> listener.lobbyLost(lobby, true));
             }
         }
 

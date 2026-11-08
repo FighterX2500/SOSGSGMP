@@ -45,6 +45,10 @@ final class SteamMessages {
     private static final int SEND_BUFFER_BYTES = 256 * 1024 * 1024;
     /** Steam's send rate is fixed, 256 KB/s unless set; min and max stay equal, as its header says. */
     private static final int SEND_RATE_BYTES = 1024 * 1024;
+    /** {@code k_ESteamNetworkingConfig_TimeoutConnected}: a session with no answer for this long fails (Steam's default 10 s). */
+    private static final int CONFIG_TIMEOUT_CONNECTED = 25;
+    /** A player's internet blip up to a minute keeps the session, as a direct IP connection does (SOS-177). */
+    private static final int TIMEOUT_CONNECTED_MS = 60_000;
     private static final String DLL = "steam_api64.dll";
     /** The same library on Linux, as steamworks4j names it there. */
     private static final String SO = "libsteam_api.so";
@@ -93,6 +97,10 @@ final class SteamMessages {
         configure(config, utils, CONFIG_SEND_BUFFER, SEND_BUFFER_BYTES);
         configure(config, utils, CONFIG_RATE_MIN, SEND_RATE_BYTES);
         configure(config, utils, CONFIG_RATE_MAX, SEND_RATE_BYTES);
+        configure(config, utils, CONFIG_TIMEOUT_CONNECTED, TIMEOUT_CONNECTED_MS);
+        Pointer name = function(module, "SteamAPI_ISteamNetworkingUtils_GetConfigValueInfo")
+                .invokePointer(new Object[] {utils, CONFIG_TIMEOUT_CONNECTED, new Memory(4), new Memory(4)});
+        trace.accept("session timeout: " + (name == null ? "?" : name.getString(0)) + " = " + TIMEOUT_CONNECTED_MS + " ms");
         requested = event -> {
             trace.accept("session requested by " + steamId(event));
             listener.get().sessionRequested(steamId(event));

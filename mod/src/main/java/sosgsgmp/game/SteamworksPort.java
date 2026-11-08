@@ -305,12 +305,14 @@ public final class SteamworksPort implements SteamPort {
             if (change == SteamMatchmaking.ChatMemberStateChange.Entered)
                 listener.memberJoined(handle(lobby), handle(changed));
             else
-                listener.memberLeft(handle(lobby), handle(changed));
+                listener.memberLeft(handle(lobby), handle(changed),
+                        change == SteamMatchmaking.ChatMemberStateChange.Disconnected);
         }
 
         @Override
         public void onLobbyKicked(SteamID lobby, SteamID admin, boolean kickedDueToDisconnect) {
-            listener.lobbyLost(handle(lobby));
+            trace("lobby lost: " + handle(lobby) + (kickedDueToDisconnect ? ", this PC lost Steam" : ""));
+            listener.lobbyLost(handle(lobby), kickedDueToDisconnect);
         }
 
         @Override
