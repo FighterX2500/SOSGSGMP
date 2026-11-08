@@ -36,6 +36,7 @@ RESULTS = OUT / "results.txt"
 REPORTS = pathlib.Path(r"C:\ClaudeFolder\PTreport\2026-11-08-battles")
 GAME = {"H": "1", "J": "2", "L": "3"}  # each player's data folder
 SLOT = {"H": 0, "J": 1, "L": 2}
+FIELD = (66, 93)  # open ground between the three capitals, where the NPC battles are fought
 WHO = ("H", "J", "L")
 TWOPC = [sys.executable, str(twopc.ROOT / "tools" / "twopc.py"), "--here", "--local-joiner", "--resume", "--battles",
          "auto", "--speed", "25"]
@@ -383,11 +384,12 @@ def place_picked(run, w, x, y):
     if not m:
         raise Failed("%s's army can't stand near %d,%d: %s" % (w, x, y, r))
     index, tx, ty = (int(v) for v in m.groups())
-    run.sleep(2)
-    for a in armies(run, w):
-        if a[0] == index and (a[2], a[3]) == (tx, ty):
-            say(w, "army", index, "at", tx, ty)
-            return a
+    for _ in range(10):  # the teleport applies at its step, up to 400 steps on at world speed
+        run.sleep(1)
+        for a in armies(run, w):
+            if a[0] == index and (a[2], a[3]) == (tx, ty):
+                say(w, "army", index, "at", tx, ty)
+                return a
     raise Failed("%s's army %d isn't at %d,%d after the teleport: %s" % (w, index, tx, ty, armies(run, w)))
 
 
@@ -448,6 +450,8 @@ def probe(name):
 
 
 PROMPTS = {"world.battle.ResolverPlayer$1": "the battle's result: spoils and captives, or the losses",
+           "world.battle.ResolverPlayer$Manual$2": "the result of a battle fought on the map: spoils and captives, or the losses",
+           "world.battle.ResolverPlayer$Spec": "the Fight prompt (Command, Auto, Retreat)",
            "world.battle.spec.WBattleSiege": "the siege prompt"}
 
 
@@ -615,6 +619,18 @@ def place(run, w, x, y):
     return place_picked(run, w, x, y)
 
 
+def place_near(run, w, x, y, reach=2):
+    """w's template army stands within `reach` tiles of x,y: the spots around it in turn, as a teleport to a tile no
+    army can stand on lands on the nearest free one, which can be far off."""
+    a = None
+    # first the spots where B1's armies stood around L's army at 67,93, all within 4 tiles along the map
+    for dx, dy in ((-2, 1), (-3, -1), (-1, 2), (-2, -1), (0, 2), (0, -2), (2, 0), (2, 2), (2, -2), (-2, 2), (-2, -2)):
+        a = place(run, w, x + dx, y + dy)
+        if max(abs(a[2] - x), abs(a[3] - y)) <= reach:
+            return a
+    raise Failed("%s's army found no tile within %d of %d,%d (last %s)" % (w, reach, x, y, a))
+
+
 def resolved(run):
     """H's battle result accepted already: vanilla resolved it with no Fight prompt."""
     return [e["what"] for e in run.events("H", "battle") if e.get("what") in ("victory accept", "defeat accept")]
@@ -641,6 +657,23 @@ def back_in_cities(run, timeout=600):
     run.wait(lambda: done() or run.sleep(2), timeout, "every game back in its own city")
 
 
+def got_spoils(run, w, seconds=60):
+    """w's spoils or captives, waiting for them: each winner's arrive once that winner accepted its result window."""
+    end = time.time() + seconds
+    while time.time() < end:
+        got = spoils(run, w)
+        if got:
+            return got
+        run.sleep(2)
+    return []
+
+
+def captives(run, w):
+    """The captives player w received: what a loser must never get (a destroyed army's own supplies go home as
+    vanilla's spoils shipments too, so goods alone don't tell a winner)."""
+    return [l for l in spoils(run, w) if re.search(r" [1-9]\d* (Human|Captive)", l)]
+
+
 def spoils(run, w):
     """The spoils and captives player w received in this run, from its playtest log's transfers."""
     who = {"H": "Host", "J": "Joiner", "L": "Local"}[w]  # every PC's log lists every player's transfers
@@ -655,8 +688,8 @@ def met(run, joiners, seconds):
     """Whether H's battle began within `seconds`: a prompt or a battle on H, a Join prompt, or a resolved battle."""
     end = time.time() + seconds
     while time.time() < end:
-        st = state(run, "H")
-        if "prompt none" not in st or "battle none" not in st or resolved(run) or any("ally asked true" in state(run, w) for w in joiners):
+        sts = [state(run, w) for w in ["H"] + joiners]
+        if any("prompt none" not in st or "battle none" not in st or "ally asked true" in st for st in sts) or resolved(run):
             return True
         run.sleep(1)
     return False
@@ -664,16 +697,24 @@ def met(run, joiners, seconds):
 
 def npc_battle(run, joiners, watcher=None, outcome="win", retreat=None, save=False, answer=True, fight=True):
     """H attacks the position's NPC army; `joiners` are asked Join and answer it (or not, answer=False); `watcher`
-    views H's battle for 20 s; the side wins (the enemy's morale held) or loses (its own); `retreat` leaves halfway."""
+    views the battle for 20 s; the side wins (the enemy's morale held) or loses (its own); `retreat` leaves halfway.
+    The NPC army may strike first at one of the joiners standing by: whoever it fights leads, the others are asked."""
     m = meta(run.position)
-    x, y, idx = npc_army(run, m["npc"])[2:5]
+    idx = npc_army(run, m["npc"])[4]
     run.cmd("H", "fillarmy %d" % idx)  # its power counts its supplies: stronger than its attackers, it doesn't withdraw
-    say("the NPC army of faction %d stands at %d,%d, power %d" % (m["npc"], x, y, power(run, idx)))
-    place(run, "H", x + 2, y)
-    for i, w in enumerate(joiners):
-        place(run, w, x + 2, y + 2 * (i + 1))
+    # the fighters stand on open ground, where B1's allies were all within 4 tiles along the map (a river between
+    # armies keeps them apart); the NPC army comes last, as the world runs fast and it walks off meanwhile
+    for w in ["H"] + joiners:
+        place_near(run, w, FIELD[0], FIELD[1])
+    for w in WHO:  # the NPC faction may have made peace since the position was saved (its AI offers it)
+        run.cmd(w, "npcwar %d" % m["npc"])
+    run.sleep(2)
+    say("relations:", run.cmd("H", "diplo"))
     if not fight:
         run.cmd("H", "auto off")
+    say(run.cmd("H", "teleportarmy %d %d %d" % (idx, FIELD[0], FIELD[1])))
+    x, y = npc_army(run, m["npc"])[2:4]
+    say("the NPC army of faction %d stands at %d,%d, power %d" % (m["npc"], x, y, power(run, idx)))
     hx, hy = template_army(run, "H")[2:4]
     run.cmd("H", "attacknpc")
     if not met(run, joiners, 25):
@@ -684,6 +725,19 @@ def npc_battle(run, joiners, watcher=None, outcome="win", retreat=None, save=Fal
         run.sleep(2)
         say("H attacks again:", run.cmd("H", "attacknpc"))
         run.notes.append((True, "the NPC army was teleported next to H: H's intercept started no battle in 25 s"))
+    lead = run.wait(lambda: next((w for w in ["H"] + joiners if run.events(w, "battle", what="prompt shot")
+                                  or run.events(w, "battle", what="fight") or "prompt Spec" in state(run, w)), None)
+                    or resolved(run) or run.sleep(1), 120, "the battle's Fight prompt")
+    if resolved(run):
+        raise Failed("the battle was resolved at once, with no prompt: %s" % resolved(run))
+    if lead != "H":
+        run.notes.append((True, "the NPC army struck %s first, so %s leads the battle and H is asked Join" % (lead, lead)))
+        say("the NPC army struck", lead, "first: it leads")
+    joiners = [w for w in ["H"] + joiners if w != lead]
+    run.sleep(2)
+    say("the ally question:", run.cmd("H", "allies"))
+    if retreat == lead:
+        retreat = joiners[0]
     for w in joiners:
         run.wait(lambda: "ally asked true" in state(run, w) or resolved(run) or run.sleep(1), 120, "%s's Join prompt" % w)
         if resolved(run):
@@ -692,35 +746,35 @@ def npc_battle(run, joiners, watcher=None, outcome="win", retreat=None, save=Fal
         if answer:
             run.check("Join" in run.cmd(w, "join"), "%s answered Join" % w)
     if not fight:
-        run.wait(lambda: "prompt WBattle" in state(run, "H") or run.sleep(1), 120, "H's Fight prompt")
+        run.wait(lambda: re.search(r"prompt (?!none)", state(run, lead)) or run.sleep(1), 120, "H's Fight prompt")  # Spec vs NPCs
         asked = time.time()
-        run.wait(lambda: "prompt none" in state(run, "H") or run.sleep(1), 120, "H's prompt to time out")
+        run.wait(lambda: "prompt none" in state(run, lead) or run.sleep(1), 120, "H's prompt to time out")
         run.check(time.time() - asked >= 20, "H's Fight prompt closed by itself %.0f s after the Join prompt" % (time.time() - asked))
         run.cmd("H", "auto on")
         run.sleep(20)
         back_in_cities(run)
-        return
-    wait_state(run, "H", "battle deploying", 180, "H's battle at deployment")
-    run.shot("H", "H's deployment")
-    run.wait(lambda: "battle running" in state(run, "H") or run.sleep(1), 180, "H's battle started")
+        return retreat
+    wait_state(run, lead, "battle deploying", 180, "the battle at deployment")
+    run.shot(lead, "%s's deployment" % lead)
+    run.wait(lambda: "battle running" in state(run, lead) or run.sleep(1), 180, "the battle started")
     run.sleep(5)
-    for i, w in enumerate(["H"] + joiners):
-        before = speed_of(run, "H")
+    for i, w in enumerate([lead] + joiners):
+        before = speed_of(run, lead)
         r = run.cmd(w, "speed 3")
         say(w, "speed vote:", r)
         if len(joiners) >= 2 and i < 2:
             run.sleep(3)
-            after = speed_of(run, "H")
+            after = speed_of(run, lead)
             if i == 0:
                 run.check(after == before, "one vote of three keeps the speed: %.1f to %.1f" % (before, after))
             else:
                 run.check(after != before, "two votes of three change the speed: %.1f to %.1f" % (before, after))
     run.sleep(3)
-    run.shot("H", "H's battle after both commanders voted for 3x")
+    run.shot(lead, "%s's battle after the commanders voted for 3x" % lead)
     for w in joiners:
         run.shot(w, "%s's view of the battle as an ally" % w)
     if watcher:
-        run.cmd(watcher, "target 0")
+        run.cmd(watcher, "target %d" % SLOT[lead])
         r = run.cmd(watcher, "view")
         run.check("asked" in r, "%s asked to watch H's battle: %s" % (watcher, r))
         run.wait(lambda: run.events(watcher, "viewstate", state=2), 180, "%s watching" % watcher)
@@ -740,17 +794,18 @@ def npc_battle(run, joiners, watcher=None, outcome="win", retreat=None, save=Fal
         run.check("Retreat" in run.cmd(retreat, "retreat"), "%s ordered the retreat" % retreat)
         run.sleep(10)
         run.shot(retreat, "%s after retreating" % retreat)
-    run.cmd("H", "charge")
+    run.cmd(lead, "charge")
     for w in joiners:
         if w != retreat:
             run.cmd(w, "charge")
     run.sleep(10)
     side = "enemy" if outcome == "win" else "player"
-    r = run.cmd("H", "morale %s" % side)
+    r = run.cmd(lead, "morale %s" % side)
     run.check("held" in r, "the %s side's morale held below zero: %s" % (side, r))
-    run.wait(lambda: run.events("H", "battle", what="close"), 600, "H's battle over")
+    run.wait(lambda: run.events(lead, "battle", what="close"), 600, "the battle over")
     back_in_cities(run)
     run.sleep(5)
+    return retreat
 
 
 def a_battle(name, title, joiners, watcher=None, outcome="win", retreat=None, save=False, answer=True, fight=True):
@@ -761,8 +816,10 @@ def a_battle(name, title, joiners, watcher=None, outcome="win", retreat=None, sa
         try:
             before = {w: template_army(run, w) for w in WHO}
             npc_before = npc_army(run, meta("ALLIES")["npc"])
-            npc_battle(run, joiners, watcher, outcome, retreat, save, answer, fight)
-            after = {w: template_army(run, w) for w in WHO}
+            left = npc_battle(run, joiners, watcher, outcome, retreat, save, answer, fight)
+            if retreat and left != retreat:
+                say("the retreat went to", left, "as", retreat, "led the battle")
+            after = {w: next((a for a in armies(run, w) if a[0] == before[w][0]), (before[w][0], 0, 0, 0)) for w in WHO}
             npc_after = [a for a in npc_armies(run) if a[0] == meta("ALLIES")["npc"]]
             for w in WHO:
                 say(w, "army before", before[w], "after", after[w], "spoils", spoils(run, w))
@@ -771,13 +828,13 @@ def a_battle(name, title, joiners, watcher=None, outcome="win", retreat=None, sa
                 run.check(after[w][1] < before[w][1] or not fight, "%s lost men: %d to %d" % (w, before[w][1], after[w][1]))
             if outcome == "win" and fight:
                 for w in fought:
-                    if w != retreat:
-                        run.check(spoils(run, w), "%s received spoils or captives" % w)
-                if retreat:
-                    run.check(not spoils(run, retreat), "%s, who retreated, received no spoils" % retreat)
+                    if w != left:
+                        run.check(got_spoils(run, w), "%s received spoils or captives" % w)
+                if left:
+                    run.check(not captives(run, left), "%s, who retreated, received no captives" % left)
             elif fight:
                 for w in fought:
-                    run.check(not spoils(run, w), "%s, beaten, received nothing" % w)
+                    run.check(not captives(run, w), "%s, beaten, received no captives: %s" % (w, captives(run, w)[:3]))
                 run.check(npc_after, "the NPC army stays: %s (was %s)" % (npc_after, npc_before))
             if not answer:
                 run.check(after[joiners[0]][1] == before[joiners[0]][1], "%s, who never answered, kept its men" % joiners[0])
@@ -790,16 +847,18 @@ def a_battle(name, title, joiners, watcher=None, outcome="win", retreat=None, sa
             run.check(False, str(e))
             run.stop()
         finish(name, title, run, ok)
-        if save:
+        if save and ok:
             resume_check(name, after)
     return go
 
 
 def resume_check(name, after):
     """A8: the campaign saved after the battle resumes with the battle's losses in it."""
+    t0 = time.time() * 1000  # the resume reuses the last run's folders: their old "go" events don't count
     run = Run("b3-%s-resume" % name)
     try:
-        run.wait(lambda: all(run.events(w, "go") for w in WHO), 300, "every game playing after the resume")
+        run.wait(lambda: all(any(e.get("t", 0) >= t0 for e in run.events(w, "go")) for w in WHO) or run.sleep(1), 300,
+                 "every game playing after the resume")
         for w in ("H", "J"):
             a = template_army(run, w)
             run.check(a[1] == after[w][1], "%s's army after the resume has the battle's survivors: %d (%d before the save)" % (w, a[1], after[w][1]))
@@ -859,7 +918,7 @@ def pvp_battle(run, attackers, joiners, outcome, answers=True, start_answers=Tru
     for w in stay:
         wait_state(run, w, "ally asked true", 120, "%s's Join prompt" % w)
         run.check("Stay out" in run.cmd(w, "stayout"), "%s answered Stay out" % w)
-    run.wait(lambda: (lambda st: "prompt WBattle" in st or "battle none" not in st)(state(run, "L")) or run.sleep(1), 120,
+    run.wait(lambda: (lambda st: re.search(r"prompt (?!none)", st) or "battle none" not in st)(state(run, "L")) or run.sleep(1), 120,
              "L's Fight prompt")  # battles=auto may answer it before this looks
     if not answers:
         run.shot("L", "L's Fight prompt, left unanswered")
@@ -870,8 +929,16 @@ def pvp_battle(run, attackers, joiners, outcome, answers=True, start_answers=Tru
     wait_state(run, "H", "battle deploying", 180, "the battle's deployment on H")
     for w in WHO:
         run.shot(w, "%s at deployment" % w)
-    st = state(run, "L")
-    run.check("own army 1" in st or "battle deploying" not in st, "L deploys its own army, army 1: %s" % st)
+    seen = []
+    for _ in range(8):  # when L's PC learns which army it commands: the commanders table at its step
+        st = state(run, "L")
+        seen.append(re.sub(r".*battle (\w+).*step (\d+).*own army (-?\d+), table (\w+).*", r"\2 \1 own \3 table \4", st))
+        if "battle deploying" not in st:
+            break
+        run.sleep(1)
+    say("L's own army over the deployment:", seen)
+    run.check(any("deploying own 1" in v for v in seen) or not any("deploying" in v for v in seen),
+              "L deploys its own army, army 1: %s" % seen)
     run.shot("L", "L's Army panel at deployment: L's own divisions")
     if not start_answers:
         began = time.time()
@@ -881,6 +948,8 @@ def pvp_battle(run, attackers, joiners, outcome, answers=True, start_answers=Tru
             run.cmd(w, "auto on")
     run.wait(lambda: "battle running" in state(run, "H") or run.sleep(1), 240, "the battle started")
     run.sleep(5)
+    st = state(run, "L")
+    run.check("own army 1" in st, "L commands army 1 once the battle runs: %s" % st)
     for w in WHO:
         say(w, "speed vote:", run.cmd(w, "speed 3"))
     run.sleep(3)
@@ -913,9 +982,9 @@ def b_battle(name, title, attackers, joiners, outcome="win", answers=True, start
             winners = attackers + joiners if outcome == "win" else ["L"]
             losers = ["L"] if outcome == "win" else attackers + joiners
             for w in winners:
-                run.check(spoils(run, w), "%s, a winner, received spoils or captives" % w)
+                run.check(got_spoils(run, w), "%s, a winner, received spoils or captives" % w)
             for w in losers:
-                run.check(not spoils(run, w), "%s, beaten, received nothing" % w)
+                run.check(not captives(run, w), "%s, beaten, received no captives: %s" % (w, captives(run, w)[:3]))
             ok = run.end()
         except Failed as e:
             run.check(False, str(e))
@@ -1025,7 +1094,7 @@ def b_siege(name, title, besiegers, sally_outcome=None, with_army=False, terms=N
                 sally(run, with_army, sally_outcome)
                 if sally_outcome == "win":
                     for w in besiegers:
-                        run.check(spoils(run, w), "%s, a winner of the sally, received spoils or captives" % w)
+                        run.check(got_spoils(run, w), "%s, a winner of the sally, received spoils or captives" % w)
             if terms:
                 chooser = assault(run, besiegers[0], terms)
                 diplo = {w: run.cmd(w, "diplo") for w in WHO}
@@ -1110,7 +1179,7 @@ def c_region_siege(name, title, answer):
                 pick_army(run, w, m[w][0])
                 r = run.cmd(w, "besiegeregion %d" % m["regionL"])
                 run.check("besieging" in r, "%s besieges L's region town: %s" % (w, r))
-            run.wait(lambda: "prompt WBattle" in state(run, "L") or run.sleep(1), 240, "L's sally prompt")
+            run.wait(lambda: re.search(r"prompt (?!none)", state(run, "L")) or run.sleep(1), 240, "L's sally prompt")
             run.shot("L", "L's sally prompt for its region town")
             if answer == "fight":
                 wait_state(run, "H", "battle deploying", 240, "the sally battle at deployment")
@@ -1286,7 +1355,7 @@ def b5():
         early = []
         def over():
             for w in ("J", "L"):
-                if "prompt WBattle" in state(run, w):
+                if re.search(r"prompt (Spec|WBattle)", state(run, w)):  # a Fight prompt, not J's own result window
                     early.append(w)
             return run.events("J", "battle", what="close")
         run.sleep(20)
@@ -1296,7 +1365,7 @@ def b5():
         run.check("held" in run.cmd("J", "morale theirs"), "the NPC side's morale held")
         run.wait(lambda: over() or run.sleep(2), 600, "J's NPC battle over")
         run.check(not early, "no Fight prompt opened during J's NPC battle: %s" % sorted(set(early)))
-        run.wait(lambda: "prompt WBattle" in state(run, "J") or "prompt WBattle" in state(run, "L") or run.sleep(1), 240,
+        run.wait(lambda: re.search(r"prompt (Spec|WBattle)", state(run, "J")) or re.search(r"prompt (?!none)", state(run, "L")) or run.sleep(1), 240,
                  "the prompt for L's attack after J's battle")
         asked = time.time()
         for w in ("J", "L"):
@@ -1345,8 +1414,8 @@ def c4():
         say("the vassal's army after:", after)
         run.check(not after or after[0][1] != before, "the vassal's army fought: %d men to %s" % (before, after[0][1] if after else "none"))
         for w in ("H", "J"):
-            run.check(spoils(run, w), "%s, a winner, received spoils or captives" % w)
-        run.check(not spoils(run, "L"), "L, beaten, received nothing")
+            run.check(got_spoils(run, w), "%s, a winner, received spoils or captives" % w)
+        run.check(not captives(run, "L"), "L, beaten, received no captives")
         ok = run.end()
     except Failed as e:
         run.check(False, str(e))

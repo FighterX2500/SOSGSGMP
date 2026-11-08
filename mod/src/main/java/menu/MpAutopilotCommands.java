@@ -528,6 +528,8 @@ final class MpAutopilotCommands {
 			Sieges.fillForTest(w);
 			return "army " + w.armyIndex() + "'s supplies filled, at its step on every PC";
 		}
+		case "allies": // the last battle prompt's ally question as the engine saw it (SOS-162)
+			return "allies " + Hooks.worldPromptAlliesSeen();
 		case "armypower": { // an army's power, as vanilla weighs the sides of a world battle (SOS-162)
 			WArmy w = WORLD.ENTITIES().armies.tryGet(Integer.parseInt(a[1]));
 			return w == null ? "refused: no army " + a[1] : "power " + (long) AD.power().get(w);
@@ -1061,7 +1063,8 @@ final class MpAutopilotCommands {
 				+ ", viewing " + (Engine.viewing() != null) + ", terms " + (Engine.assaultTaken() != null)
 				+ ", notice " + VIEW.inters().fullScreen.isActivated() + ", step " + engine.step()
 				+ String.format(Locale.ROOT, ", speed %.1f%s", GAME.SPEED.speedTarget(), GAME.SPEED.isPaused() ? " paused" : "")
-				+ ", own army " + (b == null ? -1 : sosdet.game.OwnArmy.own().index());
+				+ ", own army " + (b == null ? -1 : sosdet.game.OwnArmy.own().index())
+				+ ", table " + (Hooks.commanders() != null && Hooks.commanders().set());
 	}
 
 	/** Each human's relations with the others, their NPC wars and vassals, for a test's log. */
