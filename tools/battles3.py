@@ -1175,6 +1175,7 @@ def assault(run, stormer, terms, wait=75):
     run.sleep(15)
     for w in WHO:
         run.shot(w, "%s during the assault" % w)
+    battle_outage(run)
     taken = run.wait(lambda: (lambda r: r if "awaiting terms null" not in r else None)(run.cmd("H", "assault")) or run.sleep(5),
                      900, "the throne taken")
     say("assault:", taken)
