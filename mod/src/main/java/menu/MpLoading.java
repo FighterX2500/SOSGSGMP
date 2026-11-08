@@ -29,6 +29,8 @@ public final class MpLoading {
 	private int seenChanges = -1;
 	/** The open battle-end window's thaw step, the last seen: it closes once every PC is past it; -1 before. */
 	private long endThaw = -1;
+	/** The step the last battle every PC ran ended at, as announced: its end window's key; -1 before (SOS-169). */
+	private long sharedEnd = -1;
 	private Loading.Window drawn;
 	private MpLoadingWindow window;
 
@@ -76,6 +78,11 @@ public final class MpLoading {
 		OwnBattle b = engine.battle();
 		if (b != null && b.awaiting() && isNew(Loading.Kind.BATTLE_START, b.step))
 			open(Loading.Kind.BATTLE_START, b.step, name(b.human) + "'s battle is loading." + WAIT);
+		long end = engine.battleEndAhead(); // a battle every PC runs ends as its panel's Close applies (SOS-169)
+		if (end >= 0)
+			sharedEnd = end; // on every PC, whichever PC's announcement opened the window here
+		if (end >= 0 && isNew(Loading.Kind.BATTLE_END, end))
+			open(Loading.Kind.BATTLE_END, end, "The battle is over; every player returns to the world map." + WAIT);
 		for (int slot : slots) {
 			if (slot < 0)
 				continue;
@@ -93,8 +100,8 @@ public final class MpLoading {
 				continue;
 			if (v.thaw() < 0 && v.state() != View.CANCELLED && v.state() != View.ENDED && step <= v.freeze + LATE
 					&& isNew(Loading.Kind.VIEW_START, v.freeze))
-				open(Loading.Kind.VIEW_START, v.freeze, name(v.viewer) + (battle(v) ? " joins " + name(v.owner) + "'s battle."
-						: " is opening " + name(v.owner) + "'s city.") + WAIT);
+				open(Loading.Kind.VIEW_START, v.freeze, joining(v) + (battle(v) ? " join" + (joiningMany(v) ? "" : "s") + " " + name(v.owner)
+						+ "'s battle." : " is opening " + name(v.owner) + "'s city.") + WAIT);
 			long rejoin = v.rejoinAt(); // another viewer joins: the owner and this view's viewer load again (SOS-151)
 			if (rejoin >= 0 && step <= rejoin + LATE && isNew(Loading.Kind.VIEW_START, rejoin))
 				open(Loading.Kind.VIEW_START, rejoin, "Another player joins " + name(v.owner) + (battle(v) ? "'s battle." : "'s city.") + WAIT);
@@ -103,6 +110,29 @@ public final class MpLoading {
 				open(Loading.Kind.VIEW_END, thaw, name(v.viewer) + " is returning from " + name(v.owner)
 						+ (battle(v) ? "'s battle." : "'s city.") + WAIT);
 		}
+	}
+
+	/** Every player whose view of {@code v}'s owner loads at its freeze step: several allies join a battle at once (SOS-161). */
+	private String joining(View v) {
+		StringBuilder b = new StringBuilder();
+		int n = 0;
+		for (int slot = 0; slot < sosgsgmp.lobby.LobbySettings.MAX_PLAYERS; slot++) {
+			View o = engine.view(slot);
+			if (o != null && o.owner == v.owner && o.freeze == v.freeze && o.state() != View.CANCELLED && o.state() != View.ENDED) {
+				b.append(n++ == 0 ? "" : " and ").append(name(o.viewer));
+			}
+		}
+		return n == 0 ? name(v.viewer) : b.toString();
+	}
+
+	private boolean joiningMany(View v) {
+		int n = 0;
+		for (int slot = 0; slot < sosgsgmp.lobby.LobbySettings.MAX_PLAYERS; slot++) {
+			View o = engine.view(slot);
+			if (o != null && o.owner == v.owner && o.freeze == v.freeze && o.state() != View.CANCELLED && o.state() != View.ENDED)
+				n++;
+		}
+		return n > 1;
 	}
 
 	/** A view of a battle: the engine marks it at the freeze, so before that the owner's running battle tells. */
@@ -144,7 +174,7 @@ public final class MpLoading {
 		if (w == null || w.kind() == Loading.Kind.WORLD_GENERATION || w.kind() == Loading.Kind.WORLD_INITIALIZATION)
 			return;
 		long past = w.key();
-		if (w.kind() == Loading.Kind.BATTLE_END) {
+		if (w.kind() == Loading.Kind.BATTLE_END && w.key() != sharedEnd) {
 			if (endThaw < 0 || battleRuns(w.key()))
 				return;
 			past = endThaw;
@@ -172,7 +202,7 @@ public final class MpLoading {
 	 * its result's step, which the battle PC learns only as it applies ({@link Long#MAX_VALUE} until then); -1 once past.
 	 */
 	long freezeStep(Loading.Window w) {
-		if (w.kind() != Loading.Kind.BATTLE_END)
+		if (w.kind() != Loading.Kind.BATTLE_END || w.key() == sharedEnd)
 			return w.key();
 		for (int slot : slots) {
 			LocalBattle l = slot < 0 ? null : engine.localBattleOf(slot);

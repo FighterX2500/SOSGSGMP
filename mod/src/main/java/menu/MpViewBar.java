@@ -19,20 +19,22 @@ import view.main.VIEW;
 
 /**
  * SOSGSGMP: the viewer's bar at the top of the screen while it views another player's city (spec §10 Viewing, SOS-82):
- * "Viewing Ann's city" and Close view. The player watches and chats; the engine drops every order meanwhile. It never
+ * "Viewing Ann's city" and Close view. The player watches and chats; the engine drops every order meanwhile, but an
+ * assault's attacker's and the orders of an ally in a battle against NPCs (SOS-165). It never
  * pauses the game, and stays on top of every view until the view is over.
  */
 final class MpViewBar extends Interrupter {
 
 	private static final String WATCHING = "Only watching: orders are dropped.";
 	private static final String CLOSING = "Closing the view; your city loads back...";
-	/** "Only watching", or an attacker's line instead. */
+	/** "Only watching", or an attacker's or an ally's line instead. */
 	private final String line;
 
 	private final GuiSection section = new GuiSection();
 	private boolean closing;
 
-	MpViewBar(MpViews views, String title, String commanding) {
+	/** {@code retreat}: an assault's attacker, whose Retreat button takes every attacker's soldiers out. */
+	MpViewBar(MpViews views, String title, String commanding, boolean retreat) {
 		super(true, true, false);
 		line = commanding == null ? WATCHING : commanding;
 		GuiSection inner = new GuiSection();
@@ -66,7 +68,7 @@ final class MpViewBar extends Interrupter {
 					((GBox) text).error(views.closeRefusal());
 			}
 		});
-		if (commanding != null)
+		if (retreat)
 			inner.addRightC(8, new GButt.ButtPanel("Retreat") {
 				@Override
 				protected void clickA() {

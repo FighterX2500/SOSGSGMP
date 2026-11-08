@@ -58,6 +58,8 @@ final class MpLog {
 	private long statusNanos = System.nanoTime();
 	private OwnBattle battle;
 	private boolean localBattle;
+	/** Each slot's battle against NPCs whose result step is logged already (SOS-162: a test checks it applied once, at one step). */
+	private final sosdet.LocalBattle[] resultLogged = new sosdet.LocalBattle[sosgsgmp.lobby.LobbySettings.MAX_PLAYERS];
 	/** The assault last seen, and whether its invasion had started then (SOS-92 B). */
 	private Assault assault;
 	private boolean assaultStarted;
@@ -288,6 +290,13 @@ final class MpLog {
 			localBattle = !localBattle;
 			line((localBattle ? "a player's battle against NPCs starts at step " : "the last battle against NPCs is over at step ")
 					+ engine.step());
+		}
+		for (int slot = 0; slot < resultLogged.length; slot++) {
+			sosdet.LocalBattle l = engine.localBattleOf(slot);
+			if (l != null && l != resultLogged[slot] && l.resultStep() >= 0) {
+				resultLogged[slot] = l;
+				line("local battle result: slot " + slot + "'s battle engaged at step " + l.engage + " applies at step " + l.resultStep());
+			}
 		}
 		OwnBattle b = engine.battle();
 		if (b != battle) {

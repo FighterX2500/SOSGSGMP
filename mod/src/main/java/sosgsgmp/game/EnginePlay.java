@@ -119,6 +119,11 @@ public final class EnginePlay implements EnginePort {
         return Engine.localBattle(slot) != null;
     }
 
+    /** True on this PC while its player fights in a battle against NPCs, theirs or as an ally (SOS-165). */
+    public boolean localCommander() {
+        return sosdet.Hooks.localCommander();
+    }
+
     /** The battle against NPCs of the player in {@code slot}, the same on every PC, or null (SOS-158 reads its freeze). */
     public LocalBattle localBattleOf(int slot) {
         return Engine.localBattle(slot);
@@ -329,6 +334,14 @@ public final class EnginePlay implements EnginePort {
         return Engine.battleAhead();
     }
 
+    /**
+     * In a battle every PC runs, the step its victory or defeat panel's Close applies at, where every PC loads its world
+     * back; -1 until the Close is in this PC's log (SOSDET SOS-169).
+     */
+    public long battleEndAhead() {
+        return Engine.battleEndAhead();
+    }
+
     /** Every PC, held before an Engage: the battle begins. */
     public void battleGo() {
         Engine.battleGo();
@@ -427,6 +440,11 @@ public final class EnginePlay implements EnginePort {
     /** True while a battle's prompt asks this PC's player to join or stay out (SOS-118). */
     public boolean allyAsked() {
         return sosdet.Hooks.worldPromptAsksAlly();
+    }
+
+    /** The player whose battle asks this PC's player to join (SOS-161). */
+    public int allyFighter() {
+        return sosdet.Hooks.worldPromptHuman();
     }
 
     /** This PC's player's answer: every PC applies it at its step. */

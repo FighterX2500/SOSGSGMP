@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.52 · 2026-11-07
+Version 0.54 · 2026-11-08
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -155,7 +155,7 @@ When two players' armies meet, a real-time battle is mandatory. Battles against 
   - The fighting player's city is frozen until the battle ends, then resumes where it stopped and receives what the world sent it meanwhile.
   - If the fighting player's PC can't keep up, its battle slows; the world speed doesn't drop for it.
   - There is no time limit, as in vanilla.
-  - **An allied player** whose army stands within 4 tiles of the battle along the map, allied with the fighting player and at war with the NPC army, is asked with Join and Stay out, and no answer in 30 seconds stays out. If they join, only the two players' PCs run the battle, apart from the world, and both players' cities are frozen. The fighting player's PC leads and the ally's PC follows it, as a watcher's does, and the ally's orders go to it. Each player commands their own army. The commanders' speed vote applies, either of them can pause, and retreat and the result follow the rules for battles between players.
+  - **An allied player.** Every allied player whose army stands within 4 tiles of the battle along the map, allied with the fighting player and at war with the NPC army, is asked with Join and Stay out, and no answer in 30 seconds stays out. The battle runs on the PCs of every player who joined, apart from the world, and all their cities are frozen. The fighting player's PC leads, the others follow it as a watcher's does, and each player's orders go to the leader. Each player commands their own army. The commanders' speed vote, pause, retreat, deployment slots and the result (spoils and captives split by the men each brought, the remainder to whoever brought the most) follow the rules for battles between players (owner, 2026-11-08; SOS-160).
   - Several players can fight NPC battles at the same time. The world stays at 1× until the last one ends.
   - **Prompts during the battle.** A prompt that needs the fighting player's answer waits until the battle ends, then appears with the usual 30-second rule. This covers a world battle of another of their armies, another player's army meeting theirs (that battle starts only after the NPC battle ends), a sally request and a siege's popups; the armies involved wait meanwhile. Deal proposals, declarations of war and other notifications arrive as notifications without popups.
   - **Saves during the battle.** Campaign saves (Save and exit, autosaves) wait until the battle ends, as during an assault. NPC battles don't get the save before battles (section 11).
@@ -284,6 +284,7 @@ Players talk through one in-game chat. Every player and spectator reads the same
   - **world generation** and **world initialization**: the host's click opens the window on every PC, and the host's work starts only once it shows;
   - **a battle starting**, **a city view starting** (another viewer joining it too) and **a city view ending**: every PC opens the window at the step the game announces, before the freeze (at a high speed a battle against NPCs is announced only a few steps ahead, so the battle's own PC, whose player started it, may see the window only after its load);
   - **a battle against NPCs ending**: the battle's PC opens the window as its player leaves the battle, every other PC as the result applies.
+  - **a battle every PC runs ending** (between players, or an assault): every PC opens the window once the victory or defeat panel's Close is on its way, before the step where every PC loads its world back (SOS-169).
   
   The host closes the window on every PC once every PC has passed the freeze; a window closes by itself after 2 minutes. It looks like the game's own popup, has no buttons and stops nothing; it opens above the screen's middle, clear of the game's own messages. Each window's opening and closing, how long it was open and each PC's own longest frame meanwhile go in the playtest log, with every frame over a second and every hold over a second.
 - **Prompts that need an answer**, such as a battle invite, appear as popups in the vanilla style.
@@ -397,7 +398,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A side's division slots are split evenly between its players, and unused slots go to the others. [AT]
 - Each winning player chooses their own share of captives and spoils, split by the men brought, whichever army won, with the same numbers on every PC, a beaten sally included. [AT]
 - The world goes back to its speed from before the battle when the battle ends. [AT]
-- An ally who joins an NPC battle runs it on the two players' PCs only, the world goes on at 1×, and the result applies once on every PC. [AT + PT]
+- Every ally who joins an NPC battle runs it on their PC with the fighting player's, two allies included; the world goes on at 1×, and the result applies once on every PC. [AT + PT]
 - When two players' armies meet, both are asked with Fight only, and the battle starts when both press it or after 30 seconds; each player's PC commands only their own army, and the result goes to the winner. [AT]
 - A player's army in a battle between players fights with that player's own bonuses, an ally's included, the same on every PC. [AT]
 - A player whose region another player besieges is asked to sally out, and a sally between players can't be auto-resolved. [AT]
@@ -541,6 +542,8 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-06 | **One data folder:** the mod's saves, records, logs, reports and lobby settings live under `songsofsyx\sosgsgmp`; an older version's move there once (spec 0.50; section 11). | SOS-155 |
 | 2026-11-06 | **Loading window:** every PC shows why the game freezes, and for how long, while the world generates or initializes, a battle starts or ends and a city view starts or ends; the playtest log times every freeze and hold (spec 0.51; sections 12, 15). | SOS-158 |
 | 2026-11-07 | **Same game files:** a PC whose game files or mods differ from the host's can't join, and the lobby names what differs; other mods are allowed when every player has them, with a warning; game data that still differ in play end the session with a message instead of a crash (spec 0.52; sections 2, 3, 5, 15). | SOS-159 |
+| 2026-11-08 | **Every ally in an NPC battle:** every allied player near a battle against NPCs is asked Join, and every player who joined fights it on their own PC with the fighting player's (spec 0.53; sections 8, 15). | SOS-160, SOS-161 |
+| 2026-11-08 | **The end of a battle every PC runs:** a battle between players or an assault opens the loading window on every PC before the load that ends it (spec 0.54; section 12). | SOS-169 |
 | 2026-11-06 | **Joining an assault:** a player can join a running assault's view as any city's; an attacker who joins again commands their soldiers again (spec 0.49; section 10). | SOS-151 |
 
 ### Where each v1 feature stands (2026-11-01)
