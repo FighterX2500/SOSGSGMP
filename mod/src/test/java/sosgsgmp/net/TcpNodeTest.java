@@ -194,7 +194,7 @@ class TcpNodeTest {
         try (Socket s = new Socket("127.0.0.1", host.port())) {
             DataOutputStream out = new DataOutputStream(s.getOutputStream());
             DataInputStream in = new DataInputStream(s.getInputStream());
-            write(out, Protocol.encode(new Message.Resume(77, 5)));
+            write(out, Protocol.encode(new Message.Resume(77, 5, 1)));
             assertEquals(new Message.Resumed(-1), read(in));
             assertEquals(-1, in.read(), "then the host closes it");
         }
@@ -208,6 +208,52 @@ class TcpNodeTest {
                         return r.message().equals(new Message.Unsupported(25));
                 return false;
             });
+        }
+    }
+
+    /** A raw joining PC's connection attempt: its Resume as token 77, having had nothing, numbered {@code attempt}. */
+    private Socket attempt(int attempt) throws Exception {
+        Socket s = new Socket("127.0.0.1", host.port());
+        write(new DataOutputStream(s.getOutputStream()), Protocol.encode(new Message.Resume(77, 0, attempt)));
+        return s;
+    }
+
+    /** The host's events so far; fails on a disconnect of its one peer: a broken line is waited for (SOS-178). */
+    private List<Node.Event> hostEvents() {
+        List<Node.Event> got = new ArrayList<>();
+        Node.Event e;
+        while ((e = host.poll()) != null) {
+            assertFalse(e instanceof Node.Event.Disconnected d && d.peer() >= 0, "the line stays: " + e);
+            got.add(e);
+        }
+        return got;
+    }
+
+    /**
+     * After the host's own outage, the attempts a joining PC gave up on wait in its queue with the newest (N1-hcuts,
+     * SOS-180): an older attempt read after the newest is refused, and one read first that closes unused leaves the line
+     * broken, not ended. The newest carries the line on.
+     */
+    @Test
+    void attemptsTheJoiningPcGaveUpOnNeitherTakeTheLineNorEndIt() throws Exception {
+        host = TcpNode.listen(0);
+        try (Socket first = attempt(1)) {
+            assertEquals(new Message.Resumed(0), read(new DataInputStream(first.getInputStream())));
+        } // closed unused: the line is broken only
+        Thread.sleep(300);
+        assertTrue(hostEvents().stream().anyMatch(e -> e instanceof Node.Event.Connected c && c.peer() == 0));
+        try (Socket stale = attempt(2)) {
+            assertEquals(new Message.Resumed(0), read(new DataInputStream(stale.getInputStream())));
+        } // given up on after the host answered: still only broken
+        Thread.sleep(300);
+        hostEvents();
+        try (Socket newest = attempt(4); Socket older = attempt(3)) {
+            DataInputStream in = new DataInputStream(newest.getInputStream());
+            assertEquals(new Message.Resumed(0), read(in));
+            assertEquals(-1, older.getInputStream().read(), "an older attempt read after the newest is closed");
+            write(new DataOutputStream(newest.getOutputStream()), Protocol.sequenced(1, Protocol.encode(new Message.Chat(1, "on"))));
+            waitFor("the chat on the newest attempt", 3_000,
+                    () -> hostEvents().stream().anyMatch(e -> e instanceof Node.Event.Received r && r.message().equals(new Message.Chat(1, "on"))));
         }
     }
 }
