@@ -47,6 +47,8 @@ import sosdet.game.deal.DealBook;
 import sosdet.game.siege.AssaultTerms;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.PlayerDeals;
+import sosgsgmp.net.ConditionedNode;
+import sosgsgmp.net.NetConditions;
 import sosgsgmp.session.SetupSession;
 import util.data.DOUBLE_O.DOUBLE_OE;
 import view.main.VIEW;
@@ -108,6 +110,9 @@ import world.map.regions.Region;
  * {@code armypower <army>} (its power, as vanilla weighs a world battle's sides: the weaker NPC side withdraws at once);
  * {@code fillarmy <army>} (any army's supplies full, which its power counts);
  * {@code battlemen} (the men on each side of the battle this PC runs);
+ * {@code netoutage <seconds>} (this PC's connections carry nothing either way for up to 60 s), {@code netcut} (this
+ * PC's internet drops: every connection closes as a lost one) and {@code netstats}, all only with
+ * {@code SOSGSGMP_NETEM} set (SOS-175);
  * {@code state} (the prompts, battle, view and terms open on this PC); {@code save} (host: the escape menu's Save
  * Campaign, at any time, a battle included).
  */
@@ -537,6 +542,24 @@ final class MpAutopilotCommands {
 		}
 		case "battlemen": // the men on each side of the battle this PC runs: an NPC ally's count in it (SOS-162, C4)
 			return "player " + GAME.ARMIES().player().men() + ", enemy " + GAME.ARMIES().enemy().men();
+		case "netoutage": { // test tooling (SOS-175): this PC's connections carry nothing for <seconds>, at most 60
+			ConditionedNode n = setup.testNetwork();
+			if (n == null)
+				return "refused: no test network (" + NetConditions.VARIABLE + " unset)";
+			n.outage(Integer.parseInt(a[1]));
+			return "outage of " + a[1] + " s from step " + engine.step();
+		}
+		case "netcut": { // test tooling (SOS-175): this PC's internet drops; every connection closes as a lost one
+			ConditionedNode n = setup.testNetwork();
+			if (n == null)
+				return "refused: no test network (" + NetConditions.VARIABLE + " unset)";
+			n.cutAll();
+			return "connections cut at step " + engine.step();
+		}
+		case "netstats": {
+			ConditionedNode n = setup.testNetwork();
+			return n == null ? "no test network" : n.conditions().describe() + " | " + n.stats();
+		}
 		case "npcwar":
 			Sieges.npcWarForTest(FACTIONS.player().index(), Integer.parseInt(a[1]));
 			return "at war with " + a[1] + ", at its step on every PC";

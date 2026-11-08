@@ -12,6 +12,7 @@ import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.Refusal;
+import sosgsgmp.net.ConditionedNode;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.Pieces;
 import sosgsgmp.net.Node;
@@ -547,6 +548,11 @@ public final class HostedSetup implements SetupSession {
     @Override
     public EngineLink.Traffic traffic() {
         return link == null ? new EngineLink.Traffic(0, 0, 0, 0) : link.traffic();
+    }
+
+    @Override
+    public ConditionedNode testNetwork() {
+        return node instanceof ConditionedNode c ? c : null;
     }
 
     @Override

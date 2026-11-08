@@ -131,13 +131,25 @@ def refresh_mods(data, rdir):
 
 # SOSGSGMP_STEAM_NET for both games: "p2p" with --steam-p2p (the old P2P packets), else empty (Steam's messages, SOS-105)
 STEAM_NET = [""]
+# SOSGSGMP_NETEM per game, from --netem (SOS-175): "host", "join" (the joiner, here or remote) and "local"
+NETEM = {"host": "", "join": "", "local": ""}
+# --netem presets; "on" is the conditions with nothing added, for outages and cuts alone (netoutage, netcut). Outages
+# are the autopilot's netoutage command, at most 60 s (owner, 2026-11-08).
+NETEM_PRESETS = {
+    "on": "delay=0",
+    "150ms": "delay=150,jitter=10",
+    "300ms": "delay=300,jitter=80",
+    "loss2": "delay=60,jitter=10,loss=2",
+    "loss10": "delay=60,jitter=20,loss=10",
+    "steambad": "steamlag=150,steamloss=5,steamreorder=2",
+}
 
 
 def start_remote(rdir, autopilot):
     """The game on the second PC, in its logged-on session (a game started over ssh would have no screen)."""
     script = ("@echo off\r\nset APPDATA=%s\r\nset SOSGSGMP_AUTOPILOT=%s\r\nset SteamAppId=%s\r\nset SOSGSGMP_STEAM_NET=%s\r\n"
-              "cd /d %s\\game\r\njre\\bin\\java.exe -cp SongsOfSyx.jar init.Main\r\n"
-              % (rdir, autopilot, STEAM_APP_ID, STEAM_NET[0], REMOTE_ROOT))
+              "set SOSGSGMP_NETEM=%s\r\ncd /d %s\\game\r\njre\\bin\\java.exe -cp SongsOfSyx.jar init.Main\r\n"
+              % (rdir, autopilot, STEAM_APP_ID, STEAM_NET[0], NETEM["join"], REMOTE_ROOT))
     path = rdir + "\\start.cmd"
     remote_ps("[IO.File]::WriteAllText('%s', '%s')" % (path, script.replace("'", "''")))
     remote_ps("Register-ScheduledTask -TaskName 'SOSGSGMP-twopc' -Action (New-ScheduledTaskAction -Execute '%s')"
@@ -145,10 +157,10 @@ def start_remote(rdir, autopilot):
               " Start-ScheduledTask -TaskName 'SOSGSGMP-twopc'" % path)
 
 
-def start_here(data, autopilot):
+def start_here(data, autopilot, netem=""):
     """A joiner's game on this PC, in its own data folder."""
     env = dict(os.environ, APPDATA=str(data.parent), SteamAppId=STEAM_APP_ID, SOSGSGMP_AUTOPILOT=autopilot,
-               SOSGSGMP_STEAM_NET=STEAM_NET[0])
+               SOSGSGMP_STEAM_NET=STEAM_NET[0], SOSGSGMP_NETEM=netem)
     subprocess.Popen([str(GAME / "jre" / "bin" / "java.exe"), "-cp", str(GAME / "SongsOfSyx.jar"), "init.Main"], cwd=str(GAME),
                      env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -262,11 +274,20 @@ def main():
     ap.add_argument("--same-files", action="store_true",
                     help="every PC sends the same empty game files (samefiles=1), so --joiner-mod gets past the lobby and"
                          " both PCs must end the session on the city reports' other sizes, with no crash file (SOS-159)")
+    ap.add_argument("--netem", action="append", default=[], metavar="WHO=SPEC",
+                    help="test network conditions for one game (SOS-175): WHO is host, join or local; SPEC a preset (%s)"
+                         " or SOSGSGMP_NETEM's key=value pairs joined by ';' (delay, jitter, loss, seed, steamlag, steamloss,"
+                         " steamreorder). Repeatable" % ", ".join(NETEM_PRESETS))
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
     if (args.joiner_mod or args.extra_mod or args.expect_refused or args.same_files) and (not args.here or args.resume):
         fail("--joiner-mod, --extra-mod, --expect-refused and --same-files are for a new game with --here")
     STEAM_NET[0] = "p2p" if args.steam_p2p else ""
+    for item in args.netem:
+        who, _, spec = item.partition("=")
+        if who not in NETEM or not spec:
+            fail("--netem is WHO=SPEC with WHO host, join or local: '%s'" % item)
+        NETEM[who] = NETEM_PRESETS.get(spec, spec.replace(";", ","))
     if not args.here and (not REMOTE or not HOST_ADDRESS):
         fail("set SOSGSGMP_REMOTE and SOSGSGMP_HOST_ADDRESS")
     crash_who, _, crash_at = args.crash.partition(":")
@@ -337,6 +358,7 @@ def main():
     join_capital += ",guipreview=%d" % args.gui_preview if args.gui_preview >= 0 else ""  # the setup's shots, SOS-120
     # Steam finds the App ID here when the game isn't started by Steam
     host_env = dict(os.environ, APPDATA=str(local.parent), SteamAppId=STEAM_APP_ID, SOSGSGMP_STEAM_NET=STEAM_NET[0],
+                    SOSGSGMP_NETEM=NETEM["host"],
                     SOSGSGMP_AUTOPILOT="role=host,name=Host,players=%d,seed=%d,speed=%g,ondesync=%s,save=%d,resume=%d,ongone=%s,startafter=%d,fulllog=%d,%s"
                     % (players, args.seed, args.speed, args.on_desync, args.save, 1 if args.resume else 0, args.on_gone, args.start_after,
                        1 if args.transfer_log == "full" else 0, common + host_capital + host_view))
@@ -350,7 +372,7 @@ def main():
         args.deal_cancel, args.war, args.tariff, args.quit, args.rename, common + join_capital + join_view)
     if not args.no_joiner and args.here:
         time.sleep(15)  # the host's lobby is open before the joiner here starts looking for it
-        start_here(local2, joiner)
+        start_here(local2, joiner, NETEM["join"])
         log("joiner started on this PC (--here)")
     elif not args.no_joiner:
         start_remote(rdir, joiner)
@@ -358,7 +380,7 @@ def main():
     if args.local_joiner:
         time.sleep(20)  # the host's lobby is open before the second game here starts looking for it
         start_here(local3, "role=join,name=Local,address=127.0.0.1,crash=%s,%s"
-                   % (crash_at if crash_who == "local" else "-1", common))
+                   % (crash_at if crash_who == "local" else "-1", common), NETEM["local"])
         log("the second joiner started on this PC")
 
     seen = {w: 0 for w in who_all}

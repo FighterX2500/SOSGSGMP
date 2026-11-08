@@ -370,6 +370,8 @@ final class MpLog {
 				s.hashesCompared, s.hashesMissed, s.ordersApplied, s.commandsApplied, s.txnsApplied, s.reportsReceived,
 				s.aiApplied, (long) FACTIONS.player().credits().credits(), (n.wireOut() - statusWireOut) / 1024.0 / seconds,
 				n.wireOut() >> 10, n.rawOut() >> 10, (n.wireIn() - statusWireIn) / 1024.0 / seconds, n.wireIn() >> 10, n.rawIn() >> 10));
+		if (setup.testNetwork() != null) // test runs only (SOS-175)
+			line("test network: " + setup.testNetwork().conditions().describe() + " | " + setup.testNetwork().stats());
 		statusWireOut = n.wireOut();
 		statusWireIn = n.wireIn();
 		statusNanos = now;
