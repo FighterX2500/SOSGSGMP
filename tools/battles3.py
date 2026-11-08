@@ -1635,14 +1635,14 @@ def n_world(name, title, cut=None):
             run.wait(lambda: any(e["status"].startswith("Campaign saved") for e in run.events("H", "save")), 600,
                      "H's campaign save")
             run.check(True, "the campaign save went through")
-            for w, seconds, cut in OUTAGE:
-                r = link_down(run, w, seconds, cut)
-                run.check(("outage" in r or not seconds) and ("cut" in r or not cut),
+            for w, seconds, broken in OUTAGE:
+                r = link_down(run, w, seconds, broken)
+                run.check(("outage" in r or not seconds) and ("cut" in r or not broken),
                           "%s's link carries nothing for %d s%s from step %d: %s"
-                          % (w, seconds, ", its connection cut," if cut else "", run.step(w), r))
+                          % (w, seconds, ", its connection cut," if broken else "", run.step(w), r))
                 run.sleep(min(5, max(1, seconds / 2)))
                 for v in WHO:
-                    run.shot(v, "%s during %s's %d s %s" % (v, w, seconds, "cut" if cut else "outage"))
+                    run.shot(v, "%s during %s's %d s %s" % (v, w, seconds, "cut" if broken else "outage"))
                 run.sleep(seconds + 25)
             if cut:
                 r = run.cmd(cut, "netcut")
