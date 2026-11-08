@@ -1208,9 +1208,7 @@ def prep_regions(run):
     next to L's, so its battle started at once and held the gifts (chain10: L's region not given, J's vassal given to L
     too)."""
     war_on_l(run)
-    lx, ly = capital(run, "L")
-    field = place(run, "L", lx + 6, ly)  # L's field army out of its capital, as P-WAR's (C4 attacks it)
-    facts = {"lcap": [lx, ly], "lfield": [field[2], field[3]]}
+    facts = {}
     for w in WHO:
         r = run.cmd(w, "giveregion %d" % SLOT[w])
         m = re.search(r"region (\d+) ", r)
@@ -1240,6 +1238,10 @@ def prep_regions(run):
         run.cmd(w, "pick %d" % mine.index(by[0]))
         place_picked(run, w, tx + 2, ty + 2 * i - 1)
         facts[w] = [by[0][0], by[1][0]]
+    # L's field army out of its capital, as P-WAR's (C4 attacks it), last: placed first it walked home (chain12)
+    lx, ly = capital(run, "L")
+    field = place(run, "L", lx + 6, ly)
+    facts.update({"lcap": [lx, ly], "lfield": [field[2], field[3]]})
     return facts
 
 
@@ -1457,7 +1459,9 @@ def b5():
             say("J's armies", armies(run, "J"), "the NPC's", [a for a in npc_armies(run) if a[0] == f])
             raise
         run.cmd("J", "auto off")
-        jx2, jy2 = pick_army(run, "J", m["J"][1])[2:4]
+        pick_army(run, "J", m["J"][1])
+        # out in the field, 4 tiles from L's: chain12 found it at home (68,89), where L's intercept never went
+        jx2, jy2 = place_picked(run, "J", m["lfield"][0], m["lfield"][1] + 4)[2:4]
         pick_army(run, "L", armies(run, "L")[0][0])
         place_picked(run, "L", jx2 + 3, jy2)
         run.cmd("L", "target 1")
