@@ -21,8 +21,8 @@ import java.util.Map;
 public final class Departures {
 
     /**
-     * How far past the host's step the hold is: a peer runs at most this many steps past the host's (SOSDET's AI log
-     * delay), so no PC has passed the hold step yet.
+     * How far past its base the hold is: the host's step, or, when a peer may run further (SOSDET's AI log horizon,
+     * the engine's step past peers), that less this lead, so no PC has passed the hold step yet (SOS-180).
      */
     public static final long LEAD = 30;
 

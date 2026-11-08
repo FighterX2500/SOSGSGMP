@@ -47,6 +47,12 @@ public interface Node extends AutoCloseable {
     /** Test outages only (SOS-175): for {@code seconds}, no heartbeat goes and none counts, as if the line were down. */
     void silence(int seconds);
 
+    /**
+     * Test cuts only (SOS-175, SOS-178): every connection this PC has breaks as a lost internet breaks it; each side
+     * waits for it to come back, as for a real break.
+     */
+    void cutAll();
+
     /** Sends what is queued (briefly), then closes every connection. No events after this. */
     @Override
     void close();

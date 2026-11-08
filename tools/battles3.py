@@ -34,7 +34,8 @@ OUT = twopc.ROOT / "build" / "battles3"
 SNAP = OUT / "snapshot"
 RESULTS = OUT / "results.txt"
 REPORTS = pathlib.Path(r"C:\ClaudeFolder\PTreport\2026-11-08-battles")
-OUTAGE = []  # (who, seconds) from --outage: that game's link carries nothing once the battle runs (SOS-176)
+OUTAGE = []  # (who, seconds, cut) from --outage/--cut: that game's link carries nothing once the battle runs (SOS-176);
+# with cut, its connections also break and must come back by themselves after the seconds (SOS-178)
 LABEL = [""]  # --label: added to the scenario's name in its report, logs and result line, one per condition (SOS-176)
 GAME = {"H": "1", "J": "2", "L": "3"}  # each player's data folder
 SLOT = {"H": 0, "J": 1, "L": 2}
@@ -176,6 +177,8 @@ class Run:
         while self.p.poll() is None:
             self.poll_quiet()
             time.sleep(1)
+        if self.p.returncode != 0:  # a game the runner gave up on would hold its data folder for the next run
+            self.stop()
         return self.p.returncode == 0
 
     def poll_quiet(self):
@@ -757,12 +760,21 @@ def met(run, joiners, seconds):
     return False
 
 
+def link_down(run, w, seconds, cut):
+    """`w`'s link carries nothing for `seconds`; with `cut`, its connections also break (SOS-178). Returns the answers."""
+    r = run.cmd(w, "netoutage %d" % seconds) if seconds else "no outage"
+    if cut:
+        r += "; " + run.cmd(w, "netcut")
+    return r
+
+
 def battle_outage(run):
-    """--outage's games lose their link for its seconds, as the battle runs (SOS-176)."""
-    for w, seconds in OUTAGE:
-        r = run.cmd(w, "netoutage %d" % seconds)
+    """--outage's and --cut's games lose their link for its seconds, as the battle runs (SOS-176, SOS-178)."""
+    for w, seconds, cut in OUTAGE:
+        r = link_down(run, w, seconds, cut)
         say(w, "outage:", r)
-        run.notes.append((True, "%s's link carried nothing for %d s once the battle ran: %s" % (w, seconds, r)))
+        run.notes.append((True, "%s's link carried nothing for %d s%s once the battle ran: %s"
+                          % (w, seconds, ", its connection cut," if cut else "", r)))
 
 
 def npc_battle(run, joiners, watcher=None, outcome="win", retreat=None, save=False, answer=True, fight=True):
@@ -1625,12 +1637,14 @@ def n_world(name, title, cut=None):
             run.wait(lambda: any(e["status"].startswith("Campaign saved") for e in run.events("H", "save")), 600,
                      "H's campaign save")
             run.check(True, "the campaign save went through")
-            for w, seconds in OUTAGE:
-                r = run.cmd(w, "netoutage %d" % seconds)
-                run.check("outage" in r, "%s's link carries nothing for %d s from step %d: %s" % (w, seconds, run.step(w), r))
-                run.sleep(min(5, seconds / 2))
+            for w, seconds, broken in OUTAGE:
+                r = link_down(run, w, seconds, broken)
+                run.check(("outage" in r or not seconds) and ("cut" in r or not broken),
+                          "%s's link carries nothing for %d s%s from step %d: %s"
+                          % (w, seconds, ", its connection cut," if broken else "", run.step(w), r))
+                run.sleep(min(5, max(1, seconds / 2)))
                 for v in WHO:
-                    run.shot(v, "%s during %s's %d s outage" % (v, w, seconds))
+                    run.shot(v, "%s during %s's %d s %s" % (v, w, seconds, "cut" if broken else "outage"))
                 run.sleep(seconds + 25)
             if cut:
                 r = run.cmd(cut, "netcut")
@@ -1667,6 +1681,8 @@ def main():
     ap.add_argument("--outage", action="append", default=[], metavar="WHO:SECONDS",
                     help="once the battle runs, WHO's (H, J or L) link carries nothing for SECONDS, 60 at most (SOS-176);"
                          " needs --netem for that game. Repeatable")
+    ap.add_argument("--cut", action="append", default=[], metavar="WHO:SECONDS",
+                    help="that game's connections break once the battle runs (or in N1/N2's outage turn), with no link for SECONDS (0-60) first; SOS-178")
     ap.add_argument("--reports", default="", help="the PDF reports' folder instead of %s" % REPORTS)
     ap.add_argument("--label", default="", help="added to the scenario's name in its report, logs and result line")
     args = ap.parse_args()
@@ -1677,7 +1693,12 @@ def main():
         who, _, seconds = item.partition(":")
         if who not in WHO or not seconds.isdigit():
             sys.exit("battles3: --outage is WHO:SECONDS with WHO H, J or L: '%s'" % item)
-        OUTAGE.append((who, int(seconds)))
+        OUTAGE.append((who, int(seconds), False))
+    for item in args.cut:
+        who, _, seconds = item.partition(":")
+        if who not in WHO or not seconds.isdigit() or int(seconds) > 60:
+            sys.exit("battles3: --cut is WHO:SECONDS with WHO H, J or L and SECONDS 0 to 60: '%s'" % item)
+        OUTAGE.append((who, int(seconds), True))
     TWOPC.extend(x for item in args.netem for x in ("--netem", item))
     OUT.mkdir(parents=True, exist_ok=True)
     if args.what == "prep":

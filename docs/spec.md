@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.55 · 2026-11-08
+Version 0.56 · 2026-11-08
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -255,14 +255,14 @@ Any player can view any other player's city, enemies included. This is intended.
 
 The window appears on every world desync; there is no automatic resync.
 
-**Lost connection.** (owner, 2026-11-08; SOS-177) When the PC of a player other than the host goes silent for 5 seconds while its connection stays open, that player has lost connection. Over Steam, a player who loses their connection to Steam itself has lost connection too, not left. The whole game enters a priority pause at the same moment for every player, and every player sees "*Name* lost the connection: waiting" with the time it has lasted. The host can wait as long as they like, or choose Continue without them or Return to the last save, as below. When the player's PC is heard again before the host chooses, play goes on by itself and nobody is removed. A player removed while lost is told so when their PC is heard again.
+**Lost connection.** (owner, 2026-11-08; SOS-177, SOS-178) When the PC of a player other than the host goes silent for 5 seconds, that player has lost connection, whether their connection stays open or breaks. A broken connection is one that fails rather than one the other side closes, for example after the player's router reset or Steam's session timed out. The player's game keeps running, paused, and connects again by itself as soon as it can. Nothing sent while the connection was broken is lost or applied twice. A game that crashes usually breaks its connection the same way, so it shows as lost too; the host chooses as below, and it never comes back by itself. Over Steam, a player who loses their connection to Steam itself has lost connection too, not left. The whole game enters a priority pause at the same moment for every player, and every player sees "*Name* lost the connection: waiting" with the time it has lasted. The host can wait as long as they like, or choose Continue without them or Return to the last save, as below. When the player's PC is heard again before the host chooses, play goes on by itself and nobody is removed. A player removed while lost is told so when their PC is heard again.
 
-**Disconnects.** When a player other than the host disconnects (their game crashed, they quit, or their connection closed), the whole game enters a priority pause, and every player sees which player is gone. The host chooses what follows; the others wait, and the pause lasts until the host chooses:
+**Disconnects.** When a player other than the host disconnects (their game crashed or they quit), the whole game enters a priority pause, and every player sees which player is gone. The host chooses what follows; the others wait, and the pause lasts until the host chooses:
 
 - **Return to the last save:** the session ends, and the players resume the campaign from its last save, the disconnected player included (see Resuming). When they dropped out of a battle, that is the save made before it.
 - **Continue without them:** the player is removed (see Removing a player), and play goes on. A battle or siege they were in ends for their side, attacker or defender, with no result: the other side's armies stay as they were before it.
 
-A disconnected player never rejoins a running session; they come back only through a resume. (Reconnecting after a closed connection is planned: SOS-178.) No city is frozen because its player is gone: the only frozen city is a viewer's own city (section 10).
+A disconnected player never rejoins a running session; they come back only through a resume. A player who only lost connection is not disconnected: their own game reconnects, as above. No city is frozen because its player is gone: the only frozen city is a viewer's own city (section 10).
 
 **Elimination.** An eliminated player becomes a spectator. Spectators can view every city and battle and can use chat, but cannot act in the game. Decided by the owner on 2026-10-31 (SOS-111):
 
@@ -459,6 +459,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 
 - A disconnect triggers a priority pause within 2 seconds. [PT]
 - A player's PC silent for 5 seconds pauses every PC at one step, with the lost-connection window and its timer; heard again, play goes on and nobody is removed. [AT]
+- A player's broken connection, alone or inside an outage of up to 60 seconds, comes back by itself: every message sent meanwhile arrives once, in order, play goes on, and nobody is removed. [AT]
 - An outage of up to 60 seconds, on a player's PC or the host's, removes nobody and desyncs nothing. [PT]
 - When the host loses connection, every player sees a "host disconnected" popup and the whole simulation stops within 2 seconds. [PT]
 - After a disconnect, nothing runs until the host chooses Return to the last save or Continue without them. [AT]

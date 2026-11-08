@@ -2,9 +2,11 @@ package sosgsgmp.net;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
@@ -14,7 +16,12 @@ import java.util.function.Supplier;
  * enter it and talk to its owner. Peers are lobby members: the host numbers them from 1 as they enter; a joining PC's
  * host is {@link #HOST}. A P2P session is accepted only from a member, and a member who leaves the lobby is a
  * disconnect; for a joining PC, the owner leaving is losing the host. A member who only lost its connection to Steam
- * stays a peer: its session fails, and drops it, only if it isn't back within Steam's timeout (SOS-177).
+ * stays a peer (SOS-177), and a joining PC put out of the lobby for it enters it again.
+ *
+ * <p>A peer's messages outlive its session (SOS-178): each goes as a {@link Message.Sequenced} and is kept until
+ * acknowledged ({@link Resend}). A failed session, or a message Steam refuses, breaks the line instead of dropping the
+ * peer: this PC sends {@link Message.Resume} every {@link #RESUME_MS}, which opens a new session, and each side sends
+ * again what the other lacks. A message past a gap (one a failed session lost) asks for the rest the same way.
  *
  * <p>One I/O thread (AGENTS.md, approved exception) creates the {@link SteamPort}, makes every Steam call, runs Steam's
  * callbacks and reads packets; it only decodes messages and queues {@link Event}s. Each message is one reliable packet
@@ -32,12 +39,15 @@ public final class SteamNode implements Node {
     private static final long JOIN_MS = 30_000;
     /** How often members' sessions are accepted again: Steam's newer messages forget an accept made before the first packet. */
     private static final long ACCEPT_MS = 250;
+    /** How often a broken line asks its peer to resume (SOS-178), and a joining PC put out of the lobby tries it again. */
+    static final long RESUME_MS = 2_000;
 
     private sealed interface Command {
         record Send(int peer, byte[] bytes) implements Command {}
         record Drop(int peer) implements Command {}
         record Invite() implements Command {}
         record Join(long lobby) implements Command {}
+        record Cut() implements Command {}
     }
 
     private final boolean hosting;
@@ -71,6 +81,13 @@ public final class SteamNode implements Node {
     private final Liveness liveness = new Liveness();
     /** When the I/O thread next looks for heartbeats due. */
     private long beatAt;
+    private final Resend resend = new Resend();
+    /** Broken lines (SOS-178): when each next asks its peer to resume. */
+    private final Map<Integer, Long> broken = new HashMap<>();
+    /** A host's broken lines the sessions dropped: once the PC comes back and has what was queued, they end. */
+    private final Set<Integer> dropWhenSent = new HashSet<>();
+    /** A joining PC put out of the lobby as it lost Steam: when it tries to enter again; 0 while it is in. */
+    private long rejoinAt;
 
     /** Written once on the I/O thread: only that thread may call the port. */
     private volatile String persona;
@@ -181,6 +198,11 @@ public final class SteamNode implements Node {
     }
 
     @Override
+    public void cutAll() {
+        commands.add(new Command.Cut());
+    }
+
+    @Override
     public void close() {
         closing = true;
         try {
@@ -220,6 +242,8 @@ public final class SteamNode implements Node {
                 }
                 readPackets();
                 beat();
+                resume();
+                rejoin();
                 joinTimeout();
                 if (!hosting && !entering && System.currentTimeMillis() >= friendsAt) {
                     friendLobbies = List.copyOf(port.friendLobbies());
@@ -281,8 +305,17 @@ public final class SteamNode implements Node {
             switch (c) {
                 case Command.Send s -> {
                     Long user = users.get(s.peer());
-                    if (user != null && !port.send(user, s.bytes()))
-                        drop(s.peer(), "Steam refused a message to this player.");
+                    if (user == null || dropWhenSent.contains(s.peer()))
+                        break;
+                    byte[] wire = resend.wrap(s.peer(), s.bytes());
+                    if (!broken.containsKey(s.peer()) && !port.send(user, wire))
+                        breakLine(s.peer(), "Steam refused a message to this player.");
+                }
+                case Command.Cut x -> {
+                    for (Map.Entry<Integer, Long> e : users.entrySet()) {
+                        port.closeSession(e.getValue());
+                        breakLine(e.getKey(), "Test: the connection was cut (SOS-178).");
+                    }
                 }
                 case Command.Join j -> enter(j.lobby());
                 case Command.Invite i -> {
@@ -290,8 +323,12 @@ public final class SteamNode implements Node {
                         port.invite(lobby);
                 }
                 case Command.Drop d -> {
+                    if (hosting && broken.containsKey(d.peer()) && users.containsKey(d.peer())) {
+                        dropWhenSent.add(d.peer()); // it gets what was queued for it if it comes back
+                        break;
+                    }
                     Long user = users.remove(d.peer());
-                    liveness.remove(d.peer());
+                    forget(d.peer());
                     if (user != null) {
                         peers.remove(user);
                         port.closeSession(user);
@@ -311,16 +348,109 @@ public final class SteamNode implements Node {
             joinDeadline = 0;
             long now = Liveness.now();
             liveness.heard(peer, now);
+            Message m;
             try {
-                Message m = Protocol.decode(bytes);
-                if (m instanceof Message.Heartbeat h)
-                    liveness.beat(peer, h, now);
-                else
-                    events.add(new Event.Received(peer, m));
+                m = Protocol.decode(bytes);
             } catch (IOException e) {
                 drop(peer, "It sent a broken message: " + e.getMessage());
+                continue;
+            }
+            switch (m) {
+                case Message.Heartbeat h -> {
+                    liveness.beat(peer, h, now);
+                    resend.acked(peer, h.received());
+                }
+                case Message.Resume r -> {
+                    port.send(from[0], Protocol.encode(new Message.Resumed(resend.received(peer))));
+                    sendAgain(peer, r.received());
+                }
+                case Message.Resumed r -> sendAgain(peer, r.received());
+                case Message.Sequenced q -> {
+                    switch (resend.in(peer, q.seq())) {
+                        case NEXT -> events.add(new Event.Received(peer, q.message()));
+                        case REPEAT -> {
+                        }
+                        case GAP -> askAgain(peer, now); // a failed session lost what came before it
+                    }
+                }
+                default -> events.add(new Event.Received(peer, m)); // another version's, which the sessions refuse
             }
         }
+    }
+
+    /**
+     * {@code peer} had our first {@code received} (SOS-178): the line works again, and what it lacks goes again; a
+     * line the sessions dropped then ends.
+     */
+    private void sendAgain(int peer, long received) {
+        Long user = users.get(peer);
+        if (user == null)
+            return;
+        List<byte[]> again;
+        try {
+            again = resend.after(peer, received);
+        } catch (IllegalArgumentException e) {
+            drop(peer, "It sent a broken message: " + e.getMessage());
+            return;
+        }
+        if (broken.remove(peer) != null)
+            port.note((hosting ? "Player " + peer : "The host") + " is back; " + again.size() + " messages go again.");
+        for (byte[] wire : again)
+            if (!port.send(user, wire)) {
+                breakLine(peer, "Steam refused a message to this player.");
+                return;
+            }
+        if (dropWhenSent.contains(peer)) { // its session stays, so Steam still delivers what was just sent
+            users.remove(peer);
+            peers.remove(user);
+            forget(peer);
+        }
+    }
+
+    /** A message past a gap: asks {@code peer} for the rest, at most once per {@link #RESUME_MS}. */
+    private void askAgain(int peer, long now) {
+        Long due = broken.get(peer);
+        if (due != null && now < due)
+            return;
+        broken.put(peer, now + RESUME_MS);
+        Long user = users.get(peer);
+        if (user != null)
+            port.send(user, Protocol.encode(new Message.Resume(0, resend.received(peer), 0)));
+    }
+
+    /**
+     * {@code peer}'s session failed, or Steam refused a message (SOS-178): the peer stays, nothing more goes until it
+     * resumes, and this PC asks it to every {@link #RESUME_MS}.
+     */
+    private void breakLine(int peer, String reason) {
+        if (!users.containsKey(peer) || broken.containsKey(peer))
+            return;
+        broken.put(peer, Liveness.now());
+        port.note((hosting ? "Player " + peer : "The host") + ": " + reason + " Waiting for it to come back.");
+        events.add(new Event.Disconnected(-1, "SOSGSGMP: the connection to peer " + peer + " broke (" + reason
+                + "); waiting for it to come back"));
+    }
+
+    /** Each broken line asks its peer to resume when due, unless a test outage is under way. */
+    private void resume() {
+        long now = Liveness.now();
+        if (broken.isEmpty() || liveness.silenced(now))
+            return;
+        for (Map.Entry<Integer, Long> e : broken.entrySet()) {
+            Long user = users.get(e.getKey());
+            if (user == null || now < e.getValue())
+                continue;
+            e.setValue(now + RESUME_MS);
+            port.send(user, Protocol.encode(new Message.Resume(0, resend.received(e.getKey()), 0)));
+        }
+    }
+
+    /** A joining PC put out of the lobby as it lost Steam tries to enter it again; failing changes nothing. */
+    private void rejoin() {
+        if (rejoinAt == 0 || System.currentTimeMillis() < rejoinAt)
+            return;
+        rejoinAt = System.currentTimeMillis() + RESUME_MS;
+        port.joinLobby(lobby);
     }
 
     /** A heartbeat to every peer whose beat is due (SOS-177). */
@@ -330,9 +460,11 @@ public final class SteamNode implements Node {
             return;
         beatAt = now + 100;
         for (int peer : users.keySet().toArray(new Integer[0])) {
-            Message.Heartbeat h = liveness.due(peer, now);
+            if (broken.containsKey(peer))
+                continue;
+            Message.Heartbeat h = liveness.due(peer, now, resend.received(peer));
             if (h != null && !port.send(users.get(peer), Protocol.encode(h)))
-                drop(peer, "Steam refused a message to this player.");
+                breakLine(peer, "Steam refused a message to this player.");
         }
     }
 
@@ -341,13 +473,22 @@ public final class SteamNode implements Node {
         Long user = users.remove(peer);
         if (user == null)
             return;
-        liveness.remove(peer);
+        forget(peer);
         peers.remove(user);
         port.closeSession(user);
         events.add(new Event.Disconnected(peer, reason));
     }
 
+    /** Everything this node keeps for a peer that is gone, but its Steam ID. */
+    private void forget(int peer) {
+        liveness.remove(peer);
+        resend.remove(peer);
+        broken.remove(peer);
+        dropWhenSent.remove(peer);
+    }
+
     private void added(int peer, long user) {
+        resend.add(peer);
         liveness.add(peer, Liveness.now());
         users.put(peer, user);
         peers.put(user, peer);
@@ -370,6 +511,13 @@ public final class SteamNode implements Node {
         public void lobbyEntered(long id, String error) {
             if (hosting)
                 return; // the host's own lobby, entered as it was created
+            if (rejoinAt != 0) { // back in after losing Steam: the host is a peer still
+                if (error == null) {
+                    rejoinAt = 0;
+                    port.note("This PC is back in the Steam lobby.");
+                }
+                return;
+            }
             joinDeadline = 0;
             if (error != null) {
                 fail("Couldn't enter the Steam lobby: " + error);
@@ -412,6 +560,7 @@ public final class SteamNode implements Node {
                 return;
             if (lostSteam) {
                 port.note("This PC lost its connection to Steam; waiting for the host's messages.");
+                rejoinAt = System.currentTimeMillis() + RESUME_MS;
                 return;
             }
             drop(HOST, "Removed from the Steam lobby.");
@@ -433,7 +582,7 @@ public final class SteamNode implements Node {
         public void sessionFailed(long user, String reason) {
             Integer peer = peers.get(user);
             if (peer != null)
-                drop(peer, "The Steam connection failed: " + reason);
+                breakLine(peer, "The Steam connection failed: " + reason + ".");
         }
     }
 }

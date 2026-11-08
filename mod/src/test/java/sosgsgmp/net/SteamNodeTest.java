@@ -143,7 +143,7 @@ class SteamNodeTest {
     /** The next message, failing on a disconnect before it: a blip must not drop anyone (SOS-177). */
     private static Node.Event.Received nextMessage(SteamNode node) throws InterruptedException {
         return (Node.Event.Received) next(node, e -> {
-            assertFalse(e instanceof Node.Event.Disconnected, "no disconnect: " + e);
+            assertFalse(e instanceof Node.Event.Disconnected d && d.peer() >= 0, "no disconnect: " + e);
             return e instanceof Node.Event.Received;
         });
     }
@@ -181,6 +181,47 @@ class SteamNodeTest {
         assertEquals(new Message.Chat(1, "still here"), nextMessage(h).message());
         h.send(bobPeer, new Message.Start());
         assertEquals(new Message.Start(), nextMessage(bob).message());
+    }
+
+    /**
+     * The host's line to Bob breaks for good while messages are under way both ways (SOS-178): his internet drops, the
+     * session fails past Steam's timeout and loses what was unread, then he is back. Every message arrives once and in
+     * order, both ways, and nobody is dropped.
+     */
+    @Test
+    void aFailedSessionResumesAndLosesNothing() throws Exception {
+        SteamNode h = host();
+        SteamNode bob = join(2, h.lobby());
+        next(bob, e -> e instanceof Node.Event.Connected);
+        int bobPeer = ((Node.Event.Connected) next(h, e -> e instanceof Node.Event.Connected)).peer();
+        h.send(bobPeer, new Message.Chat(0, "before"));
+        assertEquals(new Message.Chat(0, "before"), nextMessage(bob).message());
+
+        steam.down(2, true);
+        for (int i = 0; i < 3; i++) {
+            h.send(bobPeer, new Message.Chat(0, "host " + i));
+            bob.send(Node.HOST, new Message.Chat(1, "bob " + i));
+        }
+        Thread.sleep(100);
+        steam.failSession(1, 2);
+        Thread.sleep(SteamNode.RESUME_MS + 500); // both ask to resume into the outage
+        steam.down(2, false);
+        for (int i = 0; i < 3; i++) {
+            assertEquals(new Message.Chat(0, "host " + i), nextMessage(bob).message());
+            assertEquals(new Message.Chat(1, "bob " + i), nextMessage(h).message());
+        }
+        h.send(bobPeer, new Message.Chat(0, "after"));
+        assertEquals(new Message.Chat(0, "after"), nextMessage(bob).message());
+        Thread.sleep(300);
+        assertNoMessage(bob);
+        assertNoMessage(h);
+    }
+
+    /** Nothing more for the sessions but the network's own notes: no repeat, no disconnect. */
+    private static void assertNoMessage(SteamNode node) {
+        Node.Event e;
+        while ((e = node.poll()) != null)
+            assertTrue(e instanceof Node.Event.Disconnected d && d.peer() < 0, "nothing more: " + e);
     }
 
     @Test

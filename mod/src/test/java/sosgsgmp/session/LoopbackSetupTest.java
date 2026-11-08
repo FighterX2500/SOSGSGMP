@@ -812,6 +812,76 @@ class LoopbackSetupTest {
     }
 
     /**
+     * SOS-178: the engine streams flow while Cid's connection is cut, then the host's (Bob's and Cid's both), then
+     * Cid's again inside an 8 s outage. Every byte reaches its takers once and in order; the outage alone makes Cid
+     * lost, and the hold ends by itself; nobody is removed and no session ends.
+     */
+    @Test
+    void cutConnectionsComeBackWithEveryEngineByteOnceAndNobodyRemoved() throws Exception {
+        System.setProperty(NetConditions.PROPERTY, "delay=0");
+        EngineLinkTest.FakePort hp = new EngineLinkTest.FakePort();
+        EngineLinkTest.FakePort bp = new EngineLinkTest.FakePort();
+        EngineLinkTest.FakePort cp = new EngineLinkTest.FakePort();
+        playing(hp, bp, cp);
+        int cidId = idOf(host, "Cid");
+        int c = host.factions().slotOf(cid.localPlayerId());
+        ByteArrayOutputStream log = new ByteArrayOutputStream(), orders = new ByteArrayOutputStream();
+        for (int i = 0; i < 120; i++) {
+            byte[] l = {(byte) i, (byte) (i * 7)};
+            hp.make(StreamKind.AI_LOG, l);
+            log.writeBytes(l);
+            byte[] o = {(byte) (i * 3)};
+            cp.make(StreamKind.ORDERS, o);
+            orders.writeBytes(o);
+            if (i == 30)
+                cid.testNetwork().cutAll();
+            if (i == 70)
+                host.testNetwork().cutAll();
+            for (SetupSession s : setups)
+                s.exchange();
+            Thread.sleep(5);
+        }
+        playUntil("every byte at its taker", 10_000, () -> cp.took(StreamKind.AI_LOG, 0).length == log.size()
+                && bp.took(StreamKind.AI_LOG, 0).length == log.size() && hp.took(StreamKind.ORDERS, c).length == orders.size());
+        assertArrayEquals(log.toByteArray(), cp.took(StreamKind.AI_LOG, 0));
+        assertArrayEquals(log.toByteArray(), bp.took(StreamKind.AI_LOG, 0));
+        assertArrayEquals(orders.toByteArray(), hp.took(StreamKind.ORDERS, c));
+        assertFalse(host.departures().waiting(), "a cut that comes back at once holds nobody");
+
+        hp.step = 500;
+        cid.testNetwork().outage(8);
+        cid.testNetwork().cutAll();
+        hp.make(StreamKind.AI_LOG, (byte) 99);
+        playUntil("every PC holds for Cid, lost", 10_000, () -> host.departures().lost(cidId) && bob.departures().lost(cidId));
+        playUntil("the hold over on every PC", 15_000, () -> !host.departures().waiting() && !bob.departures().waiting()
+                && !cid.departures().waiting() && cp.took(StreamKind.AI_LOG, 0).length == log.size() + 1);
+        assertEquals(List.of(), host.departures().removed());
+        assertFalse(cid.closed());
+        assertFalse(bob.closed());
+        assertEquals(List.of("Ann", "Bob", "Cid"), names(bob.players()));
+    }
+
+    /**
+     * SOS-180: a peer may run past the host's step plus the lead, up to the AI log's horizon (N1-jcuts: Joiner was 65
+     * steps ahead and crashed on a hold it had passed). The hold then starts past the furthest a peer may have run.
+     */
+    @Test
+    void aHoldStartsPastTheFurthestAPeerMayHaveRun() throws Exception {
+        System.setProperty(NetConditions.PROPERTY, "delay=0");
+        EngineLinkTest.FakePort hp = new EngineLinkTest.FakePort();
+        playing(hp, new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        int cidId = idOf(host, "Cid");
+        hp.step = 500;
+        hp.pastPeers = 600;
+        cid.testNetwork().outage(8);
+        playUntil("Bob holds for Cid, lost", 10_000, () -> bob.departures().lost(cidId));
+        assertEquals(600, host.departures().holdStep());
+        assertEquals(600, bob.departures().holdStep(), "one hold step on every PC");
+        playUntil("the hold over on every PC", 10_000, () -> !host.departures().waiting() && !bob.departures().waiting()
+                && !cid.departures().waiting());
+    }
+
+    /**
      * SOS-177: the host continues without a lost player: they are removed as one who left, and their PC, heard again,
      * is told so and its session ends.
      */
@@ -821,6 +891,7 @@ class LoopbackSetupTest {
         playing(new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
         int cidId = idOf(host, "Cid");
         cid.testNetwork().outage(12);
+        cid.testNetwork().cutAll(); // and its connection breaks: it comes back to be told (SOS-178)
         playUntil("every PC holds for Cid, lost", 10_000, () -> host.departures().lost(cidId) && bob.departures().lost(cidId));
         host.chooseGone(Departures.Choice.CONTINUE);
         playUntil("Bob hears Continue", () -> bob.departures().choice() == Departures.Choice.CONTINUE);

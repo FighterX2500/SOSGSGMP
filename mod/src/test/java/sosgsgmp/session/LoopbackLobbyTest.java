@@ -262,7 +262,9 @@ class LoopbackLobbyTest {
             byte[] b = new byte[in.readInt()];
             in.readFully(b);
             Message m = Protocol.decode(b);
-            if (!(m instanceof Message.Heartbeat))
+            if (m instanceof Message.Sequenced q) // every message goes numbered (SOS-178)
+                return q.message();
+            if (!(m instanceof Message.Heartbeat) && !(m instanceof Message.Resumed))
                 return m;
         }
     }

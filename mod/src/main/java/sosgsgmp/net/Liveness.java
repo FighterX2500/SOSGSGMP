@@ -68,14 +68,17 @@ final class Liveness {
             l.rttMs = (int) Math.max(0, Math.min(Integer.MAX_VALUE, now - h.echoMs() - h.heldMs()));
     }
 
-    /** I/O thread: the heartbeat due to {@code peer} now, or null; once returned, the next is due a beat later. */
-    Message.Heartbeat due(int peer, long now) {
+    /**
+     * I/O thread: the heartbeat due to {@code peer} now, carrying the {@code received} count (SOS-178), or null; once
+     * returned, the next is due a beat later.
+     */
+    Message.Heartbeat due(int peer, long now, long received) {
         Line l = lines.get(peer);
         if (l == null || now < silentUntilMs || now < l.nextBeatMs)
             return null;
         l.nextBeatMs = now + BEAT_MS;
         int held = !l.echoed ? -1 : (int) Math.min(Integer.MAX_VALUE, now - l.echoHeardMs);
-        return new Message.Heartbeat(now, l.echoMs, held);
+        return new Message.Heartbeat(now, l.echoMs, held, received);
     }
 
     /** How long {@code peer} has been silent; 0 for a peer this PC doesn't know. Any thread. */
@@ -88,6 +91,11 @@ final class Liveness {
     int rttMs(int peer) {
         Line l = lines.get(peer);
         return l == null ? -1 : l.rttMs;
+    }
+
+    /** Whether a test outage (SOS-175) is under way: a node makes no new connection then (SOS-178). */
+    boolean silenced(long now) {
+        return now < silentUntilMs;
     }
 
     /** Test outages only (SOS-175): no heartbeat goes and nothing counts as heard until {@code untilMs}. */

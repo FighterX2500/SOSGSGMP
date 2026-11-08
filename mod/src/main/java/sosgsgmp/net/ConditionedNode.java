@@ -4,15 +4,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Random;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Test tooling (SOS-175): a {@link Node} whose connections suffer {@link NetConditions}: delay, jitter and resends on
- * every message each way, and on request an outage (nothing passes either way for some seconds) or a cut (the
- * connection closes as a lost one does). It wraps the real node only when {@link NetConditions#VARIABLE} is set
+ * every message each way, and on request an outage (nothing passes either way for some seconds) or a cut (the real
+ * node's connections break as a lost internet breaks them, and come back: SOS-178). It wraps the real node only when {@link NetConditions#VARIABLE} is set
  * ({@link #wrapIfAsked}); in normal play no instance exists.
  *
  * <p>Its own thread (AGENTS.md "State and Lifecycle", the approved network exception; test runs only) moves messages
@@ -86,9 +84,10 @@ public final class ConditionedNode implements Node {
     }
 
     /**
-     * This PC's internet drops: every connection it has closes as a lost one, and each side hears it (this PC from
-     * here, the other from its own node). On a joining PC that is the host's connection.
+     * This PC's internet drops: every connection the real node has breaks, and each side waits for it to come back, as
+     * for a real break (SOS-178). With an outage under way, nothing comes back before it ends.
      */
+    @Override
     public void cutAll() {
         cuts.add(ALL);
     }
@@ -170,9 +169,10 @@ public final class ConditionedNode implements Node {
 
     private void step(long now) {
         long until = outageUntil;
-        while (cuts.poll() != null)
-            for (Integer peer : peers())
-                cut(peer);
+        while (cuts.poll() != null) {
+            cutCount++;
+            inner.cutAll();
+        }
         Stamped<Out> o;
         while ((o = outgoing.poll()) != null) {
             int peer = o.item() instanceof Out.Send s ? s.peer() : ((Out.Drop) o.item()).peer();
@@ -220,21 +220,6 @@ public final class ConditionedNode implements Node {
             case Out.Send s -> inner.send(s.peer(), s.message());
             case Out.Drop d -> inner.disconnect(d.peer());
         }
-    }
-
-    /** The peers this PC has had traffic with, as the lines know them. */
-    private Set<Integer> peers() {
-        Set<Integer> all = new TreeSet<>(outLines.keySet());
-        all.addAll(inLines.keySet());
-        return all;
-    }
-
-    private void cut(int peer) {
-        cutCount++;
-        outLines.remove(peer);
-        inLines.remove(peer);
-        inner.disconnect(peer);
-        ready.add(new Event.Disconnected(peer, "Test: the connection was cut (SOS-175)."));
     }
 
     private static int peerOf(Event e) {
