@@ -103,7 +103,10 @@ import world.map.regions.Region;
  * {@code givevassal <slot>} (the nearest NPC faction with no overlord becomes that player's vassal: a world command);
  * {@code teleportnear <x> <y>} and {@code teleportarmy <army> <x> <y>} (the first army, or any army, an NPC's included,
  * stands on the passable tile nearest x, y); {@code besiegeregion <region>} (the first army besieges that region);
- * {@code regionat <region>} (its owner, centre and garrison); {@code ui region <region>} (its panel);
+ * {@code regionat <region>} (its owner, centre and garrison); {@code townof <faction>} (that NPC faction's region nearest
+ * the first army, not its capital); {@code stormnext} (the next siege prompt is answered with Storm); {@code ui region <region>} (its panel);
+ * {@code armypower <army>} (its power, as vanilla weighs a world battle's sides: the weaker NPC side withdraws at once);
+ * {@code fillarmy <army>} (any army's supplies full, which its power counts);
  * {@code state} (the prompts, battle, view and terms open on this PC); {@code save} (host: the escape menu's Save
  * Campaign, at any time, a battle included).
  */
@@ -472,6 +475,26 @@ final class MpAutopilotCommands {
 			return "region " + r.index() + " " + r.info.name() + " of " + (r.faction() == null ? "nobody" : r.faction().name) + " at "
 					+ r.cx() + "," + r.cy() + ", garrison " + world.region.RD.MILITARY().garrison.get(r) + ", capital " + r.capitol();
 		}
+		case "townof": { // the region of NPC faction F nearest the first army, not its capital (SOS-162)
+			WArmy w = firstArmy();
+			Faction f = FACTIONS.getByIndex(Integer.parseInt(a[1]));
+			Region best = null;
+			long bestD = Long.MAX_VALUE;
+			for (Region r : WORLD.REGIONS().active()) {
+				if (r.faction() != f || r.capitol() || w == null)
+					continue;
+				long dx = r.cx() - w.ctx(), dy = r.cy() - w.cty();
+				if (dx * dx + dy * dy < bestD) {
+					bestD = dx * dx + dy * dy;
+					best = r;
+				}
+			}
+			return best == null ? "refused: no town of " + a[1] : "region " + best.index() + " at " + best.cx() + "," + best.cy()
+					+ ", garrison " + world.region.RD.MILITARY().garrison.get(best);
+		}
+		case "stormnext": // the next siege prompt is answered with Storm (SOS-162: an NPC town's)
+			storm = true;
+			return "the next siege prompt storms";
 		case "besiegeregion": { // the first army besieges the region with this index (SOS-162)
 			WArmy w = firstArmy();
 			Region r = WORLD.REGIONS().getByIndex(Integer.parseInt(a[1]));
@@ -497,6 +520,17 @@ final class MpAutopilotCommands {
 					b.append(e.faction().index()).append(' ').append(AD.men(null).get(e)).append(' ').append(e.ctx()).append(' ').append(e.cty()).append(' ').append(e.armyIndex()).append("; ");
 			}
 			return b.toString();
+		}
+		case "fillarmy": { // any army's supplies full, an NPC's included: its power counts its supplies (SOS-162)
+			WArmy w = WORLD.ENTITIES().armies.tryGet(Integer.parseInt(a[1]));
+			if (w == null)
+				return "refused: no army " + a[1];
+			Sieges.fillForTest(w);
+			return "army " + w.armyIndex() + "'s supplies filled, at its step on every PC";
+		}
+		case "armypower": { // an army's power, as vanilla weighs the sides of a world battle (SOS-162)
+			WArmy w = WORLD.ENTITIES().armies.tryGet(Integer.parseInt(a[1]));
+			return w == null ? "refused: no army " + a[1] : "power " + (long) AD.power().get(w);
 		}
 		case "npcwar":
 			Sieges.npcWarForTest(FACTIONS.player().index(), Integer.parseInt(a[1]));
@@ -1025,7 +1059,9 @@ final class MpAutopilotCommands {
 				+ ", ally asked " + engine.allyAsked() + ", battle " + (b == null ? "none" : b.deploying() ? "deploying"
 						: Hooks.battleConcludeOpen() ? "over" : "running")
 				+ ", viewing " + (Engine.viewing() != null) + ", terms " + (Engine.assaultTaken() != null)
-				+ ", notice " + VIEW.inters().fullScreen.isActivated() + ", step " + engine.step();
+				+ ", notice " + VIEW.inters().fullScreen.isActivated() + ", step " + engine.step()
+				+ String.format(Locale.ROOT, ", speed %.1f%s", GAME.SPEED.speedTarget(), GAME.SPEED.isPaused() ? " paused" : "")
+				+ ", own army " + (b == null ? -1 : sosdet.game.OwnArmy.own().index());
 	}
 
 	/** Each human's relations with the others, their NPC wars and vassals, for a test's log. */
