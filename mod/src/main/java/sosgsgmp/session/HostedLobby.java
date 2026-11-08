@@ -11,6 +11,7 @@ import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.lobby.Refusal;
+import sosgsgmp.net.ConditionedNode;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.Node;
 import sosgsgmp.net.TcpNode;
@@ -43,12 +44,12 @@ public final class HostedLobby implements LobbySession {
     public HostedLobby(LobbySettings settings, String hostName, long hostKey, Builds builds, Node node) {
         this.lobby = new Lobby(settings, hostName, hostKey);
         this.builds = builds;
-        this.node = node;
+        this.node = ConditionedNode.wrapIfAsked(node); // test runs only (SOS-175)
     }
 
     /** The port players join on over direct IP; -1 over Steam. */
     public int port() {
-        return node instanceof TcpNode t ? t.port() : -1;
+        return ConditionedNode.unwrap(node) instanceof TcpNode t ? t.port() : -1;
     }
 
     @Override
