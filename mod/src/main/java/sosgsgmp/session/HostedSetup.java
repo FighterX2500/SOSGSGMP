@@ -193,6 +193,11 @@ public final class HostedSetup implements SetupSession {
         deferFrames = 2;
     }
 
+    /** The step a player-gone or lost hold counts its lead from: the host's, or later when a peer may run further. */
+    private long holdBase() {
+        return Math.max(link.step(), link.stepPastPeers() - Departures.LEAD);
+    }
+
     private static long nowMs() {
         return System.nanoTime() / 1_000_000;
     }
@@ -377,7 +382,7 @@ public final class HostedSetup implements SetupSession {
         Departures.Gone g = new Departures.Gone(id, name(id), factions.slotOf(id));
         players.removeIf(p -> p.id() == id);
         cursors.removePlayer(id);
-        long hold = departures.left(g, link.step());
+        long hold = departures.left(g, holdBase());
         views.gone(g.slot()); // an ask or a view they are in ends (SOS-82)
         notes.add(g.name() + " left at step " + link.step() + "; every PC holds at " + hold);
         sendAll(new Message.PlayerGone(id, hold));
@@ -406,7 +411,7 @@ public final class HostedSetup implements SetupSession {
                 }
             } else if (silent >= Departures.LOST_MS && !inHold(id) && !spectator(id)) {
                 Departures.Gone g = new Departures.Gone(id, name(id), factions.slotOf(id));
-                long hold = departures.lost(g, link.step(), nowMs() - silent);
+                long hold = departures.lost(g, holdBase(), nowMs() - silent);
                 notes.add(g.name() + " silent for " + silent / 1000 + " s at step " + link.step() + "; every PC holds at " + hold);
                 sendAll(new Message.PlayerLost(id, hold, silent));
                 changes++;
