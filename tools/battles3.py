@@ -864,7 +864,8 @@ def resume_check(name, after):
         run.wait(lambda: all(any(e.get("t", 0) >= t0 for e in run.events(w, "go")) for w in WHO) or run.sleep(1), 300,
                  "every game playing after the resume")
         for w in ("H", "J"):
-            a = template_army(run, w)
+            # the resume's run has no position, so the template would be the largest army: find the battle's by index
+            a = next((a for a in armies(run, w) if a[0] == after[w][0]), (after[w][0], 0, 0, 0))
             run.check(a[1] == after[w][1], "%s's army after the resume has the battle's survivors: %d (%d before the save)" % (w, a[1], after[w][1]))
         ok = run.end(after=20)
     except Failed as e:
