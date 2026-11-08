@@ -140,6 +140,49 @@ class SteamNodeTest {
         assertTrue(d.reason().contains("host"), d.reason());
     }
 
+    /** The next message, failing on a disconnect before it: a blip must not drop anyone (SOS-177). */
+    private static Node.Event.Received nextMessage(SteamNode node) throws InterruptedException {
+        return (Node.Event.Received) next(node, e -> {
+            assertFalse(e instanceof Node.Event.Disconnected, "no disconnect: " + e);
+            return e instanceof Node.Event.Received;
+        });
+    }
+
+    @Test
+    void aMemberWhoOnlyLostSteamStaysAPeerBothWays() throws Exception {
+        SteamNode h = host();
+        FakeSteam.Port[] bobPort = new FakeSteam.Port[1];
+        SteamNode bob = SteamNode.join(() -> bobPort[0] = steam.port(2), h.lobby());
+        nodes.add(bob);
+        next(bob, e -> e instanceof Node.Event.Connected);
+        int bobPeer = ((Node.Event.Connected) next(h, e -> e instanceof Node.Event.Connected)).peer();
+
+        bobPort[0].loseSteam(h.lobby()); // the host hears Disconnected; Bob hears he was kicked for it
+        Thread.sleep(50);
+        h.send(bobPeer, new Message.Start());
+        assertEquals(new Message.Start(), nextMessage(bob).message());
+        bob.send(Node.HOST, new Message.Chat(1, "back"));
+        assertEquals(new Message.Chat(1, "back"), nextMessage(h).message());
+    }
+
+    @Test
+    void theHostLosingSteamKeepsItsPlayers() throws Exception {
+        FakeSteam.Port[] hostPort = new FakeSteam.Port[1];
+        SteamNode h = SteamNode.host(() -> hostPort[0] = steam.port(1), 4);
+        nodes.add(h);
+        waitFor("the lobby", () -> h.lobby() != 0);
+        SteamNode bob = join(2, h.lobby());
+        next(bob, e -> e instanceof Node.Event.Connected);
+        int bobPeer = ((Node.Event.Connected) next(h, e -> e instanceof Node.Event.Connected)).peer();
+
+        hostPort[0].loseSteam(h.lobby());
+        Thread.sleep(50);
+        bob.send(Node.HOST, new Message.Chat(1, "still here"));
+        assertEquals(new Message.Chat(1, "still here"), nextMessage(h).message());
+        h.send(bobPeer, new Message.Start());
+        assertEquals(new Message.Start(), nextMessage(bob).message());
+    }
+
     @Test
     void packetsFromOutsideTheLobbyAreNeverRead() throws Exception {
         SteamNode h = host();

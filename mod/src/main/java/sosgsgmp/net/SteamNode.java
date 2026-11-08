@@ -13,7 +13,8 @@ import java.util.function.Supplier;
  * Connections over Steam P2P (SOS-60, spec §13: App ID 1162750): the host owns a Steam lobby for friends; joining PCs
  * enter it and talk to its owner. Peers are lobby members: the host numbers them from 1 as they enter; a joining PC's
  * host is {@link #HOST}. A P2P session is accepted only from a member, and a member who leaves the lobby is a
- * disconnect; for a joining PC, the owner leaving is losing the host.
+ * disconnect; for a joining PC, the owner leaving is losing the host. A member who only lost its connection to Steam
+ * stays a peer: its session fails, and drops it, only if it isn't back within Steam's timeout (SOS-177).
  *
  * <p>One I/O thread (AGENTS.md, approved exception) creates the {@link SteamPort}, makes every Steam call, runs Steam's
  * callbacks and reads packets; it only decodes messages and queues {@link Event}s. Each message is one reliable packet
@@ -352,17 +353,26 @@ public final class SteamNode implements Node {
         }
 
         @Override
-        public void memberLeft(long id, long user) {
+        public void memberLeft(long id, long user, boolean lostSteam) {
             Integer peer = peers.get(user);
             if (id != lobby || peer == null)
                 return;
+            if (lostSteam) { // a blip: its session decides, failing only past Steam's timeout (sessionFailed)
+                port.note((hosting ? "Player " + peer : "The host") + " lost its connection to Steam; waiting for its messages.");
+                return;
+            }
             drop(peer, hosting ? "Left the Steam lobby." : "The host left the Steam lobby.");
         }
 
         @Override
-        public void lobbyLost(long id) {
-            if (!hosting && id == lobby)
-                drop(HOST, "Removed from the Steam lobby.");
+        public void lobbyLost(long id, boolean lostSteam) {
+            if (hosting || id != lobby)
+                return;
+            if (lostSteam) {
+                port.note("This PC lost its connection to Steam; waiting for the host's messages.");
+                return;
+            }
+            drop(HOST, "Removed from the Steam lobby.");
         }
 
         @Override
