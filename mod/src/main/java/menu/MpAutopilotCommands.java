@@ -112,7 +112,9 @@ import world.map.regions.Region;
  * {@code battlemen} (the men on each side of the battle this PC runs);
  * {@code netoutage <seconds>} (this PC's connections carry nothing either way for up to 60 s), {@code netcut} (this
  * PC's internet drops: every connection breaks and comes back by itself, SOS-178) and {@code netstats}, all only with
- * {@code SOSGSGMP_NETEM} set (SOS-175);
+ * {@code SOSGSGMP_NETEM} set (SOS-175); {@code leavelost} (join: once the lost-host window shows, its Leave the game
+ * is pressed and the game quits: SOS-179); {@code chooselost} (host: from now a hold of players only lost is chosen
+ * for too, as {@code ongone} says, as for players who left);
  * {@code state} (the prompts, battle, view and terms open on this PC); {@code save} (host: the escape menu's Save
  * Campaign, at any time, a battle included).
  */
@@ -166,6 +168,20 @@ final class MpAutopilotCommands {
 		boolean due = saveWanted;
 		saveWanted = false;
 		return due;
+	}
+
+	/** A joining PC presses the lost-host window's Leave the game once it shows, from {@code leavelost} (SOS-179). */
+	private boolean leaveLost;
+
+	boolean leaveLost() {
+		return leaveLost;
+	}
+
+	/** The host chooses for a hold of players only lost too, from {@code chooselost} (SOS-179). */
+	private boolean chooseLost;
+
+	boolean chooseLost() {
+		return chooseLost;
 	}
 
 	/** The step {@code endat} set for this PC's run to end at, or -1. */
@@ -309,6 +325,16 @@ final class MpAutopilotCommands {
 			return diplo();
 		case "state":
 			return state(engine);
+		case "leavelost":
+			if (host)
+				return "refused: the host has no lost-host window";
+			leaveLost = true;
+			return "leaves once the host is lost";
+		case "chooselost":
+			if (!host)
+				return "refused: the host chooses";
+			chooseLost = true;
+			return "chooses for lost players too";
 		case "save":
 			if (!host)
 				return "refused: the host saves the campaign";

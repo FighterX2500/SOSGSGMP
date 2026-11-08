@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.56 · 2026-11-08
+Version 0.57 · 2026-11-08
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -246,7 +246,7 @@ Any player can view any other player's city, enemies included. This is intended.
 
 **Removing a player.** The host can remove a player who is missing at resume or disconnected. Every region they held, their city's included, becomes a free region with no owner, as vanilla leaves a destroyed faction's land, and their armies are disbanded. They can't rejoin the campaign as a player. Play goes on without them; nobody waits for them.
 
-**Host disconnect.** When the host's PC goes silent for 5 seconds, every other player sees "Lost the connection to the host: waiting" with the time it has been gone, and the whole simulation stops: the world, every city and any battle. If the host is heard again, play goes on. When the host's connection closes, every player gets a popup saying the host disconnected, and play can't continue in that session. The players resume the campaign from a save with any player as host (see Resuming); the save made before the last battle is the natural point.
+**Host disconnect.** (owner, 2026-11-08; SOS-177, SOS-179) When the host's PC goes silent for 5 seconds, or its connection breaks, every other player sees "Lost the connection to the host: waiting" with the time it has been gone, and the whole simulation stops: the world, every city and any battle. Their games connect again by themselves as soon as the host is back, and play goes on with nothing lost; the host sees them as lost meanwhile, as above. Each player can leave from that window: their game leaves the session, and the host can continue without them or return to the last save. When the host quits or its game crashes, every player gets a popup saying the host disconnected, and play can't continue in that session. The players resume the campaign from a save with any player as host (see Resuming); the save made before the last battle is the natural point.
 
 **World desyncs.** When a player's world map differs from the host's, the game stops at the same moment for every player, and every player sees a window saying the world desynced and which player differs. The host chooses what follows; the others wait:
 
@@ -461,7 +461,8 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A player's PC silent for 5 seconds pauses every PC at one step, with the lost-connection window and its timer; heard again, play goes on and nobody is removed. [AT]
 - A player's broken connection, alone or inside an outage of up to 60 seconds, comes back by itself: every message sent meanwhile arrives once, in order, play goes on, and nobody is removed. [AT]
 - An outage of up to 60 seconds, on a player's PC or the host's, removes nobody and desyncs nothing. [PT]
-- When the host loses connection, every player sees a "host disconnected" popup and the whole simulation stops within 2 seconds. [PT]
+- When the host's connection breaks, alone or inside an outage of up to 60 seconds, every player's game connects again by itself and play goes on with nothing lost; meanwhile each player can leave from the lost-host window. [AT]
+- When the host quits or its game crashes, every player sees a "host disconnected" popup and the whole simulation stops within 2 seconds. [PT]
 - After a disconnect, nothing runs until the host chooses Return to the last save or Continue without them. [AT]
 - Return to the last save resumes every player, the disconnected one included, from the campaign's last save. [PT]
 - Continue without them frees every region the player held and disbands their armies, with the same world hash on every PC. [AT]
