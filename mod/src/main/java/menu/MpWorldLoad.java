@@ -91,6 +91,8 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 			game.openLanding();
 		log.line("own city: " + game.activeEntries() + " entry points active"); // none: no roads (SOS-75)
 		setup.worldLoaded(game.worldHash());
+		if (resumed != null) // a resumed city stands already: no landing party to place, so the rows say ready (SOS-163)
+			setup.startSpot();
 		log.line(String.format(Locale.ROOT, "world loaded in %.1f s%s: map seed %d, this PC's slot %d, world hash %016x",
 				(System.nanoTime() - t) / 1e9, resumed == null ? "" : " from campaign save " + resumed.number() + " (" + resumed.file() + ")",
 				seed, f.slotOf(setup.localPlayerId()), game.worldHash()));
