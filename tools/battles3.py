@@ -619,12 +619,13 @@ def place(run, w, x, y):
     return place_picked(run, w, x, y)
 
 
-def place_near(run, w, x, y, reach=2):
+def place_near(run, w, x, y, reach=3):
     """w's template army stands within `reach` tiles of x,y: the spots around it in turn, as a teleport to a tile no
     army can stand on lands on the nearest free one, which can be far off."""
     a = None
     # first the spots where B1's armies stood around L's army at 67,93, all within 4 tiles along the map
-    for dx, dy in ((-2, 1), (-3, -1), (-1, 2), (-2, -1), (0, 2), (0, -2), (2, 0), (2, 2), (2, -2), (-2, 2), (-2, -2)):
+    # 63,94 (-3,+1): L's army there in ALLIES was asked Join with the NPC army on 67,93 (A1); 64,90 was not (a river)
+    for dx, dy in ((-2, 1), (-3, 1), (-1, 2), (-2, -1), (0, 2), (0, -2), (2, 0), (2, 2), (2, -2), (-2, 2), (-2, -2)):
         a = place(run, w, x + dx, y + dy)
         # x,y and the tile east of it stay free: the NPC army is teleported there last (A3: L on 67,93 sent it to 64,90)
         if max(abs(a[2] - x), abs(a[3] - y)) <= reach and (a[2], a[3]) not in ((x, y), (x + 1, y)):
