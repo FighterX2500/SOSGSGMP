@@ -68,6 +68,8 @@ public final class TcpNode implements Node {
     private long reconnectAt;
     /** A joining PC told its sessions it reached its host. */
     private boolean connectedOnce;
+    /** A joining PC's connection attempts so far (SOS-178). */
+    private int attempts;
 
     /** Listens on {@code port} (0: any free port) on every local address. Fails at once if the port is taken. */
     public static TcpNode listen(int port) throws IOException {
@@ -193,6 +195,8 @@ public final class TcpNode implements Node {
         boolean known;
         /** The sessions dropped it: once what is queued for it went, it ends. */
         boolean dropWhenSent;
+        /** A host's: the newest connection attempt of its PC so far; an older one is abandoned (SOS-178). */
+        int attempt;
 
         Line(int id, long token) {
             this.id = id;
@@ -212,6 +216,8 @@ public final class TcpNode implements Node {
         long deadline;
         /** Its line; null for a host's new socket that hasn't said who it is. */
         Line line;
+        /** It carried something besides the handshake: the other side used it, so its close is that side's own. */
+        boolean spoke;
 
         Conn(SocketChannel channel) {
             this.channel = channel;
@@ -294,7 +300,7 @@ public final class TcpNode implements Node {
         c.connected = true;
         c.deadline = Liveness.now() + HANDSHAKE_MS;
         Line l = c.line;
-        c.out.add(frame(Protocol.encode(new Message.Resume(token, resend.received(l.id)))));
+        c.out.add(frame(Protocol.encode(new Message.Resume(token, resend.received(l.id), ++attempts))));
         updateInterest(c);
         if (!connectedOnce) {
             connectedOnce = true;
@@ -481,6 +487,8 @@ public final class TcpNode implements Node {
             return false;
         }
         long now = Liveness.now();
+        if (!(m instanceof Message.Resumed))
+            c.spoke = true;
         switch (m) {
             case Message.Heartbeat h -> {
                 liveness.beat(l.id, h, now);
@@ -498,6 +506,7 @@ public final class TcpNode implements Node {
                 return sendAgain(c, r.received());
             }
             case Message.Resume r -> { // an ask for what is missing on a live socket
+                c.spoke = false;
                 c.out.add(frame(Protocol.encode(new Message.Resumed(resend.received(l.id)))));
                 return sendAgain(c, r.received());
             }
@@ -553,6 +562,7 @@ public final class TcpNode implements Node {
             l = newLine(r.token());
             attach(l, c);
             l.known = true;
+            l.attempt = r.attempt();
             c.out.add(frame(Protocol.encode(new Message.Resumed(0))));
             updateInterest(c);
             events.add(new Event.Connected(l.id));
@@ -564,6 +574,11 @@ public final class TcpNode implements Node {
             updateInterest(c);
             return true;
         }
+        if (r.attempt() < l.attempt) { // one the PC gave up on, accepted only now (after a test outage, say)
+            closeConn(c, false);
+            return false;
+        }
+        l.attempt = r.attempt();
         if (l.conn != null)
             closeConn(l.conn, false); // half open: the PC's new socket wins
         attach(l, c);
@@ -640,9 +655,16 @@ public final class TcpNode implements Node {
         }
     }
 
-    /** The other side closed {@code c} itself: it left (a quit or a crash), unlike a broken socket. */
+    /**
+     * The other side closed {@code c} itself: it left (a quit or a crash), unlike a broken socket. One that carried
+     * nothing past its handshake was a connection attempt the other side gave up on: its line is only broken.
+     */
     private void closedByOtherSide(Conn c) {
         Line l = c.line;
+        if (l != null && l.conn == c && l.known && !c.spoke && !l.dropWhenSent) {
+            broken(c, "A connection attempt ended before it was used.");
+            return;
+        }
         closeConn(c, false);
         if (l != null && l.conn == c)
             endLine(l, l.dropWhenSent ? null : "The other side closed the connection.");
