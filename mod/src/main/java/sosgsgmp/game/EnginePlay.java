@@ -429,6 +429,11 @@ public final class EnginePlay implements EnginePort {
         return sosdet.Hooks.worldPromptAsksAlly();
     }
 
+    /** The player whose battle asks this PC's player to join (SOS-161). */
+    public int allyFighter() {
+        return sosdet.Hooks.worldPromptHuman();
+    }
+
     /** This PC's player's answer: every PC applies it at its step. */
     public void allyAnswer(boolean join) {
         sosdet.game.cmd.WorldBattles.allyAnswer(join);

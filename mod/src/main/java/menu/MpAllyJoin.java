@@ -14,16 +14,16 @@ import util.gui.misc.GButt;
 final class MpAllyJoin extends MpWindow {
 
 	private static final int WIDTH = 380;
-	private static final String TEXT = "An ally's battle is starting within reach of your army. Join it, or stay out. "
-			+ "With no answer in 30 seconds your army stays out.";
-
 	MpAllyJoin(EnginePlay engine) {
 		super("Join the battle?");
-		inner.add(new RENDEROBJ.RenderImp(WIDTH, UI.FONT().M.getHeight(TEXT, WIDTH)) {
+		int fighter = engine.allyFighter();
+		String text = (fighter >= 0 ? engine.factionName(fighter) + "'s" : "An ally's") // who fights, with several allies (SOS-161)
+				+ " battle is starting within reach of your army. Join it, or stay out. With no answer in 30 seconds your army stays out.";
+		inner.add(new RENDEROBJ.RenderImp(WIDTH, UI.FONT().M.getHeight(text, WIDTH)) {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				COLOR.WHITE100.bind();
-				UI.FONT().M.render(r, TEXT, body.x1(), body.y1(), body.width(), 1.0);
+				UI.FONT().M.render(r, text, body.x1(), body.y1(), body.width(), 1.0);
 				COLOR.unbind();
 			}
 		}, 0, 0);

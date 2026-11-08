@@ -93,8 +93,8 @@ public final class MpLoading {
 				continue;
 			if (v.thaw() < 0 && v.state() != View.CANCELLED && v.state() != View.ENDED && step <= v.freeze + LATE
 					&& isNew(Loading.Kind.VIEW_START, v.freeze))
-				open(Loading.Kind.VIEW_START, v.freeze, name(v.viewer) + (battle(v) ? " joins " + name(v.owner) + "'s battle."
-						: " is opening " + name(v.owner) + "'s city.") + WAIT);
+				open(Loading.Kind.VIEW_START, v.freeze, joining(v) + (battle(v) ? " join" + (joiningMany(v) ? "" : "s") + " " + name(v.owner)
+						+ "'s battle." : " is opening " + name(v.owner) + "'s city.") + WAIT);
 			long rejoin = v.rejoinAt(); // another viewer joins: the owner and this view's viewer load again (SOS-151)
 			if (rejoin >= 0 && step <= rejoin + LATE && isNew(Loading.Kind.VIEW_START, rejoin))
 				open(Loading.Kind.VIEW_START, rejoin, "Another player joins " + name(v.owner) + (battle(v) ? "'s battle." : "'s city.") + WAIT);
@@ -103,6 +103,29 @@ public final class MpLoading {
 				open(Loading.Kind.VIEW_END, thaw, name(v.viewer) + " is returning from " + name(v.owner)
 						+ (battle(v) ? "'s battle." : "'s city.") + WAIT);
 		}
+	}
+
+	/** Every player whose view of {@code v}'s owner loads at its freeze step: several allies join a battle at once (SOS-161). */
+	private String joining(View v) {
+		StringBuilder b = new StringBuilder();
+		int n = 0;
+		for (int slot = 0; slot < sosgsgmp.lobby.LobbySettings.MAX_PLAYERS; slot++) {
+			View o = engine.view(slot);
+			if (o != null && o.owner == v.owner && o.freeze == v.freeze && o.state() != View.CANCELLED && o.state() != View.ENDED) {
+				b.append(n++ == 0 ? "" : " and ").append(name(o.viewer));
+			}
+		}
+		return n == 0 ? name(v.viewer) : b.toString();
+	}
+
+	private boolean joiningMany(View v) {
+		int n = 0;
+		for (int slot = 0; slot < sosgsgmp.lobby.LobbySettings.MAX_PLAYERS; slot++) {
+			View o = engine.view(slot);
+			if (o != null && o.owner == v.owner && o.freeze == v.freeze && o.state() != View.CANCELLED && o.state() != View.ENDED)
+				n++;
+		}
+		return n > 1;
 	}
 
 	/** A view of a battle: the engine marks it at the freeze, so before that the owner's running battle tells. */
