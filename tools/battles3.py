@@ -626,7 +626,8 @@ def place_near(run, w, x, y, reach=2):
     # first the spots where B1's armies stood around L's army at 67,93, all within 4 tiles along the map
     for dx, dy in ((-2, 1), (-3, -1), (-1, 2), (-2, -1), (0, 2), (0, -2), (2, 0), (2, 2), (2, -2), (-2, 2), (-2, -2)):
         a = place(run, w, x + dx, y + dy)
-        if max(abs(a[2] - x), abs(a[3] - y)) <= reach:
+        # x,y and the tile east of it stay free: the NPC army is teleported there last (A3: L on 67,93 sent it to 64,90)
+        if max(abs(a[2] - x), abs(a[3] - y)) <= reach and (a[2], a[3]) not in ((x, y), (x + 1, y)):
             return a
     raise Failed("%s's army found no tile within %d of %d,%d (last %s)" % (w, reach, x, y, a))
 
@@ -825,7 +826,9 @@ def a_battle(name, title, joiners, watcher=None, outcome="win", retreat=None, sa
                 say(w, "army before", before[w], "after", after[w], "spoils", spoils(run, w))
             fought = ["H"] + ([w for w in joiners] if answer else [])
             for w in fought:
-                run.check(after[w][1] < before[w][1] or not fight, "%s lost men: %d to %d" % (w, before[w][1], after[w][1]))
+                # a win by morale can end before contact: then the winners' spoils (below) show who fought
+                lost = after[w][1] < before[w][1] if outcome == "lose" else after[w][1] <= before[w][1]
+                run.check(lost or not fight, "%s lost men (none needed in a win): %d to %d" % (w, before[w][1], after[w][1]))
             if outcome == "win" and fight:
                 for w in fought:
                     if w != left:
