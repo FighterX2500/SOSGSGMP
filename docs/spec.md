@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.53 · 2026-11-08
+Version 0.54 · 2026-11-08
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -284,6 +284,7 @@ Players talk through one in-game chat. Every player and spectator reads the same
   - **world generation** and **world initialization**: the host's click opens the window on every PC, and the host's work starts only once it shows;
   - **a battle starting**, **a city view starting** (another viewer joining it too) and **a city view ending**: every PC opens the window at the step the game announces, before the freeze (at a high speed a battle against NPCs is announced only a few steps ahead, so the battle's own PC, whose player started it, may see the window only after its load);
   - **a battle against NPCs ending**: the battle's PC opens the window as its player leaves the battle, every other PC as the result applies.
+  - **a battle every PC runs ending** (between players, or an assault): every PC opens the window once the victory or defeat panel's Close is on its way, before the step where every PC loads its world back (SOS-169).
   
   The host closes the window on every PC once every PC has passed the freeze; a window closes by itself after 2 minutes. It looks like the game's own popup, has no buttons and stops nothing; it opens above the screen's middle, clear of the game's own messages. Each window's opening and closing, how long it was open and each PC's own longest frame meanwhile go in the playtest log, with every frame over a second and every hold over a second.
 - **Prompts that need an answer**, such as a battle invite, appear as popups in the vanilla style.
@@ -542,6 +543,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-06 | **Loading window:** every PC shows why the game freezes, and for how long, while the world generates or initializes, a battle starts or ends and a city view starts or ends; the playtest log times every freeze and hold (spec 0.51; sections 12, 15). | SOS-158 |
 | 2026-11-07 | **Same game files:** a PC whose game files or mods differ from the host's can't join, and the lobby names what differs; other mods are allowed when every player has them, with a warning; game data that still differ in play end the session with a message instead of a crash (spec 0.52; sections 2, 3, 5, 15). | SOS-159 |
 | 2026-11-08 | **Every ally in an NPC battle:** every allied player near a battle against NPCs is asked Join, and every player who joined fights it on their own PC with the fighting player's (spec 0.53; sections 8, 15). | SOS-160, SOS-161 |
+| 2026-11-08 | **The end of a battle every PC runs:** a battle between players or an assault opens the loading window on every PC before the load that ends it (spec 0.54; section 12). | SOS-169 |
 | 2026-11-06 | **Joining an assault:** a player can join a running assault's view as any city's; an attacker who joins again commands their soldiers again (spec 0.49; section 10). | SOS-151 |
 
 ### Where each v1 feature stands (2026-11-01)

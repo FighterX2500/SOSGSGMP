@@ -334,6 +334,14 @@ public final class EnginePlay implements EnginePort {
         return Engine.battleAhead();
     }
 
+    /**
+     * In a battle every PC runs, the step its victory or defeat panel's Close applies at, where every PC loads its world
+     * back; -1 until the Close is in this PC's log (SOSDET SOS-169).
+     */
+    public long battleEndAhead() {
+        return Engine.battleEndAhead();
+    }
+
     /** Every PC, held before an Engage: the battle begins. */
     public void battleGo() {
         Engine.battleGo();
