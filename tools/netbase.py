@@ -8,6 +8,7 @@ Each case's report, logs and result line carry its label (build/battles3/results
     python tools\\netbase.py N1-300ms   the cases whose name starts so
     python tools\\netbase.py --list
     python tools\\netbase.py summary    a markdown table of the cases run so far
+    python tools\\netbase.py --pass ... SOS-180's test pass instead: cuts at awkward moments on the reconnect build
 """
 import pathlib
 import re
@@ -35,6 +36,24 @@ CASES = [
     ("-h15", "A1", ["--netem", "host=on", "--outage", "H:15"]),
 ]
 
+
+# SOS-180: the reconnect build's test pass: cuts (a broken connection, with no link for the seconds) in the world, at a
+# view's start, at a save's start, in battles against NPCs and between players, in an assault, under delay and loss,
+# the host's own; and SOS-179's leave
+PASS = [
+    ("-jcuts", "N1", ["--netem", "join=on", "--cut", "J:0", "--cut", "J:15", "--cut", "J:60"]),
+    ("-hcuts", "N1", ["--netem", "host=on", "--cut", "H:15", "--cut", "H:60"]),
+    ("-viewcut", "N1", ["--netem", "join=on", "--viewcut", "J:15"]),
+    ("-savecut", "N1", ["--netem", "join=on", "--savecut", "J:15"]),
+    ("-300ms-cut", "N1", ["--netem", "join=300ms", "--cut", "J:15"]),
+    ("-loss10-cut", "N1", ["--netem", "join=loss10", "--cut", "J:15"]),
+    ("-jcut15", "A1", ["--netem", "join=on", "--cut", "J:15"]),
+    ("-jcut60", "B1", ["--netem", "join=on", "--cut", "J:60"]),
+    ("-hcut15", "B1", ["--netem", "host=on", "--cut", "H:15"]),
+    ("-jcut15", "B7", ["--netem", "join=on", "--cut", "J:15"]),
+    ("-leave", "N3", ["--netem", "host=on"]),
+]
+PASS_REPORTS = r"C:\ClaudeFolder\PTreport\2026-11-08-reconnect"
 
 LOGS = HERE.parent / "build" / "battles3" / "logs"
 RESULTS = HERE.parent / "build" / "battles3" / "results.txt"
@@ -95,7 +114,11 @@ def summary():
 
 
 def main():
+    global CASES, REPORTS
     want = sys.argv[1:]
+    if want[:1] == ["--pass"]:
+        want = want[1:]
+        CASES, REPORTS = PASS, PASS_REPORTS
     if want == ["summary"]:
         summary()
         return
