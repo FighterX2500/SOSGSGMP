@@ -7,6 +7,7 @@ import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
+import sosgsgmp.net.ConditionedNode;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.Node;
 import sosgsgmp.net.TcpNode;
@@ -39,7 +40,7 @@ public final class JoinedLobby implements LobbySession {
         this.name = name;
         this.playerKey = playerKey;
         this.builds = builds;
-        this.node = node;
+        this.node = ConditionedNode.wrapIfAsked(node); // test runs only (SOS-175)
     }
 
     /** Stops at Start: what follows is the setup's, read by the session this one hands over to. */

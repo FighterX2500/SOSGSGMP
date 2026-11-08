@@ -7,6 +7,7 @@ import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
+import sosgsgmp.net.ConditionedNode;
 import sosgsgmp.net.Message;
 import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep;
@@ -111,6 +112,9 @@ public interface SetupSession {
 
     /** The game streams' bytes so far, before and after compression; all 0 before {@link #play} (SOS-96). */
     EngineLink.Traffic traffic();
+
+    /** Test tooling (SOS-175): the network conditions this PC's connections suffer, or null in normal play. */
+    ConditionedNode testNetwork();
 
     /** City viewing's requests and transfers on this PC (spec §10, SOS-82), from {@link #play} on; null before. */
     ViewRequests views();

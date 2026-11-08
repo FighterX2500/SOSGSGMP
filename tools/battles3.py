@@ -1587,7 +1587,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("what", choices=("prep", "run", "all", "list", "probe"))
     ap.add_argument("name", nargs="?", default="")
+    ap.add_argument("--netem", action="append", default=[], metavar="WHO=SPEC",
+                    help="test network conditions, passed to twopc.py (SOS-175): WHO host, join or local")
     args = ap.parse_args()
+    TWOPC.extend(x for item in args.netem for x in ("--netem", item))
     OUT.mkdir(parents=True, exist_ok=True)
     if args.what == "prep":
         prep(args.name)

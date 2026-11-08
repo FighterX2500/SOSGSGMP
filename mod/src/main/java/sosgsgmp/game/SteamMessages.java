@@ -15,6 +15,7 @@ import com.sun.jna.NativeLibrary;
 import com.sun.jna.Platform;
 import com.sun.jna.Pointer;
 
+import sosgsgmp.net.NetConditions;
 import sosgsgmp.net.Protocol;
 import sosgsgmp.net.SteamPort;
 
@@ -41,6 +42,15 @@ final class SteamMessages {
     private static final int RESULT_OK = 1;
     /** {@code ESteamNetworkingConfigValue}: {@code k_ESteamNetworkingConfig_SendBufferSize}, {@code _SendRateMin}, {@code _SendRateMax}. */
     private static final int CONFIG_SEND_BUFFER = 9, CONFIG_RATE_MIN = 10, CONFIG_RATE_MAX = 11;
+    /**
+     * Test tooling (SOS-175), {@code ESteamNetworkingConfigValue}: {@code k_ESteamNetworkingConfig_FakePacketLoss_Send},
+     * {@code _Recv} (percent), {@code _FakePacketLag_Send}, {@code _Recv} (ms), {@code _FakePacketReorder_Send}, {@code _Recv}
+     * (percent), {@code _FakePacketReorder_Time} (ms).
+     */
+    private static final int CONFIG_FAKE_LOSS_SEND = 2, CONFIG_FAKE_LOSS_RECV = 3, CONFIG_FAKE_LAG_SEND = 4,
+            CONFIG_FAKE_LAG_RECV = 5, CONFIG_FAKE_REORDER_SEND = 6, CONFIG_FAKE_REORDER_RECV = 7, CONFIG_FAKE_REORDER_TIME = 8;
+    /** How late a reordered packet comes, when a test asks for reordering. */
+    private static final int FAKE_REORDER_MS = 50;
     /** Steam's 512 KB refuses a message once that much waits, which would drop a player in a world or view stream. */
     private static final int SEND_BUFFER_BYTES = 256 * 1024 * 1024;
     /** Steam's send rate is fixed, 256 KB/s unless set; min and max stay equal, as its header says. */
@@ -93,6 +103,18 @@ final class SteamMessages {
         configure(config, utils, CONFIG_SEND_BUFFER, SEND_BUFFER_BYTES);
         configure(config, utils, CONFIG_RATE_MIN, SEND_RATE_BYTES);
         configure(config, utils, CONFIG_RATE_MAX, SEND_RATE_BYTES);
+        NetConditions test = NetConditions.fromEnvironment();
+        if (test != null && test.steam()) { // test runs only: Steam's own bad network, packet by packet (SOS-175)
+            Function configFloat = function(module, "SteamAPI_ISteamNetworkingUtils_SetGlobalConfigValueFloat");
+            configure(config, utils, CONFIG_FAKE_LAG_SEND, test.steamLagMs() / 2);
+            configure(config, utils, CONFIG_FAKE_LAG_RECV, test.steamLagMs() - test.steamLagMs() / 2);
+            configure(configFloat, utils, CONFIG_FAKE_LOSS_SEND, (float) test.steamLossPercent());
+            configure(configFloat, utils, CONFIG_FAKE_LOSS_RECV, (float) test.steamLossPercent());
+            configure(configFloat, utils, CONFIG_FAKE_REORDER_SEND, (float) test.steamReorderPercent());
+            configure(configFloat, utils, CONFIG_FAKE_REORDER_RECV, (float) test.steamReorderPercent());
+            configure(config, utils, CONFIG_FAKE_REORDER_TIME, FAKE_REORDER_MS);
+            trace.accept("test network on Steam: " + test.describe());
+        }
         requested = event -> {
             trace.accept("session requested by " + steamId(event));
             listener.get().sessionRequested(steamId(event));
@@ -108,6 +130,11 @@ final class SteamMessages {
     }
 
     private static void configure(Function config, Pointer utils, int value, int setting) {
+        if ((config.invokeInt(new Object[] {utils, value, setting}) & 0xFF) == 0)
+            throw new IllegalStateException("SOSGSGMP: Steam refused networking setting " + value + " = " + setting);
+    }
+
+    private static void configure(Function config, Pointer utils, int value, float setting) {
         if ((config.invokeInt(new Object[] {utils, value, setting}) & 0xFF) == 0)
             throw new IllegalStateException("SOSGSGMP: Steam refused networking setting " + value + " = " + setting);
     }

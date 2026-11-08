@@ -239,7 +239,10 @@ if __name__ == "__main__":
     ap.add_argument("what", choices=("prep", "run"))
     ap.add_argument("--source", default=str(pathlib.Path(os.environ["USERPROFILE"]) / "AppData" / "Roaming" / "songsofsyx"),
                     help="the user's own data folder, which holds the campaign's records")
+    ap.add_argument("--netem", action="append", default=[], metavar="WHO=SPEC",
+                    help="test network conditions, passed to twopc.py (SOS-175): WHO host, join or local")
     args = ap.parse_args()
+    TWOPC.extend(x for item in args.netem for x in ("--netem", item))
     if args.what == "prep":
         prep(pathlib.Path(args.source))
     else:
