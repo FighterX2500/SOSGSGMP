@@ -188,7 +188,7 @@ final class MpGone {
 				+ " last save.";
 		if (!text.equals(shownText) || !VIEW.inters().fullScreen.isActivated()) {
 			shownText = text;
-			VIEW.inters().fullScreen.activate(text, COLOR.WHITE100, null, new GButt.ButtPanel("Leave the game") {
+			MpPrompt.show(text, new GButt.ButtPanel("Leave the game") {
 				@Override
 				protected void clickA() {
 					leaveWithoutHost();
