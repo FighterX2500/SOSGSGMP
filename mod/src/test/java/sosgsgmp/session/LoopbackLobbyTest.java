@@ -108,6 +108,12 @@ class LoopbackLobbyTest {
     void aLobbyMessageReachesEveryPcOnceInTheHostsOrderAndGoesToTheSetup() throws Exception {
         HostedLobby h = host(3);
         JoinedLobby bob = join(h, "Bob");
+        // Cid joins once the host has Bob, so Bob is player 1 whichever hello arrives first
+        until("Bob in", () -> {
+            h.update();
+            bob.update();
+            return h.players().size() == 2;
+        });
         JoinedLobby cid = join(h, "Cid");
         until("everyone in", () -> {
             h.update();
@@ -242,17 +248,22 @@ class LoopbackLobbyTest {
     }
 
     /** Reads one framed message while the host keeps updating on this thread. */
+    /** The host's first message to a raw socket, past its heartbeats, which a node would consume (SOS-177). */
     private Message readReply(HostedLobby h, Socket s) throws Exception {
         DataInputStream in = new DataInputStream(s.getInputStream());
         long deadline = System.currentTimeMillis() + 5_000;
-        while (in.available() < 4) {
-            if (System.currentTimeMillis() > deadline)
-                fail("no reply from the host");
-            h.update();
-            Thread.sleep(5);
+        while (true) {
+            while (in.available() < 4) {
+                if (System.currentTimeMillis() > deadline)
+                    fail("no reply from the host");
+                h.update();
+                Thread.sleep(5);
+            }
+            byte[] b = new byte[in.readInt()];
+            in.readFully(b);
+            Message m = Protocol.decode(b);
+            if (!(m instanceof Message.Heartbeat))
+                return m;
         }
-        byte[] b = new byte[in.readInt()];
-        in.readFully(b);
-        return Protocol.decode(b);
     }
 }

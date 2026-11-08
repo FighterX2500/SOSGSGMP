@@ -22,11 +22,14 @@ public interface SteamPort {
         /** Another user entered this PC's lobby. */
         void memberJoined(long lobby, long user);
 
-        /** A user left this PC's lobby, disconnected or was removed. */
-        void memberLeft(long lobby, long user);
+        /**
+         * A user left this PC's lobby or was removed; {@code lostSteam}: it lost its connection to Steam instead, and its
+         * messages may still come once it is back (SOS-177).
+         */
+        void memberLeft(long lobby, long user, boolean lostSteam);
 
-        /** This PC was removed from a lobby it had entered. */
-        void lobbyLost(long lobby);
+        /** This PC was removed from a lobby it had entered; {@code lostSteam}: as it lost its own connection to Steam. */
+        void lobbyLost(long lobby, boolean lostSteam);
 
         /** The user accepted a friend's invite to a lobby in Steam's overlay. */
         void joinRequested(long lobby);

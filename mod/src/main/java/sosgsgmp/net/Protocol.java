@@ -32,7 +32,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 25;
+    public static final int VERSION = 26;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -47,6 +47,7 @@ public final class Protocol {
     private static final int VIEW_ASK = 32, VIEW_ANSWER = 33, VIEW_CLOSE = 34, VIEW_CITY = 35, VIEW_HASHES = 36;
     private static final int CHAT = 37, PAUSE = 38, VIEW_TAPE = 39, READY = 40;
     private static final int REPORT = 41, LOADING = 42;
+    private static final int PLAYER_LOST = 43, PLAYER_BACK = 44, HEARTBEAT = 45;
     /** The longest text of a loading window, in characters. */
     private static final int MAX_LOADING_TEXT = 256;
     /** The largest city a view carries, in bytes ({@link Message.ViewCity}). */
@@ -279,6 +280,23 @@ public final class Protocol {
                     out.writeLong(c.holdStep());
                     out.writeBoolean(c.continued());
                 }
+                case Message.PlayerLost l -> {
+                    out.writeByte(PLAYER_LOST);
+                    out.writeInt(l.playerId());
+                    out.writeLong(l.holdStep());
+                    out.writeLong(l.silentMs());
+                }
+                case Message.PlayerBack b -> {
+                    out.writeByte(PLAYER_BACK);
+                    out.writeInt(b.playerId());
+                    out.writeLong(b.holdStep());
+                }
+                case Message.Heartbeat h -> {
+                    out.writeByte(HEARTBEAT);
+                    out.writeLong(h.sentMs());
+                    out.writeLong(h.echoMs());
+                    out.writeInt(h.heldMs());
+                }
                 case Message.ViewAsk a -> {
                     out.writeByte(VIEW_ASK);
                     out.writeByte(a.viewer());
@@ -390,6 +408,9 @@ public final class Protocol {
             case SAVE_DONE -> new Message.SaveDone(number(in, "save"), text(in, MAX_OUTCOME, "save outcome"));
             case PLAYER_GONE -> new Message.PlayerGone(playerId(in), step(in, "player gone hold"));
             case GONE_CHOICE -> new Message.GoneChoice(step(in, "gone choice hold"), in.readBoolean());
+            case PLAYER_LOST -> new Message.PlayerLost(playerId(in), step(in, "player lost hold"), step(in, "player lost silence"));
+            case PLAYER_BACK -> new Message.PlayerBack(playerId(in), step(in, "player back hold"));
+            case HEARTBEAT -> new Message.Heartbeat(in.readLong(), in.readLong(), in.readInt());
             case QUIT_ASK -> new Message.QuitAsk();
             case VIEW_ASK -> new Message.ViewAsk(slot(in), slot(in));
             case VIEW_ANSWER -> new Message.ViewAnswer(slot(in), slot(in), in.readBoolean(), text(in, MAX_REASON, "view answer"));

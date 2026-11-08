@@ -143,6 +143,19 @@ public interface SetupSession {
     /** Players whose PC left the running game, and the hold for them (spec §11 Disconnects, SOS-65); for reading. */
     Departures departures();
 
+    /**
+     * The round trip to player {@code playerId}'s PC from the network's heartbeats, in ms, or -1: before the first,
+     * or with no connection to it (a joining PC reaches only the host) (SOS-177).
+     */
+    default int rttMs(int playerId) {
+        return -1;
+    }
+
+    /** Joining PC, in play: how long the host's PC has been silent, its connection open (SOS-177); 0 on the host. */
+    default long hostSilentMs() {
+        return 0;
+    }
+
     /** Host: a spectator's slot whose PC left the game, once; null when none did. */
     default Integer takeSpectatorLeft() {
         return null;

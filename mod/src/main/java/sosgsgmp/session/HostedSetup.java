@@ -147,6 +147,7 @@ public final class HostedSetup implements SetupSession {
                 }
             }
         }
+        checkSilence();
         if (deferred != null && --deferFrames <= 0) {
             Runnable r = deferred;
             deferred = null;
@@ -385,6 +386,72 @@ public final class HostedSetup implements SetupSession {
         changes++;
     }
 
+    /**
+     * In play, a player's PC silent for {@link Departures#LOST_MS} with its connection open is lost: every PC holds as
+     * for one gone, and waits. Heard again before the host chose, they are back, and the hold ends once nobody else is
+     * in it (SOS-177). A spectator holds nobody.
+     */
+    private void checkSilence() {
+        if (link == null || closed || departures.choice() != null)
+            return;
+        for (Map.Entry<Integer, Integer> p : joined.entrySet()) {
+            int id = p.getValue();
+            long silent = node.silentMs(p.getKey());
+            if (departures.lost(id)) {
+                long hold = departures.holdStep();
+                if (silent < Departures.BACK_MS && departures.back(id)) {
+                    notes.add(name(id) + " is heard again at step " + link.step() + (departures.waiting() ? "" : "; the hold at " + hold + " ends"));
+                    sendAll(new Message.PlayerBack(id, hold));
+                    changes++;
+                }
+            } else if (silent >= Departures.LOST_MS && !inHold(id) && !spectator(id)) {
+                Departures.Gone g = new Departures.Gone(id, name(id), factions.slotOf(id));
+                long hold = departures.lost(g, link.step(), nowMs() - silent);
+                notes.add(g.name() + " silent for " + silent / 1000 + " s at step " + link.step() + "; every PC holds at " + hold);
+                sendAll(new Message.PlayerLost(id, hold, silent));
+                changes++;
+            }
+        }
+    }
+
+    @Override
+    public int rttMs(int playerId) {
+        for (Map.Entry<Integer, Integer> p : joined.entrySet())
+            if (p.getValue() == playerId)
+                return node.rttMs(p.getKey());
+        return -1;
+    }
+
+    private boolean inHold(int id) {
+        for (Departures.Gone g : departures.gone())
+            if (g.playerId() == id)
+                return true;
+        return false;
+    }
+
+    private boolean spectator(int id) {
+        Campaign.Player who = campaign == null ? null : campaign.inSlot(factions.slotOf(id));
+        return who != null && who.eliminated();
+    }
+
+    /**
+     * Host, Continue without them: a lost player's PC may still be there, so it is told it was removed and dropped, and
+     * leaves as one gone does.
+     */
+    private void dropLost(Departures.Gone g) {
+        for (Map.Entry<Integer, Integer> p : new ArrayList<>(joined.entrySet()))
+            if (p.getValue() == g.playerId()) {
+                refuse(p.getKey(), Refusal.REMOVED);
+                joined.remove(p.getKey());
+            }
+        players.removeIf(p -> p.id() == g.playerId());
+        cursors.removePlayer(g.playerId());
+        views.gone(g.slot());
+        if (saveRound != null && saveRound.report(g.playerId(), 0, "was removed"))
+            saveDoneWhenComplete();
+        notes.add(g.name() + ", lost, is removed");
+    }
+
     /** A spectator's PC left: nobody holds and nobody is asked (spec §11); the engine hears of it from the next frame. */
     private void spectatorGone(int id, int slot) {
         notes.add(name(id) + ", a spectator, left at step " + link.step());
@@ -437,6 +504,9 @@ public final class HostedSetup implements SetupSession {
             leave();
             closedReason = "You chose to return to the last save. Resume the campaign from Load Saved Lobby.";
         } else {
+            for (Departures.Gone g : departures.gone())
+                if (departures.lost(g.playerId()))
+                    dropLost(g);
             campaign = campaign.removing(slotsOf(departures.gone()));
         }
     }

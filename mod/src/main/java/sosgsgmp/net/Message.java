@@ -296,6 +296,27 @@ public sealed interface Message {
     record GoneChoice(long holdStep, boolean continued) implements Message {}
 
     /**
+     * Host to every joined PC (SOS-177): player {@code playerId}'s PC went silent, its connection still open, for
+     * {@code silentMs} so far. Every PC holds at {@code holdStep}, as for {@link PlayerGone}, and waits: the player may
+     * come back ({@link PlayerBack}), or the host chooses ({@link GoneChoice}).
+     */
+    record PlayerLost(int playerId, long holdStep, long silentMs) implements Message {}
+
+    /**
+     * Host to every joined PC (SOS-177): lost player {@code playerId}'s PC is heard again before the host chose; the
+     * hold at {@code holdStep} ends once nobody else is in it.
+     */
+    record PlayerBack(int playerId, long holdStep) implements Message {}
+
+    /**
+     * Each way on every connection, about once a second, from the network's I/O thread (SOS-177): the connection is
+     * alive even while the game sends nothing. {@code sentMs} is the sender's clock; {@code echoMs} the last
+     * {@code sentMs} it heard from the other side, {@code heldMs} after hearing it (-1 before any): the other side
+     * gets its round trip. The transports consume it; it never reaches the game.
+     */
+    record Heartbeat(long sentMs, long echoMs, int heldMs) implements Message {}
+
+    /**
      * A joined PC to the host: its player chose Quit to menu or Exit (SOS-79). The host saves the campaign on every PC as
      * soon as a save can start, and then the session ends; a repeated ask changes nothing.
      */
