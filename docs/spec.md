@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.57 · 2026-11-08
+Version 0.58 · 2026-11-10
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -117,6 +117,7 @@ Players use the same agreements that exist between a player and an NPC faction i
 - **Regions** other than capitals can be given in an agreement, as in vanilla.
 - **Emissaries** work as in vanilla against NPC factions. No emissary mission works against another player, Gather support in their regions included (owner, 2026-10-27).
 - **Passage.** Players at peace can move armies through each other's territory freely, with no penalty, and their trade crosses it too, with no transit treaty (owner, 2026-10-27; section 7).
+- **Fog of war.** A player with transit (Colleagues, Allies, Vassal, Protector) lifts the fog through the other player's land and past it, as an NPC with that stance does in vanilla. Peace alone doesn't: without transit the fog lifts over the other player's land but not past it (owner, 2026-11-10; SOS-182).
 - **Agreements reach a player's vassals.** While two players are trade partners or colleagues, each has at least that stance with every NPC vassal of the other, and is told so in the chat. An alliance never passes, and a war between a player and the vassal blocks it until they make peace. When the agreement ends, or the vassal stops being a vassal, the passed stance goes back to what the two had before; a stance they had on their own stays. A passed stance that the vassal or the player changes (a vassal's court cancelling it, as vanilla's NPCs do when their opinion is low, or the player's own diplomacy) is theirs from then on, and isn't passed again until the agreement ends and starts again. Nothing passes between two vassals (owner, 2026-11-04; SOS-140).
 - **A vassal isn't hostile to its overlord's friends.** An NPC vassal of a player never demands tribute from, declares war on, or works against a player who is its overlord's trade partner, colleague or ally: no demands, wars, poisoned opinions, loyalty cuts or bad teachings (owner, 2026-11-05; SOS-146).
 - **No trespassing for colleagues.** Unlike vanilla, an army in the land of an NPC faction that is the army owner's colleague (Become Colleagues) costs no trespassing opinion, as for allies and vassals. This changes vanilla's rule in every game with the mods, single player too (owner, 2026-11-04; SOS-141).
