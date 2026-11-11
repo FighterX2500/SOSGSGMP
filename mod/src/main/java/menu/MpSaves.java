@@ -154,7 +154,8 @@ final class MpSaves {
 		if (engine.assaultTaken() != null)
 			return "No saves while an attacker chooses what to take.";
 		if (engine.desyncHold() != null)
-			return "No saves while the worlds differ.";
+			return engine.desyncHold().edit() ? "No saves while a city-state comes off the map."
+					: "No saves while the worlds differ.";
 		return null;
 	}
 

@@ -16,7 +16,8 @@ import view.main.VIEW;
  * city, and play continues) or Save and exit (the same resync, then a campaign save on every PC, and the session ends;
  * SOS-68); the others wait. Once per frame from {@link MpPlay}, between steps. The window is vanilla's full-screen
  * prompt, shown again if clicked away while the hold lasts. The save that ends the session, and its end, are
- * {@link MpExit}'s (SOS-79).
+ * {@link MpExit}'s (SOS-79). The same hold, with no window and no choice, takes a gone player's carved city-state off
+ * the map (SOS-188): the host un-carves it at the hold step and sends the world resync.
  */
 final class MpDesync {
 
@@ -48,13 +49,19 @@ final class MpDesync {
 		WorldResync r = setup.takeResync();
 		if (r != null)
 			pending = r;
+		if (setup.isHost() && shown == null && pending == null && engine.battle() == null && engine.holdForUncarve())
+			LOG.ln("SOSGSGMP: a gone player's city-state comes off the map: every PC holds for it");
 		DesyncHold h = engine.desyncHold();
 		if (h != null && h != shown) {
 			shown = h;
 			resyncChosen = false;
 			resyncSent = false;
 			exitChosen = false;
-			if (engine.battle() != null) { // a battle recovers by itself (spec §8 Desyncs): no window, no choice
+			if (h.edit()) { // a gone player's city-state comes off the map (SOS-188): no window, no choice
+				message = null;
+				resyncChosen = setup.isHost();
+				setup.chat().notice("A city-state whose player is gone is removed from the map.");
+			} else if (engine.battle() != null) { // a battle recovers by itself (spec §8 Desyncs): no window, no choice
 				message = null;
 				resyncChosen = setup.isHost();
 				LOG.ln("SOSGSGMP: the battle desynced at step " + h.desyncStep + ": every PC reloads the host's battle");
@@ -70,6 +77,8 @@ final class MpDesync {
 			}
 		}
 		if (setup.isHost() && resyncChosen && !resyncSent && shown != null && engine.step() == shown.holdStep) {
+			if (shown.edit())
+				LOG.ln("SOSGSGMP: un-carved region " + engine.uncarveGone() + " at step " + shown.holdStep);
 			setup.resync(engine.worldResyncSave());
 			resyncSent = true;
 		}

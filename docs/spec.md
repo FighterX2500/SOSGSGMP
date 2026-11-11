@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.58 · 2026-11-10
+Version 0.59 · 2026-11-12
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -198,7 +198,7 @@ During the siege, the defender can attack the besieging army (sally out) at any 
 **When the attacker wins**, they choose one outcome:
 
 - **Sack:** the attacker chooses which resources and how much money to take, and can remove up to 80% of the population. The 80% is of the citizens and slaves in the city, in total rather than per race, so one race can be taken whole; nobles are never removed. If the attacker doesn't choose in time, half the money and goods are taken and no one is removed (owner, 2026-10-30; SOS-92).
-- **Eliminate:** the attacker takes 90% of the city's resources and money, and removes 90% of its population. The city then becomes an NPC city owned by a neutral faction, as in vanilla, and its player can only spectate from then on. Removed people the attacker gives no fate to are freed (2026-10-31; SOS-92).
+- **Eliminate:** the attacker takes 90% of the city's resources and money, and removes 90% of its population. The city then becomes an NPC city owned by a neutral faction, as in vanilla, and its player can only spectate from then on. A city-state carved into the world (a player who settled in a living world or joined later) is removed from the map instead: its land goes back to the regions around it (owner, 2026-11-11; SOS-188). Removed people the attacker gives no fate to are freed (2026-10-31; SOS-92).
 - **Vassalage:** the defender becomes the attacker's vassal (section 6).
 
 **Removed people.** In a sack or an elimination, the attacker splits the removed people between three fates, as with vanilla's captives:
@@ -245,7 +245,7 @@ Any player can view any other player's city, enemies included. This is intended.
 
 **Joining.** New players cannot join a campaign that is already in progress.
 
-**Removing a player.** The host can remove a player who is missing at resume or disconnected. Every region they held, their city's included, becomes a free region with no owner, as vanilla leaves a destroyed faction's land, and their armies are disbanded. They can't rejoin the campaign as a player. Play goes on without them; nobody waits for them.
+**Removing a player.** The host can remove a player who is missing at resume or disconnected. Every region they held, their city's included, becomes a free region with no owner, as vanilla leaves a destroyed faction's land, and their armies are disbanded. They can't rejoin the campaign as a player. Play goes on without them; nobody waits for them. A city-state carved into the world (a player who settled in a living world or joined later) is removed from the map: its land goes back to the regions around it, while the game holds for every player for a moment, and the chat says so (owner, 2026-11-11; SOS-188).
 
 **Host disconnect.** (owner, 2026-11-08; SOS-177, SOS-179) When the host's PC goes silent for 5 seconds, or its connection breaks, every other player sees "Lost the connection to the host: waiting" with the time it has been gone, and the whole simulation stops: the world, every city and any battle. Their games connect again by themselves as soon as the host is back, and play goes on with nothing lost; the host sees them as lost meanwhile, as above. Each player can leave from that window: their game leaves the session, and the host can continue without them or return to the last save. When the host quits or its game crashes, every player gets a popup saying the host disconnected, and play can't continue in that session. The players resume the campaign from a save with any player as host (see Resuming); the save made before the last battle is the natural point.
 
@@ -455,6 +455,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - After a session the host has every joining player's playtest log and campaign saves, and a joiner whose game froze or crashed has its log on the host up to its last lines. [AT + PT]
 - A campaign saved from the escape menu's Save Campaign resumes. A joining player's Exit makes every PC save the campaign before the session ends, and that save resumes too. [AT]
 - Every region a removed player held, their city's included, becomes free with no owner, and they can't rejoin as a player. [AT]
+- A removed or eliminated player's carved city-state comes off the map: the region map, roads and paths are as before it was carved, and every PC's world is the same through it and after. [AT]
 
 ### Disconnects
 
