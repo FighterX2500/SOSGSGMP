@@ -75,7 +75,7 @@ Every player starts with the same starting resources and difficulty, set by the 
 **Lobby**
 
 1. In the main menu, a player opens Multiplayer and chooses Create Lobby, Load Saved Lobby or Join Lobby. A player joins by the host's IP address or through Steam (section 3). Through Steam, a player who never chose a name joins under their Steam name. A friend's Steam invite accepted anywhere in the main menu joins that lobby too.
-2. With Create Lobby, the host chooses the difficulty and number of players.
+2. With Create Lobby, the host chooses the difficulty, the number of players and the world: classic, or a living world (see Living world below; owner, 2026-11-11; SOS-187).
 3. The lobby waits for players to join and shows a list of everyone in it.
 4. The host clicks Start Lobby.
 5. Leaving the lobby asks Confirm or Cancel first.
@@ -94,6 +94,17 @@ Every player starts with the same starting resources and difficulty, set by the 
 3. When every player is ready, the host can initialize the world; until then Initialize World is greyed. NPC countries and routes are generated around the players. Any two players 6–15 tiles apart get a direct link when the world is built: a new road, or a crossing where water lies between them, unless a route already there is about as direct. Their armies and caravans walk it; it may cross NPC land, and with a trade agreement market trade runs along it whatever land lies between them (section 7). This holds for new worlds; a campaign already under way keeps its routes. While a player places their city, a notice under the top of the screen says so when the spot is in range of another player's city. Players further apart are connected the vanilla way, through NPC states and other players.
 4. Each player then picks their starting spot on their own city map. The game stays paused, and nobody can unpause it, but players can already plan their city.
 5. When the last player picks their starting spot, the game unpauses automatically.
+
+**Living world** (owner, 2026-11-11; SOS-187)
+
+A lobby can choose a living world instead of the classic setup above. The map step is the same. Then:
+
+1. Every player picks their race and customizes their faction. Only the host picks a location, on the terrain, as above; the others press Ready without one.
+2. When every player is ready, the host presses Build World. The whole world is generated around the host's capital alone: NPC countries, regions, borders and roads. Every PC loads it, paused.
+3. Every other player then picks a spot for their city-state on that world's real map. A spot is a 3x3 square, at least 6 tiles from another player's capital or spot, with no road and no large water within a tile of it, and not in a besieged region or a player's capital. Their city-state is carved there as a small region of its own, linked by road to the town of each region it touches. A player picks again when the host refuses a spot, and presses Ready as above.
+4. When every player is ready, the host presses Initialize World. Every city-state is carved in, every PC loads the world, and the game goes on as in steps 4 and 5 above.
+5. The land a city-state is carved from follows these rules. A region of an NPC realm of 4 or more regions that isn't its capital breaks away as a new independent NPC state. Unowned land becomes a new NPC state. Either new state is neutral to everyone and protected as vanilla protects a new player's starting neighbours: it starts no war, is never a war's target, never expands and never collapses. With no free faction slot, the land stays as it was. Otherwise the square sits inside the region, and its owner keeps the rest of it.
+6. Players aren't given a road straight to each other. Two players 6–15 tiles apart still trade along a market route between them, as in a classic world (section 7).
 
 **World rules**
 

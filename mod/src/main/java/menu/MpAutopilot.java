@@ -74,6 +74,7 @@ import world.WORLD;
  * {@code return} when a player left), {@code startafter} (host: keep the lobby open this many seconds first),
  * {@code deal} (join: at this step propose trade, up to 100 denari and 5 of a good it has to the host, who accepts every
  * proposal: SOS-72), {@code fulllog} (host, {@code 0}: the lobby's transfer log lists only transfers between players: SOS-81),
+ * {@code living} (host, {@code 1}: the lobby's world is a living world, every joiner settling on the host's map: SOS-187),
  * {@code dealcancel} (join: from this step, cancel every treaty with the host at once, once there is one: SOS-76),
  * {@code war} (join: at this step declare war on the host, at once: SOS-74; the Diplomacy tab doesn't offer it yet),
  * {@code capital} ({@code X:Y}: place this PC's capital at that world tile instead of searching for one, or search when
@@ -116,6 +117,8 @@ public final class MpAutopilot {
 	private final long war;
 	/** Host: the lobby's switch for the playtest log (SOS-81). */
 	private final boolean fullLog;
+	/** Host: the lobby's world is a living world (SOS-187). */
+	private final boolean living;
 	/** Join: the step to set a 50% tariff on what the host sells this player at (SOS-77); -1 for none. */
 	private final long tariff;
 	/** The step this PC's player quits at, through the escape menu's Exit (SOS-79); -1 for never. */
@@ -236,6 +239,7 @@ public final class MpAutopilot {
 		manualDeals = m.containsKey("manualdeals");
 		war = Long.parseLong(m.getOrDefault("war", "-1"));
 		fullLog = !"0".equals(m.getOrDefault("fulllog", "1"));
+		living = "1".equals(m.getOrDefault("living", "0"));
 		tariff = Long.parseLong(m.getOrDefault("tariff", "-1"));
 		quit = Long.parseLong(m.getOrDefault("quit", "-1"));
 		rename = Long.parseLong(m.getOrDefault("rename", "-1"));
@@ -445,7 +449,7 @@ public final class MpAutopilot {
 		if (!resume)
 			// as Create Lobby: the remembered mode, or the game's first when none is (a fresh profile)
 			return new LobbySettings(difficulty.isEmpty() ? mp.modes.keys[mp.modes.index(mp.prefs.difficulty)] : difficulty,
-					Math.max(players, 2)).withFullTransferLog(fullLog);
+					Math.max(players, 2)).withFullTransferLog(fullLog).withLivingWorld(living);
 		List<CampaignRecord> all = MpSaves.store().all();
 		if (all.isEmpty())
 			throw new IllegalStateException("SOSGSGMP: " + VARIABLE + " resume=1, but this data folder has no campaign save");
@@ -594,9 +598,49 @@ public final class MpAutopilot {
 		}
 		if (f.ready() && stageChat("ready", setup::say))
 			return;
+		if (host && f.canBuildForSettling() && !stageChat("allready", setup::say) && first("buildforsettling")) {
+			event("buildingforsettling", "");
+			setup.initialize(); // a living world's first Initialize (SOS-187); the rest is settle()'s
+			return;
+		}
 		if (host && f.canInitialize() && (guiPreview < 0 || unreadySeen(setup)) && !stageChat("allready", setup::say)
 				&& first("initialize")) {
 			event("initializing", "");
+			setup.initialize();
+		}
+	}
+
+	/**
+	 * A living world's settling (SOS-187), once per frame on the world to settle on: a joining PC places its city-state
+	 * on the nearest spot the carving rule takes, 7 tiles or more from the host's capital (the others' too), and presses
+	 * Ready; the host presses Initialize World once every player is ready.
+	 */
+	public void settle(SetupSession setup, boolean placed, IntBinaryOperator placeAt) {
+		if (VIEW.inters().load.isActivated())
+			VIEW.inters().load.deactivate(); // vanilla's "click to continue" after the load, as after the world's
+		if (setup.closed() || setup.factions().initialized() || stageChat("settling", setup::say))
+			return;
+		FactionStep f = setup.factions();
+		if (!host && !placed && due()) {
+			FactionPick at = f.table().isEmpty() ? null : f.table().get(0).pick();
+			if (at == null || !at.hasLocation())
+				return;
+			for (int r = 7; r < WORLD.TWIDTH(); r++) {
+				int found = spiral(at.x(), at.y(), r, (x, y) -> setup.locationProblem(x, y) == null ? 1 : 0);
+				if (found >= 0) {
+					int x = found >> 16, y = found & 0xFFFF;
+					placeAt.applyAsInt(x, y);
+					event("settled", "\"x\":" + x + ",\"y\":" + y);
+					break;
+				}
+			}
+		}
+		if (f.canReady() && !f.ready() && placed && !stageChat("settled", setup::say)) {
+			event("ready", "\"settling\":true");
+			setup.ready(true);
+		}
+		if (host && f.canInitialize() && !stageChat("allsettled", setup::say) && first("initialize")) {
+			event("initializing", "\"settled\":true");
 			setup.initialize();
 		}
 	}

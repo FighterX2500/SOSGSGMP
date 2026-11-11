@@ -32,6 +32,7 @@ class ProtocolTest {
             new Message.Hello("Ann", -42L, new Builds("0.71.44", 1, 2, new GameFiles(3, List.of()))),
             new Message.Welcome(3, new LobbySettings("hard", 16)),
             new Message.Welcome(4, new LobbySettings("hard", 16).withFullTransferLog(false)),
+            new Message.Welcome(5, new LobbySettings("hard", 16).withLivingWorld(true)),
             new Message.Roster(List.of(new LobbyPlayer(0, "Ann", true), new LobbyPlayer(5, "Bøb", false))),
             new Message.Refused(Refusal.FULL),
             new Message.Hello("Bob", 7L, new Builds("0.71.44", 1, 2, new GameFiles(-5, List.of(
@@ -54,6 +55,7 @@ class ProtocolTest {
                 new FactionStep.PlayerPick(7, new FactionPick("HUMAN", "B", "Ruler", new byte[] {2}, FactionPick.NONE, FactionPick.NONE), "too close", false))),
             new Message.SlotMap(1, List.of(new FactionStep.PlayerSlot(0, 0), new FactionStep.PlayerSlot(7, 15))),
             new Message.WorldPart(1, 0, 2, new byte[] {9, 8, 7}),
+            new Message.SettlePart(1, 3, new byte[] {7, 8, 9}),
             new Message.Loaded(1, Long.MIN_VALUE),
             new Message.StartSpot(1),
             new Message.WorldPlayers(1, List.of(new FactionStep.PlayerProgress(0, FactionStep.Progress.READY),

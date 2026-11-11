@@ -30,6 +30,8 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 	private int mode;
 	/** The playtest log lists every transfer, or only those between players (SOS-81). */
 	private boolean fullTransferLog = true;
+	/** The world: classic, or the players settle in a living world (SOS-187). */
+	private boolean livingWorld;
 	private final GText error = new GText(UI.FONT().M, 160);
 
 	MpScreenCreate(MpMenu mp) {
@@ -81,6 +83,11 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 		log.add(logButton("every transfer", true));
 		log.addRightC(16, logButton("between players", false));
 		form.addDown(16, MpMenu.row("transfer log", log));
+
+		GuiSection world = new GuiSection();
+		world.add(worldButton("classic", false));
+		world.addRightC(16, worldButton("living world", true));
+		form.addDown(16, MpMenu.row("world", world));
 
 		error.color(COLORS.error);
 		form.addDown(24, new RENDEROBJ.RenderImp(600, UI.FONT().M.height() * 2) {
@@ -139,6 +146,28 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 		};
 	}
 
+	/**
+	 * One choice of the world (spec §5 World, SOS-187): classic, built around every player's pick; or a living world,
+	 * built around the host, where every other player settles a city-state carved into the real political map.
+	 */
+	private CLICKABLE worldButton(CharSequence label, boolean living) {
+		GUI.Button b = new GUI.Button(GUI.getBigTexts(label)) {
+			@Override
+			protected void clickA() {
+				livingWorld = living;
+			}
+
+			@Override
+			protected void renAction() {
+				selectedSet(livingWorld == living);
+			}
+		};
+		b.hoverInfoSet(living ? "The world is built around the host. Every other player then picks a spot on the real map, "
+				+ "with its kingdoms, borders and roads, and their city-state is carved there."
+				: "The world is built around every player's capital, picked on the bare terrain.");
+		return b;
+	}
+
 	private CLICKABLE modeButton(int i) {
 		return new CLICKABLE.ClickableAbs(IconMaker.WIDTH + 24, IconMaker.HEIGHT + 24) {
 			@Override
@@ -181,7 +210,8 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 		mp.prefs.maxPlayers = players.get();
 		mp.prefs.difficulty = mp.modes.keys[mode];
 		mp.savePrefs();
-		LobbySettings settings = new LobbySettings(mp.modes.keys[mode], players.get()).withFullTransferLog(fullTransferLog);
+		LobbySettings settings = new LobbySettings(mp.modes.keys[mode], players.get()).withFullTransferLog(fullTransferLog)
+				.withLivingWorld(livingWorld);
 		if (steam) {
 			mp.invites.stop(); // Steam runs once in the process (SOS-103)
 			SteamNode node = SteamNode.host(SteamworksPort::new, players.get());

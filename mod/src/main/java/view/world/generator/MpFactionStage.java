@@ -78,16 +78,24 @@ final class MpFactionStage {
 		});
 	}
 
-	/** The Customize Faction screen: vanilla's faction name, ruler name and banner, with Save and Load Default. */
+	/**
+	 * The Customize Faction screen: vanilla's faction name, ruler name and banner, with Save and Load Default. A living
+	 * world's other player (SOS-187) picks no location here: Ready is on this screen, and they settle on the built world.
+	 */
 	static void customize(MpFactions f) {
 		GuiSection s = new GuiSection();
 		s.add(UIProfile.section(false));
-		show(f, s, CUSTOMIZE_TITLE, new GButt.ButtPanel("back") {
+		GButt.ButtPanel back = new GButt.ButtPanel("back") {
 			@Override
 			protected void clickA() {
 				race(f);
 			}
-		}, new GButt.ButtPanel("Pick Location") {
+		};
+		if (f.settlesLater()) {
+			show(f, s, CUSTOMIZE_TITLE, back, null);
+			return;
+		}
+		show(f, s, CUSTOMIZE_TITLE, back, new GButt.ButtPanel("Pick Location") {
 			@Override
 			protected void clickA() {
 				MpLocationStage.place(f);

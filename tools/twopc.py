@@ -27,6 +27,9 @@ RUNS = ROOT / "build" / "twopc" / "runs"
 REAL = pathlib.Path(os.environ["APPDATA"]) / "songsofsyx"
 GAME = pathlib.Path(os.environ["SOS_GAME_DIR"])
 MODS = ("SOSDET", "SOSGSGMP")  # as installed (gradlew installMod in each repository)
+# MOD_DIRS: a mod's folder when --mods-from names a branch build instead of the installed one, so a test of a branch
+# never overwrites the mods the player has installed
+MOD_DIRS = {}
 REMOTE = os.environ.get("SOSGSGMP_REMOTE", "")
 HOST_ADDRESS = os.environ.get("SOSGSGMP_HOST_ADDRESS", "")
 KEY = os.environ.get("SOSGSGMP_REMOTE_KEY", str(pathlib.Path.home() / ".ssh" / "sosdet_laptop"))
@@ -72,9 +75,10 @@ def data_folder(appdata, size):
     if (REAL / "cache").is_dir():
         shutil.copytree(REAL / "cache", data / "cache")
     for m in MODS:
-        if not (REAL / "mods" / m).is_dir():
-            fail("mod %s isn't installed in %s (gradlew installMod)" % (m, REAL / "mods"))
-        shutil.copytree(REAL / "mods" / m, data / "mods" / m)
+        src = MOD_DIRS.get(m, REAL / "mods" / m)
+        if not src.is_dir():
+            fail("mod %s isn't in %s (gradlew installMod, or gradlew assemble for --mods-from)" % (m, src))
+        shutil.copytree(src, data / "mods" / m)
     s = (REAL / "settings" / "LauncherSettings.txt").read_bytes().decode("utf-8")
     for key, value in (("SCREEN_MODE", "2"), ("WINDOW_WIDTH", str(size[0])), ("WIDOW_HEIGHT", str(size[1])),
                        ("WIN_AUTO_ICONIFY", "0")):
@@ -225,6 +229,10 @@ def main():
                     help="auto: both PCs fight every battle prompt, press Start, fight on and accept the result (SOS-83);"
                          " an outside player's actions go to command.txt beside each PC's autopilot events")
     ap.add_argument("--tag", default="twopc")
+    ap.add_argument("--living", action="store_true", help="the host's lobby builds a living world (SOS-187)")
+    ap.add_argument("--mods-from", default="", metavar="SOSDET_DIR",
+                    help="both mods from their builds: SOSDET_DIR\build\mod\SOSDET and this repository's build\mod\SOSGSGMP"
+                         " (gradlew assemble in each), not the installed ones")
     ap.add_argument("--here", action="store_true",
                     help="no second PC: the joiner runs on this PC too (data folder inst\\2, over loopback)")
     ap.add_argument("--local-joiner", action="store_true",
@@ -280,6 +288,9 @@ def main():
                          " steamreorder). Repeatable" % ", ".join(NETEM_PRESETS))
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
+    if args.mods_from:
+        MOD_DIRS["SOSDET"] = pathlib.Path(args.mods_from) / "build" / "mod" / "SOSDET"
+        MOD_DIRS["SOSGSGMP"] = ROOT / "build" / "mod" / "SOSGSGMP"
     if (args.joiner_mod or args.extra_mod or args.expect_refused or args.same_files) and (not args.here or args.resume):
         fail("--joiner-mod, --extra-mod, --expect-refused and --same-files are for a new game with --here")
     STEAM_NET[0] = "p2p" if args.steam_p2p else ""
@@ -353,6 +364,7 @@ def main():
     host_view = ",view=" + args.host_view if args.host_view else ""
     join_view = ",view=" + args.view if args.view else ""
     host_capital = ",capital=" + args.host_capital if args.host_capital else ""
+    host_capital += ",living=1" if args.living else ""
     host_capital += ",guipreview=%d" % args.gui_preview if args.gui_preview >= 0 else ""
     join_capital = ",capital=" + args.join_capital if args.join_capital else ""
     join_capital += ",guipreview=%d" % args.gui_preview if args.gui_preview >= 0 else ""  # the setup's shots, SOS-120

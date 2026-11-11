@@ -53,6 +53,15 @@ public final class FactionStep {
     private final boolean host;
     private final int localId;
     private final LocationRule rule;
+    /**
+     * A living world (SOS-187): the host places only its own capital on the terrain; once the world is built around it,
+     * every other player settles on that world's map, by {@link #settleRule} on the host.
+     */
+    private final boolean living;
+    /** Host, in a living world: why a city-state can't be carved at a spot, with the others' spots held. */
+    private final LocationRule settleRule;
+    /** A living world's second half: the host's world is out, and the other players pick their spots on it. */
+    private boolean settling;
     /** Host: the players still in the setup, in slot order (the host first, then the joiners in join order). */
     private final List<Integer> order = new ArrayList<>();
     /** Every player's latest picks: on the host its own record, on a joining PC as the host last sent them. */
@@ -72,15 +81,25 @@ public final class FactionStep {
     private final Map<Integer, Progress> hostView = new HashMap<>();
     private boolean go;
 
-    private FactionStep(boolean host, int localId, LocationRule rule) {
+    private FactionStep(boolean host, int localId, LocationRule rule, boolean living, LocationRule settleRule) {
         this.host = host;
         this.localId = localId;
         this.rule = rule;
+        this.living = living;
+        this.settleRule = settleRule;
     }
 
     /** The host's side, with the players who joined, in join order. */
     public static FactionStep host(int hostId, Collection<Integer> joinerIds, LocationRule rule) {
-        FactionStep step = new FactionStep(true, hostId, rule);
+        return host(hostId, joinerIds, rule, null);
+    }
+
+    /**
+     * The host's side; with a {@code settleRule}, a living world (SOS-187): the other players settle on the host's world
+     * once it is built, by that rule.
+     */
+    public static FactionStep host(int hostId, Collection<Integer> joinerIds, LocationRule rule, LocationRule settleRule) {
+        FactionStep step = new FactionStep(true, hostId, rule, settleRule != null, settleRule);
         step.order.add(hostId);
         for (int id : joinerIds) {
             if (id == hostId || step.order.contains(id))
@@ -99,7 +118,7 @@ public final class FactionStep {
     public static FactionStep resumed(int hostId, Map<Integer, Integer> slots) {
         if (!slots.containsKey(hostId))
             throw new IllegalArgumentException("SOSGSGMP: a resume of slots " + slots + " by host " + hostId);
-        FactionStep step = new FactionStep(true, hostId, null);
+        FactionStep step = new FactionStep(true, hostId, null, false, null);
         slots.entrySet().stream().sorted(Map.Entry.comparingByValue()).forEach(e -> step.order.add(e.getKey()));
         step.slots.putAll(slots);
         step.transfer = 1;
@@ -108,7 +127,12 @@ public final class FactionStep {
 
     /** A joining PC's side. */
     public static FactionStep joiner(int localId) {
-        return new FactionStep(false, localId, null);
+        return joiner(localId, false);
+    }
+
+    /** A joining PC's side; {@code living}: the lobby's world is a living world (SOS-187). */
+    public static FactionStep joiner(int localId, boolean living) {
+        return new FactionStep(false, localId, null, living, null);
     }
 
     // ------------------------------------------------------------ host
@@ -119,11 +143,13 @@ public final class FactionStep {
      */
     public boolean onPick(int playerId, FactionPick pick) {
         requireHost("collect picks");
-        if (transfer > 0 || !order.contains(playerId) || isReady(playerId))
+        if (transfer > 0 || !order.contains(playerId) || isReady(playerId) || (settling && playerId == localId))
             return false;
+        if (living && !settling && playerId != localId && pick.hasLocation())
+            pick = pick.at(FactionPick.NONE, FactionPick.NONE); // a joiner settles on the built world, not on the terrain
         PlayerPick held = new PlayerPick(playerId, pick, null, false);
         if (pick.hasLocation()) {
-            String problem = problem(playerId, pick.x(), pick.y(), rule);
+            String problem = problem(playerId, pick.x(), pick.y(), settling ? settleRule : rule);
             if (problem != null)
                 held = new PlayerPick(playerId, pick.at(FactionPick.NONE, FactionPick.NONE), problem, false);
         }
@@ -163,13 +189,15 @@ public final class FactionStep {
     }
 
     /**
-     * Host: a player pressed Ready or pressed it again (SOS-120). Ready needs a location. False, changing nothing, when
-     * the world is built, the player isn't in the setup, or nothing changes.
+     * Host: a player pressed Ready or pressed it again (SOS-120). Ready needs a location, but for a living world's other
+     * players before they settle. False, changing nothing, when the world is built, the player isn't in the setup, or
+     * nothing changes.
      */
     public boolean onReady(int playerId, boolean ready) {
         requireHost("collect ready");
         PlayerPick p = picks.get(playerId);
-        if (transfer > 0 || !order.contains(playerId) || p == null || p.ready() == ready || (ready && !p.pick().hasLocation()))
+        if (transfer > 0 || !order.contains(playerId) || p == null || p.ready() == ready
+                || (ready && !p.pick().hasLocation() && needsLocation(playerId == localId)))
             return false;
         picks.put(playerId, new PlayerPick(playerId, p.pick(), p.refused(), ready));
         if (playerId == localId)
@@ -187,10 +215,56 @@ public final class FactionStep {
         return ownReady;
     }
 
-    /** This PC's player can press Ready: the host's table holds their location. */
+    /** This PC's player can press Ready: the host's table holds their location, when they need one. */
     public boolean canReady() {
         PlayerPick p = picks.get(localId);
-        return transfer == 0 && p != null && p.pick().hasLocation();
+        return transfer == 0 && p != null && (p.pick().hasLocation() || !needsLocation(host));
+    }
+
+    /**
+     * Whether Ready needs a location: always in a classic world; in a living world the host's on the terrain, and the
+     * others' once they settle on the built world.
+     */
+    private boolean needsLocation(boolean ofHost) {
+        return !living || settling || ofHost;
+    }
+
+    /**
+     * Host, a living world's every player ready: the world is built around the host, and the others settle on it. Their
+     * Ready goes, as they now pick a spot; the host's stays, its capital placed. Check {@link #canBuildForSettling} first.
+     */
+    public void beginSettling() {
+        requireHost("begin the settling");
+        if (!canBuildForSettling())
+            throw new IllegalStateException("SOSGSGMP: the world can't be built for settling now (picks " + picks.keySet() + ")");
+        settling = true;
+        for (int id : order)
+            if (id != localId)
+                picks.put(id, new PlayerPick(id, picks.get(id).pick().at(FactionPick.NONE, FactionPick.NONE), null, false));
+    }
+
+    /** Host: a living world's first Initialize builds the world around the host, once every player is ready. */
+    public boolean canBuildForSettling() {
+        return host && living && !settling && transfer == 0 && everyoneReady();
+    }
+
+    /** Joining PC: the host's world for settling is here; this PC's player picks a spot on it and presses Ready again. */
+    public void onSettling() {
+        requireJoiner("follow the settling");
+        if (!living)
+            throw new IllegalStateException("SOSGSGMP: a world for settling in a classic lobby");
+        settling = true;
+        ownReady = false;
+    }
+
+    /** A living world (SOS-187): the other players settle on the host's built world. */
+    public boolean living() {
+        return living;
+    }
+
+    /** A living world's second half: the host's world is out, and the other players settle on it. */
+    public boolean settling() {
+        return settling;
     }
 
     private boolean isReady(int playerId) {
@@ -206,9 +280,12 @@ public final class FactionStep {
         return !order.isEmpty();
     }
 
-    /** Initialize World is active when every player is ready, until it is pressed. */
+    /**
+     * Initialize World is active when every player is ready, until it is pressed. In a living world, only once the others
+     * settled ({@link #canBuildForSettling} before).
+     */
     public boolean canInitialize() {
-        return host && transfer == 0 && everyoneReady();
+        return host && transfer == 0 && everyoneReady() && (!living || settling);
     }
 
     /** Host: locks every pick and gives every player its slot. Returns the save's transfer number. */
@@ -335,7 +412,7 @@ public final class FactionStep {
         picks.clear();
         picks.putAll(now);
         PlayerPick mine = now.get(localId);
-        if (mine != null && !mine.pick().hasLocation())
+        if (mine != null && !mine.pick().hasLocation() && needsLocation(false))
             ownReady = false; // the host refused the location this PC pressed Ready on
         return true;
     }

@@ -83,12 +83,20 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 				game.removeAtStart(slot); // a player missing at a resume (spec §11 Resuming)
 				log.line("the missing player in slot " + slot + " is removed at the start");
 			}
-		if (resumed == null && !setup.isHost()) {
+		if (resumed == null && !setup.isHost() && f.living()) {
+			int[] capital = game.capitalOf(f.slotOf(setup.localPlayerId())); // a carve may have moved it from the spot (SOS-187)
+			game.ownCity(capital[0], capital[1]);
+		} else if (resumed == null && !setup.isHost()) {
 			FactionPick own = ownPick(f);
 			game.ownCity(own.x(), own.y());
 		}
 		if (resumed == null)
 			game.openLanding();
+		if (resumed == null && f.living())
+			for (int slot : slots()) { // a living world: where each human's city-state was carved (SOS-187)
+				int[] c = game.capitalOf(slot);
+				log.line("living world: slot " + slot + "'s capital at " + c[0] + "," + c[1]);
+			}
 		log.line("own city: " + game.activeEntries() + " entry points active"); // none: no roads (SOS-75)
 		setup.worldLoaded(game.worldHash());
 		if (resumed != null) // a resumed city stands already: no landing party to place, so the rows say ready (SOS-163)

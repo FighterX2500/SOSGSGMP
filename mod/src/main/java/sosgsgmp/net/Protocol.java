@@ -32,7 +32,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 27;
+    public static final int VERSION = 28;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -49,6 +49,7 @@ public final class Protocol {
     private static final int REPORT = 41, LOADING = 42;
     private static final int PLAYER_LOST = 43, PLAYER_BACK = 44, HEARTBEAT = 45;
     private static final int SEQUENCED = 46, RESUME = 47, RESUMED = 48;
+    private static final int SETTLE_PART = 49;
     /** The bytes {@link Message.Sequenced} adds in front of its message: version, type and sequence number. */
     private static final int SEQUENCED_HEADER = 2 + 1 + 8;
     /** Largest frame on a connection: a message, or one wrapped in {@link Message.Sequenced} (SOS-178). */
@@ -92,6 +93,7 @@ public final class Protocol {
                     out.writeUTF(w.settings().difficulty());
                     out.writeByte(w.settings().maxPlayers());
                     out.writeBoolean(w.settings().fullTransferLog());
+                    out.writeBoolean(w.settings().livingWorld());
                     LobbySettings.Resume resume = w.settings().resume();
                     out.writeBoolean(resume != null);
                     if (resume != null) {
@@ -192,6 +194,10 @@ public final class Protocol {
                 case Message.WorldPart w -> {
                     out.writeByte(WORLD_PART);
                     writePiece(out, w.transfer(), w.index(), w.count(), w.bytes());
+                }
+                case Message.SettlePart w -> {
+                    out.writeByte(SETTLE_PART);
+                    writePiece(out, 1, w.index(), w.count(), w.bytes()); // one per setup: its number is always 1
                 }
                 case Message.Loaded l -> {
                     out.writeByte(LOADED);
@@ -439,6 +445,10 @@ public final class Protocol {
                 Piece p = piece(in, "transfer", "world");
                 yield new Message.WorldPart(p.number(), p.index(), p.count(), p.data());
             }
+            case SETTLE_PART -> {
+                Piece p = piece(in, "settling", "settling world");
+                yield new Message.SettlePart(p.index(), p.count(), p.data());
+            }
             case LOADED -> new Message.Loaded(number(in, "transfer"), in.readLong());
             case START_SPOT -> new Message.StartSpot(number(in, "transfer"));
             case WORLD_PLAYERS -> worldPlayers(in);
@@ -513,11 +523,12 @@ public final class Protocol {
         String difficulty = in.readUTF();
         int max = in.readUnsignedByte();
         boolean fullTransferLog = in.readBoolean();
+        boolean livingWorld = in.readBoolean();
         LobbySettings.Resume resume = null;
         try {
             if (in.readBoolean())
                 resume = new LobbySettings.Resume(campaign(in), in.readInt());
-            return new LobbySettings(difficulty, max, resume, fullTransferLog);
+            return new LobbySettings(difficulty, max, resume, fullTransferLog, livingWorld);
         } catch (IllegalArgumentException e) {
             throw new IOException(e.getMessage(), e);
         }

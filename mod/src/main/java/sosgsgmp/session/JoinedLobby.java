@@ -147,7 +147,8 @@ public final class JoinedLobby implements LobbySession {
         if (state != LobbyState.STARTED || handedOver)
             throw new IllegalStateException("SOSGSGMP: only a started lobby hands over, once (state " + state + ", handed over " + handedOver + ")");
         handedOver = true;
-        return new JoinedSetup(node, localId, players, world, factions, settings.resume(), settings.fullTransferLog(), chat, builds);
+        return new JoinedSetup(node, localId, players, world, factions, settings.resume(), settings.fullTransferLog(),
+                settings.livingWorld(), chat, builds);
     }
 
     @Override

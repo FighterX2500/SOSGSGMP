@@ -67,6 +67,11 @@ class LoopbackSetupTest {
         int locks;
         final List<List<FactionPick>> built = new ArrayList<>();
         String difficulty;
+        /** A living world's builds around the host (SOS-187): the host's pick, and the room kept for humans. */
+        final List<FactionPick> settleBuilt = new ArrayList<>();
+        int settleRoom;
+        /** A living world's settlements: the humans in slot order. */
+        final List<List<FactionPick>> settled = new ArrayList<>();
 
         @Override
         public Terrain generate(MapOptions options) {
@@ -132,6 +137,26 @@ class LoopbackSetupTest {
             return save(humans);
         }
 
+        /** The carving rule as far as these tests need it: nothing at x 99 (say, a road), and the 6-tile rule. */
+        @Override
+        public String settleProblem(int x, int y, int[] otherX, int[] otherY) {
+            return x == 99 ? "on a road" : locationProblem(x, y, otherX, otherY);
+        }
+
+        @Override
+        public byte[] buildForSettling(FactionPick host, int humans) {
+            settleBuilt.add(host);
+            settleRoom = humans;
+            return save(List.of(host));
+        }
+
+        @Override
+        public byte[] settle(List<FactionPick> humans, String difficulty) {
+            settled.add(humans);
+            this.difficulty = difficulty;
+            return save(humans);
+        }
+
         static byte[] save(List<FactionPick> humans) {
             byte[] s = new byte[2 * Pieces.PIECE_BYTES + 77];
             for (int i = 0; i < s.length; i++)
@@ -161,7 +186,12 @@ class LoopbackSetupTest {
 
     /** Ann hosts, Bob and Cid join, Ann starts the lobby, and every PC hands its lobby over to the setup. */
     private void startSetup() throws Exception {
-        HostedLobby h = new HostedLobby(new LobbySettings("normal", 4), "Ann", "Ann".hashCode(), BUILDS, 0);
+        startSetup(false);
+    }
+
+    /** As {@link #startSetup()}; {@code living}: the lobby's world is a living world (SOS-187). */
+    private void startSetup(boolean living) throws Exception {
+        HostedLobby h = new HostedLobby(new LobbySettings("normal", 4).withLivingWorld(living), "Ann", "Ann".hashCode(), BUILDS, 0);
         lobby = h;
         lobbies.add(h);
         JoinedLobby jb = join(h, "Bob");
@@ -249,7 +279,11 @@ class LoopbackSetupTest {
 
     /** Through the map step to the confirm on every PC. */
     private void confirmMap() throws Exception {
-        startSetup();
+        confirmMap(false);
+    }
+
+    private void confirmMap(boolean living) throws Exception {
+        startSetup(living);
         build(256);
         host.generate(A);
         until("matching results", host.step()::canConfirm);
@@ -380,6 +414,71 @@ class LoopbackSetupTest {
         host.initialize();
         assertNull(host.takeWorld(), "the build waits until the loading window has shown (SOS-158)");
         return world(host);
+    }
+
+    /** Runs the frames until this PC has the whole world to settle on (SOS-187), and takes it. */
+    private byte[] settleWorld(SetupSession s) throws InterruptedException {
+        byte[][] got = new byte[1][];
+        until("the world to settle on", () -> (got[0] = s.takeSettleWorld()) != null);
+        return got[0];
+    }
+
+    /**
+     * SOS-187: in a living world only the host places a capital on the terrain; the first Initialize builds the world
+     * around it, every PC gets it, and the others settle on it by the carving rule before the second Initialize carves
+     * them in and sends the world every PC starts from.
+     */
+    @Test
+    void aLivingWorldIsBuiltAroundTheHostAndTheOthersSettleOnIt() throws Exception {
+        confirmMap(true);
+        assertTrue(bob.factions().living() && cid.factions().living(), "every PC knows the lobby's world");
+        host.pick(pick("Ann", 10, 10));
+        bob.pick(pick("Bob", 20, 10));
+        cid.pick(pick("Cid", FactionPick.NONE, FactionPick.NONE));
+        until("every pick on every PC", () -> names(bob).size() == 3 && names(cid).size() == 3);
+        assertFalse(host.factions().table().get(1).pick().hasLocation(), "a joiner settles later: no location on the terrain");
+        assertTrue(bob.factions().canReady() && cid.factions().canReady(), "Ready needs no location before settling");
+        host.ready(true);
+        bob.ready(true);
+        cid.ready(true);
+        until("everyone ready on the host", host.factions()::canBuildForSettling);
+        assertFalse(host.factions().canInitialize(), "the first Initialize builds for settling");
+
+        host.initialize();
+        byte[] settle = settleWorld(host);
+        assertEquals(List.of("Ann"), hostWorld.settleBuilt.stream().map(FactionPick::name).toList(), "built around the host alone");
+        assertEquals(3, hostWorld.settleRoom, "with room for every player");
+        assertTrue(hostWorld.built.isEmpty(), "no classic build");
+        assertArrayEquals(settle, settleWorld(bob));
+        assertArrayEquals(settle, settleWorld(cid));
+        assertTrue(bob.factions().settling() && !bob.factions().ready(), "Bob settles now, not ready");
+        until("Bob's Ready gone on every PC", () -> !cid.factions().table().get(1).ready() && !host.factions().table().get(1).ready());
+        assertTrue(host.factions().table().get(0).ready(), "the host's capital is placed: it stays ready");
+        assertFalse(bob.factions().canReady(), "settling, Ready needs a spot");
+
+        bob.pick(pick("Bob", 99, 40));
+        until("a spot on a road cleared", () -> "on a road".equals(bob.factions().table().get(1).refused()));
+        bob.pick(pick("Bob", 12, 10));
+        until("a spot too close to the host's capital cleared", () -> "too close".equals(bob.factions().table().get(1).refused()));
+        assertEquals("too close", bob.locationProblem(12, 10), "the PC's own check follows the carving rule while settling");
+        bob.pick(pick("Bob", 30, 10));
+        cid.pick(pick("Cid", 50, 10));
+        until("both spots held", () -> bob.factions().canReady() && cid.factions().canReady());
+        bob.ready(true);
+        cid.ready(true);
+        until("everyone settled", host.factions()::canInitialize);
+
+        host.initialize();
+        byte[] save = world(host);
+        assertEquals(1, hostWorld.settled.size(), "carved once");
+        assertEquals(List.of("Ann 10,10", "Bob 30,10", "Cid 50,10"),
+                hostWorld.settled.get(0).stream().map(p -> p.name() + " " + p.x() + "," + p.y()).toList(), "slot order, at the spots");
+        assertEquals("normal", hostWorld.difficulty, "the lobby's difficulty");
+        assertTrue(hostWorld.built.isEmpty() && bobWorld.settled.isEmpty(), "only the host carves, and builds no classic world");
+        assertArrayEquals(save, world(bob));
+        assertArrayEquals(save, world(cid));
+        assertEquals(1, bob.factions().slotOf(1));
+        assertEquals(2, cid.factions().slotOf(2));
     }
 
     /** Runs the frames until this PC has the whole save, and takes it. */

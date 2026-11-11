@@ -40,6 +40,11 @@ public final class JoinedSetup implements SetupSession {
     private final Pieces.Receiver worldParts = new Pieces.Receiver();
     /** The host's world once all its pieces are here, until this PC takes it to load; null otherwise. */
     private byte[] save;
+    /** The lobby's world: a living world, where this PC's player settles on the host's built world (SOS-187). */
+    private final boolean livingWorld;
+    private final Pieces.Receiver settleParts = new Pieces.Receiver();
+    /** A living world built around the host, once all its pieces are here, until this PC takes it; null otherwise. */
+    private byte[] settleWorld;
     private final Cursors cursors = new Cursors();
     private final Chat chat;
     private final Pauses pauses = new Pauses();
@@ -71,8 +76,9 @@ public final class JoinedSetup implements SetupSession {
      * not null) starts at the world-loaded step: the host's slot map follows, and every PC loads its own save (SOS-64).
      */
     JoinedSetup(Node node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld,
-            LobbySettings.Resume resume, boolean fullTransferLog, Chat chat, Builds builds) {
+            LobbySettings.Resume resume, boolean fullTransferLog, boolean livingWorld, Chat chat, Builds builds) {
         this.node = node;
+        this.livingWorld = livingWorld;
         this.chat = chat;
         this.builds = builds;
         this.fullTransferLog = fullTransferLog;
@@ -185,7 +191,7 @@ public final class JoinedSetup implements SetupSession {
             case Message.MapConfirm c -> {
                 if (step.onConfirm(c.genId(), c.hash())) {
                     world.lock();
-                    factions = FactionStep.joiner(step.localPlayerId());
+                    factions = FactionStep.joiner(step.localPlayerId(), livingWorld);
                 }
             }
             case Message.Picks p when factions != null -> {
@@ -196,6 +202,13 @@ public final class JoinedSetup implements SetupSession {
             case Message.SlotMap s when factions != null -> {
                 if (!factions.onSlotMap(s.transfer(), s.slots()) && !factions.initialized())
                     close("The host built a world without a place for you.");
+            }
+            case Message.SettlePart w when factions != null && factions.living() && !factions.settling() -> {
+                byte[] all = settleParts.accept(1, w.index(), w.count(), w.bytes());
+                if (all != null) {
+                    settleWorld = all;
+                    factions.onSettling();
+                }
             }
             case Message.WorldPart w when factions != null && factions.initialized() -> {
                 byte[] all = worldParts.accept(w.transfer(), w.index(), w.count(), w.bytes());
@@ -492,12 +505,19 @@ public final class JoinedSetup implements SetupSession {
     public String locationProblem(int x, int y) {
         if (factions == null)
             throw new IllegalStateException("SOSGSGMP: a location before the map is confirmed");
-        return factions.locationProblem(x, y, factionWorld::locationProblem);
+        return factions.locationProblem(x, y, factions.settling() ? factionWorld::settleProblem : factionWorld::locationProblem);
     }
 
     @Override
     public void initialize() {
         throw new IllegalStateException("SOSGSGMP: only the host initializes the world");
+    }
+
+    @Override
+    public byte[] takeSettleWorld() {
+        byte[] s = settleWorld;
+        settleWorld = null;
+        return s;
     }
 
     @Override

@@ -35,6 +35,10 @@ public final class HostedSetup implements SetupSession {
     private final String difficulty;
     /** The lobby's switch for the playtest log (SOS-81). */
     private final boolean fullTransferLog;
+    /** The lobby's world: a living world, where the other players settle on the host's built world (SOS-187). */
+    private final boolean livingWorld;
+    /** A living world built around the host, until this PC takes it to load and settle on; null otherwise. */
+    private byte[] settleWorld;
     /** Connected peers in the setup, to their player ids. */
     private final Map<Integer, Integer> joined;
     private final List<LobbyPlayer> players;
@@ -114,6 +118,7 @@ public final class HostedSetup implements SetupSession {
         this.factionWorld = factionWorld;
         this.difficulty = settings.difficulty();
         this.fullTransferLog = settings.fullTransferLog();
+        this.livingWorld = settings.livingWorld();
         this.joined = new HashMap<>(joined);
         this.players = new ArrayList<>(players);
         this.keys = new HashMap<>(keys);
@@ -834,7 +839,8 @@ public final class HostedSetup implements SetupSession {
         List<Integer> joiners = new ArrayList<>();
         for (LobbyPlayer p : players.subList(1, players.size()))
             joiners.add(p.id());
-        factions = FactionStep.host(step.localPlayerId(), joiners, factionWorld::locationProblem);
+        factions = livingWorld ? FactionStep.host(step.localPlayerId(), joiners, factionWorld::locationProblem, factionWorld::settleProblem)
+                : FactionStep.host(step.localPlayerId(), joiners, factionWorld::locationProblem);
         changed();
     }
 
@@ -869,7 +875,7 @@ public final class HostedSetup implements SetupSession {
     public String locationProblem(int x, int y) {
         if (factions == null)
             throw new IllegalStateException("SOSGSGMP: a location before the map is confirmed");
-        return factions.locationProblem(x, y, factionWorld::locationProblem);
+        return factions.locationProblem(x, y, factions.settling() ? factionWorld::settleProblem : factionWorld::locationProblem);
     }
 
     /**
@@ -879,13 +885,47 @@ public final class HostedSetup implements SetupSession {
      */
     @Override
     public void initialize() {
-        if (factions == null || !factions.canInitialize())
+        if (factions == null || !(factions.canInitialize() || factions.canBuildForSettling()))
             throw new IllegalStateException("SOSGSGMP: the world can't be initialized now");
         if (deferred != null)
             return;
         int key = ++loadingKey;
+        if (factions.canBuildForSettling()) {
+            announceLoading(Loading.Kind.WORLD_INITIALIZATION, key,
+                    "Building the world around the host. Every PC loads it, and the other players pick their spot on it.", true);
+            afterLoadingShows(() -> buildForSettlingNow(key));
+            return;
+        }
         announceLoading(Loading.Kind.WORLD_INITIALIZATION, key, "Initializing the world. Every PC loads it.", true);
         afterLoadingShows(() -> initializeNow(key));
+    }
+
+    /**
+     * A living world's first Initialize (SOS-187), once the loading window shows: the world is built around the host
+     * alone, the others' Ready goes, and every PC gets the save to settle on, this one too. The window closes once it is
+     * sent: each PC's load shows the game's own loading screen.
+     */
+    private void buildForSettlingNow(int key) {
+        if (factions == null || !factions.canBuildForSettling()) { // a player left meanwhile: the host presses again
+            announceLoading(Loading.Kind.WORLD_INITIALIZATION, key, "", false);
+            return;
+        }
+        List<FactionPick> humans = factions.humans();
+        byte[] built = factionWorld.buildForSettling(humans.get(0), humans.size());
+        factions.beginSettling();
+        List<byte[]> pieces = Pieces.split(built);
+        for (int i = 0; i < pieces.size(); i++)
+            sendAll(new Message.SettlePart(i, pieces.size(), pieces.get(i)));
+        settleWorld = built;
+        announceLoading(Loading.Kind.WORLD_INITIALIZATION, key, "", false);
+        picksChanged();
+    }
+
+    @Override
+    public byte[] takeSettleWorld() {
+        byte[] s = settleWorld;
+        settleWorld = null;
+        return s;
     }
 
     private void initializeNow(int key) {
@@ -893,7 +933,8 @@ public final class HostedSetup implements SetupSession {
             announceLoading(Loading.Kind.WORLD_INITIALIZATION, key, "", false);
             return;
         }
-        byte[] built = factionWorld.buildWorld(factions.humans(), difficulty);
+        byte[] built = factions.living() ? factionWorld.settle(factions.humans(), difficulty)
+                : factionWorld.buildWorld(factions.humans(), difficulty);
         int transfer = factions.initialize();
         List<Campaign.Player> inCampaign = new ArrayList<>();
         for (LobbyPlayer p : players)
