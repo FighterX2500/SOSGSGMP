@@ -564,6 +564,8 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-08 | **Every ally in an NPC battle:** every allied player near a battle against NPCs is asked Join, and every player who joined fights it on their own PC with the fighting player's (spec 0.53; sections 8, 15). | SOS-160, SOS-161 |
 | 2026-11-08 | **The end of a battle every PC runs:** a battle between players or an assault opens the loading window on every PC before the load that ends it (spec 0.54; section 12). | SOS-169 |
 | 2026-11-06 | **Joining an assault:** a player can join a running assault's view as any city's; an attacker who joins again commands their soldiers again (spec 0.49; section 10). | SOS-151 |
+| 2026-11-12 | **Living world:** a lobby option; the world is built around the host, and every other player settles a city-state carved into its real map, with the split rule for the land it is cut from (spec 0.59; section 5). | SOS-187 |
+| 2026-11-12 | **A gone player's city-state comes off the map:** a removed or eliminated player's carved city-state is un-carved while every PC holds a moment (spec 0.59; sections 9, 11, 15). | SOS-188 |
 
 ### Where each v1 feature stands (2026-11-01)
 
