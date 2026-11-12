@@ -122,7 +122,7 @@ def refresh_mods(data, rdir):
     """A resume keeps both data folders, but plays the mods as installed now, on both PCs."""
     for m in MODS:
         shutil.rmtree(data / "mods" / m, ignore_errors=True)
-        shutil.copytree(REAL / "mods" / m, data / "mods" / m)
+        shutil.copytree(MOD_DIRS.get(m, REAL / "mods" / m), data / "mods" / m)
     remote_ps("Remove-Item -Recurse -Force -ErrorAction SilentlyContinue %s"
               % ", ".join("'%s\\songsofsyx\\mods\\%s'" % (rdir, m) for m in MODS))
     tar = [r"C:\Windows\System32\tar.exe", "-cf", "-", "-C", str(data.parent)] + ["songsofsyx/mods/" + m for m in MODS]
@@ -335,17 +335,17 @@ def main():
         (local3 / EVENTS).unlink(missing_ok=True)
         for m in MODS:  # the host plays the mods as installed now too, or the joiners' builds differ from its (SOS-148)
             shutil.rmtree(local / "mods" / m, ignore_errors=True)
-            shutil.copytree(REAL / "mods" / m, local / "mods" / m)
+            shutil.copytree(MOD_DIRS.get(m, REAL / "mods" / m), local / "mods" / m)
         if args.local_joiner:
             for m in MODS:
                 shutil.rmtree(local3 / "mods" / m, ignore_errors=True)
-                shutil.copytree(REAL / "mods" / m, local3 / "mods" / m)
+                shutil.copytree(MOD_DIRS.get(m, REAL / "mods" / m), local3 / "mods" / m)
         local2 = INST / str(REMOTE_K) / "songsofsyx"
         if args.here:
             (local2 / EVENTS).unlink(missing_ok=True)
             for m in MODS:
                 shutil.rmtree(local2 / "mods" / m, ignore_errors=True)
-                shutil.copytree(REAL / "mods" / m, local2 / "mods" / m)
+                shutil.copytree(MOD_DIRS.get(m, REAL / "mods" / m), local2 / "mods" / m)
         else:
             remote_ps("Remove-Item -Force -ErrorAction SilentlyContinue '%s\\songsofsyx\\%s'" % (rdir, str(EVENTS)))
             refresh_mods(local, rdir)
