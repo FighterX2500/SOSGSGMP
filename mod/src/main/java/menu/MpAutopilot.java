@@ -1290,6 +1290,39 @@ public final class MpAutopilot {
 		return !refuseJoin;
 	}
 
+	/** Hot-join's screens as the autopilot walks them (SOS-198): 0 race, 1 race shot, 2 Customize, 3 its shot, 4 location. */
+	private int joinScreen;
+	private long joinScreenAt;
+
+	/**
+	 * Hot-join, once per frame after the game's update (SOS-198): with a GUI preview, the race screen and Customize
+	 * Faction two seconds each with a shot, then the location screen; without, the location screen at once.
+	 */
+	void joinScreens(Runnable customize, Runnable location) {
+		if (joinScreen == 4)
+			return;
+		if (guiPreview < 0) {
+			joinScreen = 4;
+			location.run();
+			return;
+		}
+		long now = System.nanoTime();
+		if (joinScreenAt == 0)
+			joinScreenAt = now;
+		double s = (now - joinScreenAt) / 1e9;
+		if ((joinScreen == 0 || joinScreen == 2) && s >= 2) {
+			guiShot(joinScreen == 0 ? "joinrace" : "joincustomize");
+			joinScreen++;
+		} else if (joinScreen == 1 && s >= 3) {
+			joinScreen = 2;
+			joinScreenAt = now;
+			customize.run();
+		} else if (joinScreen == 3 && s >= 3) {
+			joinScreen = 4;
+			location.run();
+		}
+	}
+
 	/** Hot-join with a GUI preview: when this PC picked its spot, for the shot (SOS-198). */
 	private long joinPlacedAt;
 

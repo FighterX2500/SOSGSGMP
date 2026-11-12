@@ -76,8 +76,11 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 			p.name.clear();
 		LOG.ln("SOSGSGMP: the host's snapshot to join on loaded in " + (System.nanoTime() - t) / 1_000_000 + " ms");
 		MpJoinScreens screens = MpJoinScreens.open(join, hostX, hostY);
-		if (join.autopilot != null)
-			screens.location(); // the autopilot picks its spot at once: the location screen, as a newcomer would reach it
+		if (join.autopilot != null) // the autopilot goes to the location screen as a newcomer would, after the game's update
+			GAME.addAfterUpdate(() -> join.autopilot.joinScreens(screens::customize, () -> {
+				screens.location();
+				join.atLocation = true;
+			}));
 		MpChat.show(setup);
 		return view;
 	}
@@ -110,6 +113,8 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 		/** After the host's restart: the new setup, until its slot map and the founding save are here. */
 		private SetupSession restarted;
 		private boolean leaving;
+		/** The autopilot reached the location screen: it picks its spot there. */
+		private boolean atLocation;
 		/** Every player in the snapshot: its capital, for the placer's marks, and its row as the snapshot had it. */
 		private final int[] capX = new int[FACTIONS.MAX()];
 		private final int[] capY = new int[FACTIONS.MAX()];
@@ -301,7 +306,7 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 				if (restarted.closed())
 					throw new IllegalStateException("SOSGSGMP: the connection ended during the restart: " + restarted.closedReason());
 			}
-			if (autopilot != null && restarted == null)
+			if (autopilot != null && restarted == null && atLocation)
 				autopilot.joinSettle(hostX, hostY, ownX != FactionPick.NONE, game::joinProblem, (x, y) -> {
 					placeAt(x, y);
 					return ownX;

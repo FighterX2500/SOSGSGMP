@@ -73,6 +73,11 @@ public final class MpJoinScreens implements MpFactionScreens {
 		return s;
 	}
 
+	/** The Customize Faction screen, as from the race screen's Next. */
+	public void customize() {
+		MpFactionStage.customize(this);
+	}
+
 	/** The location screen: the placer on the map, the side panel on the left, the minimap. */
 	public void location() {
 		g.reset();
