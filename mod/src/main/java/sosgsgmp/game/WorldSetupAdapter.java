@@ -145,15 +145,12 @@ public final class WorldSetupAdapter implements FactionWorld {
     }
 
     /**
-     * The credits a joining player starts with (decision D16): the poorest playing human's now, so nobody gains or loses
-     * by a friend joining. Between steps, on the host.
+     * Hot-join: the newcomer's credits before its landing. A late joiner starts as every player did (owner's decision 8,
+     * docs/plan/hot-join.md): vanilla's new game starts at 0 and the landing adds its bonus, which the newcomer's landing
+     * does too.
      */
     public double joinCredits() {
-        double least = Double.MAX_VALUE;
-        for (int i = 0; i < FACTIONS.MAX(); i++)
-            if (FACTIONS.getByIndex(i) instanceof Player p && p.capitolRegion() != null)
-                least = Math.min(least, p.credits().getD());
-        return least == Double.MAX_VALUE ? 0 : Math.max(0, least);
+        return 0;
     }
 
     /**

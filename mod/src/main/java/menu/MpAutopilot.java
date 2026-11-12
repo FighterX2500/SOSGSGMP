@@ -416,7 +416,7 @@ public final class MpAutopilot {
 	 */
 	private void steamMenu(MpMenu mp) {
 		if (host) {
-			SteamNode node = SteamNode.host(SteamworksPort::new, Math.max(players, 2));
+			SteamNode node = SteamNode.host(SteamworksPort::new, sosgsgmp.lobby.LobbySettings.MAX_PLAYERS); // as the screens (SOS-190)
 			hostSteam = node;
 			lobbyOpened = true;
 			mp.openLobby(new HostedLobby(hostSettings(mp), name, mp.prefs.playerKey, mp.builds, node), node);

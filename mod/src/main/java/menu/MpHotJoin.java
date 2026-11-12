@@ -35,6 +35,8 @@ final class MpHotJoin {
 	private MpJoinAsk popup;
 	/** The last save done before the one this waits for. */
 	private MpSaves.Done before;
+	/** The phase's save isn't ordered yet: it waits for a battle, an assault, a desync hold, a view or another save to end. */
+	private boolean saveDue;
 	/** The newcomer's pick, taken on the live world, for the restart. */
 	private FactionPick pick;
 	/** A joined PC after the host's restart: the new setup, until its slot map is here. */
@@ -104,20 +106,35 @@ final class MpHotJoin {
 			return;
 		}
 		setup.say(name + " joins the game. Once they have picked a spot, every game saves and reloads for a moment.");
+		saveDue = true;
+		phase = Phase.SNAPSHOT;
+	}
+
+	/**
+	 * The phase's save, ordered only when it can start at once (spec §11: a join waits for a battle, an assault, a save,
+	 * a view or a desync window to end), so the next save done is this one. Whether it is still due.
+	 */
+	private boolean orderSave() {
+		if (!saveDue)
+			return false;
+		if (!saves.canSave())
+			return true;
 		before = saves.lastDone();
 		saves.saveNow(CampaignRecord.Kind.AUTO);
-		phase = Phase.SNAPSHOT;
+		saveDue = false;
+		return true;
 	}
 
 	/** The save the newcomer picks on: the host's file goes to it once every PC has saved. */
 	private void snapshot() {
+		if (orderSave())
+			return;
 		MpSaves.Done d = saves.lastDone();
 		if (d == before)
 			return;
 		if (d.file() == null) { // the host's own save failed: another one
 			log.line("hot-join: the snapshot save " + d.number() + " wasn't made here (" + d.outcome() + "); saving again");
-			before = d;
-			saves.saveNow(CampaignRecord.Kind.AUTO);
+			saveDue = true;
 			return;
 		}
 		setup.sendSnapshot(read(d.file()));
@@ -138,13 +155,14 @@ final class MpHotJoin {
 		if (problem != null)
 			return;
 		pick = p;
-		before = saves.lastDone();
-		saves.saveNow(CampaignRecord.Kind.AUTO);
+		saveDue = true;
 		phase = Phase.FOUNDING;
 	}
 
 	/** Once every PC has the founding save, every PC restarts from it. */
 	private void founding() {
+		if (orderSave())
+			return;
 		MpSaves.Done d = saves.lastDone();
 		if (d == before)
 			return;
@@ -208,6 +226,7 @@ final class MpHotJoin {
 		closePopup();
 		phase = Phase.IDLE;
 		pick = null;
+		saveDue = false;
 	}
 
 	private void closePopup() {

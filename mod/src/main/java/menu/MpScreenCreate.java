@@ -214,7 +214,7 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 				.withLivingWorld(livingWorld);
 		if (steam) {
 			mp.invites.stop(); // Steam runs once in the process (SOS-103)
-			SteamNode node = SteamNode.host(SteamworksPort::new, players.get());
+			SteamNode node = SteamNode.host(SteamworksPort::new, LobbySettings.MAX_PLAYERS); // room for a player joining later (SOS-190); the lobby refuses past its limit
 			error.clear();
 			mp.openLobby(new HostedLobby(settings, n, mp.prefs.playerKey, mp.builds, node), node);
 			return;
