@@ -61,7 +61,7 @@ Every stream starts at offset 0 in a new `EngineLink`, and the AI log has a new 
 ## Choices
 
 - **Slot:** `Engine.joinSlot()`, usually above 15. The mod allows slots and PC numbers up to 63 (`LobbySettings.MAX_SLOTS`, done).
-- **Credits:** vanilla's starting credits for the campaign's difficulty, not the host's current credits. See what `GameWorldSetup` sets at a new game.
+- **Credits:** the campaign's starting value (owner's decision 8): vanilla starts a player at 0 and the landing adds 5000 times the civics boost; the newcomer gets 0 before its landing, which adds the bonus as every player's did.
 - **Not persisted until it succeeds:** the newcomer enters the campaign at the first save after the restart. If the restart fails, a resume of the founding save is the game without them.
 - **Refusals during a hot-join:** battles between players, assaults, open views and saves already hold a campaign save back (`MpSaves.saveRefusal`); the founding save waits like any save.
 - **Protocol 29:**
