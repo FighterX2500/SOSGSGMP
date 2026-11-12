@@ -49,6 +49,8 @@ final class MpGone {
 	/** Every PC: the slots the chat told frozen (SOS-194), once it has looked at every slot of this session. */
 	private final boolean[] toldFrozen = new boolean[LobbySettings.MAX_SLOTS];
 	private boolean frozenSeen;
+	/** Every PC: the slots the chat told lost and not back since: frozen, they were frozen, not left so (SOS-196 G1). */
+	private final boolean[] toldLostSlot = new boolean[LobbySettings.MAX_SLOTS];
 	/** Host, after Continue or Freeze them: the slots whose removal or freeze the next campaign save records, once the engine made it. */
 	private final List<Integer> toSave = new ArrayList<>();
 	/** The players of the open hold the chat told left, by id. */
@@ -157,7 +159,9 @@ final class MpGone {
 		for (int slot = 1; slot < toldFrozen.length; slot++) {
 			boolean frozen = engine.frozen(slot);
 			if (frozen && !toldFrozen[slot])
-				setup.chat().notice(nameOf(slot) + (frozenSeen ? " left and is frozen." : " is frozen."));
+				setup.chat().notice(nameOf(slot) + (frozenSeen && !toldLostSlot[slot] ? " left and is frozen." : " is frozen."));
+			if (frozen)
+				toldLostSlot[slot] = false;
 			toldFrozen[slot] = frozen;
 		}
 		frozenSeen = true;
@@ -282,8 +286,10 @@ final class MpGone {
 		for (Departures.Gone g : d.gone()) {
 			int id = g.playerId();
 			if (d.lost(id)) {
-				if (toldLost.put(id, g.name()) == null && id != setup.localPlayerId())
+				if (toldLost.put(id, g.name()) == null && id != setup.localPlayerId()) {
 					setup.chat().notice(g.name() + " lost the connection.");
+					markLost(id, true);
+				}
 			} else if (!toldLeft.contains(id)) {
 				toldLeft.add(id);
 				toldLost.remove(id);
@@ -297,7 +303,15 @@ final class MpGone {
 			i.remove();
 			if (l.getKey() != setup.localPlayerId())
 				setup.chat().notice(l.getValue() + " is back.");
+			markLost(l.getKey(), false);
 		}
+	}
+
+	/** Every PC: whether the chat's last word on the player {@code id} was that they lost the connection. */
+	private void markLost(int id, boolean lost) {
+		int slot = setup.factions().slotOf(id);
+		if (slot > 0 && slot < toldLostSlot.length)
+			toldLostSlot[slot] = lost;
 	}
 
 	/** How many players of the open hold left, not lost. */

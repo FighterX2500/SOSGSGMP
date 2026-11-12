@@ -397,6 +397,7 @@ def main():
         if v and (len(v.split(":")) != 2 or not v.split(":")[0].isdigit()):
             fail("--view and --host-view are STEP:CLOSE")
     common = "port=%d,steps=%d,net=%s,viewanswer=%s,battles=%s" % (args.port, args.steps, args.net, args.view_answer, args.battles)
+    local_preview = ",guipreview=%d" % args.gui_preview if args.gui_preview >= 0 else ""  # the local game's shots too (SOS-196)
     if args.manual_deals:
         common += ",manualdeals=1"
     if args.same_files:
@@ -437,8 +438,9 @@ def main():
     late_started = False
     if args.local_joiner and not (args.resume and args.rejoin >= 0):  # a frozen local game comes back later instead
         time.sleep(20)  # the host's lobby is open before the second game here starts looking for it
-        start_here(local3, "role=join,name=Local,address=127.0.0.1,crash=%s,freeze=%s,%s"
-                   % (crash_at if crash_who == "local" else "-1", freeze_at if freeze_who == "local" else "-1", common),
+        start_here(local3, "role=join,name=Local,address=127.0.0.1,crash=%s,freeze=%s,%s%s"
+                   % (crash_at if crash_who == "local" else "-1", freeze_at if freeze_who == "local" else "-1", common,
+                      local_preview),
                    NETEM["local"])
         log("the second joiner started on this PC")
 
@@ -469,7 +471,11 @@ def main():
             left = ([e for e in events(texts["host"]) if e["event"] == "go"] if args.resume
                     else [e for e in events(texts["local"]) if e["event"] == "frozeexit"])
             if left and time.time() * 1000 - left[0]["t"] >= args.rejoin * 1000:
-                start_here(local3, "role=join,name=Local,address=127.0.0.1,crash=-1,%s" % common, NETEM["local"])
+                # the game clears its screenshots when it starts: keep those of the game that left (SOS-196)
+                if (local3 / "screenshots").is_dir():
+                    shutil.copytree(local3 / "screenshots", run / "local-shots-before-rejoin", dirs_exist_ok=True)
+                start_here(local3, "role=join,name=Local,address=127.0.0.1,crash=-1,%s%s" % (common, local_preview),
+                           NETEM["local"])
                 rejoin_started = True
                 done.pop("local", None)  # its frozeexit was not its end
                 log("the local game started again: it asks to come back (SOS-195)")
