@@ -729,7 +729,9 @@ public final class HostedSetup implements SetupSession {
             refuse(peer, refusal);
             return;
         }
-        candidate = new Candidate(peer, nextPlayerId(), h.name(), h.playerKey(), known == null ? -1 : known.slot());
+        // a player coming back keeps the campaign's name, whatever their game calls them now (SOS-196 G2)
+        candidate = new Candidate(peer, nextPlayerId(), known == null ? h.name() : known.name(), h.playerKey(),
+                known == null ? -1 : known.slot());
         node.send(peer, new Message.Welcome(candidate.id, new LobbySettings(difficulty, LobbySettings.MAX_PLAYERS)
                 .withFullTransferLog(fullTransferLog)));
         node.send(peer, new Message.Running(known != null));

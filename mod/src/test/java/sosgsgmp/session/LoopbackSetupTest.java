@@ -1227,7 +1227,9 @@ class LoopbackSetupTest {
         setups.remove(cid);
 
         HostedLobby h = lobby;
-        JoinedLobby jc = join(h, "Cid");
+        // Cid's game calls him otherwise now: the host asks about him by the campaign's name (SOS-196 G2)
+        JoinedLobby jc = new JoinedLobby("127.0.0.1", h.port(), "Cid the Second", "Cid".hashCode(), BUILDS);
+        lobbies.add(jc);
         playUntil("Cid's ask at the host", () -> {
             jc.update();
             return "Cid".equals(host.joinAsk()) && jc.running();
