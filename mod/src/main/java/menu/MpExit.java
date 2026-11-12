@@ -247,9 +247,9 @@ final class MpExit implements MpEscapeMenu.Actions {
 			}
 		};
 		GButt.ButtPanel cancel = new GButt.ButtPanel("Cancel");
-		MpPrompt.show("Quit the game?\nLeave and freeze: every player saves the campaign, then you leave and the others play"
-				+ " on. Your capital waits, frozen, until you come back.\nEnd for everyone: every player saves the campaign, and"
-				+ " the session ends for every player; Load Saved Lobby resumes it.", freeze, end, cancel);
+		// vanilla's prompt shows about five lines: the campaign is saved either way
+		MpPrompt.show("Quit the game? The campaign is saved first.\nLeave and freeze: the others play on; your capital waits,"
+				+ " frozen, for you.\nEnd for everyone: the session ends for all.", freeze, end, cancel);
 	}
 
 	/** The player confirmed: the host's save is ordered as soon as one can start, or asked of the host. Test tooling calls it too. */
