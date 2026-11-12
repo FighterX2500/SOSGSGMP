@@ -1290,9 +1290,12 @@ public final class MpAutopilot {
 		return !refuseJoin;
 	}
 
+	/** Hot-join with a GUI preview: when this PC picked its spot, for the shot (SOS-198). */
+	private long joinPlacedAt;
+
 	/**
 	 * Hot-join (SOS-190), on the joining PC's snapshot: the nearest spot 7 tiles or more from the host's capital that the
-	 * carving rule takes, then Ready, once.
+	 * carving rule takes, then Ready, once; with a GUI preview, a shot of the screen three seconds after the spot is picked.
 	 */
 	void joinSettle(int hostX, int hostY, boolean placed, java.util.function.BiFunction<Integer, Integer, String> problem,
 			IntBinaryOperator placeAt, Runnable ready) {
@@ -1314,6 +1317,13 @@ public final class MpAutopilot {
 				}
 			}
 			event("joinsettled", "\"x\":-1");
+		}
+		if (placed && guiPreview >= 0 && !once.containsKey("joinshot")) { // the pick screen as a newcomer sees it (SOS-198)
+			if (joinPlacedAt == 0)
+				joinPlacedAt = System.nanoTime();
+			if (System.nanoTime() - joinPlacedAt >= 3_000_000_000L && first("joinshot"))
+				guiShot("joinsettle");
+			return;
 		}
 		if (placed && first("joinready")) {
 			event("joinready", "");
