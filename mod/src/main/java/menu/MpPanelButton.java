@@ -79,7 +79,7 @@ public final class MpPanelButton {
 	}
 
 	/**
-	 * The same two buttons, top right, on the views that have no top bar (SOS-202): the setup's screens on the world
+	 * The same two buttons, top centre, on the views that have no top bar (SOS-202): the setup's screens on the world
 	 * generator and vanilla's landing. Made with the chat after every load, as the view is new.
 	 */
 	static void showWhereNoTopBar() {
@@ -137,7 +137,7 @@ public final class MpPanelButton {
 			RENDEROBJ size = new RENDEROBJ.RenderDummy(36, UIPanelTop.HEIGHT);
 			section.addRightC(0, button(SPRITES.icons().l.flags, HOVER, size, () -> installed(panel)));
 			section.addRightC(0, button(SPRITES.icons().l.event, CHAT_HOVER, size, () -> installed(chat)));
-			section.body().moveX2(C.WIDTH() - MARGIN).moveY1(MARGIN);
+			section.body().moveCX(C.WIDTH() / 2).moveY1(MARGIN); // the top right is the minimap's, with its zoom buttons
 		}
 
 		void open() {
