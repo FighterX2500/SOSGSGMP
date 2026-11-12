@@ -83,7 +83,7 @@ final class MpHotJoin {
 		if (phase.ordinal() > Phase.ASKED.ordinal() && setup.joining() == null)
 			reset("the joining PC left");
 		if (phase == Phase.ASKED && autopilot != null && autopilot.acceptJoin(setup::say))
-			answer(true);
+			answer(autopilot.joinAccepted());
 		switch (phase) {
 		case SNAPSHOT -> snapshot();
 		case PICKING -> picking();

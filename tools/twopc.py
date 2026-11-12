@@ -289,6 +289,8 @@ def main():
     ap.add_argument("--hot-join", type=int, default=-1, metavar="SECONDS",
                     help="a third game on this PC asks to join the running game this many seconds after the host's Go;"
                          " the host accepts, it settles, and every game restarts with it (SOS-190)")
+    ap.add_argument("--join-answer", choices=("accept", "refuse"), default="accept",
+                    help="with --hot-join: the host's answer to the late game")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
     if args.mods_from:
@@ -368,6 +370,8 @@ def main():
         common += ",manualdeals=1"
     if args.same_files:
         common += ",samefiles=1"
+    if args.join_answer != "accept":
+        common += ",joinanswer=" + args.join_answer
     host_view = ",view=" + args.host_view if args.host_view else ""
     join_view = ",view=" + args.view if args.view else ""
     host_capital = ",capital=" + args.host_capital if args.host_capital else ""
@@ -446,6 +450,8 @@ def main():
         sys.exit(0 if files_verdict(args, done, game_pid, (local, local2)) else 1)
     if args.crash:
         sys.exit(0 if gone_verdict(args, evs, done, local, crash_who, int(crash_at)) else 1)
+    if args.hot_join >= 0 and args.join_answer == "refuse":
+        sys.exit(0 if refused_join_verdict(evs, done) else 1)
     if args.hot_join >= 0:
         sys.exit(0 if hot_join_verdict(evs, done) else 1)
     if args.no_joiner or args.local_joiner or (args.resume and players < len(who_all)):
@@ -612,6 +618,22 @@ def files_verdict(args, done, host_pid, datas):
         log("crash file: %s" % c)
     ok = ok and not crashes
     log("PASS" if ok else "FAIL")
+    return bool(ok)
+
+
+def refused_join_verdict(evs, done):
+    """SOS-190: the host refused the late game, which ended with the host's reason; the two players played on in one
+    session (no restart) with the same world hashes."""
+    late = done.get("local", {})
+    log("local ended: %s (%s)" % (late.get("event"), late.get("reason")))
+    ok = all(done.get(w, {}).get("event") == "done" for w in ("host", "join")) and late.get("event") == "closed"
+    gos = {w: len([e for e in evs[w] if e["event"] == "go"]) for w in ("host", "join")}
+    log("Go events: %s; joinanswer: %s" % (gos, [e.get("accept") for e in evs["host"] if e["event"] == "joinanswer"]))
+    ok = ok and gos == {"host": 1, "join": 1}
+    common, differ = compare(evs, "host", "join")
+    log("host and join: %d common hash steps, %d differ" % (len(common), len(differ)))
+    ok = ok and common and not differ
+    log("RESULT: %s" % ("PASS" if ok else "FAIL"))
     return bool(ok)
 
 

@@ -142,6 +142,8 @@ public final class MpAutopilot {
 	private final long viewAt, viewClose;
 	/** How this PC's player answers an ask to view its city: allow, refuse or none. */
 	private final String viewAnswer;
+	/** Host: Refuse a PC that asks to join the running game (SOS-190), instead of Accept. */
+	private final boolean refuseJoin;
 	/** Each view's state as last reported, by viewer slot. */
 	private final Map<Integer, String> viewSeen = new HashMap<>();
 	/** This PC's capital's world tile from {@code capital=X:Y} (SOS-75); -1 to search for one. */
@@ -250,6 +252,7 @@ public final class MpAutopilot {
 		viewAt = Long.parseLong(view[0]);
 		viewClose = Long.parseLong(view[1]);
 		viewAnswer = m.getOrDefault("viewanswer", "allow");
+		refuseJoin = m.getOrDefault("joinanswer", "accept").equals("refuse");
 		if (!viewAnswer.equals("allow") && !viewAnswer.equals("refuse") && !viewAnswer.equals("none"))
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " viewanswer '" + viewAnswer + "', not allow, refuse or none");
 		String[] capital = m.getOrDefault("capital", "-1:-1").split(":");
@@ -1186,6 +1189,12 @@ public final class MpAutopilot {
 	 */
 	boolean acceptJoin(java.util.function.Consumer<String> say) {
 		return !stageChat("joinask", say) && first("acceptjoin");
+	}
+
+	/** Host: the answer {@link #acceptJoin} gives: true for Accept (the default), false for Refuse. */
+	boolean joinAccepted() {
+		event("joinanswer", "\"accept\":" + !refuseJoin);
+		return !refuseJoin;
 	}
 
 	/**
