@@ -436,6 +436,7 @@ def main():
         log("the second joiner started on this PC")
 
     seen = {w: 0 for w in who_all}
+    chose_lost = False
     done = {}
     deadline = time.time() + args.timeout
     while time.time() < deadline:
@@ -455,6 +456,11 @@ def main():
                     done[who] = e
             seen[who] = len(evs)
             (run / ("%s-events.jsonl" % who)).write_text(text, encoding="utf-8")
+        if args.crash and not chose_lost and any(e["event"] == "go" for e in events(texts["host"])):
+            # a crash breaks the connection, so it shows as lost, which the host waits out: it chooses at once instead
+            with open(local / EVENTS.parent / "command.txt", "a", encoding="utf-8") as f:
+                f.write("chooselost" + chr(10))
+            chose_lost = True
         if args.hot_join >= 0 and not late_started:
             gos = [e for e in events(texts["host"]) if e["event"] == "go"]
             if gos and time.time() * 1000 - gos[0]["t"] >= args.hot_join * 1000:
