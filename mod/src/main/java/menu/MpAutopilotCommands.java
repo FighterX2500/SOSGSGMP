@@ -178,6 +178,15 @@ final class MpAutopilotCommands {
 		return leaveLost;
 	}
 
+	/** The escape menu's Quit to menu, pressed once, from {@code quitask} (SOS-203): its question shows, unanswered. */
+	private boolean quitAsk;
+
+	boolean takeQuitAsk() {
+		boolean ask = quitAsk;
+		quitAsk = false;
+		return ask;
+	}
+
 	/** The host chooses for a hold of players only lost too, from {@code chooselost} (SOS-179). */
 	private boolean chooseLost;
 
@@ -304,6 +313,10 @@ final class MpAutopilotCommands {
 				VIEW.world().UI.regions.open(r);
 				return "region " + r.index() + "'s panel";
 			}
+			if (a[1].equals("menu")) { // the escape menu, for a shot (SOS-203)
+				VIEW.inters().menu.show();
+				return "escape menu";
+			}
 			if (a[1].equals("profile")) {
 				VIEW.UI().profile.activate();
 				return "profile window";
@@ -369,6 +382,9 @@ final class MpAutopilotCommands {
 			return state(engine);
 		case "regions":
 			return a.length < 4 ? "regions X Y R" : regions(Integer.parseInt(a[1]), Integer.parseInt(a[2]), Integer.parseInt(a[3]));
+		case "quitask":
+			quitAsk = true;
+			return "Quit to menu pressed";
 		case "leavelost":
 			if (host)
 				return "refused: the host has no lost-host window";
@@ -756,10 +772,6 @@ final class MpAutopilotCommands {
 			return "closing the view";
 		case "look":
 			return look(a);
-		case "worldlook": // test aid (SOS-200): the world map, centred on tile X Y, for a shot
-			view.main.VIEW.world().activate();
-			view.main.VIEW.world().window.centererTile.set(Integer.parseInt(a[1]), Integer.parseInt(a[2]));
-			return "world map at " + a[1] + "," + a[2];
 		case "speed":
 			if (!host && !Hooks.speedVoteHere()) // a battle's commanders vote (spec §8)
 				return "refused: the host sets the speed";

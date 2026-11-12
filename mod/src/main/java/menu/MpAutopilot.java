@@ -899,6 +899,8 @@ public final class MpAutopilot {
 		if (guiPreview >= 0 && d.waiting() && now - goneSeenAt > 2_000_000_000L && first("goneshot" + seenGone))
 			guiShot("gone"); // the disconnect window, the host's with its three choices (SOS-196)
 		chatShots(setup, engine, now);
+		if (commands.takeQuitAsk())
+			exit.quit(false); // as the escape menu's Quit to menu (SOS-203)
 		if (commands.leaveLost() && gone.canLeaveWithoutHost()) { // SOS-179: the window's button, then the test game quits
 			event("lefthostlost", "\"step\":" + step);
 			gone.leaveWithoutHost();
