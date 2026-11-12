@@ -26,6 +26,11 @@ public record LobbySettings(String difficulty, int maxPlayers, Resume resume, bo
 
     public static final int MIN_PLAYERS = 2;
     public static final int MAX_PLAYERS = 16;
+    /**
+     * A player's slot in the world, also their PC's number, is below this: the game's faction count. A player who joins a
+     * running game takes the first free NPC slot above the last player's, usually above 15 (SOS-190).
+     */
+    public static final int MAX_SLOTS = 64;
 
     public LobbySettings {
         if (difficulty == null || difficulty.isEmpty())

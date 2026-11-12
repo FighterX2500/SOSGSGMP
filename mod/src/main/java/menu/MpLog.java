@@ -59,7 +59,7 @@ final class MpLog {
 	private OwnBattle battle;
 	private boolean localBattle;
 	/** Each slot's battle against NPCs whose result step is logged already (SOS-162: a test checks it applied once, at one step). */
-	private final sosdet.LocalBattle[] resultLogged = new sosdet.LocalBattle[sosgsgmp.lobby.LobbySettings.MAX_PLAYERS];
+	private final sosdet.LocalBattle[] resultLogged = new sosdet.LocalBattle[sosgsgmp.lobby.LobbySettings.MAX_SLOTS];
 	/** The assault last seen, and whether its invasion had started then (SOS-92 B). */
 	private Assault assault;
 	private boolean assaultStarted;

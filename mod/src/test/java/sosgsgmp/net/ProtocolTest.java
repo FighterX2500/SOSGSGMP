@@ -53,7 +53,7 @@ class ProtocolTest {
             new Message.Ready(false),
             new Message.Picks(List.of(new FactionStep.PlayerPick(0, new FactionPick("HUMAN", "A", "Ruler", new byte[] {1}, 3, 4), null, true),
                 new FactionStep.PlayerPick(7, new FactionPick("HUMAN", "B", "Ruler", new byte[] {2}, FactionPick.NONE, FactionPick.NONE), "too close", false))),
-            new Message.SlotMap(1, List.of(new FactionStep.PlayerSlot(0, 0), new FactionStep.PlayerSlot(7, 15))),
+            new Message.SlotMap(1, List.of(new FactionStep.PlayerSlot(0, 0), new FactionStep.PlayerSlot(7, 15), new FactionStep.PlayerSlot(8, 37))),
             new Message.WorldPart(1, 0, 2, new byte[] {9, 8, 7}),
             new Message.SettlePart(1, 3, new byte[] {7, 8, 9}),
             new Message.Loaded(1, Long.MIN_VALUE),
@@ -162,7 +162,7 @@ class ProtocolTest {
         assertRefused(new Message.Picks(List.of(new FactionStep.PlayerPick(-1, new FactionPick("HUMAN", "A", "Ruler", new byte[0], 1, 1), null, false))));
         assertRefused(new Message.Picks(List.of(new FactionStep.PlayerPick(1, new FactionPick("HUMAN", "A", "Ruler", new byte[0], 1, 1), "x".repeat(257), false))));
         assertRefused(new Message.SlotMap(0, List.of(new FactionStep.PlayerSlot(0, 0))));
-        assertRefused(new Message.SlotMap(1, List.of(new FactionStep.PlayerSlot(0, 16))));
+        assertRefused(new Message.SlotMap(1, List.of(new FactionStep.PlayerSlot(0, LobbySettings.MAX_SLOTS))));
         assertRefused(new Message.WorldPart(0, 0, 1, new byte[1]));
         assertRefused(new Message.WorldPart(1, 2, 2, new byte[1]));
         assertRefused(new Message.Loaded(0, 1));
@@ -193,7 +193,7 @@ class ProtocolTest {
         badKind[3] = (byte) StreamKind.values().length; // after the version (2 bytes) and the type
         assertThrows(IOException.class, () -> Protocol.decode(badKind));
         byte[] badPc = stream.clone();
-        badPc[4] = (byte) LobbySettings.MAX_PLAYERS;
+        badPc[4] = (byte) LobbySettings.MAX_SLOTS;
         assertThrows(IOException.class, () -> Protocol.decode(badPc));
         assertThrows(IllegalArgumentException.class, () -> new Message.Stream(StreamKind.ORDERS, 1, -1, 0, new byte[0]));
         assertThrows(IllegalArgumentException.class, () -> new Message.Stream(StreamKind.ORDERS, 1, 0, 0, new byte[Protocol.MAX_STREAM_PIECE + 1]));
@@ -212,8 +212,8 @@ class ProtocolTest {
     /** City viewing's messages (SOS-82): a slot, a reason, a piece or a city out of range is refused. */
     @Test
     void viewMessagesWithBadValuesThrow() {
-        assertRefused(new Message.ViewAsk(LobbySettings.MAX_PLAYERS, 0));
-        assertRefused(new Message.ViewAsk(0, LobbySettings.MAX_PLAYERS));
+        assertRefused(new Message.ViewAsk(LobbySettings.MAX_SLOTS, 0));
+        assertRefused(new Message.ViewAsk(0, LobbySettings.MAX_SLOTS));
         assertRefused(new Message.Cursor(0, sosgsgmp.session.Cursors.BATTLE + 1, 0, 0));
         assertRefused(new Message.ViewAnswer(1, 2, false, "x".repeat(257)));
         assertRefused(new Message.ViewClose(1, Protocol.MAX_VIEW_CLOSE + 1));

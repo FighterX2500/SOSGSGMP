@@ -48,11 +48,11 @@ public final class Cursors {
     public static int battle(int slot) {
         if (slot < 0)
             throw new IllegalArgumentException("SOSGSGMP: a battle's place for slot " + slot);
-        return LobbySettings.MAX_PLAYERS + 1 + slot;
+        return LobbySettings.MAX_SLOTS + 1 + slot;
     }
 
     /** The battle every PC runs: one between players, or an assault (SOS-152). */
-    public static final int BATTLE = 2 * LobbySettings.MAX_PLAYERS + 1;
+    public static final int BATTLE = 2 * LobbySettings.MAX_SLOTS + 1;
 
     /**
      * Whether this PC's cursor, now at pixel {@code x, y} of {@code place} (or {@link #OFF}), should go out now: when it

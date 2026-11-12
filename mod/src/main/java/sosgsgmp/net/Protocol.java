@@ -611,7 +611,7 @@ public final class Protocol {
             long key = in.readLong();
             String name2 = name(in);
             int slot = in.readUnsignedByte();
-            if (slot >= LobbySettings.MAX_PLAYERS)
+            if (slot >= LobbySettings.MAX_SLOTS)
                 throw new IOException("SOSGSGMP: campaign slot " + slot);
             players.add(new Campaign.Player(key, name2, slot, in.readBoolean(), in.readBoolean()));
         }
@@ -782,7 +782,7 @@ public final class Protocol {
         if (kind >= StreamKind.values().length)
             throw new IOException("SOSGSGMP: stream kind " + kind);
         int pc = in.readUnsignedByte();
-        if (pc >= LobbySettings.MAX_PLAYERS)
+        if (pc >= LobbySettings.MAX_SLOTS)
             throw new IOException("SOSGSGMP: stream of PC " + pc);
         long offset = in.readLong();
         long step = in.readLong();
@@ -799,7 +799,7 @@ public final class Protocol {
     /** A player's slot: their PC's number. */
     private static int slot(DataInputStream in) throws IOException {
         int slot = in.readUnsignedByte();
-        if (slot >= LobbySettings.MAX_PLAYERS)
+        if (slot >= LobbySettings.MAX_SLOTS)
             throw new IOException("SOSGSGMP: slot " + slot);
         return slot;
     }
@@ -870,7 +870,7 @@ public final class Protocol {
         for (int i = 0; i < n; i++) {
             int id = playerId(in);
             int slot = in.readUnsignedByte();
-            if (slot >= LobbySettings.MAX_PLAYERS)
+            if (slot >= LobbySettings.MAX_SLOTS)
                 throw new IOException("SOSGSGMP: slot " + slot);
             all.add(new FactionStep.PlayerSlot(id, slot));
         }

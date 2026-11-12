@@ -239,7 +239,7 @@ public sealed interface Message {
      */
     record Stream(StreamKind kind, int pc, long offset, long step, byte[] bytes) implements Message {
         public Stream {
-            if (pc < 0 || pc >= LobbySettings.MAX_PLAYERS || offset < 0 || step < 0 || bytes.length > Protocol.MAX_STREAM_PIECE)
+            if (pc < 0 || pc >= LobbySettings.MAX_SLOTS || offset < 0 || step < 0 || bytes.length > Protocol.MAX_STREAM_PIECE)
                 throw new IllegalArgumentException("SOSGSGMP: stream piece of PC " + pc + " at " + offset + ", step " + step + ", " + bytes.length + " bytes");
             bytes = bytes.clone();
         }

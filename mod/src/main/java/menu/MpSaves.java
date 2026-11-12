@@ -38,7 +38,7 @@ final class MpSaves {
 	private CampaignRecord.Kind waiting;
 	private boolean loggedWaiting;
 	/** Host: a save that ends the session has the views in its way closed; each view is asked once. */
-	private final View[] closing = new View[LobbySettings.MAX_PLAYERS];
+	private final View[] closing = new View[LobbySettings.MAX_SLOTS];
 	private boolean closingViews;
 	/** The latest save's outcome for the panel; empty before the first. */
 	private String status = "";
