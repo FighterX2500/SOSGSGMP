@@ -351,7 +351,7 @@ public final class MpSettle implements CORE_STATE.Constructor {
 			else if (mine != null && mine.refused() != null)
 				status.add("Your spot was refused: ").add(mine.refused()).add(". Pick another.");
 			else if (mine == null || !mine.pick().hasLocation())
-				status.add("Press Place and pick where your city-state goes: 6 tiles or more from another player, away from roads and large water. The tooltip says why a spot can't be used. A region of a large kingdom breaks away as a new neutral state; unowned land becomes one.");
+				status.add("Press Place and pick where your city-state goes: 6 tiles or more from every town and every other player. The tooltip says why a spot can't be used. A region of a large kingdom breaks away as a new neutral state; unowned land becomes one.");
 			else if (!f.ready())
 				status.add("Press Ready when your city-state is where you want it.");
 			else

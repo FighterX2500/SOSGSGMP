@@ -218,10 +218,11 @@ public final class MpPlayers {
 
 	/**
 	 * Hooks M4 and M7: whether this player reaches {@code f}, which those lists sort by and darken the rest. An NPC by
-	 * vanilla's rule; another player by the rule their trade walks, across a player's land at peace too (SOS-134).
+	 * vanilla's rule; another player by the rule their trade walks, across a player's land at peace too (SOS-134), or by
+	 * vanilla's, which a colleague player's land carries on (SOS-200): the players a treaty may be proposed to.
 	 */
 	public static boolean reachable(Faction f) {
-		return PlayerDeals.otherPlayer(f) ? PlayerDeals.tradeReaches(f.index()) : RD.DIST().reachable(f);
+		return PlayerDeals.otherPlayer(f) ? PlayerDeals.tradeReaches(f.index()) || RD.DIST().reachable(f) : RD.DIST().reachable(f);
 	}
 
 	/** Vanilla's toll per item between this player and {@code f}: the capital-to-capital distance, less the roads' boost. */

@@ -8,17 +8,14 @@ import game.faction.FactionProfileFlusher;
 import game.faction.player.Player;
 import game.save.GameLoader;
 import init.constant.C;
-import init.race.RACES;
-import init.race.Race;
+import init.sprite.SPRITES;
 import init.sprite.UI.UI;
 import snake2d.CORE;
 import snake2d.CORE_STATE;
 import snake2d.LOG;
-import snake2d.MButt;
-import snake2d.Renderer;
 import snake2d.SPRITE_RENDERER;
 import snake2d.util.color.COLOR;
-import snake2d.util.datatypes.COORDINATE;
+import snake2d.util.datatypes.DIR;
 import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
@@ -29,24 +26,22 @@ import sosgsgmp.net.Message;
 import sosgsgmp.session.SetupSession;
 import sosgsgmp.setup.FactionPick;
 import util.colors.GCOLOR;
-import util.gui.misc.GBox;
 import util.gui.misc.GButt;
+import util.gui.misc.GHeader;
 import util.gui.misc.GText;
-import util.gui.panel.GPanel;
-import view.interrupter.Interrupter;
-import view.main.VIEW;
+import view.tool.PLACABLE;
 import view.tool.PlacableFixedImp;
-import view.tool.ToolConfig;
-import view.ui.profile.UIProfile;
+import view.world.generator.MpJoinScreens;
 import world.WORLD;
 import world.map.regions.centre.WCentre;
 
 /**
  * SOSGSGMP hot-join (SOS-190, docs/plan/hot-join-restart.md): a PC that joins a running game picks its race, faction
  * and the spot of its city-state on the host's snapshot, loaded outside any engine session and paused, while everyone
- * else plays on. The host checks the spot on the live world; once it takes it, the founding save is made and every PC
- * restarts from it, this one from the host's copy ({@link MpWorldLoad}). The snapshot is a copy of the host's game: the
- * faction this panel edits is the host's Player in that copy, which nothing keeps.
+ * else plays on. It picks through the setup's own screens ({@link MpJoinScreens}, SOS-198): race, Customize Faction,
+ * then the location. The host checks the spot on the live world; once it takes it, the founding save is made and every
+ * PC restarts from it, this one from the host's copy ({@link MpWorldLoad}). The snapshot is a copy of the host's game:
+ * the faction these screens edit is the host's Player in that copy, which nothing keeps.
  */
 public final class MpJoinSettle implements CORE_STATE.Constructor {
 
@@ -70,48 +65,45 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 			game.deleteSaveFile(file);
 		}
 		GAME.SPEED.speedSet(0);
-		WORLD.FOW().toggled.set(false); // the whole map to pick on
 		Player p = FACTIONS.player();
 		int hostX = p.capitolRegion() == null ? WORLD.TWIDTH() / 2 : p.capitolRegion().cx();
 		int hostY = p.capitolRegion() == null ? WORLD.THEIGHT() / 2 : p.capitolRegion().cy();
-		String race = p.race().key;
+		Join join = new Join(setup, game, hostX, hostY); // reads the players before this PC's faction replaces the host's
 		// this PC's own faction, not the host's: its saved default, else a name to type
 		if (FactionProfileFlusher.canLoad(p))
 			FactionProfileFlusher.load(p);
 		else
 			p.name.clear();
 		LOG.ln("SOSGSGMP: the host's snapshot to join on loaded in " + (System.nanoTime() - t) / 1_000_000 + " ms");
-		Panel panel = new Panel(setup, game, race, hostX, hostY);
-		panel.open();
+		MpJoinScreens screens = MpJoinScreens.open(join, hostX, hostY);
+		if (join.autopilot != null) // the autopilot goes to the location screen as a newcomer would, after the game's update
+			GAME.addAfterUpdate(() -> join.autopilot.joinScreens(screens::customize, () -> {
+				screens.location();
+				join.atLocation = true;
+			}));
 		MpChat.show(setup);
-		VIEW.world().activate();
-		VIEW.world().window.centererTile.set(hostX, hostY);
-		panel.place();
 		return view;
 	}
 
-	/** The race, Customize, the status line, Place, Ready and Leave. */
-	private static final class Panel extends Interrupter {
+	/** The pick's session and what its screens show: every player's row, the status line, Ready, Leave and the placer. */
+	private static final class Join implements MpJoinScreens.Pick {
 
-		private static final int WIDTH = 400;
-		private static final int STATUS_LINES = 7;
+		private static final int WIDTH = 420;
+		private static final int STATUS_LINES = 6;
 		private static final int HALF = WCentre.TILE_DIM / 2;
 		private static final CharSequence TITLE = "Place your city-state";
-		private static final String PLACE = "Pick your race, name your faction (Customize), press Place and pick a spot"
-				+ " 6 tiles or more from every player, away from roads and large water, then press Ready. Everyone plays on"
+		private static final String PLACE = "Pick your race and customize your faction, then pick where your city-state goes:"
+				+ " 6 tiles or more from every town and every player's capital. Ready sends it to the host. Everyone plays on"
 				+ " meanwhile.";
 
 		private final SetupSession setup;
 		private final WorldSetupAdapter game;
-		private final GuiSection section = new GuiSection();
-		private final GuiSection inner = new GuiSection();
-		private final MpDrag drag = new MpDrag();
 		private final GText status = new GText(UI.FONT().M, 384);
-		private final GText raceText = new GText(UI.FONT().M, 64);
+		private final GText ownRow = new GText(UI.FONT().M, 128);
 		private final int hostX;
 		private final int hostY;
 		private final MpAutopilot autopilot = MpAutopilot.fromEnv();
-		private String race;
+		private final Placer placer = new Placer();
 		private int ownX = FactionPick.NONE;
 		private int ownY = FactionPick.NONE;
 		/** The pick went to the host, which hasn't answered yet, or took it. */
@@ -121,17 +113,19 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 		/** After the host's restart: the new setup, until its slot map and the founding save are here. */
 		private SetupSession restarted;
 		private boolean leaving;
-		/** Every player's capital in the snapshot, for the placer's marks. */
+		/** The autopilot reached the location screen: it picks its spot there. */
+		private boolean atLocation;
+		/** Every player in the snapshot: its capital, for the placer's marks, and its row as the snapshot had it. */
 		private final int[] capX = new int[FACTIONS.MAX()];
 		private final int[] capY = new int[FACTIONS.MAX()];
 		private final GText[] capNames = new GText[FACTIONS.MAX()];
+		private final GText[] rows = new GText[FACTIONS.MAX()];
 		private int caps;
+		private int shownStatus = -1;
 
-		Panel(SetupSession setup, WorldSetupAdapter game, String race, int hostX, int hostY) {
-			super(true, true, false);
+		Join(SetupSession setup, WorldSetupAdapter game, int hostX, int hostY) {
 			this.setup = setup;
 			this.game = game;
-			this.race = race;
 			this.hostX = hostX;
 			this.hostY = hostY;
 			for (int i = 0; i < FACTIONS.MAX(); i++) {
@@ -139,138 +133,92 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 					capX[caps] = h.capitolRegion().cx();
 					capY[caps] = h.capitolRegion().cy();
 					capNames[caps] = new GText(UI.FONT().S, 32);
-					capNames[caps].add(i == FACTIONS.player().index() ? "the host" : h.name);
+					capNames[caps].add(h.name);
+					rows[caps] = new GText(UI.FONT().M, 128).setMaxWidth(WIDTH);
+					rows[caps].add(h.name).add(i == FACTIONS.player().index() ? " (host)" : "").add(": ").add(h.race().info.name)
+							.add(", at ").add(capX[caps]).add(',').add(capY[caps]);
+					rows[caps].color(GCOLOR.T().NORMAL);
 					caps++;
 				}
 			}
-			inner.add(new RENDEROBJ.RenderImp(WIDTH, UI.FONT().M.height()) {
+			ownRow.setMaxWidth(WIDTH);
+		}
+
+		@Override
+		public GuiSection info() {
+			GuiSection s = new GuiSection();
+			s.add(new GHeader("players"), 0, 0);
+			int line = UI.FONT().M.height() + 2;
+			s.addDown(4, new RENDEROBJ.RenderImp(WIDTH, line * (caps + 1)) {
 				@Override
 				public void render(SPRITE_RENDERER r, float ds) {
-					raceText.clear().add("Race: ").add(raceName(Panel.this.race));
-					raceText.render(r, body.x1(), body.y1());
-				}
-			}, 0, 0);
-			GuiSection raceButtons = new GuiSection();
-			raceButtons.add(new GButt.ButtPanel("previous race") {
-				@Override
-				protected void clickA() {
-					cycleRace(-1);
-				}
-
-				@Override
-				protected void renAction() {
-					activeSet(!locked());
+					int y = body.y1();
+					for (int i = 0; i < caps; i++, y += line)
+						rows[i].render(r, body.x1(), y);
+					ownRow(); // the faction and race change on the other screens
+					ownRow.render(r, body.x1(), y);
 				}
 			});
-			raceButtons.addRightC(8, new GButt.ButtPanel("next race") {
-				@Override
-				protected void clickA() {
-					cycleRace(1);
-				}
-
-				@Override
-				protected void renAction() {
-					activeSet(!locked());
-				}
-			});
-			raceButtons.addRightC(8, new GButt.ButtPanel("customize") {
-				@Override
-				protected void clickA() {
-					new Customize().open();
-				}
-
-				@Override
-				protected void renAction() {
-					activeSet(!locked());
-				}
-			});
-			inner.addDown(4, raceButtons);
-			inner.addDown(8, new RENDEROBJ.RenderImp(WIDTH, UI.FONT().M.height() * STATUS_LINES) {
+			s.addDown(12, new RENDEROBJ.RenderImp(WIDTH, UI.FONT().M.height() * STATUS_LINES) {
 				@Override
 				public void render(SPRITE_RENDERER r, float ds) {
+					if (shownStatus != statusKey())
+						showStatus();
 					status.render(r, body.x1(), body.y1());
 				}
 			});
 			status.setMaxWidth(WIDTH);
 			status.setMultipleLines(true);
-			GuiSection buttons = new GuiSection();
-			buttons.add(new GButt.ButtPanel("place") {
-				@Override
-				protected void clickA() {
-					place();
-				}
+			return s;
+		}
 
-				@Override
-				protected void renAction() {
-					activeSet(!locked());
-				}
-			});
-			buttons.addRightC(16, new GButt.ButtPanel("ready") {
+		/** This PC's row: its faction as now named, its race, and where the pick stands. No allocation: every frame. */
+		private void ownRow() {
+			Player p = FACTIONS.player();
+			ownRow.clear().add(p.name.length() == 0 ? "Your faction" : p.name).add(" (you): ").add(p.race().info.name);
+			if (taken || restarted != null)
+				ownRow.add(", taken by the host");
+			else if (sent)
+				ownRow.add(", sent to the host");
+			else if (ownX != FactionPick.NONE)
+				ownRow.add(", at ").add(ownX).add(',').add(ownY);
+			else
+				ownRow.add(", picking");
+			ownRow.color(ownX != FactionPick.NONE ? GCOLOR.T().IGOOD : GCOLOR.T().NORMAL);
+		}
+
+		@Override
+		public GButt.ButtPanel ready() {
+			return new GButt.ButtPanel("ready") {
 				@Override
 				protected void clickA() {
-					ready();
+					sendReady();
 				}
 
 				@Override
 				protected void renAction() {
 					activeSet(!locked() && ownX != FactionPick.NONE && named());
 				}
-			});
-			buttons.addRightC(16, MpSetupLeave.button(setup, () -> leaving = true));
-			inner.addDown(8, buttons);
-			GPanel panel = new GPanel(inner.body().width(), inner.body().height());
-			panel.setTitle("Joining the game");
-			panel.inner().set(inner);
-			section.add(panel);
-			section.add(inner);
-			section.body().moveX2(C.WIDTH() - 16).moveY1(96);
-			showStatus();
+			};
 		}
 
-		void open() {
-			show(VIEW.inters().manager);
+		@Override
+		public GButt.ButtPanel leave() {
+			return MpSetupLeave.button(setup, () -> leaving = true);
 		}
 
-		void place() {
-			if (locked())
-				return;
-			VIEW.world().tools.place(new Placer(), new ToolConfig() {
-				@Override
-				public boolean back() {
-					return false;
-				}
-			});
+		@Override
+		public PLACABLE placer() {
+			return placer;
 		}
 
-		/** Sent and waiting for the host, taken, or restarting: nothing changes. */
-		private boolean locked() {
+		@Override
+		public boolean locked() {
 			return sent || taken || restarted != null || setup.closed();
 		}
 
 		private boolean named() {
 			return !FACTIONS.player().name.toString().isBlank();
-		}
-
-		private void cycleRace(int by) {
-			int n = RACES.all().size();
-			int at = 0;
-			for (int i = 0; i < n; i++)
-				if (RACES.all().get(i).key.equals(race))
-					at = i;
-			for (int k = 1; k <= n; k++) {
-				Race r = RACES.all().get(Math.floorMod(at + by * k, n));
-				if (r.playable) {
-					race = r.key;
-					return;
-				}
-			}
-		}
-
-		private static CharSequence raceName(String key) {
-			for (Race r : RACES.all())
-				if (r.key.equals(key))
-					return r.info.name;
-			return key;
 		}
 
 		private void placeAt(int x, int y) {
@@ -282,17 +230,24 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 			showStatus();
 		}
 
-		/** The pick goes to the host: this race, the faction as customized, the spot. */
-		private void ready() {
+		/** The pick goes to the host: the race and faction as the screens left them, and the spot. */
+		private void sendReady() {
 			FactionPick p = game.pick(ownX, ownY);
 			if (p == null || locked())
 				return;
-			setup.pick(new FactionPick(race, p.name(), p.ruler(), p.banner(), ownX, ownY));
+			setup.pick(p);
 			sent = true;
 			showStatus();
 		}
 
+		/** What the status line depends on, so it is rebuilt only when that changes. */
+		private int statusKey() {
+			int k = setup.closed() ? 1 : restarted != null ? 2 : taken ? 3 : sent ? 4 : !answer.isEmpty() ? 5 : !named() ? 6 : 7;
+			return k * 2 + (ownX != FactionPick.NONE ? 1 : 0);
+		}
+
 		private void showStatus() {
+			shownStatus = statusKey();
 			status.clear();
 			if (setup.closed())
 				status.add(setup.closedReason());
@@ -306,50 +261,15 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 			else if (!answer.isEmpty())
 				status.add("The host can't use that spot: ").add(answer).add(" Pick another one.");
 			else if (!named())
-				status.add("Name your faction: press Customize. ").add(PLACE);
+				status.add("Your faction needs a name: Customize Faction. ").add(PLACE);
+			else if (ownX != FactionPick.NONE)
+				status.add("Press Ready to send your spot to the host, or click another one.");
 			else
 				status.add(PLACE);
 		}
 
 		@Override
-		protected boolean hover(COORDINATE mCoo, boolean mouseHasMoved) {
-			return section.hover(mCoo) || section.body().holdsPoint(mCoo.x(), mCoo.y());
-		}
-
-		@Override
-		protected void mouseClick(MButt button) {
-			if (button != MButt.LEFT)
-				return;
-			if (!drag.grab(section, inner, VIEW.mouse().x(), VIEW.mouse().y()))
-				section.click();
-		}
-
-		@Override
-		protected void hoverTimer(GBox text) {
-			section.hoverInfoGet(text);
-		}
-
-		@Override
-		protected boolean render(Renderer r, float ds) {
-			pump();
-			if (leaving)
-				return true;
-			drag.follow(section, VIEW.mouse().x(), VIEW.mouse().y());
-			section.render(r, ds);
-			return true;
-		}
-
-		@Override
-		protected boolean update(float ds) {
-			return true;
-		}
-
-		@Override
-		public boolean canSave() {
-			return false;
-		}
-
-		private void pump() {
+		public void frame() {
 			if (leaving)
 				return;
 			if (!GAME.SPEED.isPaused())
@@ -380,40 +300,20 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 					CampaignRecord record = new CampaignRecord(r.campaign(), r.number(), CampaignRecord.Kind.AUTO,
 							System.currentTimeMillis(), restarted.factions().slotOf(restarted.localPlayerId()), "the host's", 0);
 					leaving = true;
-					hide();
 					CORE.setCurrentState(new MpWorldLoad(restarted, record, world));
 					return;
 				}
 				if (restarted.closed())
 					throw new IllegalStateException("SOSGSGMP: the connection ended during the restart: " + restarted.closedReason());
 			}
-			if (autopilot != null && restarted == null)
+			if (autopilot != null && restarted == null && atLocation)
 				autopilot.joinSettle(hostX, hostY, ownX != FactionPick.NONE, game::joinProblem, (x, y) -> {
 					placeAt(x, y);
 					return ownX;
 				}, () -> {
 					if (!locked() && named())
-						ready();
+						sendReady();
 				});
-		}
-
-		/** Vanilla's faction name, ruler name and banner, with Save and Load Default, on this PC's faction. */
-		private final class Customize extends MpWindow {
-			Customize() {
-				super("Customize Faction");
-				inner.add(UIProfile.section(false));
-				inner.addDown(8, new GButt.ButtPanel("done") {
-					@Override
-					protected void clickA() {
-						close();
-						showStatus();
-					}
-				});
-			}
-
-			@Override
-			void frame() {
-			}
 		}
 
 		/** The city-state placer: a 3x3 square whose centre is the spot, checked by the carving rule on the snapshot. */
@@ -482,21 +382,25 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 					mark(r, GCOLOR.MAP().BAD, sx, sy);
 					capNames[i].render(r, sx, sy - capNames[i].height());
 				}
-				if (ownX != FactionPick.NONE)
-					mark(r, GCOLOR.MAP().OK, square(x, tx, ownX), square(y, ty, ownY));
+				if (ownX != FactionPick.NONE) // the picked spot as the placer draws a spot, fixed there (SOS-198)
+					mark(r, GCOLOR.MAP().SOSO, square(x, tx, ownX), square(y, ty, ownY));
 			}
 
 			private int square(int at, int t, int c) {
 				return at + (c - HALF - t) * C.TILE_SIZE;
 			}
 
+			/** A capital's square in vanilla's placer tiles, edges masked as PlacableFixedTool masks them. */
 			private void mark(SPRITE_RENDERER r, COLOR color, int x1, int y1) {
-				int size = WCentre.TILE_DIM * C.TILE_SIZE;
-				int t = 3;
-				color.render(r, x1, x1 + size, y1, y1 + t);
-				color.render(r, x1, x1 + size, y1 + size - t, y1 + size);
-				color.render(r, x1, x1 + t, y1, y1 + size);
-				color.render(r, x1 + size - t, x1 + size, y1, y1 + size);
+				int n = WCentre.TILE_DIM;
+				color.bind();
+				for (int dy = 0; dy < n; dy++) {
+					for (int dx = 0; dx < n; dx++) {
+						int m = (dx == 0 ? DIR.W.mask() : 0) | (dx == n - 1 ? DIR.E.mask() : 0)
+								| (dy == 0 ? DIR.N.mask() : 0) | (dy == n - 1 ? DIR.S.mask() : 0);
+						SPRITES.cons().BIG.solid.render(r, ~m & 0x0F, x1 + dx * C.TILE_SIZE, y1 + dy * C.TILE_SIZE);
+					}
+				}
 				COLOR.unbind();
 			}
 		}

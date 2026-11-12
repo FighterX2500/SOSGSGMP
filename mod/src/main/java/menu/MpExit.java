@@ -49,6 +49,8 @@ final class MpExit implements MpEscapeMenu.Actions {
 	private boolean freezeAsked;
 	/** A joining PC that left frozen: nothing more happens here. */
 	private boolean leftFrozen;
+	/** A joining PC whose Quit to menu or Exit chose Leave and freeze: where it goes once it left (SOS-203); null otherwise. */
+	private Boolean quitFrozen;
 
 	MpExit(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpSaves saves, MpLog log) {
 		this.setup = setup;
@@ -171,6 +173,10 @@ final class MpExit implements MpEscapeMenu.Actions {
 			setup.leave();
 		game.endSession();
 		GAME.SPEED.speedSet(0);
+		if (quitFrozen != null && saveOutcome.isEmpty()) { // a quit that chose to freeze goes where it was headed
+			go(quitFrozen);
+			return;
+		}
 		MpPrompt.show("You left the game. Your city is frozen until you come back: join this campaign's game while it runs.\n"
 				+ (saveOutcome.isEmpty() ? "Every player saved the campaign." : "The campaign save: " + saveOutcome),
 				new GButt.ButtPanel("Main menu") {
@@ -212,8 +218,38 @@ final class MpExit implements MpEscapeMenu.Actions {
 					: " Leave without saving? The host chooses whether the others go on without you."), () -> leave(exitGame));
 			return;
 		}
+		if (!setup.isHost() && freezeRefusal() == null) {
+			askFreezeOrEnd(exitGame);
+			return;
+		}
 		confirm(setup.isHost() ? "Save the campaign and end the session for every player?"
 				: "Ask the host to save the campaign and end the session for every player?", () -> quitConfirmed(exitGame));
+	}
+
+	/**
+	 * A joining player's quit (spec §11 Saving by hand, SOS-203): leave frozen while the others play on, or have the host
+	 * save the campaign and end the session for every player.
+	 */
+	private void askFreezeOrEnd(boolean exitGame) {
+		GButt.ButtPanel freeze = new GButt.ButtPanel("Leave and freeze") {
+			@Override
+			protected void clickA() {
+				if (freezeRefusal() != null)
+					return;
+				quitFrozen = exitGame;
+				freezeConfirmed();
+			}
+		};
+		GButt.ButtPanel end = new GButt.ButtPanel("End for everyone") {
+			@Override
+			protected void clickA() {
+				quitConfirmed(exitGame);
+			}
+		};
+		GButt.ButtPanel cancel = new GButt.ButtPanel("Cancel");
+		// vanilla's prompt shows about five lines: the campaign is saved either way
+		MpPrompt.show("Quit the game? The campaign is saved first.\nLeave and freeze: the others play on; your capital waits,"
+				+ " frozen, for you.\nEnd for everyone: the session ends for all.", freeze, end, cancel);
 	}
 
 	/** The player confirmed: the host's save is ordered as soon as one can start, or asked of the host. Test tooling calls it too. */

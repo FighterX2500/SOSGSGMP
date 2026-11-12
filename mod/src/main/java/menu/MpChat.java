@@ -29,12 +29,14 @@ public final class MpChat extends Interrupter implements MpPanelButton.Panel {
 	private final MpChatBox box;
 	private final GuiSection section = new GuiSection();
 	private final MpDrag drag = new MpDrag();
+	private final GPanel panel;
 
 	/** Shows the box in this view; call after every load, as the view is new. */
 	public static void show(SetupSession setup) {
 		MpChat box = new MpChat(setup);
 		box.show(VIEW.inters().manager);
 		MpPanelButton.installChat(box);
+		MpPanelButton.showWhereNoTopBar();
 	}
 
 	private MpChat(SetupSession setup) {
@@ -43,8 +45,9 @@ public final class MpChat extends Interrupter implements MpPanelButton.Panel {
 		box = new MpChatBox(WIDTH, ROWS, setup::say);
 		box.opens(slot -> MpPlayers.open(FACTIONS.getByIndex(slot))); // a notice about a player (SOS-144)
 		box.show(chat);
-		GPanel panel = new GPanel(box.body().width(), box.body().height());
+		panel = new GPanel(box.body().width(), box.body().height());
 		panel.setTitle("Chat");
+		panel.setCloseAction(this::toggle); // the X in the corner, as vanilla's windows have (SOS-201)
 		panel.inner().set(box);
 		section.add(panel);
 		section.add(box);
@@ -75,7 +78,7 @@ public final class MpChat extends Interrupter implements MpPanelButton.Panel {
 
 	@Override
 	protected void mouseClick(MButt button) {
-		if (button != MButt.LEFT)
+		if (button != MButt.LEFT || panel.hoveredIs()) // the X closes it in its own hover
 			return;
 		if (!drag.grab(section, box, VIEW.mouse().x(), VIEW.mouse().y()))
 			section.click();

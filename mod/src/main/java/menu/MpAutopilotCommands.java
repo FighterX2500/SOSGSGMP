@@ -178,6 +178,15 @@ final class MpAutopilotCommands {
 		return leaveLost;
 	}
 
+	/** The escape menu's Quit to menu, pressed once, from {@code quitask} (SOS-203): its question shows, unanswered. */
+	private boolean quitAsk;
+
+	boolean takeQuitAsk() {
+		boolean ask = quitAsk;
+		quitAsk = false;
+		return ask;
+	}
+
 	/** The host chooses for a hold of players only lost too, from {@code chooselost} (SOS-179). */
 	private boolean chooseLost;
 
@@ -224,6 +233,38 @@ final class MpAutopilotCommands {
 		}
 	}
 
+	/**
+	 * Test aid (SOS-197): the factions whose capitals this PC's human reaches by vanilla's diplomatic rule (SEA when over
+	 * water), and for each human how many of its regions this PC's fog leaves clear, with "reach" when vanilla's rule
+	 * reaches it and "trade" when its trade does, which player treaties need.
+	 */
+	private static String reach() {
+		world.map.regions.Region cap = FACTIONS.player().capitolRegion();
+		if (cap == null)
+			return "reach: no capital";
+		StringBuilder b = new StringBuilder("reach of slot " + FACTIONS.player().index() + " from " + cap.cx() + "," + cap.cy() + ":");
+		for (world.map.pathing.WRegFinder.RegDist d : world.WORLD.PATH().regFinder.all(cap,
+				world.map.pathing.WRegFinder.Treaty.FACTION_REACHABLE, world.map.pathing.WRegSel.DUMMY()))
+			if (d.reg.capitol() && d.reg.faction() != null && d.reg.faction() != FACTIONS.player())
+				b.append(" [").append(d.reg.faction().index()).append(' ').append(d.reg.faction().name)
+						.append(d.water ? " SEA" : "").append(" d").append(d.distance).append(']');
+		b.append(" | clear regions of humans:");
+		for (int h : Hooks.humanSlots()) {
+			Faction f = FACTIONS.getByIndex(h);
+			int seen = 0;
+			int all = 0;
+			for (world.map.regions.Region r : world.WORLD.REGIONS().active())
+				if (r.faction() == f) {
+					all++;
+					seen += world.WORLD.FOW().is(r.cx(), r.cy()) ? 0 : 1;
+				}
+			b.append(' ').append(h).append(':').append(seen).append('/').append(all)
+					.append(world.region.RD.DIST().reachable(f) ? " reach" : "")
+					.append(f != FACTIONS.player() && Engine.tradeReaches(h) ? " trade" : "");
+		}
+		return b.toString();
+	}
+
 	private Faction other() {
 		return FACTIONS.getByIndex(target >= 0 ? target : Engine.local() == 0 ? 1 : 0);
 	}
@@ -239,6 +280,8 @@ final class MpAutopilotCommands {
 			return "pause toggled";
 		case "status":
 			return status(engine);
+		case "reach":
+			return reach();
 		case "shot":
 			if (setup.loading().shown() != null) // a shot at a loading window's freeze would deadlock the game (SOS-158)
 				return "refused: a loading window is open";
@@ -270,6 +313,10 @@ final class MpAutopilotCommands {
 				VIEW.world().UI.regions.open(r);
 				return "region " + r.index() + "'s panel";
 			}
+			if (a[1].equals("menu")) { // the escape menu, for a shot (SOS-203)
+				VIEW.inters().menu.show();
+				return "escape menu";
+			}
 			if (a[1].equals("profile")) {
 				VIEW.UI().profile.activate();
 				return "profile window";
@@ -284,8 +331,10 @@ final class MpAutopilotCommands {
 		}
 		case "peace":
 		case "ally":
+		case "pact":
 		case "trade": {
-			int treaty = a[0].equals("peace") ? DealBook.PEACE : a[0].equals("ally") ? DealBook.ALLY : DealBook.TRADE;
+			int treaty = a[0].equals("peace") ? DealBook.PEACE : a[0].equals("ally") ? DealBook.ALLY
+					: a[0].equals("pact") ? DealBook.PACT : DealBook.TRADE;
 			int credits = a.length > 1 ? Integer.parseInt(a[1]) : 0;
 			DealBook.Terms t = new DealBook.Terms(treaty, credits, 0, new int[0], new int[0]);
 			String why = PlayerDeals.refusal(slot, t);
@@ -333,6 +382,9 @@ final class MpAutopilotCommands {
 			return state(engine);
 		case "regions":
 			return a.length < 4 ? "regions X Y R" : regions(Integer.parseInt(a[1]), Integer.parseInt(a[2]), Integer.parseInt(a[3]));
+		case "quitask":
+			quitAsk = true;
+			return "Quit to menu pressed";
 		case "leavelost":
 			if (host)
 				return "refused: the host has no lost-host window";

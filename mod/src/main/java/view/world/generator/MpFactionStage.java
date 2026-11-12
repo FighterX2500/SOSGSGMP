@@ -19,7 +19,7 @@ import view.ui.profile.UIProfile;
 
 /**
  * SOSGSGMP: the factions step's race and Customize Faction screens (setup-factions-step.md §2), with every player's
- * row beside them. They are built as vanilla's StagePickRace and StageVisuals build theirs, from the same parts, but
+ * row beside them; a hot-join's pick shows them too (SOS-198). They are built as vanilla's StagePickRace and StageVisuals build theirs, from the same parts, but
  * without their Confirm: it runs WorldViewGenerator.set(), which goes on to vanilla's one-player capital stage.
  */
 final class MpFactionStage {
@@ -31,7 +31,7 @@ final class MpFactionStage {
 	}
 
 	/** The race screen: vanilla's race buttons, description, challenge, pros and cons. */
-	static void race(MpFactions f) {
+	static void race(MpFactionScreens f) {
 		GuiSection s = new GuiSection();
 		int i = 0;
 		for (Race r : RACES.all())
@@ -82,7 +82,7 @@ final class MpFactionStage {
 	 * The Customize Faction screen: vanilla's faction name, ruler name and banner, with Save and Load Default. A living
 	 * world's other player (SOS-187) picks no location here: Ready is on this screen, and they settle on the built world.
 	 */
-	static void customize(MpFactions f) {
+	static void customize(MpFactionScreens f) {
 		GuiSection s = new GuiSection();
 		s.add(UIProfile.section(false));
 		GButt.ButtPanel back = new GButt.ButtPanel("back") {
@@ -91,27 +91,16 @@ final class MpFactionStage {
 				race(f);
 			}
 		};
-		if (f.settlesLater()) {
-			show(f, s, CUSTOMIZE_TITLE, back, null);
-			return;
-		}
-		show(f, s, CUSTOMIZE_TITLE, back, new GButt.ButtPanel("Pick Location") {
-			@Override
-			protected void clickA() {
-				MpLocationStage.place(f);
-			}
-		});
+		show(f, s, CUSTOMIZE_TITLE, back, f.afterCustomize());
 	}
 
 	/** Shows {@code content} with the players' side to its right, in the generator's centred panel. */
-	private static void show(MpFactions f, GuiSection content, CharSequence title, GButt.ButtPanel back, GButt.ButtPanel next) {
-		f.g.reset();
-		f.onLocation = false;
+	private static void show(MpFactionScreens f, GuiSection content, CharSequence title, GButt.ButtPanel back, GButt.ButtPanel next) {
 		GuiSection all = new GuiSection();
 		all.add(f.locking(content));
 		all.addRelBody(32, DIR.E, f.side(back, next));
 		all.pad(8, 8);
-		f.g.dummy.add(all, title);
+		f.showCentred(all, title);
 	}
 
 	private static CLICKABLE raceButton(Race r) {

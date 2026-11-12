@@ -899,6 +899,8 @@ public final class MpAutopilot {
 		if (guiPreview >= 0 && d.waiting() && now - goneSeenAt > 2_000_000_000L && first("goneshot" + seenGone))
 			guiShot("gone"); // the disconnect window, the host's with its three choices (SOS-196)
 		chatShots(setup, engine, now);
+		if (commands.takeQuitAsk())
+			exit.quit(false); // as the escape menu's Quit to menu (SOS-203)
 		if (commands.leaveLost() && gone.canLeaveWithoutHost()) { // SOS-179: the window's button, then the test game quits
 			event("lefthostlost", "\"step\":" + step);
 			gone.leaveWithoutHost();
@@ -1290,9 +1292,49 @@ public final class MpAutopilot {
 		return !refuseJoin;
 	}
 
+	/** Hot-join's screens as the autopilot walks them (SOS-198): 0 race, 1 race shot, 2 Customize, 3 its shot, 4 location. */
+	private int joinScreen;
+	private long joinScreenAt;
+
+	/**
+	 * Hot-join, once per frame after the game's update (SOS-198): with a GUI preview, the race screen and Customize
+	 * Faction two seconds each with a shot, then the location screen; without, the location screen at once.
+	 */
+	void joinScreens(Runnable customize, Runnable location) {
+		if (joinScreen == 4)
+			return;
+		if (VIEW.inters().load.isActivated()) {
+			VIEW.inters().load.deactivate(); // vanilla's "click to continue" after the snapshot's load hides the screens
+			return;
+		}
+		if (guiPreview < 0) {
+			joinScreen = 4;
+			location.run();
+			return;
+		}
+		long now = System.nanoTime();
+		if (joinScreenAt == 0)
+			joinScreenAt = now;
+		double s = (now - joinScreenAt) / 1e9;
+		if ((joinScreen == 0 || joinScreen == 2) && s >= 2) {
+			guiShot(joinScreen == 0 ? "joinrace" : "joincustomize");
+			joinScreen++;
+		} else if (joinScreen == 1 && s >= 3) {
+			joinScreen = 2;
+			joinScreenAt = now;
+			customize.run();
+		} else if (joinScreen == 3 && s >= 3) {
+			joinScreen = 4;
+			location.run();
+		}
+	}
+
+	/** Hot-join with a GUI preview: when this PC picked its spot, for the shot (SOS-198). */
+	private long joinPlacedAt;
+
 	/**
 	 * Hot-join (SOS-190), on the joining PC's snapshot: the nearest spot 7 tiles or more from the host's capital that the
-	 * carving rule takes, then Ready, once.
+	 * carving rule takes, then Ready, once; with a GUI preview, a shot of the screen three seconds after the spot is picked.
 	 */
 	void joinSettle(int hostX, int hostY, boolean placed, java.util.function.BiFunction<Integer, Integer, String> problem,
 			IntBinaryOperator placeAt, Runnable ready) {
@@ -1314,6 +1356,13 @@ public final class MpAutopilot {
 				}
 			}
 			event("joinsettled", "\"x\":-1");
+		}
+		if (placed && guiPreview >= 0 && !once.containsKey("joinshot")) { // the pick screen as a newcomer sees it (SOS-198)
+			if (joinPlacedAt == 0)
+				joinPlacedAt = System.nanoTime();
+			if (System.nanoTime() - joinPlacedAt >= 3_000_000_000L && first("joinshot"))
+				guiShot("joinsettle");
+			return;
 		}
 		if (placed && first("joinready")) {
 			event("joinready", "");

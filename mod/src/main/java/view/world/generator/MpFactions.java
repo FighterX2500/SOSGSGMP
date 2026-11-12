@@ -43,7 +43,7 @@ import util.gui.misc.GText;
  * <p>The host's Initialize World builds the world here; once a PC has the host's save, the pump leaves the generator
  * for the load ({@link MpWorldLoad}), as the map step leaves it for a rebuild.
  */
-final class MpFactions {
+final class MpFactions implements MpFactionScreens {
 
 	private static final double PICK_CHECK_SECONDS = 0.5;
 	static final int SIDE_WIDTH = 420;
@@ -131,7 +131,8 @@ final class MpFactions {
 	 * The side every screen shows: the players' rows, the status line, the screen's own buttons, and Leave. It pumps the
 	 * session from its render, once per frame (the screens show exactly one of these at a time).
 	 */
-	GuiSection side(GButt.ButtPanel back, GButt.ButtPanel next) {
+	@Override
+	public GuiSection side(GButt.ButtPanel back, GButt.ButtPanel next) {
 		GuiSection s = new GuiSection() {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
@@ -241,12 +242,32 @@ final class MpFactions {
 	}
 
 	/** {@code content}, greyed and taking no clicks while {@link #locked()}. */
-	GuiSection locking(GuiSection content) {
+	@Override
+	public GuiSection locking(GuiSection content) {
 		return locking(content, this::locked);
 	}
 
-	/** {@code content}, greyed and taking no clicks while {@code lock} says so. */
-	private GuiSection locking(GuiSection content, BooleanSupplier lock) {
+	@Override
+	public void showCentred(GuiSection content, CharSequence title) {
+		g.reset();
+		onLocation = false;
+		g.dummy.add(content, title);
+	}
+
+	@Override
+	public GButt.ButtPanel afterCustomize() {
+		if (settlesLater())
+			return null;
+		return new GButt.ButtPanel("Pick Location") {
+			@Override
+			protected void clickA() {
+				MpLocationStage.place(MpFactions.this);
+			}
+		};
+	}
+
+	/** {@code content}, greyed and taking no clicks while {@code lock} says so; for the hot-join's screens too. */
+	static GuiSection locking(GuiSection content, BooleanSupplier lock) {
 		GuiSection s = new GuiSection() {
 			private boolean wasLocked;
 

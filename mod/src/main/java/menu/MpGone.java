@@ -232,6 +232,8 @@ final class MpGone {
 	 * says next shows. Returns whether that window is up.
 	 */
 	private boolean hostLost() {
+		if (setup.closed()) // the session ended here (a quit's save): the host going quiet after it is no loss (SOS-203)
+			return false;
 		long silent = setup.hostSilentMs();
 		if (hostLostShown && silent < Departures.BACK_MS) {
 			hostLostShown = false;

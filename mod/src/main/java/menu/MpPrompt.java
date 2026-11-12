@@ -18,4 +18,18 @@ final class MpPrompt {
 		VIEW.inters().fullScreen.activate(text, COLOR.WHITE100, null, button);
 		button.body().moveCX(C.WIDTH() / 2);
 	}
+
+	/** The same with several buttons in one centred row: vanilla spaces them a sixth of the screen apart, off-centre. */
+	static void show(CharSequence text, GButt.ButtPanel... buttons) {
+		VIEW.inters().fullScreen.activate(text, COLOR.WHITE100, null, buttons);
+		int gap = 16;
+		int width = -gap;
+		for (GButt.ButtPanel b : buttons)
+			width += b.body().width() + gap;
+		int x = (C.WIDTH() - width) / 2;
+		for (GButt.ButtPanel b : buttons) {
+			b.body().moveX1(x);
+			x += b.body().width() + gap;
+		}
+	}
 }
