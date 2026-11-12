@@ -173,8 +173,7 @@ final class MpHotJoin {
 				return;
 			restarted = next;
 			ended = true;
-			GAME.SPEED.speedSet(0);
-			game.endSession();
+			GAME.SPEED.speedSet(0); // the session ends with the load: the game's panels still ask it until then (HJ2)
 			log.line("hot-join: the host restarts every PC from save " + next.restartInfo().number() + " for "
 					+ next.restartInfo().pick().name());
 		}
@@ -191,6 +190,7 @@ final class MpHotJoin {
 			throw new IllegalStateException("SOSGSGMP: this PC has no copy of the founding save " + number);
 		SetupSession next = restarted;
 		restarted = null;
+		game.endSession();
 		CORE.setCurrentState(new MpWorldLoad(next, record));
 	}
 
