@@ -1194,6 +1194,10 @@ public final class MpAutopilot {
 	 */
 	void joinSettle(int hostX, int hostY, boolean placed, java.util.function.BiFunction<Integer, Integer, String> problem,
 			IntBinaryOperator placeAt, Runnable ready) {
+		if (VIEW.inters().load.isActivated()) {
+			VIEW.inters().load.deactivate(); // vanilla's "click to continue" after the snapshot's load, as settle's
+			return;
+		}
 		if (stageChat("joinsettling", s -> {
 		}))
 			return;
