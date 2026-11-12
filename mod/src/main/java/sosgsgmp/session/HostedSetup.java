@@ -473,10 +473,10 @@ public final class HostedSetup implements SetupSession {
      */
     private void frozenGone(int id) {
         int slot = factions.slotOf(id);
+        notes.add(name(id) + " left frozen at step " + link.step());
         players.removeIf(p -> p.id() == id);
         cursors.removePlayer(id);
         views.gone(slot);
-        notes.add(name(id) + " left frozen at step " + link.step());
         sendAll(new Message.Roster(players));
         changes++;
     }

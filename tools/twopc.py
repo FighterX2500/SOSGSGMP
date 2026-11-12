@@ -241,8 +241,12 @@ def main():
     ap.add_argument("--players", type=int, default=0, help="the host starts with this many players (default: every PC started)")
     ap.add_argument("--start-after", type=int, default=0, help="the host keeps the lobby open this many seconds first")
     ap.add_argument("--crash", default="", help="'remote:STEP' or 'local:STEP': that joiner's game stops dead at STEP (SOS-65)")
-    ap.add_argument("--on-gone", choices=("continue", "return"), default="continue",
-                    help="the host's choice when a player left: continue without them, or return to the last save")
+    ap.add_argument("--on-gone", choices=("continue", "freeze", "return"), default="continue",
+                    help="the host's choice when a player left: continue without them, freeze them (SOS-194), or return"
+                         " to the last save")
+    ap.add_argument("--freeze", default="",
+                    help="'remote:STEP' or 'local:STEP': that joiner chooses Leave and freeze in the escape menu at STEP;"
+                         " every PC saves the campaign, it leaves, the host freezes it and the others play on (SOS-194)")
     ap.add_argument("--manual-deals", action="store_true",
                     help="players answer deals themselves: the host doesn't accept each on its own")
     ap.add_argument("--deal", type=int, default=-1,
@@ -310,6 +314,10 @@ def main():
         NETEM[who] = NETEM_PRESETS.get(spec, spec.replace(";", ","))
     if not args.here and (not REMOTE or not HOST_ADDRESS):
         fail("set SOSGSGMP_REMOTE and SOSGSGMP_HOST_ADDRESS")
+    freeze_who, _, freeze_at = args.freeze.partition(":")
+    if args.freeze and (freeze_who not in ("remote", "local") or not freeze_at.isdigit()
+                        or freeze_who == "local" and not args.local_joiner or freeze_who == "remote" and args.no_joiner):
+        fail("--freeze needs 'remote:STEP' (with a joiner) or 'local:STEP' (with --local-joiner)")
     crash_who, _, crash_at = args.crash.partition(":")
     if args.crash and (crash_who not in ("remote", "local") or not crash_at.isdigit()
                        or crash_who == "local" and not args.local_joiner or crash_who == "remote" and args.no_joiner):
@@ -406,9 +414,10 @@ def main():
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     game_pid = relaunched(host)
     log("host started here (pid %d)" % game_pid)
-    joiner = "role=join,name=Joiner,address=%s,corrupt=%d,crash=%s,deal=%d,dealcancel=%d,war=%d,tariff=%d,quit=%d,rename=%d,%s" % (
+    joiner = "role=join,name=Joiner,address=%s,corrupt=%d,crash=%s,deal=%d,dealcancel=%d,war=%d,tariff=%d,quit=%d,rename=%d,freeze=%s,%s" % (
         "127.0.0.1" if args.here else HOST_ADDRESS, args.corrupt, crash_at if crash_who == "remote" else "-1", args.deal,
-        args.deal_cancel, args.war, args.tariff, args.quit, args.rename, common + join_capital + join_view)
+        args.deal_cancel, args.war, args.tariff, args.quit, args.rename, freeze_at if freeze_who == "remote" else "-1",
+        common + join_capital + join_view)
     if not args.no_joiner and args.here:
         time.sleep(15)  # the host's lobby is open before the joiner here starts looking for it
         start_here(local2, joiner, NETEM["join"])
@@ -421,8 +430,9 @@ def main():
     late_started = False
     if args.local_joiner:
         time.sleep(20)  # the host's lobby is open before the second game here starts looking for it
-        start_here(local3, "role=join,name=Local,address=127.0.0.1,crash=%s,%s"
-                   % (crash_at if crash_who == "local" else "-1", common), NETEM["local"])
+        start_here(local3, "role=join,name=Local,address=127.0.0.1,crash=%s,freeze=%s,%s"
+                   % (crash_at if crash_who == "local" else "-1", freeze_at if freeze_who == "local" else "-1", common),
+                   NETEM["local"])
         log("the second joiner started on this PC")
 
     seen = {w: 0 for w in who_all}
@@ -441,7 +451,7 @@ def main():
             evs = events(text)
             for e in evs[seen[who]:]:
                 log("%s %s" % (who, json.dumps(e)))
-                if e["event"] in ("done", "closed", "desyncexit", "quitexit", "crash", "mismatch"):
+                if e["event"] in ("done", "closed", "desyncexit", "quitexit", "crash", "mismatch", "frozeexit"):
                     done[who] = e
             seen[who] = len(evs)
             (run / ("%s-events.jsonl" % who)).write_text(text, encoding="utf-8")
@@ -468,6 +478,8 @@ def main():
         sys.exit(0 if files_verdict(args, done, game_pid, (local, local2)) else 1)
     if args.crash:
         sys.exit(0 if gone_verdict(args, evs, done, local, crash_who, int(crash_at)) else 1)
+    if args.freeze:
+        sys.exit(0 if freeze_verdict(evs, done, local, freeze_who) else 1)
     if args.hot_join >= 0 and args.join_answer == "refuse":
         sys.exit(0 if refused_join_verdict(evs, done) else 1)
     if args.hot_join >= 0:
@@ -603,16 +615,47 @@ def gone_verdict(args, evs, done, local, crash_who, crash_at):
             log("%s closed: %s" % (w, reason))
             ok = ok and done.get(w, {}).get("event") == "closed" and reason.startswith(start)
     else:
-        retired = [e for e in evs["host"] if e["event"] == "retired"]
+        # Continue removes them, Freeze them freezes them (SOS-194): the event and the record's flag say which
+        kind, flag = ("frozen", "frozen=true") if args.on_gone == "freeze" else ("retired", "removed=true")
+        retired = [e for e in evs["host"] if e["event"] == kind]
         saved = [e for e in evs["host"] if e["event"] == "save" and e["status"].startswith("Campaign saved")
                  and retired and e["step"] >= retired[0]["step"]]
-        log("host: retired %s; campaign saved after it: %s" % (retired[:1], bool(saved)))
+        log("host: %s %s; campaign saved after it: %s" % (kind, retired[:1], bool(saved)))
         ok = ok and retired and saved and all(done[w]["event"] == "done" for w in ["host"] + stay)
         for w in stay:
-            ok = ok and any(e["event"] == "retired" for e in evs[w])
+            ok = ok and any(e["event"] == kind for e in evs[w])
         record = newest_record(local)
         log("host's newest campaign record: %s" % (record.name if record else "none"))
-        ok = ok and record is not None and "removed=true" in record.read_text(encoding="utf-8")
+        ok = ok and record is not None and flag in record.read_text(encoding="utf-8")
+    log("RESULT: %s" % ("PASS" if ok else "FAIL"))
+    return bool(ok)
+
+
+def freeze_verdict(evs, done, local, freeze_who):
+    """A joiner chose Leave and freeze (SOS-194): every PC saved, it left without a hold, the others play on frozen it."""
+    gone_who = "join" if freeze_who == "remote" else "local"
+    stay = [w for w in evs if w not in ("host", gone_who)]
+    left = done.get(gone_who, {})
+    log("%s: %s" % (gone_who, left))
+    ok = left.get("event") == "frozeexit" and left.get("outcome") == ""
+    frozen = {w: [e for e in evs[w] if e["event"] == "frozen"] for w in ["host"] + stay}
+    log("frozen events: %s" % {w: f[:1] for w, f in frozen.items()})
+    ok = ok and all(frozen.values()) and len({f[0]["slot"] for f in frozen.values()}) == 1
+    # a hold for the player who left frozen (every game quits at the run's end, which the others see as players gone)
+    name = {"join": "Joiner", "local": "Local"}[gone_who]
+    holds = [w for w in ["host"] + stay if any(e["event"] == "gone" and name in e["names"] for e in evs[w])]
+    log("PCs that held for a player gone: %s" % (holds or "none"))
+    ok = ok and not holds
+    for w in stay + [gone_who]:
+        common, differ = compare(evs, "host", w)
+        log("host and %s: %d common hash steps, %d differ" % (w, len(common), len(differ)))
+        ok = ok and common and not differ
+    ok = ok and all(done.get(w, {}).get("event") == "done" for w in ["host"] + stay)
+    saved = [e for e in evs["host"] if e["event"] == "save" and e["status"].startswith("Campaign saved")
+             and frozen["host"] and e["step"] >= frozen["host"][0]["step"]]
+    record = newest_record(local)
+    log("host: campaign saved after the freeze: %s; newest record: %s" % (bool(saved), record.name if record else "none"))
+    ok = ok and saved and record is not None and "frozen=true" in record.read_text(encoding="utf-8")
     log("RESULT: %s" % ("PASS" if ok else "FAIL"))
     return bool(ok)
 

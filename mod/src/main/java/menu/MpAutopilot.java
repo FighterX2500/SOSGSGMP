@@ -735,6 +735,11 @@ public final class MpAutopilot {
 			CORE.annihilate();
 			return;
 		}
+		if (saves.frozeHere() != null && first("frozeexit")) { // this PC left frozen (SOS-194)
+			event("frozeexit", "\"outcome\":\"" + clean(saves.frozeHere()) + "\",\"save\":" + saves.lastDone().number());
+			CORE.annihilate();
+			return;
+		}
 		if (setup.closed()) {
 			if (first("closed")) {
 				event("closed", "\"reason\":\"" + clean(setup.closedReason()) + "\"");
