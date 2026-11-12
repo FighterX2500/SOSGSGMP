@@ -1301,6 +1301,10 @@ public final class MpAutopilot {
 	void joinScreens(Runnable customize, Runnable location) {
 		if (joinScreen == 4)
 			return;
+		if (VIEW.inters().load.isActivated()) {
+			VIEW.inters().load.deactivate(); // vanilla's "click to continue" after the snapshot's load hides the screens
+			return;
+		}
 		if (guiPreview < 0) {
 			joinScreen = 4;
 			location.run();
