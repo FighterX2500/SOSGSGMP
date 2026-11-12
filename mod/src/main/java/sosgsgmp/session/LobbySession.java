@@ -24,6 +24,11 @@ public interface LobbySession {
         return false;
     }
 
+    /** With {@link #running}: this PC's player is frozen in the campaign, and the host is asked whether they come back (SOS-195). */
+    default boolean returning() {
+        return false;
+    }
+
     /** Everyone in the lobby, the host first; empty until a joining PC is welcomed. */
     List<LobbyPlayer> players();
 

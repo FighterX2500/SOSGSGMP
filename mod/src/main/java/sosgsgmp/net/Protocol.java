@@ -32,7 +32,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 30;
+    public static final int VERSION = 31;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -52,6 +52,7 @@ public final class Protocol {
     private static final int SETTLE_PART = 49;
     private static final int RUNNING = 50, JOIN_PICK = 51, JOIN_PICKED = 52, RESTART = 53, RESTARTED = 54; // hot-join (SOS-190)
     private static final int FREEZE_ASK = 55; // freeze (SOS-194)
+    private static final int REJOIN_PART = 56; // rejoin (SOS-195)
     /** The bytes {@link Message.Sequenced} adds in front of its message: version, type and sequence number. */
     private static final int SEQUENCED_HEADER = 2 + 1 + 8;
     /** Largest frame on a connection: a message, or one wrapped in {@link Message.Sequenced} (SOS-178). */
@@ -122,7 +123,10 @@ public final class Protocol {
                         out.writeUTF(line);
                 }
                 case Message.Start s -> out.writeByte(START);
-                case Message.Running r -> out.writeByte(RUNNING);
+                case Message.Running r -> {
+                    out.writeByte(RUNNING);
+                    out.writeBoolean(r.returning());
+                }
                 case Message.Restarted r -> out.writeByte(RESTARTED);
                 case Message.JoinPick p -> {
                     out.writeByte(JOIN_PICK);
@@ -137,8 +141,11 @@ public final class Protocol {
                     out.writeInt(r.number());
                     writeCampaign(out, r.campaign());
                     out.writeInt(r.newcomerId());
-                    writePick(out, r.pick());
-                    out.writeDouble(r.credits());
+                    out.writeInt(r.rejoinSlot());
+                    if (!r.rejoins()) {
+                        writePick(out, r.pick());
+                        out.writeDouble(r.credits());
+                    }
                 }
                 case Message.Leave l -> out.writeByte(LEAVE);
                 case Message.QuitAsk q -> out.writeByte(QUIT_ASK);
@@ -215,6 +222,10 @@ public final class Protocol {
                 case Message.WorldPart w -> {
                     out.writeByte(WORLD_PART);
                     writePiece(out, w.transfer(), w.index(), w.count(), w.bytes());
+                }
+                case Message.RejoinPart w -> {
+                    out.writeByte(REJOIN_PART);
+                    writePiece(out, 1, w.index(), w.count(), w.bytes()); // one per restart: its number is always 1
                 }
                 case Message.SettlePart w -> {
                     out.writeByte(SETTLE_PART);
@@ -447,7 +458,7 @@ public final class Protocol {
             case ROSTER -> roster(in);
             case REFUSED -> new Message.Refused(refusal(in.readUnsignedByte()), refusalDetail(in));
             case START -> new Message.Start();
-            case RUNNING -> new Message.Running();
+            case RUNNING -> new Message.Running(in.readBoolean());
             case RESTARTED -> new Message.Restarted();
             case JOIN_PICK -> new Message.JoinPick(pick(in));
             case JOIN_PICKED -> new Message.JoinPicked(text(in, MAX_REASON, "join problem"));
@@ -470,6 +481,10 @@ public final class Protocol {
             case WORLD_PART -> {
                 Piece p = piece(in, "transfer", "world");
                 yield new Message.WorldPart(p.number(), p.index(), p.count(), p.data());
+            }
+            case REJOIN_PART -> {
+                Piece p = piece(in, "rejoin", "rejoin world");
+                yield new Message.RejoinPart(p.index(), p.count(), p.data());
             }
             case SETTLE_PART -> {
                 Piece p = piece(in, "settling", "settling world");
@@ -699,10 +714,13 @@ public final class Protocol {
         int number = number(in, "save");
         sosgsgmp.campaign.Campaign c = campaign(in);
         int id = playerId(in);
-        FactionPick pick = pick(in);
-        double credits = in.readDouble();
+        int rejoinSlot = in.readInt();
+        if (rejoinSlot < Message.Restart.NO_REJOIN || rejoinSlot >= LobbySettings.MAX_SLOTS)
+            throw new IOException("SOSGSGMP: restart rejoining slot " + rejoinSlot);
+        FactionPick pick = rejoinSlot == Message.Restart.NO_REJOIN ? pick(in) : null;
+        double credits = rejoinSlot == Message.Restart.NO_REJOIN ? in.readDouble() : 0;
         try {
-            return new Message.Restart(number, c, id, pick, credits);
+            return new Message.Restart(number, c, id, pick, credits, rejoinSlot);
         } catch (IllegalArgumentException e) {
             throw new IOException(e.getMessage(), e);
         }

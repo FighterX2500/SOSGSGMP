@@ -122,9 +122,10 @@ public sealed interface Message {
 
     /**
      * Hot-join (SOS-190), host to a PC that said hello after the start, after its Welcome: the game is under way, and the
-     * host is asked whether it joins.
+     * host is asked whether it joins; {@code returning}: it is a frozen player of the campaign, asked whether it comes back
+     * (spec §11 Freezing a player, SOS-195).
      */
-    record Running() implements Message {}
+    record Running(boolean returning) implements Message {}
 
     /** Hot-join, the joining PC to the host: its race, faction and spot on the host's world, picked on a snapshot. */
     record JoinPick(FactionPick pick) implements Message {
@@ -148,15 +149,71 @@ public sealed interface Message {
      * from its copy of it with {@code campaign}, which has the newcomer, player {@code newcomerId}, in its slot. Every PC
      * adds the newcomer at {@code pick}'s spot with {@code credits} after its load. From here on, the host's messages are
      * the new session's.
+     *
+     * <p>A rejoin (SOS-195) has {@code rejoinSlot}, the frozen player's slot, and no pick: the returning PC loads its own
+     * last save of the campaign, every other PC its copy of save {@code number}; then every PC loads the host's world,
+     * from the {@link RejoinPart}s sent before this, and the slot thaws. {@code rejoinSlot} is {@link #NO_REJOIN} otherwise.
      */
-    record Restart(int number, sosgsgmp.campaign.Campaign campaign, int newcomerId, FactionPick pick, double credits)
-            implements Message {
+    record Restart(int number, sosgsgmp.campaign.Campaign campaign, int newcomerId, FactionPick pick, double credits,
+            int rejoinSlot) implements Message {
+        public static final int NO_REJOIN = -1;
+
         public Restart {
             Objects.requireNonNull(campaign, "campaign");
-            Objects.requireNonNull(pick, "pick");
-            if (number < 1 || newcomerId < 0 || !(credits >= 0) || Double.isInfinite(credits) || !pick.hasLocation())
+            if (rejoinSlot < NO_REJOIN || rejoinSlot != NO_REJOIN && (pick != null || credits != 0))
+                throw new IllegalArgumentException("SOSGSGMP: rejoin restart of slot " + rejoinSlot + " with a pick or credits");
+            if (rejoinSlot == NO_REJOIN)
+                Objects.requireNonNull(pick, "pick");
+            if (number < 1 || newcomerId < 0 || !(credits >= 0) || Double.isInfinite(credits)
+                    || pick != null && !pick.hasLocation())
                 throw new IllegalArgumentException("SOSGSGMP: restart " + number + ", newcomer " + newcomerId + ", credits "
                         + credits + ", pick " + pick);
+        }
+
+        /** A hot-join's restart: a newcomer at {@code pick}. */
+        public Restart(int number, sosgsgmp.campaign.Campaign campaign, int newcomerId, FactionPick pick, double credits) {
+            this(number, campaign, newcomerId, pick, credits, NO_REJOIN);
+        }
+
+        /** A rejoin's restart: the frozen player in {@code slot} comes back as {@code playerId}. */
+        public static Restart rejoin(int number, sosgsgmp.campaign.Campaign campaign, int playerId, int slot) {
+            return new Restart(number, campaign, playerId, null, 0, slot);
+        }
+
+        /** Whether this restart brings a frozen player back. */
+        public boolean rejoins() {
+            return rejoinSlot != NO_REJOIN;
+        }
+    }
+
+    /**
+     * Rejoin (SOS-195), host to every joined PC and the returning one, before the {@link Restart}: piece {@code index}
+     * of {@code count} of the host's rejoin files: the world's sections as its founding save had them, and the world's
+     * state no save holds (SOSDET Engine.rejoinOut), packed together.
+     */
+    record RejoinPart(int index, int count, byte[] bytes) implements Message {
+        public RejoinPart {
+            bytes = bytes.clone();
+        }
+
+        @Override
+        public byte[] bytes() {
+            return bytes.clone();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof RejoinPart w && index == w.index && count == w.count && Arrays.equals(bytes, w.bytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(index, count, Arrays.hashCode(bytes));
+        }
+
+        @Override
+        public String toString() {
+            return "RejoinPart[index=" + index + ", count=" + count + ", " + bytes.length + " bytes]";
         }
     }
 

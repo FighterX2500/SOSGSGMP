@@ -19,6 +19,10 @@ import sosgsgmp.setup.FactionPick;
  * the snapshot it picks its spot on; its pick is checked on the live world; then the founding save is made and every
  * PC restarts from its copy of it with the newcomer in the world. On a joined PC, the host's restart ends this session,
  * and once the new setup has its slot map, this PC loads its copy of the founding save.
+ *
+ * <p>A frozen player coming back (spec §11 Freezing a player, SOS-195) goes the same way without a snapshot or a pick:
+ * on Accept the founding save is made at once, the host writes the rejoin's files at its step, and every PC restarts,
+ * the returning one from its own last save; every load then reads the host's world and thaws that player's slot.
  */
 final class MpHotJoin {
 
@@ -66,14 +70,14 @@ final class MpHotJoin {
 	private void host() {
 		String asking = setup.joinAsk();
 		if (phase == Phase.IDLE && asking != null) {
-			if (game.joinSlot() < 0) {
+			if (!setup.joinReturning() && game.joinSlot() < 0) {
 				log.line("hot-join: " + asking + " asked to join; the map has no room");
 				setup.answerJoin(Refusal.NO_ROOM);
 				return;
 			}
 			phase = Phase.ASKED;
-			log.line("hot-join: " + asking + " asks to join");
-			popup = new MpJoinAsk(this, asking);
+			log.line("hot-join: " + asking + (setup.joinReturning() ? " wants to come back from a freeze" : " asks to join"));
+			popup = new MpJoinAsk(this, asking, setup.joinReturning());
 			popup.open();
 			if (autopilot != null)
 				autopilot.event("joinask", "\"name\":\"" + asking + "\"");
@@ -105,8 +109,13 @@ final class MpHotJoin {
 			phase = Phase.IDLE;
 			return;
 		}
-		setup.say(name + " joins the game. Once they have picked a spot, every game saves and reloads for a moment.");
 		saveDue = true;
+		if (setup.joinReturning()) { // no snapshot or pick: their city stands, frozen (SOS-195)
+			setup.say(name + " comes back. Every game saves and reloads for a moment.");
+			phase = Phase.FOUNDING;
+			return;
+		}
+		setup.say(name + " joins the game. Once they have picked a spot, every game saves and reloads for a moment.");
 		phase = Phase.SNAPSHOT;
 	}
 
@@ -120,6 +129,8 @@ final class MpHotJoin {
 		if (!saves.canSave())
 			return true;
 		before = saves.lastDone();
+		if (phase == Phase.FOUNDING && setup.joinReturning())
+			saves.rejoinOutAtNextSave();
 		saves.saveNow(CampaignRecord.Kind.AUTO);
 		saveDue = false;
 		return true;
@@ -166,8 +177,14 @@ final class MpHotJoin {
 		MpSaves.Done d = saves.lastDone();
 		if (d == before)
 			return;
-		if (!d.outcome().isEmpty() || d.file() == null) {
+		boolean returning = setup.joinReturning();
+		byte[] rejoinFiles = returning ? saves.takeRejoinFiles() : null;
+		if (!d.outcome().isEmpty() || d.file() == null || returning && rejoinFiles == null) {
 			log.line("hot-join: the founding save " + d.number() + " failed: " + d.outcome());
+			if (returning) { // nothing for the returning PC to press: the save is made again
+				saveDue = true;
+				return;
+			}
 			setup.answerJoinPick("Not every game could save (" + d.outcome() + "). Press Ready again.");
 			phase = Phase.PICKING;
 			return;
@@ -175,6 +192,13 @@ final class MpHotJoin {
 		CampaignRecord record = MpSaves.store().find(setup.campaign().id(), d.number());
 		if (record == null)
 			throw new IllegalStateException("SOSGSGMP: the host has no record of its founding save " + d.number());
+		if (returning) {
+			String name = setup.joining();
+			SetupSession next = setup.restartRejoin(d.number(), rejoinFiles);
+			log.line("hot-join: " + name + " comes back; every PC restarts from save " + d.number());
+			load(next, record);
+			return;
+		}
 		int slot = game.joinSlot();
 		double credits = game.joinCredits();
 		String name = setup.joining();
@@ -193,7 +217,8 @@ final class MpHotJoin {
 			ended = true;
 			GAME.SPEED.speedSet(0); // the session ends with the load: the game's panels still ask it until then (HJ2)
 			log.line("hot-join: the host restarts every PC from save " + next.restartInfo().number() + " for "
-					+ next.restartInfo().pick().name());
+					+ (next.restartInfo().rejoins() ? "a frozen player coming back, slot " + next.restartInfo().rejoinSlot()
+							: next.restartInfo().pick().name()));
 		}
 		restarted.update();
 		if (restarted.closed()) {

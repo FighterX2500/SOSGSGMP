@@ -7,16 +7,18 @@ import snake2d.util.gui.renderable.RENDEROBJ;
 import util.gui.misc.GButt;
 
 /**
- * SOSGSGMP: the host's popup when a PC asks to join the running game (hot-join, SOS-190): Accept or Refuse. It never
- * pauses the game; the PC waits for the answer.
+ * SOSGSGMP: the host's popup when a PC asks to join the running game (hot-join, SOS-190), or a frozen player wants to
+ * come back (SOS-195): Accept or Refuse. It never pauses the game; the PC waits for the answer.
  */
 final class MpJoinAsk extends MpWindow {
 
 	private static final int WIDTH = 380;
 
-	MpJoinAsk(MpHotJoin hotJoin, String name) {
-		super("Join request");
-		String text = name + " asks to join the game with a city-state of their own. They pick a spot on a copy of the"
+	MpJoinAsk(MpHotJoin hotJoin, String name, boolean returning) {
+		super(returning ? "Coming back" : "Join request");
+		String text = returning ? name + " wants to come back. Their city goes on where it stopped; every game saves and"
+				+ " reloads for a moment."
+				: name + " asks to join the game with a city-state of their own. They pick a spot on a copy of the"
 				+ " world while everyone plays on; then every game saves and reloads for a moment.";
 		inner.add(new RENDEROBJ.RenderImp(WIDTH, UI.FONT().M.getHeight(text, WIDTH)) {
 			@Override

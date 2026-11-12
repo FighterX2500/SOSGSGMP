@@ -160,6 +160,13 @@ public final class MpAutopilot {
 	/** The hold step of the last player-gone hold seen; -1 before the first. */
 	private long seenGone = -1;
 	private long goneSeenAt;
+	/** With a GUI preview (SOS-196): Leave and freeze's stage (0 none yet, 1 the menu, 2 the prompt, 3 done), since when. */
+	private int freezeStage;
+	private long freezeStageAt;
+	private boolean freezeShot;
+	/** When this PC left frozen; when the next chat shot is due (0: none). */
+	private long frozeAt;
+	private long chatShotAt;
 	private static final long CHOOSE_AFTER_NANOS = 3_000_000_000L;
 	/** The players this PC saw lost and not back yet (SOS-177). */
 	private final java.util.Set<Integer> lostSeen = new java.util.HashSet<>();
@@ -493,6 +500,64 @@ public final class MpAutopilot {
 		}
 	}
 
+	/** A screenshot into the data folder's screenshots, named by time, and an event saying what it shows. */
+	private void guiShot(String what) {
+		CORE.getGraphics().makeScreenShot();
+		event("guishot", "\"what\":\"" + what + "\"");
+	}
+
+	/**
+	 * With a GUI preview, Leave and freeze as a player meets it (SOS-196): the escape menu with its button, then the
+	 * confirmation, each shown three seconds with a shot. True meanwhile; the autopilot then confirms.
+	 */
+	private boolean freezePreview(MpExit exit) {
+		if (guiPreview < 0 || freezeStage == 3)
+			return false;
+		long now = System.nanoTime();
+		if (freezeStage == 0) {
+			VIEW.inters().menu.show();
+			freezeStage = 1;
+			freezeStageAt = now;
+			return true;
+		}
+		double s = (now - freezeStageAt) / 1e9;
+		if (s >= 2 && !freezeShot) {
+			freezeShot = true;
+			guiShot(freezeStage == 1 ? "freezemenu" : "freezeprompt");
+		}
+		if (s < 3)
+			return true;
+		freezeShot = false;
+		freezeStageAt = now;
+		if (freezeStage == 1) {
+			VIEW.inters().manager.remove(VIEW.inters().menu);
+			exit.leaveFrozen();
+			freezeStage = 2;
+			return true;
+		}
+		VIEW.inters().yesNo.deactivate();
+		freezeStage = 3;
+		return false;
+	}
+
+	/**
+	 * With a GUI preview, the chat a few seconds after a player froze, and after a session began with a player back
+	 * (SOS-196), each once.
+	 */
+	private void chatShots(SetupSession setup, EnginePlay engine, long now) {
+		if (guiPreview < 0)
+			return;
+		for (int slot = 1; slot < LobbySettings.MAX_SLOTS; slot++)
+			if (engine.frozen(slot) && first("frozenchat" + slot))
+				chatShotAt = now + 4_000_000_000L;
+		if (setup.restartInfo() != null && setup.restartInfo().rejoins() && first("backchat"))
+			chatShotAt = now + 6_000_000_000L;
+		if (chatShotAt > 0 && now >= chatShotAt) {
+			chatShotAt = 0;
+			guiShot("chat");
+		}
+	}
+
 	/**
 	 * With a GUI preview, on reaching a screen before the game: a chat line, a screenshot of the box, and this stage
 	 * waits a moment for them (SOS-110). True while it waits.
@@ -735,9 +800,17 @@ public final class MpAutopilot {
 			CORE.annihilate();
 			return;
 		}
-		if (saves.frozeHere() != null && first("frozeexit")) { // this PC left frozen (SOS-194)
-			event("frozeexit", "\"outcome\":\"" + clean(saves.frozeHere()) + "\",\"save\":" + saves.lastDone().number());
-			CORE.annihilate();
+		if (saves.frozeHere() != null) { // this PC left frozen (SOS-194)
+			if (first("frozeexit")) {
+				event("frozeexit", "\"outcome\":\"" + clean(saves.frozeHere()) + "\",\"save\":" + saves.lastDone().number());
+				frozeAt = System.nanoTime();
+			}
+			// with a GUI preview, the window it leaves with stays up for a shot (SOS-196)
+			long shown = System.nanoTime() - frozeAt;
+			if (guiPreview >= 0 && shown >= 2_000_000_000L && first("frozeshot"))
+				guiShot("frozeexit");
+			if (guiPreview < 0 || shown >= 3_000_000_000L)
+				CORE.annihilate();
 			return;
 		}
 		if (setup.closed()) {
@@ -774,7 +847,7 @@ public final class MpAutopilot {
 			exit.save();
 			event("saveorder", "\"step\":" + engine.step() + ",\"refusal\":\"" + clean(String.valueOf(exit.saveRefusal())) + "\"");
 		}
-		if (freeze >= 0 && engine.step() >= freeze && first("freeze")) {
+		if (freeze >= 0 && engine.step() >= freeze && !freezePreview(exit) && first("freeze")) {
 			exit.freezeConfirmed(); // the escape menu's Leave and freeze, confirmed
 			event("freeze", "\"step\":" + engine.step());
 		}
@@ -823,6 +896,9 @@ public final class MpAutopilot {
 			event("gone", "\"holdStep\":" + d.holdStep() + ",\"names\":\"" + clean(d.names()) + "\",\"step\":" + step);
 		}
 		lost(setup, d, step);
+		if (guiPreview >= 0 && d.waiting() && now - goneSeenAt > 2_000_000_000L && first("goneshot" + seenGone))
+			guiShot("gone"); // the disconnect window, the host's with its three choices (SOS-196)
+		chatShots(setup, engine, now);
 		if (commands.leaveLost() && gone.canLeaveWithoutHost()) { // SOS-179: the window's button, then the test game quits
 			event("lefthostlost", "\"step\":" + step);
 			gone.leaveWithoutHost();

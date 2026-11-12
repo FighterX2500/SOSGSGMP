@@ -85,6 +85,14 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
         return in;
     }
 
+    /** This campaign with the frozen player in {@code slot} back (spec §11 Freezing a player, SOS-195). */
+    public Campaign thawing(int slot) {
+        List<Player> now = new ArrayList<>(players.size());
+        for (Player p : players)
+            now.add(p.slot() == slot && p.frozen() ? new Player(p.key(), p.name(), p.slot()) : p);
+        return new Campaign(id, name, seed, difficulty, now);
+    }
+
     /** This campaign with the players in {@code slots} frozen (spec §11 Freezing a player, SOS-194). */
     public Campaign freezing(Collection<Integer> slots) {
         List<Player> now = new ArrayList<>(players.size());

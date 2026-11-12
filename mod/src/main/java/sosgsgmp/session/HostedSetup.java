@@ -120,6 +120,8 @@ public final class HostedSetup implements SetupSession {
     /** The founding save's file, sent to the newcomer once this restarted setup runs; null otherwise. */
     private byte[] newcomerSave;
     private int newcomerPeer = -1;
+    /** After a rejoin's restart (SOS-195): the host's rejoin files, which this PC's load reads too; else null. */
+    private byte[] rejoinFiles;
     /** Replaced by a hot-join restart's setup: this one reads and sends nothing more (the connection is the new one's). */
     private boolean replaced;
 
@@ -129,13 +131,16 @@ public final class HostedSetup implements SetupSession {
         final int id;
         final String name;
         final long key;
+        /** A frozen player coming back (SOS-195): their slot; -1 for a new player. */
+        final int returningSlot;
         boolean accepted;
 
-        Candidate(int peer, int id, String name, long key) {
+        Candidate(int peer, int id, String name, long key, int returningSlot) {
             this.peer = peer;
             this.id = id;
             this.name = name;
             this.key = key;
+            this.returningSlot = returningSlot;
         }
     }
 
@@ -711,9 +716,10 @@ public final class HostedSetup implements SetupSession {
             node.disconnect(peer);
             return;
         }
-        if (refusal == null && campaign != null && campaign.player(h.playerKey()) != null)
-            refusal = campaign.player(h.playerKey()).removed() ? Refusal.REMOVED : Refusal.STARTED; // theirs is the resume
-        if (refusal == null && keys.containsValue(h.playerKey()))
+        Campaign.Player known = campaign == null ? null : campaign.player(h.playerKey());
+        if (refusal == null && known != null && !known.frozen()) // a frozen player comes back here (SOS-195)
+            refusal = known.removed() ? Refusal.REMOVED : Refusal.STARTED; // theirs is the resume
+        if (refusal == null && present(h.playerKey())) // not a key whose player left: a frozen one comes back (SOS-195)
             refusal = Refusal.ALREADY_JOINED;
         if (refusal == null && players.size() >= LobbySettings.MAX_PLAYERS)
             refusal = Refusal.FULL;
@@ -723,11 +729,21 @@ public final class HostedSetup implements SetupSession {
             refuse(peer, refusal);
             return;
         }
-        candidate = new Candidate(peer, nextPlayerId(), h.name(), h.playerKey());
+        // a player coming back keeps the campaign's name, whatever their game calls them now (SOS-196 G2)
+        candidate = new Candidate(peer, nextPlayerId(), known == null ? h.name() : known.name(), h.playerKey(),
+                known == null ? -1 : known.slot());
         node.send(peer, new Message.Welcome(candidate.id, new LobbySettings(difficulty, LobbySettings.MAX_PLAYERS)
                 .withFullTransferLog(fullTransferLog)));
-        node.send(peer, new Message.Running());
-        notes.add(h.name() + " asks to join the running game");
+        node.send(peer, new Message.Running(known != null));
+        notes.add(h.name() + (known == null ? " asks to join the running game" : " asks to come back from a freeze, slot " + known.slot()));
+    }
+
+    /** Whether a player of this game with {@code key} is in it now. */
+    private boolean present(long key) {
+        for (LobbyPlayer p : players)
+            if (keys.containsKey(p.id()) && keys.get(p.id()) == key)
+                return true;
+        return false;
     }
 
     /** An id no player of this game has had. */
@@ -811,11 +827,45 @@ public final class HostedSetup implements SetupSession {
     }
 
     @Override
+    public boolean joinReturning() {
+        return candidate != null && candidate.returningSlot >= 0;
+    }
+
+    @Override
     public SetupSession restart(int number, int slot, FactionPick pick, double credits, byte[] foundingSave) {
-        if (candidate == null || !candidate.accepted || campaign == null)
-            throw new IllegalStateException("SOSGSGMP: a restart without an accepted candidate or a campaign");
+        if (candidate == null || !candidate.accepted || campaign == null || candidate.returningSlot >= 0)
+            throw new IllegalStateException("SOSGSGMP: a restart without an accepted new player or a campaign");
         Campaign next = campaign.adding(candidate.key, candidate.name, slot);
-        Message.Restart r = new Message.Restart(number, next, candidate.id, pick, credits);
+        HostedSetup h = restartWith(new Message.Restart(number, next, candidate.id, pick, credits),
+                candidate.name + " joins in slot " + slot + ": every PC restarts from campaign save " + number);
+        h.sendNewcomerSave(foundingSave);
+        return h;
+    }
+
+    @Override
+    public SetupSession restartRejoin(int number, byte[] rejoinFiles) {
+        if (candidate == null || !candidate.accepted || campaign == null || candidate.returningSlot < 0)
+            throw new IllegalStateException("SOSGSGMP: a rejoin without an accepted frozen player or a campaign");
+        int slot = candidate.returningSlot;
+        List<byte[]> pieces = Pieces.split(rejoinFiles);
+        for (int i = 0; i < pieces.size(); i++) { // before the restart: every PC's load reads them
+            Message.RejoinPart part = new Message.RejoinPart(i, pieces.size(), pieces.get(i));
+            sendAll(part);
+            node.send(candidate.peer, part);
+        }
+        HostedSetup h = restartWith(Message.Restart.rejoin(number, campaign.thawing(slot), candidate.id, slot),
+                candidate.name + " comes back in slot " + slot + ": every PC restarts from campaign save " + number);
+        h.rejoinFiles = rejoinFiles.clone();
+        return h;
+    }
+
+    @Override
+    public byte[] rejoinFiles() {
+        return rejoinFiles == null ? null : rejoinFiles.clone();
+    }
+
+    /** The restart to every PC and the candidate; the setup that takes over this connection, the candidate in it. */
+    private HostedSetup restartWith(Message.Restart r, String note) {
         sendAll(r);
         node.send(candidate.peer, r);
         Map<Integer, Integer> joined2 = new HashMap<>(joined);
@@ -827,13 +877,12 @@ public final class HostedSetup implements SetupSession {
         Message.Roster roster = new Message.Roster(players2); // before the new slot map: every PC's load reads the players
         for (int peer : joined2.keySet())
             node.send(peer, roster);
-        notes.add(candidate.name + " joins in slot " + slot + ": every PC restarts from campaign save " + number);
+        notes.add(note);
         replaced = true; // not left: the connection stays with the new setup, and this one sends nothing more
-        LobbySettings s = LobbySettings.resuming(new LobbySettings.Resume(next, number)).withFullTransferLog(fullTransferLog);
+        LobbySettings s = LobbySettings.resuming(new LobbySettings.Resume(r.campaign(), r.number())).withFullTransferLog(fullTransferLog);
         HostedSetup h = new HostedSetup(node, joined2, players2, keys2, world, factionWorld, s, chat, builds, joined2.keySet());
         h.restartInfo = r;
         h.newcomerPeer = candidate.peer;
-        h.sendNewcomerSave(foundingSave);
         return h;
     }
 

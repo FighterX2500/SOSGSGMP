@@ -82,6 +82,15 @@ public final class CampaignStore {
         return null;
     }
 
+    /** This PC's latest save of campaign {@code campaignId}, the highest number, or null: a frozen player's (SOS-195). */
+    public CampaignRecord latest(long campaignId) {
+        CampaignRecord latest = null;
+        for (CampaignRecord r : all())
+            if (r.campaign().id() == campaignId && (latest == null || r.number() > latest.number()))
+                latest = r;
+        return latest;
+    }
+
     /** The number the host gives its next save of {@code campaignId}: one past the highest this PC has. */
     public int nextNumber(long campaignId) {
         int max = 0;
