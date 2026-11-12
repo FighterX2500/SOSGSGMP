@@ -19,7 +19,9 @@ public enum Refusal {
     /** Hot-join: the map has no free NPC slot above the last player's. */
     NO_ROOM("The map has no room for another player's city-state."),
     /** Hot-join: another player is joining now. */
-    JOIN_BUSY("Another player is joining the game right now. Try again in a minute.");
+    JOIN_BUSY("Another player is joining the game right now. Try again in a minute."),
+    /** Freeze (SOS-194): a frozen player comes back into the running game, not at a resume. */
+    FROZEN("You are frozen in this campaign. Join its game once it is running to come back.");
 
     public final String text;
 

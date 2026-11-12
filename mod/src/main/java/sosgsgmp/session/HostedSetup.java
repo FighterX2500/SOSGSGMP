@@ -72,6 +72,12 @@ public final class HostedSetup implements SetupSession {
     private int quitAsk = -1;
     /** A player asked to quit: the session ends with that ask's save, so every later ask changes nothing. */
     private boolean quitAsked;
+    /** Joined players who asked to leave frozen, not yet taken, in order; and every one ever taken (SOS-194). */
+    private final List<Integer> freezeAsks = new ArrayList<>();
+    private final List<Integer> freezeTaken = new ArrayList<>();
+    /** Players whose Leave and freeze save is done: their PC leaves without a hold. And those the host is yet to freeze. */
+    private final List<Integer> leavingFrozen = new ArrayList<>();
+    private final List<Integer> toFreeze = new ArrayList<>();
     private int doneNumber;
     private String doneOutcome;
     /** The engine's streams once this PC plays; null before. */
@@ -361,6 +367,10 @@ public final class HostedSetup implements SetupSession {
                     quitAsk = id;
                 }
             }
+            case Message.FreezeAsk q when id != null && link != null -> {
+                if (!freezeAsks.contains(id) && !freezeTaken.contains(id))
+                    freezeAsks.add(id);
+            }
             case Message.Leave l when id != null -> {
                 notes.add(name(id) + " left");
                 node.disconnect(peer);
@@ -441,6 +451,10 @@ public final class HostedSetup implements SetupSession {
             spectatorGone(id, who.slot());
             return;
         }
+        if (leavingFrozen.remove((Integer) id)) {
+            frozenGone(id);
+            return;
+        }
         Departures.Gone g = new Departures.Gone(id, name(id), factions.slotOf(id));
         players.removeIf(p -> p.id() == id);
         cursors.removePlayer(id);
@@ -450,6 +464,20 @@ public final class HostedSetup implements SetupSession {
         sendAll(new Message.PlayerGone(id, hold));
         if (saveRound != null && saveRound.report(id, 0, "left the game")) // the open save waits for them no more
             saveDoneWhenComplete();
+        changes++;
+    }
+
+    /**
+     * Player {@code id} left after their Leave and freeze save (SOS-194): no hold, as their human is frozen already or
+     * about to be; the others see them off the roster.
+     */
+    private void frozenGone(int id) {
+        int slot = factions.slotOf(id);
+        players.removeIf(p -> p.id() == id);
+        cursors.removePlayer(id);
+        views.gone(slot);
+        notes.add(name(id) + " left frozen at step " + link.step());
+        sendAll(new Message.Roster(players));
         changes++;
     }
 
@@ -565,7 +593,7 @@ public final class HostedSetup implements SetupSession {
             throw new IllegalStateException("SOSGSGMP: a choice with no player gone, or chosen already");
         long hold = departures.holdStep();
         departures.chosen(hold, choice);
-        sendAll(new Message.GoneChoice(hold, choice == Departures.Choice.CONTINUE));
+        sendAll(new Message.GoneChoice(hold, wire(choice)));
         changes++;
         if (choice == Departures.Choice.RETURN) {
             leave();
@@ -574,8 +602,17 @@ public final class HostedSetup implements SetupSession {
             for (Departures.Gone g : departures.gone())
                 if (departures.lost(g.playerId()))
                     dropLost(g);
-            campaign = campaign.removing(slotsOf(departures.gone()));
+            campaign = choice == Departures.Choice.FREEZE ? campaign.freezing(slotsOf(departures.gone()))
+                    : campaign.removing(slotsOf(departures.gone()));
         }
+    }
+
+    private static int wire(Departures.Choice c) {
+        return switch (c) {
+            case RETURN -> Message.GoneChoice.RETURN;
+            case CONTINUE -> Message.GoneChoice.CONTINUE;
+            case FREEZE -> Message.GoneChoice.FREEZE;
+        };
     }
 
     static List<Integer> slotsOf(List<Departures.Gone> gone) {
@@ -922,6 +959,25 @@ public final class HostedSetup implements SetupSession {
     }
 
     @Override
+    public void askFreeze() {
+        throw new IllegalStateException("SOSGSGMP: the host can't leave frozen: its leaving ends the session");
+    }
+
+    @Override
+    public int takeFreezeAsk() {
+        if (freezeAsks.isEmpty())
+            return -1;
+        int id = freezeAsks.remove(0);
+        freezeTaken.add(id);
+        return id;
+    }
+
+    @Override
+    public int takeFrozenLeaver() {
+        return toFreeze.isEmpty() ? -1 : toFreeze.remove(0);
+    }
+
+    @Override
     public void saved(int number, long hash, String problem) {
         if (saveRound == null || saveRound.order.number() != number)
             throw new IllegalStateException("SOSGSGMP: saved for order " + number + ", which isn't open");
@@ -936,6 +992,14 @@ public final class HostedSetup implements SetupSession {
         String outcome = saveRound.outcome(this::name);
         doneNumber = saveRound.order.number();
         doneOutcome = outcome;
+        int leaver = saveRound.order.quitter();
+        // Leave and freeze (SOS-194): a leaver still here is frozen now and leaves without a hold; one who dropped
+        // during the save is in the hold for them already, where the host chooses
+        if (saveRound.order.freezes() && joined.containsValue(leaver)) {
+            leavingFrozen.add(leaver);
+            toFreeze.add(leaver);
+            campaign = campaign.freezing(List.of(factions.slotOf(leaver)));
+        }
         sendAll(new Message.SaveDone(doneNumber, outcome));
         saveRound = null;
         changes++;

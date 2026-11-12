@@ -1,7 +1,9 @@
 package sosgsgmp.net;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -91,7 +93,11 @@ class ProtocolTest {
                     CampaignStoreTest.CAMPAIGN_FOR_TESTS.removing(java.util.Set.of(1)), false)),
             new Message.PlayerGone(7, 0),
             new Message.PlayerGone(0, Long.MAX_VALUE),
-            new Message.GoneChoice(1234, true),
+            new Message.GoneChoice(1234, Message.GoneChoice.CONTINUE),
+            new Message.GoneChoice(1235, Message.GoneChoice.FREEZE),
+            new Message.SaveAt(new SaveOrder(9, 130, CampaignRecord.Kind.SAVE, 0,
+                    CampaignStoreTest.CAMPAIGN_FOR_TESTS.freezing(java.util.Set.of(1)), false, 1)),
+            new Message.FreezeAsk(),
             new Message.PlayerLost(2, 530, 5100),
             new Message.PlayerBack(2, 530),
             new Message.Heartbeat(1794149400266L, 0, 0, 0),
@@ -102,7 +108,7 @@ class ProtocolTest {
             new Message.Resume(-7, 41, 0),
             new Message.Resumed(-1),
             new Message.Resumed(1_000_000),
-            new Message.GoneChoice(0, false),
+            new Message.GoneChoice(0, Message.GoneChoice.RETURN),
             new Message.SaveAt(new SaveOrder(7, 120, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, true, 5)),
             new Message.SaveAt(new SaveOrder(8, 120, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, true, 0)),
             new Message.QuitAsk(),
@@ -244,14 +250,15 @@ class ProtocolTest {
     }
 
     @Test
-    void aQuitterComesOnlyWithAnExit() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new SaveOrder(1, 0, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, false, 3));
+    void aQuitterWithoutAnExitLeavesFrozen() throws IOException {
+        assertTrue(new SaveOrder(1, 0, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, false, 3).freezes());
+        assertFalse(new SaveOrder(1, 0, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, true, 3).freezes());
+        assertFalse(new SaveOrder(1, 0, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, false).freezes());
         assertThrows(IllegalArgumentException.class,
                 () -> new SaveOrder(1, 0, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, true, -2));
         byte[] b = Protocol.encode(new Message.SaveAt(new SaveOrder(1, 0, CampaignRecord.Kind.SAVE, 0, CampaignStoreTest.CAMPAIGN_FOR_TESTS, true, 3)));
         b[b.length - 5] = 0; // the exit flag, just before the quitter
-        assertThrows(IOException.class, () -> Protocol.decode(b));
+        assertTrue(((Message.SaveAt) Protocol.decode(b)).order().freezes(), "a quitter on a save that plays on freezes");
     }
 
     /** SOS-158: a loading window of an unknown kind, a negative key or too long a text is refused. */

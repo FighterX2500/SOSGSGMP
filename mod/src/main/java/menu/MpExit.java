@@ -1,5 +1,8 @@
 package menu;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import game.GAME;
 import snake2d.CORE;
 import snake2d.util.color.COLOR;
@@ -20,6 +23,10 @@ import view.main.VIEW;
  * (a battle), the player can leave without one instead. Once the save is done, the session ends on every PC; the player
  * who quit goes to the main menu or closes the game, the others see why it ended. Once per frame from {@link MpPlay},
  * between steps.
+ *
+ * <p>Leave and freeze (spec §11 Freezing a player, SOS-194): a joining player asks the host, the host saves the campaign
+ * on every PC with them as its quitter, and once it is done their PC leaves from the save's step while the others play
+ * on; {@link MpGone} freezes their human on the host.
  */
 final class MpExit implements MpEscapeMenu.Actions {
 
@@ -36,6 +43,12 @@ final class MpExit implements MpEscapeMenu.Actions {
 	private int pendingQuitter = SaveOrder.NO_QUITTER;
 	/** After a save that ended the session: its outcome, empty when every PC saved; null before. */
 	private String outcome;
+	/** Host: the players who asked to leave frozen, whose save waits to start (SOS-194). */
+	private final List<Integer> pendingFreezers = new ArrayList<>();
+	/** A joining PC: its player chose Leave and freeze, and the host is asked. */
+	private boolean freezeAsked;
+	/** A joining PC that left frozen: nothing more happens here. */
+	private boolean leftFrozen;
 
 	MpExit(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpSaves saves, MpLog log) {
 		this.setup = setup;
@@ -47,10 +60,14 @@ final class MpExit implements MpEscapeMenu.Actions {
 
 	/** Once per frame while playing, even after the session closed: a save that ends it ends it on every PC. */
 	void frame() {
-		if (outcome != null)
+		if (outcome != null || leftFrozen)
 			return;
 		if (saves.exited() != null) {
 			end(saves.exited(), saves.exitedQuitter());
+			return;
+		}
+		if (saves.frozeHere() != null) {
+			leaveFrozen(saves.frozeHere());
 			return;
 		}
 		if (setup.closed())
@@ -65,10 +82,103 @@ final class MpExit implements MpEscapeMenu.Actions {
 				saves.saveAndExit(pendingQuitter);
 				pendingQuitter = SaveOrder.NO_QUITTER;
 			}
+			freezeLeavers();
 		}
 		if ((saves.exiting() || quitting) && engine.desyncHold() == null && !VIEW.inters().fullScreen.isActivated())
 			VIEW.inters().fullScreen.activate(saves.exiting() ? "Saving the campaign. The session ends once every player has saved."
 					: "Waiting for the host to save the campaign. The session ends once every player has saved.", COLOR.WHITE100, null);
+		if (freezeAsked && engine.desyncHold() == null && !VIEW.inters().fullScreen.isActivated())
+			VIEW.inters().fullScreen.activate(saves.freezing() ? "Saving the campaign. You leave once every player has saved."
+					: "Waiting for the host to save the campaign. You leave once every player has saved.", COLOR.WHITE100, null);
+	}
+
+	/**
+	 * Host: each player who asked to leave frozen gets their save as soon as one can start and the engine would freeze
+	 * them; one who left meanwhile is in the disconnect window instead.
+	 */
+	private void freezeLeavers() {
+		for (int id = setup.takeFreezeAsk(); id >= 0; id = setup.takeFreezeAsk()) {
+			pendingFreezers.add(id);
+			log.line(name(id) + " asked to leave frozen: the campaign is saved, then they leave");
+		}
+		if (pendingFreezers.isEmpty() || pendingQuitter != SaveOrder.NO_QUITTER || saves.saving() || saves.exiting())
+			return;
+		int id = pendingFreezers.get(0);
+		if (!present(id)) {
+			pendingFreezers.remove(0);
+			log.line(name(id) + " left before their Leave and freeze save");
+			return;
+		}
+		int slot = setup.factions().slotOf(id);
+		if (engine.freezeRefusal(slot) == null && saves.canSaveToExit()) {
+			pendingFreezers.remove(0);
+			saves.saveAndFreeze(id);
+		}
+	}
+
+	private boolean present(int playerId) {
+		for (LobbyPlayer p : setup.players())
+			if (p.id() == playerId)
+				return true;
+		return false;
+	}
+
+	@Override
+	public boolean freezeOffered() {
+		return !setup.isHost();
+	}
+
+	@Override
+	public CharSequence freezeRefusal() {
+		if (setup.isHost())
+			return "The host can't leave frozen: Quit saves the campaign and ends the session.";
+		if (!setup.playing() || setup.closed() || outcome != null)
+			return "The game isn't running.";
+		if (freezeAsked || quitting || saves.saving())
+			return "A campaign save is under way.";
+		if (engine.anyBattle())
+			return "No leaving frozen during a battle.";
+		if (engine.assault() != null)
+			return "No leaving frozen during an assault.";
+		if (engine.assaultTaken() != null)
+			return "No leaving frozen while an attacker chooses what to take.";
+		return null;
+	}
+
+	@Override
+	public void leaveFrozen() {
+		if (freezeRefusal() != null)
+			return;
+		confirm("Leave and freeze? Every player saves the campaign, then you leave. Your capital waits, frozen, until you come"
+				+ " back; your other regions become free land, your vassals go free and your wars end.", this::freezeConfirmed);
+	}
+
+	/** The player confirmed Leave and freeze: the host is asked. Test tooling calls it too. */
+	void freezeConfirmed() {
+		if (freezeAsked || freezeRefusal() != null)
+			return;
+		freezeAsked = true;
+		log.line("this player leaves frozen: the campaign is saved, then this PC leaves");
+		setup.askFreeze();
+	}
+
+	/** A joining PC, once its Leave and freeze save is done on every PC: it leaves, held at that save's step. */
+	private void leaveFrozen(String saveOutcome) {
+		leftFrozen = true;
+		freezeAsked = false;
+		log.line("this player left frozen" + (saveOutcome.isEmpty() ? "" : "; the campaign save: " + saveOutcome));
+		if (!setup.closed())
+			setup.leave();
+		game.endSession();
+		GAME.SPEED.speedSet(0);
+		MpPrompt.show("You left the game. Your city is frozen until you come back: join this campaign's game while it runs.\n"
+				+ (saveOutcome.isEmpty() ? "Every player saved the campaign." : "The campaign save: " + saveOutcome),
+				new GButt.ButtPanel("Main menu") {
+					@Override
+					protected void clickA() {
+						go(false);
+					}
+				});
 	}
 
 	@Override

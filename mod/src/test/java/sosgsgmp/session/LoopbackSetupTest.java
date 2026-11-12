@@ -1146,6 +1146,68 @@ class LoopbackSetupTest {
         assertFalse(host.closed());
     }
 
+    /**
+     * SOS-194, Leave and freeze: Bob's ask reaches the host once; the host's save names him its quitter and plays on;
+     * once every PC saved, the campaign has Bob frozen, the host takes him once to freeze, and his leaving holds nobody:
+     * Cid sees him off the roster.
+     */
+    @Test
+    void aPlayerWhoLeavesFrozenLeavesAfterTheSaveWithoutAHold() throws Exception {
+        playing(new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        int bobId = idOf(host, "Bob");
+        assertThrows(IllegalStateException.class, () -> host.askFreeze(), "the host can't leave frozen");
+        bob.askFreeze();
+        bob.askFreeze();
+        int[] asked = {-1};
+        playUntil("Bob's ask at the host", () -> (asked[0] = host.takeFreezeAsk()) >= 0);
+        assertEquals(bobId, asked[0]);
+        bob.cursor(Cursors.WORLD, 1, 2); // Bob's messages arrive in order: once his cursor is here, so is his second ask
+        playUntil("Bob's cursor at the host", () -> at(host, bobId, 1, 2));
+        assertEquals(-1, host.takeFreezeAsk(), "asking again changes nothing");
+        assertEquals(-1, bob.takeFreezeAsk(), "only the host takes asks");
+
+        SaveOrder order = new SaveOrder(1, 660, CampaignRecord.Kind.SAVE, 0, host.campaign(), false, bobId);
+        host.orderSave(order);
+        playUntil("the order at Bob and Cid", () -> bob.takeSaveOrder() != null && cid.takeSaveOrder() != null);
+        assertEquals(-1, host.takeFrozenLeaver(), "not before the save is done");
+        host.saved(1, 9, null);
+        bob.saved(1, 9, null);
+        cid.saved(1, 9, null);
+        playUntil("the save done at Bob", () -> bob.takeSaveDone(1) != null);
+        assertTrue(host.campaign().inSlot(1).frozen(), "the next save keeps Bob frozen");
+        assertFalse(host.campaign().inSlot(2).frozen());
+        assertEquals(bobId, host.takeFrozenLeaver());
+        assertEquals(-1, host.takeFrozenLeaver(), "once");
+
+        bob.leave();
+        playUntil("Cid sees Bob go", () -> names(cid.players()).equals(List.of("Ann", "Cid")));
+        assertEquals(List.of("Ann", "Cid"), names(host.players()));
+        assertFalse(host.departures().waiting(), "no hold for a player who left frozen");
+        assertFalse(cid.departures().waiting());
+        assertFalse(host.closed());
+        assertFalse(cid.closed());
+    }
+
+    /** SOS-194: the host's Freeze them reaches every PC as Freeze, and marks the player frozen, not removed. */
+    @Test
+    void theHostCanFreezeAPlayerWhoLeft() throws Exception {
+        EngineLinkTest.FakePort hp = new EngineLinkTest.FakePort();
+        playing(hp, new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        hp.step = 500;
+        cid.leave();
+        playUntil("Bob holds for Cid", () -> bob.departures().waiting());
+        host.chooseGone(Departures.Choice.FREEZE);
+        playUntil("Bob hears Freeze them", () -> bob.departures().choice() == Departures.Choice.FREEZE);
+        assertTrue(host.campaign().inSlot(2).frozen());
+        assertFalse(host.campaign().inSlot(2).removed());
+        for (SetupSession s : List.of(host, bob)) {
+            s.departures().continued();
+            assertFalse(s.departures().waiting());
+            assertEquals(List.of(), s.departures().removed(), "a frozen player isn't removed");
+        }
+        assertFalse(bob.closed());
+    }
+
     private static int idOf(SetupSession s, String name) {
         for (LobbyPlayer p : s.players())
             if (p.name().equals(name))
