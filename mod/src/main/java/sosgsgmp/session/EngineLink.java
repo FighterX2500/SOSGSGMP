@@ -40,16 +40,16 @@ public final class EngineLink {
     /** Bytes of each stream this PC sent so far. */
     private final long[] sent = new long[KINDS];
     /** Bytes of each stream, by the PC that made it, fed to the engine so far. */
-    private final long[][] fed = new long[KINDS][LobbySettings.MAX_PLAYERS];
+    private final long[][] fed = new long[KINDS][LobbySettings.MAX_SLOTS];
     private final Deflater[] deflaters = new Deflater[KINDS];
-    private final Inflater[][] inflaters = new Inflater[KINDS][LobbySettings.MAX_PLAYERS];
+    private final Inflater[][] inflaters = new Inflater[KINDS][LobbySettings.MAX_SLOTS];
     private final byte[] buffer = new byte[64 * 1024];
     /** The engine's bytes before compression: made here, and taken from the other PCs. */
     private long rawOut;
     private long rawIn;
 
     public EngineLink(boolean host, int localPc, int hostPc, EnginePort port) {
-        if (localPc < 0 || localPc >= LobbySettings.MAX_PLAYERS || hostPc < 0 || host != (localPc == hostPc))
+        if (localPc < 0 || localPc >= LobbySettings.MAX_SLOTS || hostPc < 0 || host != (localPc == hostPc))
             throw new IllegalArgumentException("SOSGSGMP: engine link for PC " + localPc + (host ? " as the host" : " as a peer")
                     + " of host PC " + hostPc);
         this.host = host;

@@ -503,7 +503,7 @@ public final class EnginePlay implements EnginePort {
         long step = Engine.step();
         if (step >= viewBegunAt && step <= viewBegunUntil)
             return true; // a battle's load restarts the steps, so an old begin can lie ahead of them
-        for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++)
+        for (int slot = 0; slot < LobbySettings.MAX_SLOTS; slot++)
             if (viewLive(Engine.view(slot)) && !spectator(slot))
                 return true;
         return false;

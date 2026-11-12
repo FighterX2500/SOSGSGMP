@@ -120,6 +120,49 @@ public sealed interface Message {
     /** Joining PC to host: this PC's latest picks: race, faction, banner and location (setup-factions-step.md §4). */
     record Pick(FactionPick pick) implements Message {}
 
+    /**
+     * Hot-join (SOS-190), host to a PC that said hello after the start, after its Welcome: the game is under way, and the
+     * host is asked whether it joins.
+     */
+    record Running() implements Message {}
+
+    /** Hot-join, the joining PC to the host: its race, faction and spot on the host's world, picked on a snapshot. */
+    record JoinPick(FactionPick pick) implements Message {
+        public JoinPick {
+            Objects.requireNonNull(pick, "pick");
+        }
+    }
+
+    /**
+     * Hot-join, host to the joining PC: why its spot can't be used on the live world, or empty: the founding save is
+     * ordered, and a {@link Restart} follows.
+     */
+    record JoinPicked(String problem) implements Message {
+        public JoinPicked {
+            Objects.requireNonNull(problem, "problem");
+        }
+    }
+
+    /**
+     * Hot-join, host to every joined PC and the joining one: the founding save {@code number} is done; every PC restarts
+     * from its copy of it with {@code campaign}, which has the newcomer, player {@code newcomerId}, in its slot. Every PC
+     * adds the newcomer at {@code pick}'s spot with {@code credits} after its load. From here on, the host's messages are
+     * the new session's.
+     */
+    record Restart(int number, sosgsgmp.campaign.Campaign campaign, int newcomerId, FactionPick pick, double credits)
+            implements Message {
+        public Restart {
+            Objects.requireNonNull(campaign, "campaign");
+            Objects.requireNonNull(pick, "pick");
+            if (number < 1 || newcomerId < 0 || !(credits >= 0) || Double.isInfinite(credits) || !pick.hasLocation())
+                throw new IllegalArgumentException("SOSGSGMP: restart " + number + ", newcomer " + newcomerId + ", credits "
+                        + credits + ", pick " + pick);
+        }
+    }
+
+    /** Hot-join, a joined PC to the host after {@link Restart}: its messages from here on are the new session's. */
+    record Restarted() implements Message {}
+
     /** Joining PC to host: this PC's player pressed Ready, or pressed it again (SOS-120). */
     record Ready(boolean ready) implements Message {}
 
@@ -239,7 +282,7 @@ public sealed interface Message {
      */
     record Stream(StreamKind kind, int pc, long offset, long step, byte[] bytes) implements Message {
         public Stream {
-            if (pc < 0 || pc >= LobbySettings.MAX_PLAYERS || offset < 0 || step < 0 || bytes.length > Protocol.MAX_STREAM_PIECE)
+            if (pc < 0 || pc >= LobbySettings.MAX_SLOTS || offset < 0 || step < 0 || bytes.length > Protocol.MAX_STREAM_PIECE)
                 throw new IllegalArgumentException("SOSGSGMP: stream piece of PC " + pc + " at " + offset + ", step " + step + ", " + bytes.length + " bytes");
             bytes = bytes.clone();
         }

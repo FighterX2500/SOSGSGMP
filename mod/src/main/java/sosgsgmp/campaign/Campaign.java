@@ -85,6 +85,13 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
         return new Campaign(id, name, seed, difficulty, now);
     }
 
+    /** This campaign with a player who joined a running game in {@code slot} (hot-join, SOS-190). */
+    public Campaign adding(long key, String name, int slot) {
+        List<Player> now = new ArrayList<>(players);
+        now.add(new Player(key, name, slot));
+        return new Campaign(id, this.name, seed, difficulty, now);
+    }
+
     /** This campaign with the player in {@code slot} eliminated (spec §9): they may come back as a spectator. */
     public Campaign eliminating(int slot) {
         List<Player> now = new ArrayList<>(players.size());

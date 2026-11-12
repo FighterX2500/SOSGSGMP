@@ -331,6 +331,8 @@ final class MpAutopilotCommands {
 			return diplo();
 		case "state":
 			return state(engine);
+		case "regions":
+			return a.length < 4 ? "regions X Y R" : regions(Integer.parseInt(a[1]), Integer.parseInt(a[2]), Integer.parseInt(a[3]));
 		case "leavelost":
 			if (host)
 				return "refused: the host has no lost-host window";
@@ -1119,6 +1121,20 @@ final class MpAutopilotCommands {
 	}
 
 	/** What waits for this PC's player: the prompts, the battle and its panel, a view, an assault's terms. */
+	/** Every active region whose centre is within {@code r} tiles of {@code x, y}: its index, name, centres and owner (SOS-190's labels). */
+	private static String regions(int x, int y, int r) {
+		StringBuilder s = new StringBuilder();
+		for (world.map.regions.Region reg : world.WORLD.REGIONS().active()) {
+			if (Math.abs(reg.info.cx() - x) > r || Math.abs(reg.info.cy() - y) > r)
+				continue;
+			s.append(s.length() == 0 ? "" : "; ").append(reg.index()).append(' ').append(reg.info.name()).append(" info ")
+					.append(reg.info.cx()).append(',').append(reg.info.cy()).append(" centre ").append(reg.cx()).append(',')
+					.append(reg.cy()).append(" owner ").append(reg.faction() == null ? -1 : reg.faction().index())
+					.append(reg.capitol() ? " capital" : "");
+		}
+		return s.length() == 0 ? "none" : s.toString();
+	}
+
 	private static String state(EnginePlay engine) {
 		BattleState b = VIEW.b().state();
 		Object prompt = Hooks.worldPromptHere() ? Hooks.worldPrompt() : null;

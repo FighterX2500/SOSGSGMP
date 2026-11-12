@@ -292,6 +292,12 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 			status.clear().add(setup.closedReason());
 			return;
 		}
+		if (setup.candidate()) { // hot-join (SOS-190): this PC picks on the host's snapshot
+			byte[] snapshot = setup.takeSettleWorld();
+			if (snapshot != null)
+				leaveMenu(new MpJoinSettle(setup, snapshot));
+			return;
+		}
 		if (resumed != null) {
 			// a resume: every PC loads its own save once the host's slot map is here
 			if (setup.factions() != null && setup.factions().initialized())
@@ -348,13 +354,16 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		status.clear();
 		switch (session.state()) {
 			case CONNECTING -> status.add("Connecting to the host...");
-			case OPEN -> status.add(!session.isHost() ? "Waiting for the host to start."
+			case OPEN -> status.add(session.running()
+					? "The game is under way. The host is asked whether you can join it with a city-state of your own."
+					: !session.isHost() ? "Waiting for the host to start."
 					: ls != null && ls.resume() != null && !missing(ls.resume(), players).isEmpty()
 							? "Still missing: " + missing(ls.resume(), players) + (session.canStart()
 									? ". Wait for them, or start now: they are removed from the campaign and can't play in it again."
 									: ". The player in the campaign's first slot has to be in before it can start.")
 							: session.canStart() ? "Start the lobby when everyone is in." : "Waiting for players. Start needs 2 or more.");
-			case STARTED -> status.add(resumed != null ? "The lobby has started. Loading your save of the campaign..."
+			case STARTED -> status.add(session.running() ? "The host lets you in. Getting a copy of the world to pick your spot on..."
+					: resumed != null ? "The lobby has started. Loading your save of the campaign..."
 					: "The lobby has started. Building the game for the map...");
 			case CLOSED -> status.add(resumeProblem != null ? resumeProblem : session.closedReason());
 		}

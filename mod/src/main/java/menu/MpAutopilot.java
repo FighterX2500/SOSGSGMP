@@ -142,6 +142,8 @@ public final class MpAutopilot {
 	private final long viewAt, viewClose;
 	/** How this PC's player answers an ask to view its city: allow, refuse or none. */
 	private final String viewAnswer;
+	/** Host: Refuse a PC that asks to join the running game (SOS-190), instead of Accept. */
+	private final boolean refuseJoin;
 	/** Each view's state as last reported, by viewer slot. */
 	private final Map<Integer, String> viewSeen = new HashMap<>();
 	/** This PC's capital's world tile from {@code capital=X:Y} (SOS-75); -1 to search for one. */
@@ -250,6 +252,7 @@ public final class MpAutopilot {
 		viewAt = Long.parseLong(view[0]);
 		viewClose = Long.parseLong(view[1]);
 		viewAnswer = m.getOrDefault("viewanswer", "allow");
+		refuseJoin = m.getOrDefault("joinanswer", "accept").equals("refuse");
 		if (!viewAnswer.equals("allow") && !viewAnswer.equals("refuse") && !viewAnswer.equals("none"))
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " viewanswer '" + viewAnswer + "', not allow, refuse or none");
 		String[] capital = m.getOrDefault("capital", "-1:-1").split(":");
@@ -416,7 +419,7 @@ public final class MpAutopilot {
 	 */
 	private void steamMenu(MpMenu mp) {
 		if (host) {
-			SteamNode node = SteamNode.host(SteamworksPort::new, Math.max(players, 2));
+			SteamNode node = SteamNode.host(SteamworksPort::new, sosgsgmp.lobby.LobbySettings.MAX_PLAYERS); // as the screens (SOS-190)
 			hostSteam = node;
 			lobbyOpened = true;
 			mp.openLobby(new HostedLobby(hostSettings(mp), name, mp.prefs.playerKey, mp.builds, node), node);
@@ -1180,6 +1183,51 @@ public final class MpAutopilot {
 		}
 	}
 
+	/**
+	 * Hot-join (SOS-190), on the host: a PC asks to join; the autopilot accepts once the popup has been shown (and shot,
+	 * with a GUI preview).
+	 */
+	boolean acceptJoin(java.util.function.Consumer<String> say) {
+		return !stageChat("joinask", say) && first("acceptjoin");
+	}
+
+	/** Host: the answer {@link #acceptJoin} gives: true for Accept (the default), false for Refuse. */
+	boolean joinAccepted() {
+		event("joinanswer", "\"accept\":" + !refuseJoin);
+		return !refuseJoin;
+	}
+
+	/**
+	 * Hot-join (SOS-190), on the joining PC's snapshot: the nearest spot 7 tiles or more from the host's capital that the
+	 * carving rule takes, then Ready, once.
+	 */
+	void joinSettle(int hostX, int hostY, boolean placed, java.util.function.BiFunction<Integer, Integer, String> problem,
+			IntBinaryOperator placeAt, Runnable ready) {
+		if (VIEW.inters().load.isActivated()) {
+			VIEW.inters().load.deactivate(); // vanilla's "click to continue" after the snapshot's load, as settle's
+			return;
+		}
+		if (stageChat("joinsettling", s -> {
+		}))
+			return;
+		if (!placed && due() && first("joinplace")) {
+			for (int r = 7; r < WORLD.TWIDTH(); r++) {
+				int found = spiral(hostX, hostY, r, (x, y) -> problem.apply(x, y) == null ? 1 : 0);
+				if (found >= 0) {
+					int x = found >> 16, y = found & 0xFFFF;
+					placeAt.applyAsInt(x, y);
+					event("joinsettled", "\"x\":" + x + ",\"y\":" + y);
+					return;
+				}
+			}
+			event("joinsettled", "\"x\":-1");
+		}
+		if (placed && first("joinready")) {
+			event("joinready", "");
+			ready.run();
+		}
+	}
+
 	private boolean first(String what) {
 		return once.putIfAbsent(what, Boolean.TRUE) == null;
 	}
@@ -1188,7 +1236,7 @@ public final class MpAutopilot {
 	 * One line to the events file. A line that can't be written now (the test runner reading the file holds it; laptop
 	 * T7 crashed on that) waits for the next event: lines keep their order, and a test aid never stops the game.
 	 */
-	private void event(String event, String fields) {
+	void event(String event, String fields) {
 		String line = "{\"t\":" + System.currentTimeMillis() + ",\"event\":\"" + event + "\"" + (fields.isEmpty() ? "" : "," + fields) + "}\n";
 		LOG.ln("SOSGSGMP autopilot: " + line.trim());
 		unwritten.append(line);

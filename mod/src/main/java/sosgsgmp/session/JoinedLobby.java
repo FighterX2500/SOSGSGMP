@@ -23,6 +23,8 @@ public final class JoinedLobby implements LobbySession {
     private final Builds builds;
     private LobbyState state = LobbyState.CONNECTING;
     private boolean handedOver;
+    /** Hot-join (SOS-190): the game is under way, and the host is asked whether this PC joins it. */
+    private boolean running;
     private List<LobbyPlayer> players = List.of();
     private LobbySettings settings;
     private int localId = -1;
@@ -85,6 +87,7 @@ public final class JoinedLobby implements LobbySession {
             case Message.Chat c -> chat.heard(c.playerId(), players, c.text());
             case Message.Refused f -> close(f.text());
             case Message.Start s -> state = LobbyState.STARTED;
+            case Message.Running r -> running = true; // hot-join (SOS-190): the host is asked whether this PC joins
             case Message.Leave l -> close("The host closed the lobby.");
             case Message.Unsupported u -> close("The host runs another version of the mod (protocol " + u.version() + ").");
             case Message.Hello h -> close("The host sent a message only a joining PC sends.");
@@ -97,6 +100,12 @@ public final class JoinedLobby implements LobbySession {
         state = LobbyState.CLOSED;
         closedReason = reason;
         changes++;
+    }
+
+    /** Hot-join: the host's game is under way, and the host is asked whether this PC joins it. */
+    @Override
+    public boolean running() {
+        return running;
     }
 
     @Override
@@ -148,7 +157,7 @@ public final class JoinedLobby implements LobbySession {
             throw new IllegalStateException("SOSGSGMP: only a started lobby hands over, once (state " + state + ", handed over " + handedOver + ")");
         handedOver = true;
         return new JoinedSetup(node, localId, players, world, factions, settings.resume(), settings.fullTransferLog(),
-                settings.livingWorld(), chat, builds);
+                settings.livingWorld(), chat, builds, running);
     }
 
     @Override
