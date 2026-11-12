@@ -38,7 +38,7 @@ final class MpSaves {
 	private CampaignRecord.Kind waiting;
 	private boolean loggedWaiting;
 	/** Host: a save that ends the session has the views in its way closed; each view is asked once. */
-	private final View[] closing = new View[LobbySettings.MAX_PLAYERS];
+	private final View[] closing = new View[LobbySettings.MAX_SLOTS];
 	private boolean closingViews;
 	/** The latest save's outcome for the panel; empty before the first. */
 	private String status = "";
@@ -47,6 +47,11 @@ final class MpSaves {
 	private String exited;
 	/** After a save that ended the session: the player who quit with it, or SaveOrder.NO_QUITTER (SOS-79). */
 	private int exitedQuitter = SaveOrder.NO_QUITTER;
+	/** After this PC's Leave and freeze save (SOS-194): its outcome, empty when every PC saved; null before. */
+	private String frozeHere;
+	/** Host, a rejoin (SOS-195): the next save also writes the rejoin's files, which wait here until taken. */
+	private boolean rejoinOutNext;
+	private byte[] rejoinFiles;
 	/** The Engage step of the last battle this PC saved before, held there (SOS-67); -1 before the first. */
 	private long savedBeforeBattle = -1;
 	/** The step of this PC's last save. */
@@ -182,6 +187,16 @@ final class MpSaves {
 		order(kind, false, engine.stepPastPeers());
 	}
 
+	/**
+	 * Host: player {@code leaver}'s Leave and freeze (SOS-194): every PC saves the campaign; then that player's PC leaves
+	 * and the others play on. Check {@link #canSaveToExit()} first.
+	 */
+	void saveAndFreeze(int leaver) {
+		waiting = null;
+		closingViews = false;
+		order(CampaignRecord.Kind.SAVE, false, leaver, engine.stepPastPeers());
+	}
+
 	/** Host: a desync's Save and exit, after the resync: every PC saves the campaign, then the session ends. Check {@link #canSaveToExit()} first. */
 	void saveAndExit() {
 		saveAndExit(SaveOrder.NO_QUITTER);
@@ -247,6 +262,7 @@ final class MpSaves {
 		} else {
 			try {
 				String file = game.saveGame(label(order));
+				savedFile = file;
 				hash = game.worldHash();
 				int slot = setup.factions().slotOf(setup.localPlayerId());
 				store.write(new CampaignRecord(order.campaign(), order.number(), order.kind(), System.currentTimeMillis(), slot,
@@ -255,6 +271,11 @@ final class MpSaves {
 					for (CampaignRecord gone : store.rotate(order.campaign().id(), order.keep()))
 						game.deleteSave(gone.file());
 				log.line(String.format("save %d written at step %d: %s, world hash %016x", order.number(), engine.step(), file, hash));
+				if (rejoinOutNext) { // the host's rejoin files at the founding save's own step, as every PC's save (SOS-195)
+					rejoinOutNext = false;
+					rejoinFiles = game.rejoinOut();
+					log.line("save " + order.number() + ": the rejoin's files, " + rejoinFiles.length + " bytes");
+				}
 				reports.saved(game.savePath(file), store.recordFile(order.campaign().id(), order.number()));
 			} catch (RuntimeException e) {
 				// the save's own boundary: every PC reports, so the host releases the hold and names this PC's problem
@@ -267,8 +288,23 @@ final class MpSaves {
 		setup.saved(order.number(), hash, problem);
 	}
 
+	/** Hot-join (SOS-190): the last save done on every PC, its outcome ("" when every PC saved) and this PC's file. */
+	record Done(int number, String outcome, String file) {
+	}
+
+	/** The last save done on every PC since this play began, or null. */
+	Done lastDone() {
+		return lastDone;
+	}
+
 	private void finish(String outcome) {
-		engine.release(EnginePlay.Hold.SAVE);
+		lastDone = new Done(order.number(), outcome, savedFile);
+		savedFile = null;
+		boolean leaving = order.freezes() && order.quitter() == setup.localPlayerId();
+		if (leaving)
+			frozeHere = outcome; // held at the save's step, as its city saved, this PC leaves from there (SOS-194)
+		else
+			engine.release(EnginePlay.Hold.SAVE);
 		if (engine.battleAhead() >= 0)
 			savedBeforeBattle = engine.battleAhead(); // a failed save too: the battle still begins, its outcome shown
 		status = outcome.isEmpty() ? "Campaign saved (save " + order.number() + ")." : "Save " + order.number() + ": " + outcome;
@@ -283,6 +319,10 @@ final class MpSaves {
 	}
 
 	/** The save's name in vanilla's list, before its time stamp: letters, digits and spaces of the campaign's name. */
+	/** This PC's file of the open save, once written; null otherwise. */
+	private String savedFile;
+	private Done lastDone;
+
 	private static String label(SaveOrder o) {
 		String name = o.campaign().name().replaceAll("[^A-Za-z0-9 ]", "");
 		return "MP " + name + (o.kind() == CampaignRecord.Kind.AUTO ? " Auto" : "");
@@ -291,6 +331,29 @@ final class MpSaves {
 	/** Whether a save is under way: ordered, not yet done. */
 	boolean saving() {
 		return order != null;
+	}
+
+	/** Host, a rejoin (SOS-195): the next save this PC makes also writes the rejoin's files, at the save's own step. */
+	void rejoinOutAtNextSave() {
+		rejoinOutNext = true;
+		rejoinFiles = null;
+	}
+
+	/** Host: the rejoin's files of the last save, once; null when it wrote none. */
+	byte[] takeRejoinFiles() {
+		byte[] f = rejoinFiles;
+		rejoinFiles = null;
+		return f;
+	}
+
+	/** Whether this PC's Leave and freeze save is under way: ordered, not yet done (SOS-194). */
+	boolean freezing() {
+		return order != null && order.freezes() && order.quitter() == setup.localPlayerId();
+	}
+
+	/** After this PC's Leave and freeze save: its outcome, empty when every PC saved; null before (SOS-194). */
+	String frozeHere() {
+		return frozeHere;
 	}
 
 	/** Whether a save that ends the session is under way: ordered, not yet done. */

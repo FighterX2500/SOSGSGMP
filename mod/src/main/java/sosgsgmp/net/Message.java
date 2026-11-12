@@ -120,6 +120,106 @@ public sealed interface Message {
     /** Joining PC to host: this PC's latest picks: race, faction, banner and location (setup-factions-step.md §4). */
     record Pick(FactionPick pick) implements Message {}
 
+    /**
+     * Hot-join (SOS-190), host to a PC that said hello after the start, after its Welcome: the game is under way, and the
+     * host is asked whether it joins; {@code returning}: it is a frozen player of the campaign, asked whether it comes back
+     * (spec §11 Freezing a player, SOS-195).
+     */
+    record Running(boolean returning) implements Message {}
+
+    /** Hot-join, the joining PC to the host: its race, faction and spot on the host's world, picked on a snapshot. */
+    record JoinPick(FactionPick pick) implements Message {
+        public JoinPick {
+            Objects.requireNonNull(pick, "pick");
+        }
+    }
+
+    /**
+     * Hot-join, host to the joining PC: why its spot can't be used on the live world, or empty: the founding save is
+     * ordered, and a {@link Restart} follows.
+     */
+    record JoinPicked(String problem) implements Message {
+        public JoinPicked {
+            Objects.requireNonNull(problem, "problem");
+        }
+    }
+
+    /**
+     * Hot-join, host to every joined PC and the joining one: the founding save {@code number} is done; every PC restarts
+     * from its copy of it with {@code campaign}, which has the newcomer, player {@code newcomerId}, in its slot. Every PC
+     * adds the newcomer at {@code pick}'s spot with {@code credits} after its load. From here on, the host's messages are
+     * the new session's.
+     *
+     * <p>A rejoin (SOS-195) has {@code rejoinSlot}, the frozen player's slot, and no pick: the returning PC loads its own
+     * last save of the campaign, every other PC its copy of save {@code number}; then every PC loads the host's world,
+     * from the {@link RejoinPart}s sent before this, and the slot thaws. {@code rejoinSlot} is {@link #NO_REJOIN} otherwise.
+     */
+    record Restart(int number, sosgsgmp.campaign.Campaign campaign, int newcomerId, FactionPick pick, double credits,
+            int rejoinSlot) implements Message {
+        public static final int NO_REJOIN = -1;
+
+        public Restart {
+            Objects.requireNonNull(campaign, "campaign");
+            if (rejoinSlot < NO_REJOIN || rejoinSlot != NO_REJOIN && (pick != null || credits != 0))
+                throw new IllegalArgumentException("SOSGSGMP: rejoin restart of slot " + rejoinSlot + " with a pick or credits");
+            if (rejoinSlot == NO_REJOIN)
+                Objects.requireNonNull(pick, "pick");
+            if (number < 1 || newcomerId < 0 || !(credits >= 0) || Double.isInfinite(credits)
+                    || pick != null && !pick.hasLocation())
+                throw new IllegalArgumentException("SOSGSGMP: restart " + number + ", newcomer " + newcomerId + ", credits "
+                        + credits + ", pick " + pick);
+        }
+
+        /** A hot-join's restart: a newcomer at {@code pick}. */
+        public Restart(int number, sosgsgmp.campaign.Campaign campaign, int newcomerId, FactionPick pick, double credits) {
+            this(number, campaign, newcomerId, pick, credits, NO_REJOIN);
+        }
+
+        /** A rejoin's restart: the frozen player in {@code slot} comes back as {@code playerId}. */
+        public static Restart rejoin(int number, sosgsgmp.campaign.Campaign campaign, int playerId, int slot) {
+            return new Restart(number, campaign, playerId, null, 0, slot);
+        }
+
+        /** Whether this restart brings a frozen player back. */
+        public boolean rejoins() {
+            return rejoinSlot != NO_REJOIN;
+        }
+    }
+
+    /**
+     * Rejoin (SOS-195), host to every joined PC and the returning one, before the {@link Restart}: piece {@code index}
+     * of {@code count} of the host's rejoin files: the world's sections as its founding save had them, and the world's
+     * state no save holds (SOSDET Engine.rejoinOut), packed together.
+     */
+    record RejoinPart(int index, int count, byte[] bytes) implements Message {
+        public RejoinPart {
+            bytes = bytes.clone();
+        }
+
+        @Override
+        public byte[] bytes() {
+            return bytes.clone();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof RejoinPart w && index == w.index && count == w.count && Arrays.equals(bytes, w.bytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(index, count, Arrays.hashCode(bytes));
+        }
+
+        @Override
+        public String toString() {
+            return "RejoinPart[index=" + index + ", count=" + count + ", " + bytes.length + " bytes]";
+        }
+    }
+
+    /** Hot-join, a joined PC to the host after {@link Restart}: its messages from here on are the new session's. */
+    record Restarted() implements Message {}
+
     /** Joining PC to host: this PC's player pressed Ready, or pressed it again (SOS-120). */
     record Ready(boolean ready) implements Message {}
 
@@ -239,7 +339,7 @@ public sealed interface Message {
      */
     record Stream(StreamKind kind, int pc, long offset, long step, byte[] bytes) implements Message {
         public Stream {
-            if (pc < 0 || pc >= LobbySettings.MAX_PLAYERS || offset < 0 || step < 0 || bytes.length > Protocol.MAX_STREAM_PIECE)
+            if (pc < 0 || pc >= LobbySettings.MAX_SLOTS || offset < 0 || step < 0 || bytes.length > Protocol.MAX_STREAM_PIECE)
                 throw new IllegalArgumentException("SOSGSGMP: stream piece of PC " + pc + " at " + offset + ", step " + step + ", " + bytes.length + " bytes");
             bytes = bytes.clone();
         }
@@ -321,9 +421,17 @@ public sealed interface Message {
 
     /**
      * Host to every joined PC: its choice for the hold at {@code holdStep}: Continue without the players gone
-     * ({@code continued}), or Return to the last save, which ends the session.
+     * ({@link #CONTINUE}), Freeze them ({@link #FREEZE}, SOS-194), or Return to the last save ({@link #RETURN}), which
+     * ends the session.
      */
-    record GoneChoice(long holdStep, boolean continued) implements Message {}
+    record GoneChoice(long holdStep, int choice) implements Message {
+        public static final int RETURN = 0, CONTINUE = 1, FREEZE = 2;
+
+        public GoneChoice {
+            if (choice < RETURN || choice > FREEZE)
+                throw new IllegalArgumentException("SOSGSGMP: gone choice " + choice);
+        }
+    }
 
     /**
      * Host to every joined PC (SOS-177): player {@code playerId}'s PC went silent, its connection still open, for
@@ -375,6 +483,13 @@ public sealed interface Message {
      * soon as a save can start, and then the session ends; a repeated ask changes nothing.
      */
     record QuitAsk() implements Message {}
+
+    /**
+     * A joined PC to the host: its player chose Leave and freeze (spec §11 Freezing a player, SOS-194). The host saves
+     * the campaign on every PC as soon as a save can start, with this player as its quitter; once it is done, that PC
+     * leaves and the host freezes its human. A repeated ask changes nothing.
+     */
+    record FreezeAsk() implements Message {}
 
     /**
      * City viewing (spec §10, SOS-82), the viewer's PC to the host: its player, in slot {@code viewer}, asks to view the

@@ -70,8 +70,9 @@ import world.WORLD;
  * SOSDET's rig {@code wcorrupt}), {@code ondesync} (host: {@code resync} or {@code exit} at a desync), {@code save}
  * (host: save the campaign at this step), {@code resume} (host, {@code 1}: host the newest campaign save of this data
  * folder instead of a new game; the joining PC learns it from the lobby), {@code crash} (this PC's game stops dead at
- * this step, as a crash or a pulled cable leaves the others: SOS-65), {@code ongone} (host: {@code continue} or
- * {@code return} when a player left), {@code startafter} (host: keep the lobby open this many seconds first),
+ * this step, as a crash or a pulled cable leaves the others: SOS-65), {@code ongone} (host: {@code continue},
+ * {@code freeze} (SOS-194) or {@code return} when a player left), {@code freeze} (join: at this step choose the escape
+ * menu's Leave and freeze, confirmed: SOS-194), {@code startafter} (host: keep the lobby open this many seconds first),
  * {@code deal} (join: at this step propose trade, up to 100 denari and 5 of a good it has to the host, who accepts every
  * proposal: SOS-72), {@code fulllog} (host, {@code 0}: the lobby's transfer log lists only transfers between players: SOS-81),
  * {@code living} (host, {@code 1}: the lobby's world is a living world, every joiner settling on the host's map: SOS-187),
@@ -123,6 +124,8 @@ public final class MpAutopilot {
 	private final long tariff;
 	/** The step this PC's player quits at, through the escape menu's Exit (SOS-79); -1 for never. */
 	private final long quit;
+	/** The step this PC's player leaves frozen at, through the escape menu (SOS-194); -1 for never. */
+	private final long freeze;
 	/** The step this PC's player renames the faction and changes the banner at (SOS-78); -1 for never. */
 	private final long rename;
 	/** The host opens each siege window in turn from this step, for screenshots (SOS-92); -1 for none. */
@@ -142,6 +145,8 @@ public final class MpAutopilot {
 	private final long viewAt, viewClose;
 	/** How this PC's player answers an ask to view its city: allow, refuse or none. */
 	private final String viewAnswer;
+	/** Host: Refuse a PC that asks to join the running game (SOS-190), instead of Accept. */
+	private final boolean refuseJoin;
 	/** Each view's state as last reported, by viewer slot. */
 	private final Map<Integer, String> viewSeen = new HashMap<>();
 	/** This PC's capital's world tile from {@code capital=X:Y} (SOS-75); -1 to search for one. */
@@ -155,6 +160,13 @@ public final class MpAutopilot {
 	/** The hold step of the last player-gone hold seen; -1 before the first. */
 	private long seenGone = -1;
 	private long goneSeenAt;
+	/** With a GUI preview (SOS-196): Leave and freeze's stage (0 none yet, 1 the menu, 2 the prompt, 3 done), since when. */
+	private int freezeStage;
+	private long freezeStageAt;
+	private boolean freezeShot;
+	/** When this PC left frozen; when the next chat shot is due (0: none). */
+	private long frozeAt;
+	private long chatShotAt;
 	private static final long CHOOSE_AFTER_NANOS = 3_000_000_000L;
 	/** The players this PC saw lost and not back yet (SOS-177). */
 	private final java.util.Set<Integer> lostSeen = new java.util.HashSet<>();
@@ -242,6 +254,7 @@ public final class MpAutopilot {
 		living = "1".equals(m.getOrDefault("living", "0"));
 		tariff = Long.parseLong(m.getOrDefault("tariff", "-1"));
 		quit = Long.parseLong(m.getOrDefault("quit", "-1"));
+		freeze = Long.parseLong(m.getOrDefault("freeze", "-1"));
 		rename = Long.parseLong(m.getOrDefault("rename", "-1"));
 		guiPreview = Long.parseLong(m.getOrDefault("guipreview", "-1"));
 		String[] view = m.getOrDefault("view", "-1:-1").split(":");
@@ -250,6 +263,7 @@ public final class MpAutopilot {
 		viewAt = Long.parseLong(view[0]);
 		viewClose = Long.parseLong(view[1]);
 		viewAnswer = m.getOrDefault("viewanswer", "allow");
+		refuseJoin = m.getOrDefault("joinanswer", "accept").equals("refuse");
 		if (!viewAnswer.equals("allow") && !viewAnswer.equals("refuse") && !viewAnswer.equals("none"))
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " viewanswer '" + viewAnswer + "', not allow, refuse or none");
 		String[] capital = m.getOrDefault("capital", "-1:-1").split(":");
@@ -259,8 +273,8 @@ public final class MpAutopilot {
 		capitalY = Integer.parseInt(capital[1]);
 		startAfterNanos = Long.parseLong(m.getOrDefault("startafter", "0")) * 1_000_000_000L;
 		onGone = m.getOrDefault("ongone", "continue");
-		if (!onGone.equals("continue") && !onGone.equals("return"))
-			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " ongone '" + onGone + "', not continue or return");
+		if (!onGone.equals("continue") && !onGone.equals("freeze") && !onGone.equals("return"))
+			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " ongone '" + onGone + "', not continue, freeze or return");
 		if (!onDesync.equals("resync") && !onDesync.equals("exit"))
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " ondesync '" + onDesync + "', not resync or exit");
 		String net = m.getOrDefault("net", "ip");
@@ -416,7 +430,7 @@ public final class MpAutopilot {
 	 */
 	private void steamMenu(MpMenu mp) {
 		if (host) {
-			SteamNode node = SteamNode.host(SteamworksPort::new, Math.max(players, 2));
+			SteamNode node = SteamNode.host(SteamworksPort::new, sosgsgmp.lobby.LobbySettings.MAX_PLAYERS); // as the screens (SOS-190)
 			hostSteam = node;
 			lobbyOpened = true;
 			mp.openLobby(new HostedLobby(hostSettings(mp), name, mp.prefs.playerKey, mp.builds, node), node);
@@ -483,6 +497,64 @@ public final class MpAutopilot {
 				&& first("started")) {
 			s.start();
 			event("started", "\"players\":" + s.players().size());
+		}
+	}
+
+	/** A screenshot into the data folder's screenshots, named by time, and an event saying what it shows. */
+	private void guiShot(String what) {
+		CORE.getGraphics().makeScreenShot();
+		event("guishot", "\"what\":\"" + what + "\"");
+	}
+
+	/**
+	 * With a GUI preview, Leave and freeze as a player meets it (SOS-196): the escape menu with its button, then the
+	 * confirmation, each shown three seconds with a shot. True meanwhile; the autopilot then confirms.
+	 */
+	private boolean freezePreview(MpExit exit) {
+		if (guiPreview < 0 || freezeStage == 3)
+			return false;
+		long now = System.nanoTime();
+		if (freezeStage == 0) {
+			VIEW.inters().menu.show();
+			freezeStage = 1;
+			freezeStageAt = now;
+			return true;
+		}
+		double s = (now - freezeStageAt) / 1e9;
+		if (s >= 2 && !freezeShot) {
+			freezeShot = true;
+			guiShot(freezeStage == 1 ? "freezemenu" : "freezeprompt");
+		}
+		if (s < 3)
+			return true;
+		freezeShot = false;
+		freezeStageAt = now;
+		if (freezeStage == 1) {
+			VIEW.inters().manager.remove(VIEW.inters().menu);
+			exit.leaveFrozen();
+			freezeStage = 2;
+			return true;
+		}
+		VIEW.inters().yesNo.deactivate();
+		freezeStage = 3;
+		return false;
+	}
+
+	/**
+	 * With a GUI preview, the chat a few seconds after a player froze, and after a session began with a player back
+	 * (SOS-196), each once.
+	 */
+	private void chatShots(SetupSession setup, EnginePlay engine, long now) {
+		if (guiPreview < 0)
+			return;
+		for (int slot = 1; slot < LobbySettings.MAX_SLOTS; slot++)
+			if (engine.frozen(slot) && first("frozenchat" + slot))
+				chatShotAt = now + 4_000_000_000L;
+		if (setup.restartInfo() != null && setup.restartInfo().rejoins() && first("backchat"))
+			chatShotAt = now + 6_000_000_000L;
+		if (chatShotAt > 0 && now >= chatShotAt) {
+			chatShotAt = 0;
+			guiShot("chat");
 		}
 	}
 
@@ -728,6 +800,19 @@ public final class MpAutopilot {
 			CORE.annihilate();
 			return;
 		}
+		if (saves.frozeHere() != null) { // this PC left frozen (SOS-194)
+			if (first("frozeexit")) {
+				event("frozeexit", "\"outcome\":\"" + clean(saves.frozeHere()) + "\",\"save\":" + saves.lastDone().number());
+				frozeAt = System.nanoTime();
+			}
+			// with a GUI preview, the window it leaves with stays up for a shot (SOS-196)
+			long shown = System.nanoTime() - frozeAt;
+			if (guiPreview >= 0 && shown >= 2_000_000_000L && first("frozeshot"))
+				guiShot("frozeexit");
+			if (guiPreview < 0 || shown >= 3_000_000_000L)
+				CORE.annihilate();
+			return;
+		}
 		if (setup.closed()) {
 			if (first("closed")) {
 				event("closed", "\"reason\":\"" + clean(setup.closedReason()) + "\"");
@@ -761,6 +846,10 @@ public final class MpAutopilot {
 		if (host && commands.takeSave()) { // a driver's save (SOS-162): pressed whatever the escape menu would refuse
 			exit.save();
 			event("saveorder", "\"step\":" + engine.step() + ",\"refusal\":\"" + clean(String.valueOf(exit.saveRefusal())) + "\"");
+		}
+		if (freeze >= 0 && engine.step() >= freeze && !freezePreview(exit) && first("freeze")) {
+			exit.freezeConfirmed(); // the escape menu's Leave and freeze, confirmed
+			event("freeze", "\"step\":" + engine.step());
 		}
 		if (quit >= 0 && engine.step() >= quit && first("quit")) {
 			exit.quitConfirmed(true); // the escape menu's Exit, confirmed
@@ -807,6 +896,9 @@ public final class MpAutopilot {
 			event("gone", "\"holdStep\":" + d.holdStep() + ",\"names\":\"" + clean(d.names()) + "\",\"step\":" + step);
 		}
 		lost(setup, d, step);
+		if (guiPreview >= 0 && d.waiting() && now - goneSeenAt > 2_000_000_000L && first("goneshot" + seenGone))
+			guiShot("gone"); // the disconnect window, the host's with its three choices (SOS-196)
+		chatShots(setup, engine, now);
 		if (commands.leaveLost() && gone.canLeaveWithoutHost()) { // SOS-179: the window's button, then the test game quits
 			event("lefthostlost", "\"step\":" + step);
 			gone.leaveWithoutHost();
@@ -818,12 +910,16 @@ public final class MpAutopilot {
 		// the host reads the window first, as a player would: every other PC shows the hold before the choice arrives;
 		// a hold of players only lost is waited out, as they may come back (SOS-177)
 		if (host && gone.waiting() && now - goneSeenAt > CHOOSE_AFTER_NANOS && (anyLeft(d) || commands.chooseLost()))
-			gone.choose(onGone.equals("continue"));
+			gone.choose(onGone.equals("continue") ? Departures.Choice.CONTINUE
+					: onGone.equals("freeze") ? Departures.Choice.FREEZE : Departures.Choice.RETURN);
 		// every removed player of the campaign, by Continue or missing at a resume
 		if (setup.campaign() != null)
 			for (Campaign.Player p : setup.campaign().players())
 				if (p.slot() != 0 && engine.retired(p.slot()) && first("retired" + p.slot()))
 					event("retired", "\"slot\":" + p.slot() + ",\"step\":" + step);
+		for (int slot = 1; slot < LobbySettings.MAX_SLOTS; slot++) // every frozen player, on every PC (SOS-194)
+			if (engine.frozen(slot) && first("frozen" + slot))
+				event("frozen", "\"slot\":" + slot + ",\"step\":" + step);
 		for (Departures.Gone g : d.removed()) // a joining PC learns the campaign only from the first save order
 			if (engine.retired(g.slot()) && first("retired" + g.slot()))
 				event("retired", "\"slot\":" + g.slot() + ",\"step\":" + step);
@@ -1180,6 +1276,51 @@ public final class MpAutopilot {
 		}
 	}
 
+	/**
+	 * Hot-join (SOS-190), on the host: a PC asks to join; the autopilot accepts once the popup has been shown (and shot,
+	 * with a GUI preview).
+	 */
+	boolean acceptJoin(java.util.function.Consumer<String> say) {
+		return !stageChat("joinask", say) && first("acceptjoin");
+	}
+
+	/** Host: the answer {@link #acceptJoin} gives: true for Accept (the default), false for Refuse. */
+	boolean joinAccepted() {
+		event("joinanswer", "\"accept\":" + !refuseJoin);
+		return !refuseJoin;
+	}
+
+	/**
+	 * Hot-join (SOS-190), on the joining PC's snapshot: the nearest spot 7 tiles or more from the host's capital that the
+	 * carving rule takes, then Ready, once.
+	 */
+	void joinSettle(int hostX, int hostY, boolean placed, java.util.function.BiFunction<Integer, Integer, String> problem,
+			IntBinaryOperator placeAt, Runnable ready) {
+		if (VIEW.inters().load.isActivated()) {
+			VIEW.inters().load.deactivate(); // vanilla's "click to continue" after the snapshot's load, as settle's
+			return;
+		}
+		if (stageChat("joinsettling", s -> {
+		}))
+			return;
+		if (!placed && due() && first("joinplace")) {
+			for (int r = 7; r < WORLD.TWIDTH(); r++) {
+				int found = spiral(hostX, hostY, r, (x, y) -> problem.apply(x, y) == null ? 1 : 0);
+				if (found >= 0) {
+					int x = found >> 16, y = found & 0xFFFF;
+					placeAt.applyAsInt(x, y);
+					event("joinsettled", "\"x\":" + x + ",\"y\":" + y);
+					return;
+				}
+			}
+			event("joinsettled", "\"x\":-1");
+		}
+		if (placed && first("joinready")) {
+			event("joinready", "");
+			ready.run();
+		}
+	}
+
 	private boolean first(String what) {
 		return once.putIfAbsent(what, Boolean.TRUE) == null;
 	}
@@ -1188,7 +1329,7 @@ public final class MpAutopilot {
 	 * One line to the events file. A line that can't be written now (the test runner reading the file holds it; laptop
 	 * T7 crashed on that) waits for the next event: lines keep their order, and a test aid never stops the game.
 	 */
-	private void event(String event, String fields) {
+	void event(String event, String fields) {
 		String line = "{\"t\":" + System.currentTimeMillis() + ",\"event\":\"" + event + "\"" + (fields.isEmpty() ? "" : "," + fields) + "}\n";
 		LOG.ln("SOSGSGMP autopilot: " + line.trim());
 		unwritten.append(line);

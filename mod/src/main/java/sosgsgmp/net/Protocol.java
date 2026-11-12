@@ -32,7 +32,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 28;
+    public static final int VERSION = 31;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -50,6 +50,9 @@ public final class Protocol {
     private static final int PLAYER_LOST = 43, PLAYER_BACK = 44, HEARTBEAT = 45;
     private static final int SEQUENCED = 46, RESUME = 47, RESUMED = 48;
     private static final int SETTLE_PART = 49;
+    private static final int RUNNING = 50, JOIN_PICK = 51, JOIN_PICKED = 52, RESTART = 53, RESTARTED = 54; // hot-join (SOS-190)
+    private static final int FREEZE_ASK = 55; // freeze (SOS-194)
+    private static final int REJOIN_PART = 56; // rejoin (SOS-195)
     /** The bytes {@link Message.Sequenced} adds in front of its message: version, type and sequence number. */
     private static final int SEQUENCED_HEADER = 2 + 1 + 8;
     /** Largest frame on a connection: a message, or one wrapped in {@link Message.Sequenced} (SOS-178). */
@@ -120,8 +123,33 @@ public final class Protocol {
                         out.writeUTF(line);
                 }
                 case Message.Start s -> out.writeByte(START);
+                case Message.Running r -> {
+                    out.writeByte(RUNNING);
+                    out.writeBoolean(r.returning());
+                }
+                case Message.Restarted r -> out.writeByte(RESTARTED);
+                case Message.JoinPick p -> {
+                    out.writeByte(JOIN_PICK);
+                    writePick(out, p.pick());
+                }
+                case Message.JoinPicked p -> {
+                    out.writeByte(JOIN_PICKED);
+                    out.writeUTF(p.problem());
+                }
+                case Message.Restart r -> {
+                    out.writeByte(RESTART);
+                    out.writeInt(r.number());
+                    writeCampaign(out, r.campaign());
+                    out.writeInt(r.newcomerId());
+                    out.writeInt(r.rejoinSlot());
+                    if (!r.rejoins()) {
+                        writePick(out, r.pick());
+                        out.writeDouble(r.credits());
+                    }
+                }
                 case Message.Leave l -> out.writeByte(LEAVE);
                 case Message.QuitAsk q -> out.writeByte(QUIT_ASK);
+                case Message.FreezeAsk q -> out.writeByte(FREEZE_ASK);
                 case Message.MapBuild b -> {
                     out.writeByte(MAP_BUILD);
                     out.writeInt(b.buildId());
@@ -194,6 +222,10 @@ public final class Protocol {
                 case Message.WorldPart w -> {
                     out.writeByte(WORLD_PART);
                     writePiece(out, w.transfer(), w.index(), w.count(), w.bytes());
+                }
+                case Message.RejoinPart w -> {
+                    out.writeByte(REJOIN_PART);
+                    writePiece(out, 1, w.index(), w.count(), w.bytes()); // one per restart: its number is always 1
                 }
                 case Message.SettlePart w -> {
                     out.writeByte(SETTLE_PART);
@@ -289,7 +321,7 @@ public final class Protocol {
                 case Message.GoneChoice c -> {
                     out.writeByte(GONE_CHOICE);
                     out.writeLong(c.holdStep());
-                    out.writeBoolean(c.continued());
+                    out.writeByte(c.choice());
                 }
                 case Message.PlayerLost l -> {
                     out.writeByte(PLAYER_LOST);
@@ -426,6 +458,11 @@ public final class Protocol {
             case ROSTER -> roster(in);
             case REFUSED -> new Message.Refused(refusal(in.readUnsignedByte()), refusalDetail(in));
             case START -> new Message.Start();
+            case RUNNING -> new Message.Running(in.readBoolean());
+            case RESTARTED -> new Message.Restarted();
+            case JOIN_PICK -> new Message.JoinPick(pick(in));
+            case JOIN_PICKED -> new Message.JoinPicked(text(in, MAX_REASON, "join problem"));
+            case RESTART -> restart(in);
             case LEAVE -> new Message.Leave();
             case MAP_BUILD -> new Message.MapBuild(number(in, "build"), size(in));
             case BUILD_READY -> new Message.BuildReady(number(in, "build"));
@@ -444,6 +481,10 @@ public final class Protocol {
             case WORLD_PART -> {
                 Piece p = piece(in, "transfer", "world");
                 yield new Message.WorldPart(p.number(), p.index(), p.count(), p.data());
+            }
+            case REJOIN_PART -> {
+                Piece p = piece(in, "rejoin", "rejoin world");
+                yield new Message.RejoinPart(p.index(), p.count(), p.data());
             }
             case SETTLE_PART -> {
                 Piece p = piece(in, "settling", "settling world");
@@ -467,7 +508,13 @@ public final class Protocol {
             case SAVED -> new Message.Saved(number(in, "save"), in.readLong(), text(in, MAX_REASON, "save problem"));
             case SAVE_DONE -> new Message.SaveDone(number(in, "save"), text(in, MAX_OUTCOME, "save outcome"));
             case PLAYER_GONE -> new Message.PlayerGone(playerId(in), step(in, "player gone hold"));
-            case GONE_CHOICE -> new Message.GoneChoice(step(in, "gone choice hold"), in.readBoolean());
+            case GONE_CHOICE -> {
+                long hold = step(in, "gone choice hold");
+                int choice = in.readUnsignedByte();
+                if (choice > Message.GoneChoice.FREEZE)
+                    throw new IOException("SOSGSGMP: gone choice " + choice);
+                yield new Message.GoneChoice(hold, choice);
+            }
             case PLAYER_LOST -> new Message.PlayerLost(playerId(in), step(in, "player lost hold"), step(in, "player lost silence"));
             case PLAYER_BACK -> new Message.PlayerBack(playerId(in), step(in, "player back hold"));
             case HEARTBEAT -> new Message.Heartbeat(in.readLong(), in.readLong(), in.readInt(), received(in));
@@ -486,6 +533,7 @@ public final class Protocol {
                 yield new Message.Resumed(received);
             }
             case QUIT_ASK -> new Message.QuitAsk();
+            case FREEZE_ASK -> new Message.FreezeAsk();
             case VIEW_ASK -> new Message.ViewAsk(slot(in), slot(in));
             case VIEW_ANSWER -> new Message.ViewAnswer(slot(in), slot(in), in.readBoolean(), text(in, MAX_REASON, "view answer"));
             case VIEW_CLOSE -> {
@@ -597,6 +645,7 @@ public final class Protocol {
             out.writeByte(p.slot());
             out.writeBoolean(p.removed());
             out.writeBoolean(p.eliminated());
+            out.writeBoolean(p.frozen());
         }
     }
 
@@ -611,9 +660,14 @@ public final class Protocol {
             long key = in.readLong();
             String name2 = name(in);
             int slot = in.readUnsignedByte();
-            if (slot >= LobbySettings.MAX_PLAYERS)
+            if (slot >= LobbySettings.MAX_SLOTS)
                 throw new IOException("SOSGSGMP: campaign slot " + slot);
-            players.add(new Campaign.Player(key, name2, slot, in.readBoolean(), in.readBoolean()));
+            boolean removed = in.readBoolean();
+            boolean eliminated = in.readBoolean();
+            boolean frozen = in.readBoolean();
+            if (frozen && removed)
+                throw new IOException("SOSGSGMP: campaign player in slot " + slot + " both frozen and removed");
+            players.add(new Campaign.Player(key, name2, slot, removed, eliminated, frozen));
         }
         try {
             return new Campaign(id, name, seed, difficulty, players);
@@ -654,6 +708,22 @@ public final class Protocol {
             players.add(new LobbyPlayer(id, name, host));
         }
         return new Message.Roster(players);
+    }
+
+    private static Message.Restart restart(DataInputStream in) throws IOException {
+        int number = number(in, "save");
+        sosgsgmp.campaign.Campaign c = campaign(in);
+        int id = playerId(in);
+        int rejoinSlot = in.readInt();
+        if (rejoinSlot < Message.Restart.NO_REJOIN || rejoinSlot >= LobbySettings.MAX_SLOTS)
+            throw new IOException("SOSGSGMP: restart rejoining slot " + rejoinSlot);
+        FactionPick pick = rejoinSlot == Message.Restart.NO_REJOIN ? pick(in) : null;
+        double credits = rejoinSlot == Message.Restart.NO_REJOIN ? in.readDouble() : 0;
+        try {
+            return new Message.Restart(number, c, id, pick, credits, rejoinSlot);
+        } catch (IllegalArgumentException e) {
+            throw new IOException(e.getMessage(), e);
+        }
     }
 
     private static Refusal refusal(int ordinal) throws IOException {
@@ -782,7 +852,7 @@ public final class Protocol {
         if (kind >= StreamKind.values().length)
             throw new IOException("SOSGSGMP: stream kind " + kind);
         int pc = in.readUnsignedByte();
-        if (pc >= LobbySettings.MAX_PLAYERS)
+        if (pc >= LobbySettings.MAX_SLOTS)
             throw new IOException("SOSGSGMP: stream of PC " + pc);
         long offset = in.readLong();
         long step = in.readLong();
@@ -799,7 +869,7 @@ public final class Protocol {
     /** A player's slot: their PC's number. */
     private static int slot(DataInputStream in) throws IOException {
         int slot = in.readUnsignedByte();
-        if (slot >= LobbySettings.MAX_PLAYERS)
+        if (slot >= LobbySettings.MAX_SLOTS)
             throw new IOException("SOSGSGMP: slot " + slot);
         return slot;
     }
@@ -870,7 +940,7 @@ public final class Protocol {
         for (int i = 0; i < n; i++) {
             int id = playerId(in);
             int slot = in.readUnsignedByte();
-            if (slot >= LobbySettings.MAX_PLAYERS)
+            if (slot >= LobbySettings.MAX_SLOTS)
                 throw new IOException("SOSGSGMP: slot " + slot);
             all.add(new FactionStep.PlayerSlot(id, slot));
         }

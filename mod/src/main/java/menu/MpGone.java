@@ -10,9 +10,11 @@ import game.GAME;
 import snake2d.CORE;
 import snake2d.LOG;
 import snake2d.util.color.COLOR;
+import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.WorldSetupAdapter;
+import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.session.Departures;
 import sosgsgmp.session.SetupSession;
 import util.gui.misc.GButt;
@@ -29,6 +31,10 @@ import view.main.VIEW;
  * they have been lost; the host can wait as long as it likes. Once every player of the hold is back, before the host
  * chose, the hold ends by itself. A joining PC whose host went silent says so, with the time, until it is heard again;
  * its player can leave the session from there (SOS-179).
+ *
+ * <p>Freeze them (spec §11 Freezing a player, SOS-194) is the host's third choice: the engine freezes their humans, who
+ * keep their capitals until they come back. The host also freezes a player who chose Leave and freeze, once their save
+ * is done ({@link MpExit}). Every PC's chat says who is frozen.
  */
 final class MpGone {
 
@@ -40,7 +46,12 @@ final class MpGone {
 	private long heldAt = -1;
 	/** The window's text as last shown: shown again when it changes (another player left, Continue became possible). */
 	private String shownText;
-	/** Host, after Continue: the slots whose removal the next campaign save records, once the engine removed them. */
+	/** Every PC: the slots the chat told frozen (SOS-194), once it has looked at every slot of this session. */
+	private final boolean[] toldFrozen = new boolean[LobbySettings.MAX_SLOTS];
+	private boolean frozenSeen;
+	/** Every PC: the slots the chat told lost and not back since: frozen, they were frozen, not left so (SOS-196 G1). */
+	private final boolean[] toldLostSlot = new boolean[LobbySettings.MAX_SLOTS];
+	/** Host, after Continue or Freeze them: the slots whose removal or freeze the next campaign save records, once the engine made it. */
 	private final List<Integer> toSave = new ArrayList<>();
 	/** The players of the open hold the chat told left, by id. */
 	private final List<Integer> toldLeft = new ArrayList<>();
@@ -61,6 +72,8 @@ final class MpGone {
 	void frame() {
 		if (ended)
 			return;
+		tellFrozen();
+		freezeLeaver();
 		Departures d = setup.departures();
 		if (d.choice() == Departures.Choice.RETURN) {
 			end();
@@ -93,10 +106,10 @@ final class MpGone {
 			engine.release(EnginePlay.Hold.GONE);
 			return;
 		}
-		if (d.choice() == Departures.Choice.CONTINUE) {
+		if (d.choice() == Departures.Choice.CONTINUE || d.choice() == Departures.Choice.FREEZE) {
 			for (Departures.Gone g : d.gone())
 				toSave.add(g.slot());
-			LOG.ln("SOSGSGMP: the host continued without " + d.names());
+			LOG.ln("SOSGSGMP: the host " + (d.choice() == Departures.Choice.FREEZE ? "froze " : "continued without ") + d.names());
 			d.continued();
 			toldLeft.clear();
 			toldLost.clear();
@@ -109,15 +122,65 @@ final class MpGone {
 		saveRemoval();
 	}
 
-	/** Host: once the engine removed every player Continue left out, the campaign save that keeps the removal. */
+	/** Host: once the engine removed or froze every player Continue or Freeze them left out, the campaign save that keeps it. */
 	private void saveRemoval() {
 		if (!setup.isHost() || toSave.isEmpty() || !saves.canSave())
 			return;
 		for (int slot : toSave)
-			if (!engine.retired(slot))
+			if (!engine.retired(slot) && !engine.frozen(slot))
 				return;
 		toSave.clear();
 		saves.saveNow(CampaignRecord.Kind.AUTO);
+	}
+
+	/** Host: a player whose Leave and freeze save is done is frozen now; the save after keeps it (SOS-194). */
+	private void freezeLeaver() {
+		int id = setup.takeFrozenLeaver();
+		if (id < 0)
+			return;
+		int slot = setup.factions().slotOf(id);
+		String refusal = engine.freezeRefusal(slot);
+		if (refusal != null) { // the host checked before the save, and every PC held at its step since
+			LOG.err("SOSGSGMP: the player in slot " + slot + " left frozen, but the engine refuses the freeze: " + refusal);
+			return;
+		}
+		engine.freezeHuman(slot);
+		toSave.add(slot);
+		LOG.ln("SOSGSGMP: the player in slot " + slot + " left frozen; their human is frozen");
+	}
+
+	/**
+	 * Every PC: the chat says once who is frozen: those frozen already when this session began (a resume, a restart), then
+	 * whoever leaves frozen; a slot frozen no more may be told again later.
+	 */
+	private void tellFrozen() {
+		if (!engine.active())
+			return;
+		for (int slot = 1; slot < toldFrozen.length; slot++) {
+			boolean frozen = engine.frozen(slot);
+			if (frozen && !toldFrozen[slot])
+				setup.chat().notice(nameOf(slot) + (frozenSeen && !toldLostSlot[slot] ? " left and is frozen." : " is frozen."));
+			if (frozen)
+				toldLostSlot[slot] = false;
+			toldFrozen[slot] = frozen;
+		}
+		frozenSeen = true;
+	}
+
+	/** The name of the campaign's player in {@code slot}; a joining PC knows the campaign from the first save on. */
+	private String nameOf(int slot) {
+		Campaign.Player p = setup.campaign() == null ? null : setup.campaign().inSlot(slot);
+		return p == null ? "A player" : p.name();
+	}
+
+	/** Host: why Freeze them can't freeze the players gone now, or null when it can. */
+	private String freezeRefusal(Departures d) {
+		for (Departures.Gone g : d.gone()) {
+			String r = engine.freezeRefusal(g.slot());
+			if (r != null)
+				return g.name() + " can't be frozen now: " + r;
+		}
+		return null;
 	}
 
 	/** Host: why Continue can't remove the players gone now, or null when it can. */
@@ -159,8 +222,9 @@ final class MpGone {
 			return who + "The game goes on by itself when they are heard again; you can wait as long as you like."
 					+ (refusal == null ? "" : "\n" + refusal);
 		return who + "Continue without them: they are removed from the campaign; their regions become free and their"
-				+ " armies disband.\nReturn to the last save: the session ends, and Load Saved Lobby resumes the campaign"
-				+ " with them." + (refusal == null ? "" : "\n" + refusal);
+				+ " armies disband.\nFreeze them: they keep their capital until they come back, as it was at their last"
+				+ " save; their other regions become free.\nReturn to the last save: the session ends, and Load Saved Lobby"
+				+ " resumes the campaign with them." + (refusal == null ? "" : "\n" + refusal);
 	}
 
 	/**
@@ -222,8 +286,10 @@ final class MpGone {
 		for (Departures.Gone g : d.gone()) {
 			int id = g.playerId();
 			if (d.lost(id)) {
-				if (toldLost.put(id, g.name()) == null && id != setup.localPlayerId())
+				if (toldLost.put(id, g.name()) == null && id != setup.localPlayerId()) {
 					setup.chat().notice(g.name() + " lost the connection.");
+					markLost(id, true);
+				}
 			} else if (!toldLeft.contains(id)) {
 				toldLeft.add(id);
 				toldLost.remove(id);
@@ -237,7 +303,15 @@ final class MpGone {
 			i.remove();
 			if (l.getKey() != setup.localPlayerId())
 				setup.chat().notice(l.getValue() + " is back.");
+			markLost(l.getKey(), false);
 		}
+	}
+
+	/** Every PC: whether the chat's last word on the player {@code id} was that they lost the connection. */
+	private void markLost(int id, boolean lost) {
+		int slot = setup.factions().slotOf(id);
+		if (slot > 0 && slot < toldLostSlot.length)
+			toldLostSlot[slot] = lost;
 	}
 
 	/** How many players of the open hold left, not lost. */
@@ -264,35 +338,48 @@ final class MpGone {
 		GButt.ButtPanel back = new GButt.ButtPanel("Return to the last save") {
 			@Override
 			protected void clickA() {
-				choose(false);
+				choose(Departures.Choice.RETURN);
 			}
 		};
 		if (refusal(d) != null) {
 			MpPrompt.show(text, back);
 			return;
 		}
-		VIEW.inters().fullScreen.activate(text, COLOR.WHITE100, null, new GButt.ButtPanel("Continue without them") {
+		GButt.ButtPanel remove = new GButt.ButtPanel("Continue without them") {
 			@Override
 			protected void clickA() {
-				choose(true);
+				choose(Departures.Choice.CONTINUE);
+			}
+		};
+		if (freezeRefusal(d) != null) {
+			VIEW.inters().fullScreen.activate(text, COLOR.WHITE100, null, remove, back);
+			return;
+		}
+		VIEW.inters().fullScreen.activate(text, COLOR.WHITE100, null, remove, new GButt.ButtPanel("Freeze them") {
+			@Override
+			protected void clickA() {
+				choose(Departures.Choice.FREEZE);
 			}
 		}, back);
 	}
 
 	/** Host: the choice for the open hold, from the window's buttons or the test autopilot. Between steps. */
-	void choose(boolean continued) {
+	void choose(Departures.Choice choice) {
 		Departures d = setup.departures();
 		if (!setup.isHost() || !d.waiting())
 			return;
-		if (!continued) {
+		if (choice == Departures.Choice.RETURN) {
 			setup.chooseGone(Departures.Choice.RETURN);
 			return;
 		}
-		if (refusal(d) != null)
+		if (refusal(d) != null || choice == Departures.Choice.FREEZE && freezeRefusal(d) != null)
 			return;
 		for (Departures.Gone g : d.gone())
-			engine.removeHuman(g.slot());
-		setup.chooseGone(Departures.Choice.CONTINUE);
+			if (choice == Departures.Choice.FREEZE)
+				engine.freezeHuman(g.slot());
+			else
+				engine.removeHuman(g.slot());
+		setup.chooseGone(choice);
 	}
 
 	/** Every PC after Return to the last save: the session and the engine end, and the main menu is offered. */

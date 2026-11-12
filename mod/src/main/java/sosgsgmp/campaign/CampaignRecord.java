@@ -15,9 +15,10 @@ public record CampaignRecord(Campaign campaign, int number, Kind kind, long time
     /**
      * Raise whenever the text's keys or their meaning change; {@link #fromText} reads every version still around. 2: each
      * player's {@code removed} (SOS-65); a format 1 record has no removed player. 3: each player's {@code eliminated}
-     * (SOS-111); an older record has no eliminated player.
+     * (SOS-111); an older record has no eliminated player. 4: each player's {@code frozen} (SOS-194); an older record has
+     * no frozen player.
      */
-    public static final int FORMAT = 3;
+    public static final int FORMAT = 4;
 
     /** Save: the host's button, kept until deleted. Auto: an autosave, rotated. */
     public enum Kind {
@@ -59,6 +60,7 @@ public record CampaignRecord(Campaign campaign, int number, Kind kind, long time
             line(b, "player." + i + ".slot", p.slot());
             line(b, "player." + i + ".removed", p.removed());
             line(b, "player." + i + ".eliminated", p.eliminated());
+            line(b, "player." + i + ".frozen", p.frozen());
         }
         line(b, "number", number);
         line(b, "kind", kind.name());
@@ -95,7 +97,7 @@ public record CampaignRecord(Campaign campaign, int number, Kind kind, long time
         for (int i = 0; i < n; i++)
             players.add(new Campaign.Player(hex(v, "player." + i + ".key"), text(v, "player." + i + ".name"),
                     integer(v, "player." + i + ".slot"), format >= 2 && bool(v, "player." + i + ".removed"),
-                    format >= 3 && bool(v, "player." + i + ".eliminated")));
+                    format >= 3 && bool(v, "player." + i + ".eliminated"), format >= 4 && bool(v, "player." + i + ".frozen")));
         Campaign c = new Campaign(hex(v, "campaign"), text(v, "name"), integer(v, "seed"), text(v, "difficulty"), players);
         Kind kind;
         try {

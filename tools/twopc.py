@@ -122,7 +122,7 @@ def refresh_mods(data, rdir):
     """A resume keeps both data folders, but plays the mods as installed now, on both PCs."""
     for m in MODS:
         shutil.rmtree(data / "mods" / m, ignore_errors=True)
-        shutil.copytree(REAL / "mods" / m, data / "mods" / m)
+        shutil.copytree(MOD_DIRS.get(m, REAL / "mods" / m), data / "mods" / m)
     remote_ps("Remove-Item -Recurse -Force -ErrorAction SilentlyContinue %s"
               % ", ".join("'%s\\songsofsyx\\mods\\%s'" % (rdir, m) for m in MODS))
     tar = [r"C:\Windows\System32\tar.exe", "-cf", "-", "-C", str(data.parent)] + ["songsofsyx/mods/" + m for m in MODS]
@@ -241,8 +241,17 @@ def main():
     ap.add_argument("--players", type=int, default=0, help="the host starts with this many players (default: every PC started)")
     ap.add_argument("--start-after", type=int, default=0, help="the host keeps the lobby open this many seconds first")
     ap.add_argument("--crash", default="", help="'remote:STEP' or 'local:STEP': that joiner's game stops dead at STEP (SOS-65)")
-    ap.add_argument("--on-gone", choices=("continue", "return"), default="continue",
-                    help="the host's choice when a player left: continue without them, or return to the last save")
+    ap.add_argument("--on-gone", choices=("continue", "freeze", "return"), default="continue",
+                    help="the host's choice when a player left: continue without them, freeze them (SOS-194), or return"
+                         " to the last save")
+    ap.add_argument("--rejoin", type=int, default=-1, metavar="SECONDS",
+                    help="with --freeze local:STEP: this many seconds after the local game left frozen, it starts again"
+                         " and asks to come back; the host accepts and every game restarts with it (SOS-195). With"
+                         " --resume --local-joiner --players 2 after such a freeze: the local game asks this many seconds"
+                         " after the resumed game's Go")
+    ap.add_argument("--freeze", default="",
+                    help="'remote:STEP' or 'local:STEP': that joiner chooses Leave and freeze in the escape menu at STEP;"
+                         " every PC saves the campaign, it leaves, the host freezes it and the others play on (SOS-194)")
     ap.add_argument("--manual-deals", action="store_true",
                     help="players answer deals themselves: the host doesn't accept each on its own")
     ap.add_argument("--deal", type=int, default=-1,
@@ -286,6 +295,15 @@ def main():
                     help="test network conditions for one game (SOS-175): WHO is host, join or local; SPEC a preset (%s)"
                          " or SOSGSGMP_NETEM's key=value pairs joined by ';' (delay, jitter, loss, seed, steamlag, steamloss,"
                          " steamreorder). Repeatable" % ", ".join(NETEM_PRESETS))
+    ap.add_argument("--hot-join", type=int, default=-1, metavar="SECONDS",
+                    help="a third game on this PC asks to join the running game this many seconds after the host's Go;"
+                         " the host accepts, it settles, and every game restarts with it (SOS-190)")
+    ap.add_argument("--campaign", default="", metavar="ID:NUMBER",
+                    help="with --here: the host, the joiner and (3 players) the local game resume a copy of this real"
+                         " campaign's save NUMBER, each as its player (its record and save from this PC's data folder or"
+                         " the host's reports of the joining players' files)")
+    ap.add_argument("--join-answer", choices=("accept", "refuse"), default="accept",
+                    help="with --hot-join: the host's answer to the late game")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
     if args.mods_from:
@@ -301,14 +319,31 @@ def main():
         NETEM[who] = NETEM_PRESETS.get(spec, spec.replace(";", ","))
     if not args.here and (not REMOTE or not HOST_ADDRESS):
         fail("set SOSGSGMP_REMOTE and SOSGSGMP_HOST_ADDRESS")
+    freeze_who, _, freeze_at = args.freeze.partition(":")
+    if args.freeze and (freeze_who not in ("remote", "local") or not freeze_at.isdigit()
+                        or freeze_who == "local" and not args.local_joiner or freeze_who == "remote" and args.no_joiner):
+        fail("--freeze needs 'remote:STEP' (with a joiner) or 'local:STEP' (with --local-joiner)")
+    if args.rejoin >= 0 and freeze_who != "local" and not (args.resume and args.local_joiner):
+        fail("--rejoin needs --freeze local:STEP, or --resume --local-joiner after such a run: the local game comes back")
     crash_who, _, crash_at = args.crash.partition(":")
     if args.crash and (crash_who not in ("remote", "local") or not crash_at.isdigit()
                        or crash_who == "local" and not args.local_joiner or crash_who == "remote" and args.no_joiner):
         fail("--crash is remote:STEP or local:STEP, for a joiner that is started")
     if args.no_joiner and not args.resume:
         fail("--no-joiner is for --resume")
-    who_all = ["host"] + ([] if args.no_joiner else ["join"]) + (["local"] if args.local_joiner else [])
-    players = args.players or len(who_all)
+    if args.hot_join >= 0 and args.resume:
+        fail("--hot-join is for a new game or --campaign, not --resume")
+    seeds = campaign_files(args.campaign) if args.campaign else []
+    if args.campaign:
+        if not args.here or args.resume:
+            fail("--campaign is for --here, without --resume")
+        if len(seeds) not in (2, 3):
+            fail("--campaign: %d players; this runner plays 2 or 3" % len(seeds))
+        args.local_joiner = len(seeds) == 3
+    # the late game (--hot-join) is a player of its own, in data folder 4
+    who_all = (["host"] + ([] if args.no_joiner else ["join"]) + (["local"] if args.local_joiner else [])
+               + (["late"] if args.hot_join >= 0 else []))
+    players = args.players or len(who_all) - (1 if args.hot_join >= 0 else 0)
     run = RUNS / args.tag
     shutil.rmtree(run, ignore_errors=True)
     run.mkdir(parents=True)
@@ -326,17 +361,17 @@ def main():
         (local3 / EVENTS).unlink(missing_ok=True)
         for m in MODS:  # the host plays the mods as installed now too, or the joiners' builds differ from its (SOS-148)
             shutil.rmtree(local / "mods" / m, ignore_errors=True)
-            shutil.copytree(REAL / "mods" / m, local / "mods" / m)
+            shutil.copytree(MOD_DIRS.get(m, REAL / "mods" / m), local / "mods" / m)
         if args.local_joiner:
             for m in MODS:
                 shutil.rmtree(local3 / "mods" / m, ignore_errors=True)
-                shutil.copytree(REAL / "mods" / m, local3 / "mods" / m)
+                shutil.copytree(MOD_DIRS.get(m, REAL / "mods" / m), local3 / "mods" / m)
         local2 = INST / str(REMOTE_K) / "songsofsyx"
         if args.here:
             (local2 / EVENTS).unlink(missing_ok=True)
             for m in MODS:
                 shutil.rmtree(local2 / "mods" / m, ignore_errors=True)
-                shutil.copytree(REAL / "mods" / m, local2 / "mods" / m)
+                shutil.copytree(MOD_DIRS.get(m, REAL / "mods" / m), local2 / "mods" / m)
         else:
             remote_ps("Remove-Item -Force -ErrorAction SilentlyContinue '%s\\songsofsyx\\%s'" % (rdir, str(EVENTS)))
             refresh_mods(local, rdir)
@@ -346,6 +381,10 @@ def main():
         local3 = data_folder(INST / "3", (1024, 640)) if args.local_joiner else INST / "3" / "songsofsyx"
         remote_data = data_folder(INST / str(REMOTE_K), (1024, 640) if args.here else (1600, 900))
         local2 = remote_data
+        for data, seed in zip((local, local2, local3), seeds):
+            seed_campaign(data, seed)
+        if seeds:
+            log("campaign %s: each game resumes it as its player" % args.campaign)
         if args.joiner_mod:
             add_mod(local2, pathlib.Path(args.joiner_mod))
         if args.extra_mod:
@@ -353,14 +392,18 @@ def main():
             add_mod(local2, pathlib.Path(args.extra_mod))
         log("data folders ready; sending the joiner's to the second PC")
         rdir = None if args.here else send_remote(remote_data.parent)
+    local4 = data_folder(INST / "4", (1024, 640)) if args.hot_join >= 0 else INST / "4" / "songsofsyx"
     for v in (args.view, args.host_view):
         if v and (len(v.split(":")) != 2 or not v.split(":")[0].isdigit()):
             fail("--view and --host-view are STEP:CLOSE")
     common = "port=%d,steps=%d,net=%s,viewanswer=%s,battles=%s" % (args.port, args.steps, args.net, args.view_answer, args.battles)
+    local_preview = ",guipreview=%d" % args.gui_preview if args.gui_preview >= 0 else ""  # the local game's shots too (SOS-196)
     if args.manual_deals:
         common += ",manualdeals=1"
     if args.same_files:
         common += ",samefiles=1"
+    if args.join_answer != "accept":
+        common += ",joinanswer=" + args.join_answer
     host_view = ",view=" + args.host_view if args.host_view else ""
     join_view = ",view=" + args.view if args.view else ""
     host_capital = ",capital=" + args.host_capital if args.host_capital else ""
@@ -372,16 +415,17 @@ def main():
     host_env = dict(os.environ, APPDATA=str(local.parent), SteamAppId=STEAM_APP_ID, SOSGSGMP_STEAM_NET=STEAM_NET[0],
                     SOSGSGMP_NETEM=NETEM["host"],
                     SOSGSGMP_AUTOPILOT="role=host,name=Host,players=%d,seed=%d,speed=%g,ondesync=%s,save=%d,resume=%d,ongone=%s,startafter=%d,fulllog=%d,%s"
-                    % (players, args.seed, args.speed, args.on_desync, args.save, 1 if args.resume else 0, args.on_gone, args.start_after,
+                    % (players, args.seed, args.speed, args.on_desync, args.save, 1 if args.resume or seeds else 0, args.on_gone, args.start_after,
                        1 if args.transfer_log == "full" else 0, common + host_capital + host_view))
     java = GAME / "jre" / "bin" / "java.exe"
     host = subprocess.Popen([str(java), "-cp", str(GAME / "SongsOfSyx.jar"), "init.Main"], cwd=str(GAME), env=host_env,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     game_pid = relaunched(host)
     log("host started here (pid %d)" % game_pid)
-    joiner = "role=join,name=Joiner,address=%s,corrupt=%d,crash=%s,deal=%d,dealcancel=%d,war=%d,tariff=%d,quit=%d,rename=%d,%s" % (
+    joiner = "role=join,name=Joiner,address=%s,corrupt=%d,crash=%s,deal=%d,dealcancel=%d,war=%d,tariff=%d,quit=%d,rename=%d,freeze=%s,%s" % (
         "127.0.0.1" if args.here else HOST_ADDRESS, args.corrupt, crash_at if crash_who == "remote" else "-1", args.deal,
-        args.deal_cancel, args.war, args.tariff, args.quit, args.rename, common + join_capital + join_view)
+        args.deal_cancel, args.war, args.tariff, args.quit, args.rename, freeze_at if freeze_who == "remote" else "-1",
+        common + join_capital + join_view)
     if not args.no_joiner and args.here:
         time.sleep(15)  # the host's lobby is open before the joiner here starts looking for it
         start_here(local2, joiner, NETEM["join"])
@@ -389,13 +433,20 @@ def main():
     elif not args.no_joiner:
         start_remote(rdir, joiner)
         log("joiner started on the second PC")
-    if args.local_joiner:
+    late = "role=join,name=Late,address=127.0.0.1,crash=-1,%s%s" % (
+        common, ",guipreview=%d" % args.gui_preview if args.gui_preview >= 0 else "")
+    late_started = False
+    if args.local_joiner and not (args.resume and args.rejoin >= 0):  # a frozen local game comes back later instead
         time.sleep(20)  # the host's lobby is open before the second game here starts looking for it
-        start_here(local3, "role=join,name=Local,address=127.0.0.1,crash=%s,%s"
-                   % (crash_at if crash_who == "local" else "-1", common), NETEM["local"])
+        start_here(local3, "role=join,name=Local,address=127.0.0.1,crash=%s,freeze=%s,%s%s"
+                   % (crash_at if crash_who == "local" else "-1", freeze_at if freeze_who == "local" else "-1", common,
+                      local_preview),
+                   NETEM["local"])
         log("the second joiner started on this PC")
 
     seen = {w: 0 for w in who_all}
+    chose_lost = False
+    rejoin_started = False
     done = {}
     deadline = time.time() + args.timeout
     while time.time() < deadline:
@@ -405,14 +456,40 @@ def main():
                              if args.here else remote_text(rdir + "\\songsofsyx\\" + str(EVENTS)))
         if "local" in who_all:
             texts["local"] = (local3 / EVENTS).read_text(encoding="utf-8") if (local3 / EVENTS).exists() else ""
+        if "late" in who_all:
+            texts["late"] = (local4 / EVENTS).read_text(encoding="utf-8") if (local4 / EVENTS).exists() else ""
         for who, text in texts.items():
             evs = events(text)
             for e in evs[seen[who]:]:
                 log("%s %s" % (who, json.dumps(e)))
-                if e["event"] in ("done", "closed", "desyncexit", "quitexit", "crash", "mismatch"):
-                    done[who] = e
+                if e["event"] in ("done", "closed", "desyncexit", "quitexit", "crash", "mismatch", "frozeexit"):
+                    if not (who == "local" and rejoin_started and e["event"] == "frozeexit"):
+                        done[who] = e
             seen[who] = len(evs)
             (run / ("%s-events.jsonl" % who)).write_text(text, encoding="utf-8")
+        if args.rejoin >= 0 and not rejoin_started:
+            left = ([e for e in events(texts["host"]) if e["event"] == "go"] if args.resume
+                    else [e for e in events(texts["local"]) if e["event"] == "frozeexit"])
+            if left and time.time() * 1000 - left[0]["t"] >= args.rejoin * 1000:
+                # the game clears its screenshots when it starts: keep those of the game that left (SOS-196)
+                if (local3 / "screenshots").is_dir():
+                    shutil.copytree(local3 / "screenshots", run / "local-shots-before-rejoin", dirs_exist_ok=True)
+                start_here(local3, "role=join,name=Local,address=127.0.0.1,crash=-1,%s%s" % (common, local_preview),
+                           NETEM["local"])
+                rejoin_started = True
+                done.pop("local", None)  # its frozeexit was not its end
+                log("the local game started again: it asks to come back (SOS-195)")
+        if args.crash and not chose_lost and any(e["event"] == "go" for e in events(texts["host"])):
+            # a crash breaks the connection, so it shows as lost, which the host waits out: it chooses at once instead
+            with open(local / EVENTS.parent / "command.txt", "a", encoding="utf-8") as f:
+                f.write("chooselost" + chr(10))
+            chose_lost = True
+        if args.hot_join >= 0 and not late_started:
+            gos = [e for e in events(texts["host"]) if e["event"] == "go"]
+            if gos and time.time() * 1000 - gos[0]["t"] >= args.hot_join * 1000:
+                start_here(local4, late, NETEM["local"])
+                late_started = True
+                log("the late game started on this PC: it asks to join the running game (SOS-190)")
         if len(done) == len(who_all) or args.expect_refused and "join" in done:
             break
         if "host" not in done and not running(game_pid):
@@ -430,6 +507,14 @@ def main():
         sys.exit(0 if files_verdict(args, done, game_pid, (local, local2)) else 1)
     if args.crash:
         sys.exit(0 if gone_verdict(args, evs, done, local, crash_who, int(crash_at)) else 1)
+    if args.rejoin >= 0:
+        sys.exit(0 if rejoin_verdict(evs, done, args.resume) else 1)
+    if args.freeze:
+        sys.exit(0 if freeze_verdict(evs, done, local, freeze_who) else 1)
+    if args.hot_join >= 0 and args.join_answer == "refuse":
+        sys.exit(0 if refused_join_verdict(evs, done) else 1)
+    if args.hot_join >= 0:
+        sys.exit(0 if hot_join_verdict(evs, done) else 1)
     if args.no_joiner or args.local_joiner or (args.resume and players < len(who_all)):
         sys.exit(0 if resume_without_verdict(evs, done, who_all, args.no_joiner) else 1)
     after = -1
@@ -561,16 +646,79 @@ def gone_verdict(args, evs, done, local, crash_who, crash_at):
             log("%s closed: %s" % (w, reason))
             ok = ok and done.get(w, {}).get("event") == "closed" and reason.startswith(start)
     else:
-        retired = [e for e in evs["host"] if e["event"] == "retired"]
+        # Continue removes them, Freeze them freezes them (SOS-194): the event and the record's flag say which
+        kind, flag = ("frozen", "frozen=true") if args.on_gone == "freeze" else ("retired", "removed=true")
+        retired = [e for e in evs["host"] if e["event"] == kind]
         saved = [e for e in evs["host"] if e["event"] == "save" and e["status"].startswith("Campaign saved")
                  and retired and e["step"] >= retired[0]["step"]]
-        log("host: retired %s; campaign saved after it: %s" % (retired[:1], bool(saved)))
+        log("host: %s %s; campaign saved after it: %s" % (kind, retired[:1], bool(saved)))
         ok = ok and retired and saved and all(done[w]["event"] == "done" for w in ["host"] + stay)
         for w in stay:
-            ok = ok and any(e["event"] == "retired" for e in evs[w])
+            ok = ok and any(e["event"] == kind for e in evs[w])
         record = newest_record(local)
         log("host's newest campaign record: %s" % (record.name if record else "none"))
-        ok = ok and record is not None and "removed=true" in record.read_text(encoding="utf-8")
+        ok = ok and record is not None and flag in record.read_text(encoding="utf-8")
+    log("RESULT: %s" % ("PASS" if ok else "FAIL"))
+    return bool(ok)
+
+
+def freeze_verdict(evs, done, local, freeze_who):
+    """A joiner chose Leave and freeze (SOS-194): every PC saved, it left without a hold, the others play on frozen it."""
+    gone_who = "join" if freeze_who == "remote" else "local"
+    stay = [w for w in evs if w not in ("host", gone_who)]
+    left = done.get(gone_who, {})
+    log("%s: %s" % (gone_who, left))
+    ok = left.get("event") == "frozeexit" and left.get("outcome") == ""
+    frozen = {w: [e for e in evs[w] if e["event"] == "frozen"] for w in ["host"] + stay}
+    log("frozen events: %s" % {w: f[:1] for w, f in frozen.items()})
+    ok = ok and all(frozen.values()) and len({f[0]["slot"] for f in frozen.values()}) == 1
+    # a hold for the player who left frozen (every game quits at the run's end, which the others see as players gone)
+    name = {"join": "Joiner", "local": "Local"}[gone_who]
+    holds = [w for w in ["host"] + stay if any(e["event"] == "gone" and name in e["names"] for e in evs[w])]
+    log("PCs that held for a player gone: %s" % (holds or "none"))
+    ok = ok and not holds
+    for w in stay + [gone_who]:
+        common, differ = compare(evs, "host", w)
+        log("host and %s: %d common hash steps, %d differ" % (w, len(common), len(differ)))
+        ok = ok and common and not differ
+    ok = ok and all(done.get(w, {}).get("event") == "done" for w in ["host"] + stay)
+    saved = [e for e in evs["host"] if e["event"] == "save" and e["status"].startswith("Campaign saved")
+             and frozen["host"] and e["step"] >= frozen["host"][0]["step"]]
+    record = newest_record(local)
+    log("host: campaign saved after the freeze: %s; newest record: %s" % (bool(saved), record.name if record else "none"))
+    ok = ok and saved and record is not None and "frozen=true" in record.read_text(encoding="utf-8")
+    log("RESULT: %s" % ("PASS" if ok else "FAIL"))
+    return bool(ok)
+
+
+def rejoin_verdict(evs, done, resumed):
+    """SOS-195: the local game left frozen, came back, the host accepted; every game restarted with it and played on
+    with the same world hashes after the restart, the local game's city thawed."""
+    ok = all(done.get(w, {}).get("event") == "done" for w in evs)
+    for w in evs:
+        log("%s ended: %s" % (w, done.get(w, {}).get("event")))
+    left = [e for e in evs["local"] if e["event"] == "frozeexit"]
+    asked = [e for e in evs["host"] if e["event"] == "joinask"]
+    rejoined = {w: [e for e in evs[w] if e["event"] == "rejoined"] for w in evs}
+    gos = {w: [i for i, e in enumerate(evs[w]) if e["event"] == "go"] for w in evs}
+    log("local left frozen: %s; host asked: %s; rejoined: %s; Go events: %s" % (
+        left[:1], [e.get("name") for e in asked], {w: r[:1] for w, r in rejoined.items()}, {w: len(g) for w, g in gos.items()}))
+    # after a resume the local game left frozen in an earlier run, and comes back to its first Go of this one
+    ok = ok and (left or resumed) and asked and all(rejoined.values()) and all(
+        len(g) >= (1 if resumed and w == "local" else 2) for w, g in gos.items())
+
+    def after_restart(w):
+        start = gos[w][-1] if gos[w] else len(evs[w])
+        return {e["step"]: e["hash"] for e in evs[w][start:] if e["event"] == "hash"}
+
+    h = after_restart("host")
+    for w in [w for w in evs if w != "host"]:
+        o = after_restart(w)
+        common = sorted(set(h) & set(o))
+        differ = [s for s in common if h[s] != o[s]]
+        log("after the restart, host and %s: %d common hash steps, %d differ%s" % (
+            w, len(common), len(differ), (", first at %d" % differ[0]) if differ else ""))
+        ok = ok and common and not differ
     log("RESULT: %s" % ("PASS" if ok else "FAIL"))
     return bool(ok)
 
@@ -594,6 +742,91 @@ def files_verdict(args, done, host_pid, datas):
         log("crash file: %s" % c)
     ok = ok and not crashes
     log("PASS" if ok else "FAIL")
+    return bool(ok)
+
+
+def campaign_files(spec):
+    """--campaign ID:NUMBER: for every player in slot order, (key, record file, save file) of save NUMBER: the host's
+    from this PC's data folder, a joining player's from the host's reports of its files (SOS-63)."""
+    cid, _, number = spec.partition(":")
+    home = REAL / "sosgsgmp"
+    record = home / "campaigns" / ("%s-%s.txt" % (cid, number))
+    if not record.is_file():
+        fail("--campaign: no record %s" % record)
+    fields = dict(l.split("=", 1) for l in record.read_text(encoding="utf-8").splitlines() if "=" in l)
+    out = []
+    for i in range(int(fields["players"])):
+        slot = int(fields["player.%d.slot" % i])
+        if slot == int(fields["slot"]):
+            rec, saves = record, home / "saves"
+        else:
+            folder = home / "reports" / ("0" + cid if len(cid) < 16 else cid) / ("%d-%s" % (slot, fields["player.%d.name" % i]))
+            rec, saves = folder / record.name, folder
+        if not rec.is_file():
+            fail("--campaign: player %s has no record %s" % (fields["player.%d.name" % i], rec))
+        save = saves / dict(l.split("=", 1) for l in rec.read_text(encoding="utf-8").splitlines() if "=" in l)["file"]
+        if not save.is_file():
+            fail("--campaign: no save %s" % save)
+        out.append((int(fields["player.%d.key" % i], 16), rec, save, slot))
+    return sorted(out, key=lambda s: s[3])
+
+
+def seed_campaign(data, seed):
+    """A data folder plays the campaign as one player: its record, its save and its player key."""
+    key, rec, save, _ = seed
+    home = data / "sosgsgmp"
+    (home / "campaigns").mkdir(parents=True, exist_ok=True)
+    (home / "saves").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(rec, home / "campaigns" / rec.name)
+    shutil.copy2(save, home / "saves" / save.name)
+    signed = key - (1 << 64) if key >= 1 << 63 else key
+    (home / "lobby.properties").write_text("format=1\nplayerKey=%d\n" % signed, encoding="utf-8")
+
+
+def refused_join_verdict(evs, done):
+    """SOS-190: the host refused the late game, which ended with the host's reason; the two players played on in one
+    session (no restart) with the same world hashes."""
+    late = done.get("late", {})
+    log("late ended: %s (%s)" % (late.get("event"), late.get("reason")))
+    playing = [w for w in evs if w != "late"]
+    ok = all(done.get(w, {}).get("event") == "done" for w in playing) and late.get("event") == "closed"
+    gos = {w: len([e for e in evs[w] if e["event"] == "go"]) for w in playing}
+    log("Go events: %s; joinanswer: %s" % (gos, [e.get("accept") for e in evs["host"] if e["event"] == "joinanswer"]))
+    ok = ok and all(g == 1 for g in gos.values())
+    for w in playing[1:]:
+        common, differ = compare(evs, "host", w)
+        log("host and %s: %d common hash steps, %d differ" % (w, len(common), len(differ)))
+        ok = ok and common and not differ
+    log("RESULT: %s" % ("PASS" if ok else "FAIL"))
+    return bool(ok)
+
+
+def hot_join_verdict(evs, done):
+    """SOS-190: the late game asked, the host accepted, the late game settled; every game restarted (a second Go on the
+    host and the joiner) and played on with the same world hashes after the restart."""
+    ok = all(done.get(w, {}).get("event") == "done" for w in evs)
+    for w in evs:
+        log("%s ended: %s" % (w, done.get(w, {}).get("event")))
+    asked = [e for e in evs["host"] if e["event"] == "joinask"]
+    settled = [e for e in evs["late"] if e["event"] == "joinsettled"]
+    gos = {w: [i for i, e in enumerate(evs[w]) if e["event"] == "go"] for w in evs}
+    log("host asked: %s; late settled at %s; Go events: %s" % (
+        [e.get("name") for e in asked], [(e.get("x"), e.get("y")) for e in settled], {w: len(g) for w, g in gos.items()}))
+    ok = ok and asked and settled and len(gos["late"]) >= 1 and all(len(gos[w]) >= 2 for w in evs if w != "late")
+
+    def after_restart(w):
+        start = gos[w][-1] if gos[w] else len(evs[w])
+        return {e["step"]: e["hash"] for e in evs[w][start:] if e["event"] == "hash"}
+
+    h = after_restart("host")
+    for w in [w for w in evs if w != "host"]:
+        o = after_restart(w)
+        common = sorted(set(h) & set(o))
+        differ = [s for s in common if h[s] != o[s]]
+        log("after the restart, host and %s: %d common hash steps, %d differ%s" % (
+            w, len(common), len(differ), (", first at %d" % differ[0]) if differ else ""))
+        ok = ok and common and not differ
+    log("RESULT: %s" % ("PASS" if ok else "FAIL"))
     return bool(ok)
 
 

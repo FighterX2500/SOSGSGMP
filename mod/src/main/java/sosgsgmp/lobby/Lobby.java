@@ -46,6 +46,8 @@ public final class Lobby {
             return Refusal.NOT_IN_CAMPAIGN;
         if (settings.resume() != null && settings.resume().campaign().player(key).refused())
             return Refusal.REMOVED;
+        if (settings.resume() != null && settings.resume().campaign().player(key).frozen())
+            return Refusal.FROZEN; // their city is in their freeze save, not in this resume's
         if (keys.containsValue(key))
             return Refusal.ALREADY_JOINED;
         if (players.size() >= settings.maxPlayers())

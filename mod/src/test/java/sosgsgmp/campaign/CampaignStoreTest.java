@@ -1,6 +1,7 @@
 package sosgsgmp.campaign;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -48,14 +49,35 @@ public class CampaignStoreTest {
     @Test
     void aFormat1RecordLoadsWithNobodyRemoved() {
         CampaignRecord r = record(2, CampaignRecord.Kind.SAVE, 5);
-        String v1 = r.toText().replace("format=3", "format=1").replaceAll("player\\.\\d+\\.(removed|eliminated)=false\n", "");
+        String v1 = r.toText().replace("format=4", "format=1").replaceAll("player\\.\\d+\\.(removed|eliminated|frozen)=false\n", "");
         assertEquals(r, CampaignRecord.fromText(v1));
+    }
+
+    /** SOS-194: a frozen player stays listed, no resume waits for them, and the record keeps them; format 3 has none. */
+    @Test
+    void aFrozenPlayerIsKeptByTheRecordAndNoResumeWaitsForThem() {
+        Campaign c = CAMPAIGN_FOR_TESTS.freezing(java.util.Set.of(1));
+        assertTrue(c.inSlot(1).frozen());
+        assertFalse(c.inSlot(1).removed());
+        assertFalse(c.inSlot(1).refused(), "a frozen player isn't removed");
+        assertEquals(List.of(CAMPAIGN_FOR_TESTS.players().get(0)), c.playing(), "a resume waits only for Ann");
+        assertEquals(List.of(), Campaign.missingSlots(c, List.of(0)), "nobody is missing, so nobody is removed at the start");
+        CampaignRecord r = new CampaignRecord(c, 6, CampaignRecord.Kind.SAVE, 9, 0, "a.save", 77);
+        assertEquals(r, CampaignRecord.fromText(r.toText()));
+        Campaign removed = c.removing(java.util.Set.of(1));
+        assertTrue(removed.inSlot(1).removed(), "the host can remove a frozen player for good");
+        assertFalse(removed.inSlot(1).frozen());
+        CampaignRecord old = record(2, CampaignRecord.Kind.SAVE, 5);
+        String v3 = old.toText().replace("format=4", "format=3").replaceAll("player\\.\\d+\\.frozen=false\n", "");
+        assertEquals(old, CampaignRecord.fromText(v3), "a format 3 record has nobody frozen");
+        assertThrows(IllegalArgumentException.class, () -> new Campaign.Player(1, "Ann", 0, true, false, true),
+                "frozen and removed at once");
     }
 
     @Test
     void anUnknownFormatOrABrokenRecordIsRefused() {
         String text = record(1, CampaignRecord.Kind.SAVE, 1).toText();
-        assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("format=3", "format=4")));
+        assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("format=4", "format=5")));
         assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("player.0.removed=false",
                 "player.0.removed=yes")));
         assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("\nslot=1\n", "\n")));

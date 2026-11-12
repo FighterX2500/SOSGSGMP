@@ -2,6 +2,7 @@ package sosgsgmp.game;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -117,6 +118,112 @@ public final class WorldSetupAdapter implements FactionWorld {
         if (!(FACTIONS.getByIndex(slot) instanceof Player p) || p.capitolRegion() == null)
             throw new IllegalStateException("SOSGSGMP: slot " + slot + " has no human with a capital: " + FACTIONS.getByIndex(slot));
         return new int[] { p.capitolRegion().cx(), p.capitolRegion().cy() };
+    }
+
+    // ------------------------------------------------------------------ hot-join (SOS-190, docs/plan/hot-join-restart.md)
+
+    /** The slot a player joining this game would take, or -1 when the map has no room (SOSDET Engine.joinSlot). */
+    public int joinSlot() {
+        return Engine.joinSlot();
+    }
+
+    /**
+     * Why a joining player's city-state can't go at {@code x, y} on this PC's world, or null: the carving rule, and
+     * 6 tiles or more from every human's capital (SOSDET Engine.settleProblem). Between steps, or on a snapshot.
+     */
+    public String joinProblem(int x, int y) {
+        int n = 0;
+        int[] xs = new int[FACTIONS.MAX()];
+        int[] ys = new int[FACTIONS.MAX()];
+        for (int i = 0; i < FACTIONS.MAX(); i++) {
+            if (FACTIONS.getByIndex(i) instanceof Player p && p.capitolRegion() != null) {
+                xs[n] = p.capitolRegion().cx();
+                ys[n] = p.capitolRegion().cy();
+                n++;
+            }
+        }
+        return settleProblem(x, y, java.util.Arrays.copyOf(xs, n), java.util.Arrays.copyOf(ys, n));
+    }
+
+    /**
+     * Hot-join: the newcomer's credits before its landing. A late joiner starts as every player did (owner's decision 8,
+     * docs/plan/hot-join.md): vanilla's new game starts at 0 and the landing adds its bonus, which the newcomer's landing
+     * does too.
+     */
+    public double joinCredits() {
+        return 0;
+    }
+
+    /**
+     * At a hot-join restart, after this PC's load and before step 0: the newcomer's city-state is carved at
+     * {@code pick}'s spot and its slot made human, the same on every PC (SOSDET Engine.addHuman). Returns a line for
+     * the log. The game is then saved ({@link #saveTemp}) and loaded again.
+     */
+    public String addHuman(FactionPick pick, double credits) {
+        return Engine.addHuman(new HumanStart(pick.race(), pick.name(), pick.ruler(), pick.banner(), pick.x(), pick.y()),
+                credits);
+    }
+
+    /** This PC's game in a temporary folder, for a load right after; {@link #deleteTemp} removes it. */
+    public Path saveTemp() {
+        try {
+            Path dir = Files.createTempDirectory("sosgsgmp-restart");
+            Path file = GAME.saver().save(dir, "restart", false);
+            if (file == null)
+                throw new IllegalStateException("SOSGSGMP: the game couldn't save in " + dir);
+            return file;
+        } catch (IOException e) {
+            throw new UncheckedIOException("SOSGSGMP: can't make a temporary folder for the restart's save", e);
+        }
+    }
+
+    /** Removes a {@link #saveTemp} save and its folder. */
+    public void deleteTemp(Path file) {
+        deleteTree(file.getParent());
+    }
+
+    /**
+     * Host, a rejoin (SOS-195), right after its founding save, at that save's step: the world's sections as the save had
+     * them and the world's state no save holds (SOSDET Engine.rejoinOut), packed for every PC's {@link #rejoin}.
+     */
+    public byte[] rejoinOut() {
+        Path file = null;
+        try {
+            file = Files.createTempFile("sosgsgmp-rejoin", ".save");
+            byte[] state = Engine.rejoinOut(file);
+            byte[] world = Files.readAllBytes(file);
+            return ByteBuffer.allocate(4 + world.length + state.length).putInt(world.length).put(world).put(state).array();
+        } catch (IOException e) {
+            throw new UncheckedIOException("SOSGSGMP: can't write the rejoin's world", e);
+        } finally {
+            if (file != null)
+                deleteSaveFile(file);
+        }
+    }
+
+    /**
+     * Every PC, a rejoin (SOS-195), after its load and the humans, before step 0: the host's {@code files}
+     * ({@link #rejoinOut}) load into this game, keeping its city, and the frozen human in {@code slot} thaws (SOSDET
+     * Engine.rejoinLoad, thawHuman).
+     */
+    public void rejoin(byte[] files, int slot) {
+        ByteBuffer b = ByteBuffer.wrap(files);
+        int length = b.getInt();
+        if (length <= 0 || length > b.remaining())
+            throw new IllegalArgumentException("SOSGSGMP: rejoin files with a world of " + length + " bytes");
+        byte[] world = new byte[length];
+        b.get(world);
+        byte[] state = new byte[b.remaining()];
+        b.get(state);
+        Path file = saveFile(world);
+        try {
+            Engine.rejoinLoad(file, state);
+        } finally {
+            deleteSaveFile(file);
+        }
+        if (!Engine.frozen(slot))
+            throw new IllegalStateException("SOSGSGMP: the rejoin's world has no frozen human in slot " + slot);
+        Engine.thawHuman(slot);
     }
 
     private static HumanStart[] starts(List<FactionPick> humans) {

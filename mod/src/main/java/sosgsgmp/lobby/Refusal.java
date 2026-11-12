@@ -13,7 +13,15 @@ public enum Refusal {
     WRONG_GAME("Your Songs of Syx isn't the host's build. Everyone needs the same build of the game."),
     WRONG_ENGINE("Your SOSDET isn't the host's build. Everyone needs the same one: let Steam finish updating, then restart the game."),
     WRONG_MOD("Your SOS GSG MP isn't the host's build. Everyone needs the same one: let Steam finish updating, then restart the game."),
-    WRONG_FILES("Your game files or mods aren't the host's. Everyone needs the same game and the same mods, in the same order.");
+    WRONG_FILES("Your game files or mods aren't the host's. Everyone needs the same game and the same mods, in the same order."),
+    /** Hot-join (SOS-190): the host pressed Refuse. */
+    DECLINED("The host turned down your request to join."),
+    /** Hot-join: the map has no free NPC slot above the last player's. */
+    NO_ROOM("The map has no room for another player's city-state."),
+    /** Hot-join: another player is joining now. */
+    JOIN_BUSY("Another player is joining the game right now. Try again in a minute."),
+    /** Freeze (SOS-194): a frozen player comes back into the running game, not at a resume. */
+    FROZEN("You are frozen in this campaign. Join its game once it is running to come back.");
 
     public final String text;
 

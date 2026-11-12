@@ -51,10 +51,10 @@ final class MpViews {
 	/** Since when this PC holds at the host's view's freeze step; -1 while it doesn't. */
 	private long holdSince = -1;
 	/** Each slot's view and its state as last logged ({@link #watch}). */
-	private final View[] watched = new View[LobbySettings.MAX_PLAYERS];
-	private final int[] watchedStates = new int[LobbySettings.MAX_PLAYERS];
+	private final View[] watched = new View[LobbySettings.MAX_SLOTS];
+	private final int[] watchedStates = new int[LobbySettings.MAX_SLOTS];
 	/** Each slot's battle view as an ally of this PC's battle, not a plain watcher (SOS-165). */
-	private final boolean[] watchedAllies = new boolean[LobbySettings.MAX_PLAYERS];
+	private final boolean[] watchedAllies = new boolean[LobbySettings.MAX_SLOTS];
 	/** A hold this long at the host's freeze step shows the notice. */
 	private static final long HOLD_NOTICE_NANOS = 500_000_000L;
 	/** The viewer's camera before a rejoin's load, put back once it is set: the battle's or the city's (SOS-151). */

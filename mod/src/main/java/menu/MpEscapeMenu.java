@@ -2,6 +2,7 @@ package menu;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.function.Supplier;
 
 import init.constant.C;
 import init.sprite.UI.UI;
@@ -37,6 +38,15 @@ public final class MpEscapeMenu {
 
 		/** Quit to menu, or Exit the game with {@code exitGame}: the campaign is saved first, and the session ends. */
 		void quit(boolean exitGame);
+
+		/** Whether this PC's column has Leave and freeze: a joining PC's (spec §11 Freezing a player, SOS-194). */
+		boolean freezeOffered();
+
+		/** Why Leave and freeze can't run now; null when it can. */
+		CharSequence freezeRefusal();
+
+		/** Leave and freeze, once confirmed: the campaign is saved, this PC leaves, and its human is frozen. */
+		void leaveFrozen();
 	}
 
 	/** The escape menu's own strings and actions, which hook M6 hands over: its column keeps vanilla's text and screens. */
@@ -90,17 +100,24 @@ public final class MpEscapeMenu {
 			}
 		});
 		// vanilla's menu shows no hover boxes, so a greyed-out Save Campaign says why on the line below it
-		main.addDownC(2, new RENDEROBJ.RenderImp(REASON_WIDTH, small.height()) {
-			@Override
-			public void render(SPRITE_RENDERER r, float ds) {
-				CharSequence reason = actions.saveRefusal();
-				if (reason == null)
-					return;
-				GCOLOR.T().INACTIVE.bind();
-				small.renderCX(r, body.cX(), body.y1(), reason);
-				COLOR.unbind();
-			}
-		});
+		main.addDownC(2, reason(small, actions::saveRefusal));
+		if (actions.freezeOffered()) {
+			main.addDownC(6, new GButt.Glow(big.getText("leave and freeze")) {
+				@Override
+				protected void renAction() {
+					activeSet(actions.freezeRefusal() == null);
+				}
+
+				@Override
+				protected void clickA() {
+					if (actions.freezeRefusal() != null)
+						return;
+					vanilla.close().exe();
+					actions.leaveFrozen();
+				}
+			});
+			main.addDownC(2, reason(small, actions::freezeRefusal));
+		}
 		main.addDownC(6, button(big.getText(vanilla.options()), vanilla.openOptions()));
 		main.addDownC(6, button(big.getText(vanilla.keys()), vanilla.openKeys()));
 		main.addDownC(6, button(big.getText(vanilla.quitMenu()), () -> {
@@ -120,6 +137,21 @@ public final class MpEscapeMenu {
 		title.body().moveY2(main.body().y1());
 		main.add(title);
 		return main;
+	}
+
+	/** The line below a button that says why it is greyed out; empty while it isn't. */
+	private static RENDEROBJ reason(Font small, Supplier<CharSequence> refusal) {
+		return new RENDEROBJ.RenderImp(REASON_WIDTH, small.height()) {
+			@Override
+			public void render(SPRITE_RENDERER r, float ds) {
+				CharSequence reason = refusal.get();
+				if (reason == null)
+					return;
+				GCOLOR.T().INACTIVE.bind();
+				small.renderCX(r, body.cX(), body.y1(), reason);
+				COLOR.unbind();
+			}
+		};
 	}
 
 	private static GButt button(SPRITE label, ACTION action) {

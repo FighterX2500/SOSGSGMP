@@ -234,6 +234,21 @@ public interface SetupSession {
     /** Host: the first player who asked to quit and wasn't taken yet, once; -1 when none. */
     int takeQuitAsk();
 
+    /**
+     * A joining PC: its player chose Leave and freeze (spec §11 Freezing a player, SOS-194); the host saves the campaign
+     * on every PC, then this PC leaves and the host freezes its human.
+     */
+    void askFreeze();
+
+    /** Host: the first player who asked to leave frozen and wasn't taken yet, once; -1 when none. */
+    int takeFreezeAsk();
+
+    /**
+     * Host: a player whose Leave and freeze save is done on every PC, once; -1 when none. They leave without a hold,
+     * the campaign has them frozen, and the host freezes their human now.
+     */
+    int takeFrozenLeaver();
+
     /** This PC saved for order {@code number} with world hash {@code hash}, or couldn't: {@code problem}, null when it saved. */
     void saved(int number, long hash, String problem);
 
@@ -262,4 +277,84 @@ public interface SetupSession {
      * dropped, oldest first and each once; null when there is none (SOS-63).
      */
     String takeNote();
+
+    // ------------------------------------------------------------------ hot-join (SOS-190, docs/plan/hot-join-restart.md)
+
+    /** Host: the name of the PC that asks to join the running game, waiting for the host's answer; else null. */
+    default String joinAsk() {
+        return null;
+    }
+
+    /** Host: the name of the accepted PC that is picking its spot; else null. */
+    default String joining() {
+        return null;
+    }
+
+    /** Host: the answer to {@link #joinAsk}: null lets it join, a refusal turns it away. */
+    default void answerJoin(sosgsgmp.lobby.Refusal refusal) {
+        throw new UnsupportedOperationException("SOSGSGMP: only the host answers a join");
+    }
+
+    /** Host: the save the accepted PC picks its spot on, sent to it. */
+    default void sendSnapshot(byte[] save) {
+        throw new UnsupportedOperationException("SOSGSGMP: only the host sends a snapshot");
+    }
+
+    /** Host: the joining PC's pick, once, to check on the live world; else null. */
+    default FactionPick takeJoinPick() {
+        return null;
+    }
+
+    /** Host: the live world's answer to the pick: null takes it (the founding save follows), else why not. */
+    default void answerJoinPick(String problem) {
+        throw new UnsupportedOperationException("SOSGSGMP: only the host answers a pick");
+    }
+
+    /**
+     * Host, once the founding save {@code number} is done: every PC restarts from its copy of it, the newcomer in
+     * {@code slot} at {@code pick} with {@code credits}; the newcomer gets {@code foundingSave}. Returns the setup that
+     * replaces this one over the same connection.
+     */
+    default SetupSession restart(int number, int slot, FactionPick pick, double credits, byte[] foundingSave) {
+        throw new UnsupportedOperationException("SOSGSGMP: only the host restarts");
+    }
+
+    /** Host: whether the PC that asks to join, or is joining, is a frozen player coming back (SOS-195). */
+    default boolean joinReturning() {
+        return false;
+    }
+
+    /**
+     * Host, a rejoin (SOS-195), once the founding save {@code number} is done: every PC gets the host's rejoin files
+     * {@code rejoinFiles} and restarts from its own save, the returning PC from its last one; then the frozen player's slot
+     * thaws. Returns the setup that replaces this one over the same connection.
+     */
+    default SetupSession restartRejoin(int number, byte[] rejoinFiles) {
+        throw new UnsupportedOperationException("SOSGSGMP: only the host restarts");
+    }
+
+    /** A setup made by a rejoin's restart: the host's rejoin files, every PC's load reads them; else null (SOS-195). */
+    default byte[] rejoinFiles() {
+        return null;
+    }
+
+    /** Joined PC: the setup that replaces this one after the host's restart, once; else null. */
+    default SetupSession takeRestart() {
+        return null;
+    }
+
+    /** A setup made by a hot-join restart: the restart, so every PC's load adds the newcomer; else null. */
+    default sosgsgmp.net.Message.Restart restartInfo() {
+        return null;
+    }
+
+    /** This PC asked to join a running game and picks on the host's snapshot (hot-join). */
+    default boolean candidate() {
+        return false;
+    }
+
+    /** The joining PC: the host's answer to its pick (empty: taken), once; else null. */
+    default String takeJoinPicked() {
+        return null;
+    }
 }

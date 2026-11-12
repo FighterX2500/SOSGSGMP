@@ -170,7 +170,7 @@ final class MpScreenResume extends GUI.Shadower implements SC {
 		LobbySettings settings = LobbySettings.resuming(new LobbySettings.Resume(c, r.number()));
 		if (steam) {
 			mp.invites.stop(); // Steam runs once in the process (SOS-103)
-			SteamNode node = SteamNode.host(SteamworksPort::new, c.players().size());
+			SteamNode node = SteamNode.host(SteamworksPort::new, LobbySettings.MAX_PLAYERS); // room for a player joining later (SOS-190)
 			mp.openLobby(new HostedLobby(settings, mp.prefs.name, mp.prefs.playerKey, mp.builds, node), node);
 			return;
 		}
