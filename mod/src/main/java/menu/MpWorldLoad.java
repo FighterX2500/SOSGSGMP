@@ -97,6 +97,8 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 		boolean newcomer = restart != null && !rejoin && restart.newcomerId() == setup.localPlayerId();
 		if (restart != null && !rejoin)
 			view = addNewcomer(restart, log);
+		if (rejoin && restart.rejoinSlot() == f.slotOf(setup.localPlayerId()))
+			view = addMissedJoins(restart, view, log);
 		game.humans(slots(), seed);
 		if (resumed != null) // a restart's campaign is the host's now: a rejoining PC's own record is older
 			for (int slot : Campaign.missingSlots(restart != null ? restart.campaign() : resumed.campaign(), slotList())) {
@@ -167,6 +169,28 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 	 */
 	private CORE_STATE addNewcomer(Message.Restart restart, MpLog log) {
 		log.line("hot-join: " + game.addHuman(restart.pick(), restart.credits()));
+		Path again = game.saveTemp();
+		try {
+			return new GameLoader(again).getState();
+		} finally {
+			game.deleteTemp(again);
+		}
+	}
+
+	/**
+	 * A rejoin's restart, on the returning PC after its freeze save's load (SOS-204): players who joined since it froze
+	 * have human slots in the host's world but not in this game. They become stand-ins, which the host's world replaces,
+	 * then the game is saved and loaded again, as after a newcomer's carve; the view is the reloaded one.
+	 */
+	private CORE_STATE addMissedJoins(Message.Restart restart, CORE_STATE view, MpLog log) {
+		List<Campaign.Player> players = restart.campaign().players();
+		int[] hostSlots = new int[players.size()];
+		for (int i = 0; i < hostSlots.length; i++)
+			hostSlots[i] = players.get(i).slot();
+		String added = game.addMissingHumans(hostSlots);
+		if (added.isEmpty())
+			return view;
+		log.line("rejoin: " + added);
 		Path again = game.saveTemp();
 		try {
 			return new GameLoader(again).getState();
