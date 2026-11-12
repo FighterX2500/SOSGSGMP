@@ -217,7 +217,8 @@ final class MpHotJoin {
 			ended = true;
 			GAME.SPEED.speedSet(0); // the session ends with the load: the game's panels still ask it until then (HJ2)
 			log.line("hot-join: the host restarts every PC from save " + next.restartInfo().number() + " for "
-					+ next.restartInfo().pick().name());
+					+ (next.restartInfo().rejoins() ? "a frozen player coming back, slot " + next.restartInfo().rejoinSlot()
+							: next.restartInfo().pick().name()));
 		}
 		restarted.update();
 		if (restarted.closed()) {
