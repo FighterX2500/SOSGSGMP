@@ -70,6 +70,16 @@ public final class JoinedSetup implements SetupSession {
     private String closedReason;
     private int changes;
     private final Builds builds;
+    /** Hot-join (SOS-190): this PC joins a running game; it picks on the host's snapshot, then the host restarts. */
+    private final boolean candidate;
+    /** Hot-join: the host's answer to this PC's pick (empty: taken), until taken; null otherwise. */
+    private String joinPicked;
+    /** Hot-join: the setup that replaces this one after the host's restart, until taken; null otherwise. */
+    private JoinedSetup restarted;
+    /** Replaced by {@link #restarted}: this one reads nothing more, the host's next messages are the new one's. */
+    private boolean replaced;
+    /** A setup made by a hot-join restart: the restart, for this PC's load to add the newcomer; else null. */
+    private Message.Restart restartInfo;
 
     /**
      * Takes over a started lobby's connection to the host, this PC's player id, the players, the chat and this PC's builds. A resume ({@code resume}
@@ -77,6 +87,14 @@ public final class JoinedSetup implements SetupSession {
      */
     JoinedSetup(Node node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld,
             LobbySettings.Resume resume, boolean fullTransferLog, boolean livingWorld, Chat chat, Builds builds) {
+        this(node, localId, players, world, factionWorld, resume, fullTransferLog, livingWorld, chat, builds, false);
+    }
+
+    /** {@code candidate}: this PC asked to join a running game (hot-join, SOS-190), and the host let it in. */
+    JoinedSetup(Node node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld,
+            LobbySettings.Resume resume, boolean fullTransferLog, boolean livingWorld, Chat chat, Builds builds,
+            boolean candidate) {
+        this.candidate = candidate;
         this.node = node;
         this.livingWorld = livingWorld;
         this.chat = chat;
@@ -95,7 +113,7 @@ public final class JoinedSetup implements SetupSession {
     @Override
     public void update() {
         Node.Event e;
-        while (!closed && step.pendingBuild() == 0 && !waitingToPlay() && (e = node.poll()) != null) {
+        while (!closed && !replaced && step.pendingBuild() == 0 && !waitingToPlay() && (e = node.poll()) != null) {
             switch (e) {
                 case Node.Event.Connected c -> {
                     // Only the host's connection, made in the lobby.
@@ -203,6 +221,13 @@ public final class JoinedSetup implements SetupSession {
                 if (!factions.onSlotMap(s.transfer(), s.slots()) && !factions.initialized())
                     close("The host built a world without a place for you.");
             }
+            case Message.SettlePart w when candidate && restartInfo == null -> { // the host's snapshot to pick on (SOS-190)
+                byte[] all = settleParts.accept(1, w.index(), w.count(), w.bytes());
+                if (all != null)
+                    settleWorld = all;
+            }
+            case Message.JoinPicked p when candidate -> joinPicked = p.problem();
+            case Message.Restart r -> restart(r);
             case Message.SettlePart w when factions != null && factions.living() && !factions.settling() -> {
                 byte[] all = settleParts.accept(1, w.index(), w.count(), w.bytes());
                 if (all != null) {
@@ -396,7 +421,7 @@ public final class JoinedSetup implements SetupSession {
 
     @Override
     public void exchange() {
-        if (closed)
+        if (closed || replaced)
             return;
         for (Message.Stream s : link.out())
             node.send(Node.HOST, s);
@@ -485,6 +510,11 @@ public final class JoinedSetup implements SetupSession {
 
     @Override
     public void pick(FactionPick pick) {
+        if (candidate && factions == null) { // hot-join: the pick goes to the host, which checks it on the live world
+            node.send(Node.HOST, new Message.JoinPick(pick));
+            changes++;
+            return;
+        }
         if (factions == null)
             throw new IllegalStateException("SOSGSGMP: picks before the map is confirmed");
         factions.ownPick(pick);
@@ -511,6 +541,46 @@ public final class JoinedSetup implements SetupSession {
     @Override
     public void initialize() {
         throw new IllegalStateException("SOSGSGMP: only the host initializes the world");
+    }
+
+    /**
+     * The host restarts every PC from the founding save (hot-join, SOS-190): a new setup in resume mode takes this
+     * connection, this PC tells the host its old session's messages end here, and this one reads nothing more. The
+     * newcomer's id is the Welcome's.
+     */
+    private void restart(Message.Restart r) {
+        JoinedSetup next = new JoinedSetup(node, localPlayerId(), players, world, factionWorld,
+                new LobbySettings.Resume(r.campaign(), r.number()), fullTransferLog, false, chat, builds, false);
+        next.restartInfo = r;
+        node.send(Node.HOST, new Message.Restarted());
+        restarted = next;
+        replaced = true;
+        notes.add("the host restarts every PC from campaign save " + r.number() + " for a new player");
+    }
+
+    @Override
+    public SetupSession takeRestart() {
+        JoinedSetup r = restarted;
+        restarted = null;
+        return r;
+    }
+
+    @Override
+    public Message.Restart restartInfo() {
+        return restartInfo;
+    }
+
+    @Override
+    public String takeJoinPicked() {
+        String p = joinPicked;
+        joinPicked = null;
+        return p;
+    }
+
+    /** Hot-join: this PC asked to join a running game and picks on the host's snapshot. */
+    @Override
+    public boolean candidate() {
+        return candidate && restartInfo == null;
     }
 
     @Override

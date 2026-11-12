@@ -262,4 +262,65 @@ public interface SetupSession {
      * dropped, oldest first and each once; null when there is none (SOS-63).
      */
     String takeNote();
+
+    // ------------------------------------------------------------------ hot-join (SOS-190, docs/plan/hot-join-restart.md)
+
+    /** Host: the name of the PC that asks to join the running game, waiting for the host's answer; else null. */
+    default String joinAsk() {
+        return null;
+    }
+
+    /** Host: the name of the accepted PC that is picking its spot; else null. */
+    default String joining() {
+        return null;
+    }
+
+    /** Host: the answer to {@link #joinAsk}: null lets it join, a refusal turns it away. */
+    default void answerJoin(sosgsgmp.lobby.Refusal refusal) {
+        throw new UnsupportedOperationException("SOSGSGMP: only the host answers a join");
+    }
+
+    /** Host: the save the accepted PC picks its spot on, sent to it. */
+    default void sendSnapshot(byte[] save) {
+        throw new UnsupportedOperationException("SOSGSGMP: only the host sends a snapshot");
+    }
+
+    /** Host: the joining PC's pick, once, to check on the live world; else null. */
+    default FactionPick takeJoinPick() {
+        return null;
+    }
+
+    /** Host: the live world's answer to the pick: null takes it (the founding save follows), else why not. */
+    default void answerJoinPick(String problem) {
+        throw new UnsupportedOperationException("SOSGSGMP: only the host answers a pick");
+    }
+
+    /**
+     * Host, once the founding save {@code number} is done: every PC restarts from its copy of it, the newcomer in
+     * {@code slot} at {@code pick} with {@code credits}; the newcomer gets {@code foundingSave}. Returns the setup that
+     * replaces this one over the same connection.
+     */
+    default SetupSession restart(int number, int slot, FactionPick pick, double credits, byte[] foundingSave) {
+        throw new UnsupportedOperationException("SOSGSGMP: only the host restarts");
+    }
+
+    /** Joined PC: the setup that replaces this one after the host's restart, once; else null. */
+    default SetupSession takeRestart() {
+        return null;
+    }
+
+    /** A setup made by a hot-join restart: the restart, so every PC's load adds the newcomer; else null. */
+    default sosgsgmp.net.Message.Restart restartInfo() {
+        return null;
+    }
+
+    /** This PC asked to join a running game and picks on the host's snapshot (hot-join). */
+    default boolean candidate() {
+        return false;
+    }
+
+    /** The joining PC: the host's answer to its pick (empty: taken), once; else null. */
+    default String takeJoinPicked() {
+        return null;
+    }
 }

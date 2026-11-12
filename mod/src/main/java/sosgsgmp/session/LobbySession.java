@@ -19,6 +19,11 @@ public interface LobbySession {
 
     LobbyState state();
 
+    /** A joining PC (hot-join, SOS-190): the host's game is under way, and the host is asked whether this PC joins. */
+    default boolean running() {
+        return false;
+    }
+
     /** Everyone in the lobby, the host first; empty until a joining PC is welcomed. */
     List<LobbyPlayer> players();
 

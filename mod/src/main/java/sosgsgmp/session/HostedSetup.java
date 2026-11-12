@@ -103,6 +103,35 @@ public final class HostedSetup implements SetupSession {
     private String closedReason;
     private int changes;
     private final Builds builds;
+    /** Hot-join (SOS-190): the PC that said hello during play, while it joins; null otherwise. */
+    private Candidate candidate;
+    /** Hot-join: the candidate's pick, until the menu takes it to check on the live world. */
+    private FactionPick candidatePick;
+    /** A setup made by a hot-join restart: the restart, for every PC's load to add the newcomer; else null. */
+    private Message.Restart restartInfo;
+    /** After a hot-join restart: the peers whose messages still belong to the old session, until their Restarted. */
+    private final java.util.Set<Integer> beforeRestarted = new java.util.HashSet<>();
+    /** The founding save's file, sent to the newcomer once this restarted setup runs; null otherwise. */
+    private byte[] newcomerSave;
+    private int newcomerPeer = -1;
+    /** Replaced by a hot-join restart's setup: this one reads and sends nothing more (the connection is the new one's). */
+    private boolean replaced;
+
+    /** Hot-join: a PC that said hello during play, its player id, name and key, and whether the host has answered. */
+    private static final class Candidate {
+        final int peer;
+        final int id;
+        final String name;
+        final long key;
+        boolean accepted;
+
+        Candidate(int peer, int id, String name, long key) {
+            this.peer = peer;
+            this.id = id;
+            this.name = name;
+            this.key = key;
+        }
+    }
 
     /**
      * Takes over a started lobby's connection, its joined peers (peer to player id), its players (the host first), their
@@ -111,6 +140,17 @@ public final class HostedSetup implements SetupSession {
      */
     HostedSetup(Node node, Map<Integer, Integer> joined, List<LobbyPlayer> players, Map<Integer, Long> keys, MapWorld world,
             FactionWorld factionWorld, LobbySettings settings, Chat chat, Builds builds) {
+        this(node, joined, players, keys, world, factionWorld, settings, chat, builds, java.util.Set.of());
+    }
+
+    /**
+     * {@code beforeRestarted}: after a hot-join restart (SOS-190), the peers whose messages are the old session's until
+     * their {@link Message.Restarted}.
+     */
+    private HostedSetup(Node node, Map<Integer, Integer> joined, List<LobbyPlayer> players, Map<Integer, Long> keys,
+            MapWorld world, FactionWorld factionWorld, LobbySettings settings, Chat chat, Builds builds,
+            java.util.Set<Integer> beforeRestarted) {
+        this.beforeRestarted.addAll(beforeRestarted);
         this.node = node;
         this.chat = chat;
         this.builds = builds;
@@ -138,6 +178,8 @@ public final class HostedSetup implements SetupSession {
 
     @Override
     public void update() {
+        if (replaced)
+            return;
         Node.Event e;
         while (!closed && !waitingToPlay() && (e = node.poll()) != null) {
             switch (e) {
@@ -147,6 +189,12 @@ public final class HostedSetup implements SetupSession {
                 }
                 case Node.Event.Received r -> received(r.peer(), r.message());
                 case Node.Event.Disconnected d -> {
+                    if (candidate != null && d.peer() == candidate.peer) {
+                        notes.add(candidate.name + ", who was joining, disconnected: " + d.reason());
+                        candidate = null;
+                        candidatePick = null;
+                        continue;
+                    }
                     notes.add(peerName(d.peer()) + " disconnected: " + d.reason());
                     removeJoined(d.peer());
                 }
@@ -243,6 +291,15 @@ public final class HostedSetup implements SetupSession {
     }
 
     private void received(int peer, Message m) {
+        if (beforeRestarted.contains(peer)) { // the old session's messages, still in flight at a hot-join restart
+            if (m instanceof Message.Restarted)
+                beforeRestarted.remove(peer);
+            return;
+        }
+        if (candidate != null && peer == candidate.peer) {
+            fromCandidate(m);
+            return;
+        }
         Integer id = joined.get(peer);
         switch (m) {
             case Message.BuildReady b when id != null -> {
@@ -309,7 +366,7 @@ public final class HostedSetup implements SetupSession {
                 node.disconnect(peer);
                 removeJoined(peer);
             }
-            case Message.Hello h when id == null -> refuse(peer, Refusal.STARTED);
+            case Message.Hello h when id == null -> hello(peer, h);
             case Message.Unsupported u when id == null -> refuse(peer, Refusal.WRONG_VERSION);
             default -> {
                 // Anything else breaks the protocol: drop the PC.
@@ -602,6 +659,159 @@ public final class HostedSetup implements SetupSession {
         sendAll(new Message.MapPlayers(step.buildId(), step.genId(), now));
     }
 
+    /**
+     * A hello after the start (hot-join, SOS-190): a running game takes it as a candidate, if its builds and files are
+     * the host's, there is room and nobody else is joining; the host is then asked. Before the game runs, it is refused.
+     */
+    private void hello(int peer, Message.Hello h) {
+        if (link == null || restartInfo != null && !beforeRestarted.isEmpty()) {
+            refuse(peer, Refusal.STARTED);
+            return;
+        }
+        Refusal refusal = builds.mismatch(h.builds());
+        if (refusal == Refusal.WRONG_FILES) {
+            node.send(peer, new Message.Refused(refusal, builds.files().differences(h.builds().files())));
+            node.disconnect(peer);
+            return;
+        }
+        if (refusal == null && campaign != null && campaign.player(h.playerKey()) != null)
+            refusal = campaign.player(h.playerKey()).removed() ? Refusal.REMOVED : Refusal.STARTED; // theirs is the resume
+        if (refusal == null && keys.containsValue(h.playerKey()))
+            refusal = Refusal.ALREADY_JOINED;
+        if (refusal == null && players.size() >= LobbySettings.MAX_PLAYERS)
+            refusal = Refusal.FULL;
+        if (refusal == null && candidate != null)
+            refusal = Refusal.JOIN_BUSY;
+        if (refusal != null) {
+            refuse(peer, refusal);
+            return;
+        }
+        candidate = new Candidate(peer, nextPlayerId(), h.name(), h.playerKey());
+        node.send(peer, new Message.Welcome(candidate.id, new LobbySettings(difficulty, LobbySettings.MAX_PLAYERS)
+                .withFullTransferLog(fullTransferLog)));
+        node.send(peer, new Message.Running());
+        notes.add(h.name() + " asks to join the running game");
+    }
+
+    /** An id no player of this game has had. */
+    private int nextPlayerId() {
+        int max = 0;
+        for (LobbyPlayer p : players)
+            max = Math.max(max, p.id());
+        for (int id : keys.keySet())
+            max = Math.max(max, id);
+        for (int id : joined.values())
+            max = Math.max(max, id);
+        return max + 1;
+    }
+
+    /** The candidate's messages: its pick, or its leaving; anything else drops it. */
+    private void fromCandidate(Message m) {
+        switch (m) {
+            case Message.JoinPick p when candidate.accepted -> candidatePick = p.pick();
+            case Message.Chat c -> { } // the candidate isn't in the game's chat yet
+            case Message.Leave l -> {
+                notes.add(candidate.name + " stopped joining");
+                node.disconnect(candidate.peer);
+                candidate = null;
+                candidatePick = null;
+            }
+            default -> {
+                notes.add(candidate.name + ", who was joining, sent " + m.getClass().getSimpleName() + ": dropped");
+                node.disconnect(candidate.peer);
+                candidate = null;
+                candidatePick = null;
+            }
+        }
+    }
+
+    @Override
+    public String joinAsk() {
+        return candidate != null && !candidate.accepted ? candidate.name : null;
+    }
+
+    @Override
+    public String joining() {
+        return candidate != null && candidate.accepted ? candidate.name : null;
+    }
+
+    @Override
+    public void answerJoin(Refusal refusal) {
+        if (candidate == null || candidate.accepted)
+            throw new IllegalStateException("SOSGSGMP: nobody waits for an answer to join");
+        if (refusal != null) {
+            notes.add(candidate.name + " may not join: " + refusal);
+            refuse(candidate.peer, refusal);
+            candidate = null;
+            return;
+        }
+        candidate.accepted = true;
+        node.send(candidate.peer, new Message.Start()); // its lobby hands over to a setup that waits for the snapshot
+        notes.add(candidate.name + " may join");
+    }
+
+    @Override
+    public void sendSnapshot(byte[] save) {
+        if (candidate == null || !candidate.accepted)
+            throw new IllegalStateException("SOSGSGMP: no accepted candidate for a snapshot");
+        List<byte[]> pieces = Pieces.split(save);
+        for (int i = 0; i < pieces.size(); i++)
+            node.send(candidate.peer, new Message.SettlePart(i, pieces.size(), pieces.get(i)));
+    }
+
+    @Override
+    public FactionPick takeJoinPick() {
+        FactionPick p = candidatePick;
+        candidatePick = null;
+        return p;
+    }
+
+    @Override
+    public void answerJoinPick(String problem) {
+        if (candidate == null || !candidate.accepted)
+            throw new IllegalStateException("SOSGSGMP: no candidate to answer");
+        node.send(candidate.peer, new Message.JoinPicked(problem == null ? "" : problem));
+    }
+
+    @Override
+    public SetupSession restart(int number, int slot, FactionPick pick, double credits, byte[] foundingSave) {
+        if (candidate == null || !candidate.accepted || campaign == null)
+            throw new IllegalStateException("SOSGSGMP: a restart without an accepted candidate or a campaign");
+        Campaign next = campaign.adding(candidate.key, candidate.name, slot);
+        Message.Restart r = new Message.Restart(number, next, candidate.id, pick, credits);
+        sendAll(r);
+        node.send(candidate.peer, r);
+        Map<Integer, Integer> joined2 = new HashMap<>(joined);
+        joined2.put(candidate.peer, candidate.id);
+        List<LobbyPlayer> players2 = new ArrayList<>(players);
+        players2.add(new LobbyPlayer(candidate.id, candidate.name, false));
+        Map<Integer, Long> keys2 = new HashMap<>(keys);
+        keys2.put(candidate.id, candidate.key);
+        Message.Roster roster = new Message.Roster(players2); // before the new slot map: every PC's load reads the players
+        for (int peer : joined2.keySet())
+            node.send(peer, roster);
+        notes.add(candidate.name + " joins in slot " + slot + ": every PC restarts from campaign save " + number);
+        replaced = true; // not left: the connection stays with the new setup, and this one sends nothing more
+        LobbySettings s = LobbySettings.resuming(new LobbySettings.Resume(next, number)).withFullTransferLog(fullTransferLog);
+        HostedSetup h = new HostedSetup(node, joined2, players2, keys2, world, factionWorld, s, chat, builds, joined2.keySet());
+        h.restartInfo = r;
+        h.newcomerPeer = candidate.peer;
+        h.sendNewcomerSave(foundingSave);
+        return h;
+    }
+
+    /** The newcomer has no copy of the founding save: the host's, in pieces, after the slot map. */
+    private void sendNewcomerSave(byte[] save) {
+        List<byte[]> pieces = Pieces.split(save);
+        for (int i = 0; i < pieces.size(); i++)
+            node.send(newcomerPeer, new Message.WorldPart(factions.transfer(), i, pieces.size(), pieces.get(i)));
+    }
+
+    @Override
+    public Message.Restart restartInfo() {
+        return restartInfo;
+    }
+
     private void refuse(int peer, Refusal refusal) {
         node.send(peer, new Message.Refused(refusal));
         node.disconnect(peer);
@@ -647,7 +857,7 @@ public final class HostedSetup implements SetupSession {
 
     @Override
     public void exchange() {
-        if (closed)
+        if (closed || replaced)
             return;
         for (Message.Stream s : link.out())
             sendAll(s);

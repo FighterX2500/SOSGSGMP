@@ -30,7 +30,7 @@ import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.lobby.Refusal;
-import sosgsgmp.net.Message;
+import sosgsgmp.net.Message;
 import sosgsgmp.net.NetConditions;
 import sosgsgmp.net.Pieces;
 import sosgsgmp.net.Protocol;
@@ -661,6 +661,117 @@ class LoopbackSetupTest {
         assertFalse(answer[0].allowed());
         assertEquals(ViewRequests.REFUSED, answer[0].reason());
         assertFalse(host.closed() || bob.closed() || cid.closed());
+    }
+
+    /**
+     * Hot-join (SOS-190): Dan says hello to the running game, and Eve is turned away while he joins. The host lets Dan
+     * in, sends the snapshot and takes his pick; the restart reaches every PC, and every PC's new setup has Dan in its
+     * roster and slot map, Dan the founding save, and the new session starts on every PC.
+     */
+    @Test
+    void aPlayerJoinsTheRunningGameAndEveryPcRestartsWithThem() throws Exception {
+        playing(new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        HostedLobby h = lobby;
+        JoinedLobby jd = join(h, "Dan");
+        playUntil("Dan's ask at the host", () -> {
+            jd.update();
+            return "Dan".equals(host.joinAsk()) && jd.running();
+        });
+        JoinedLobby je = join(h, "Eve");
+        playUntil("Eve turned away", () -> {
+            je.update();
+            return je.closedReason() != null;
+        });
+        assertTrue(je.closedReason().contains(Refusal.JOIN_BUSY.text), je.closedReason());
+
+        host.answerJoin(null);
+        assertNull(host.joinAsk());
+        assertEquals("Dan", host.joining());
+        playUntil("Dan let in", () -> {
+            jd.update();
+            return jd.state() == LobbyState.STARTED;
+        });
+        FakeWorld danWorld = new FakeWorld();
+        SetupSession dan = jd.handOver(danWorld, danWorld);
+        assertTrue(dan.candidate());
+        byte[] snapshot = new byte[Pieces.PIECE_BYTES + 21];
+        for (int i = 0; i < snapshot.length; i++)
+            snapshot[i] = (byte) (i * 3);
+        host.sendSnapshot(snapshot);
+        byte[][] snap = new byte[1][];
+        playUntil("the snapshot at Dan", () -> {
+            dan.update();
+            return (snap[0] = dan.takeSettleWorld()) != null;
+        });
+        assertArrayEquals(snapshot, snap[0]);
+
+        FactionPick pick = new FactionPick("HUMAN", "Dan's", "", new byte[0], 50, 60);
+        dan.pick(pick);
+        FactionPick[] got = new FactionPick[1];
+        playUntil("Dan's pick at the host", () -> {
+            dan.update();
+            return (got[0] = host.takeJoinPick()) != null;
+        });
+        assertEquals(pick.name(), got[0].name());
+        assertEquals(50, got[0].x());
+        host.answerJoinPick(null);
+        String[] picked = new String[1];
+        playUntil("the host's answer at Dan", () -> {
+            dan.update();
+            return (picked[0] = dan.takeJoinPicked()) != null;
+        });
+        assertEquals("", picked[0], "taken");
+
+        byte[] founding = new byte[Pieces.PIECE_BYTES * 2 + 5];
+        for (int i = 0; i < founding.length; i++)
+            founding[i] = (byte) (i * 7);
+        int danId = jd.localPlayerId();
+        SetupSession host2 = host.restart(4, 37, got[0], 1500, founding);
+        SetupSession[] next = new SetupSession[3];
+        SetupSession[] olds = {bob, cid, dan};
+        until("the restart at every joined PC", () -> {
+            host2.update();
+            boolean all = true;
+            for (int i = 0; i < 3; i++) {
+                olds[i].update();
+                if (next[i] == null)
+                    next[i] = olds[i].takeRestart();
+                all &= next[i] != null;
+            }
+            return all;
+        });
+        setups.clear();
+        setups.add(host2);
+        setups.addAll(List.of(next));
+        for (SetupSession s : setups) {
+            assertEquals(danId, s.restartInfo().newcomerId());
+            assertEquals(4, s.restartInfo().number());
+            assertEquals(1500, s.restartInfo().credits());
+            assertEquals(37, s.restartInfo().campaign().player("Dan".hashCode()).slot());
+        }
+        byte[][] save = new byte[1][];
+        until("the slot maps, and the founding save at Dan", () -> {
+            if (save[0] == null && next[2].factions() != null && next[2].factions().initialized())
+                save[0] = next[2].takeWorld();
+            for (SetupSession s : setups)
+                if (s.factions() == null || !s.factions().initialized())
+                    return false;
+            return save[0] != null && next[0].players().size() == 4;
+        });
+        assertArrayEquals(founding, save[0]);
+        for (SetupSession s : setups)
+            assertEquals(37, s.factions().slotOf(danId), "Dan's slot on every PC");
+        for (SetupSession s : setups)
+            s.worldLoaded(77);
+        for (SetupSession s : setups)
+            s.startSpot();
+        until("the new session started everywhere", () -> {
+            for (SetupSession s : setups)
+                if (!s.factions().started())
+                    return false;
+            return true;
+        });
+        assertFalse(host2.closed() || next[0].closed() || next[1].closed() || next[2].closed());
     }
 
     /** Every PC loaded the world, landed and plays with these engines. */
