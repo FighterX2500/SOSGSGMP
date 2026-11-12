@@ -55,6 +55,8 @@ public final class MpEscapeMenu {
 	}
 
 	private static final int REASON_WIDTH = 520;
+	/** Under Leave and freeze while it can run (owner, 2026-11-12; SOS-203). */
+	private static final CharSequence FREEZE_INFO = "Quit now and keep your city: it waits, frozen, and you continue later.";
 
 	private MpEscapeMenu() {
 	}
@@ -116,7 +118,10 @@ public final class MpEscapeMenu {
 					actions.leaveFrozen();
 				}
 			});
-			main.addDownC(2, reason(small, actions::freezeRefusal));
+			main.addDownC(2, reason(small, () -> { // why it is greyed out, or what it does
+				CharSequence why = actions.freezeRefusal();
+				return why != null ? why : FREEZE_INFO;
+			}));
 		}
 		main.addDownC(6, button(big.getText(vanilla.options()), vanilla.openOptions()));
 		main.addDownC(6, button(big.getText(vanilla.keys()), vanilla.openKeys()));
@@ -139,7 +144,7 @@ public final class MpEscapeMenu {
 		return main;
 	}
 
-	/** The line below a button that says why it is greyed out; empty while it isn't. */
+	/** The grey line below a button: why it is greyed out, or what it does; empty when there is nothing to say. */
 	private static RENDEROBJ reason(Font small, Supplier<CharSequence> refusal) {
 		return new RENDEROBJ.RenderImp(REASON_WIDTH, small.height()) {
 			@Override
