@@ -244,6 +244,9 @@ def main():
     ap.add_argument("--on-gone", choices=("continue", "freeze", "return"), default="continue",
                     help="the host's choice when a player left: continue without them, freeze them (SOS-194), or return"
                          " to the last save")
+    ap.add_argument("--rejoin", type=int, default=-1, metavar="SECONDS",
+                    help="with --freeze local:STEP: this many seconds after the local game left frozen, it starts again"
+                         " and asks to come back; the host accepts and every game restarts with it (SOS-195)")
     ap.add_argument("--freeze", default="",
                     help="'remote:STEP' or 'local:STEP': that joiner chooses Leave and freeze in the escape menu at STEP;"
                          " every PC saves the campaign, it leaves, the host freezes it and the others play on (SOS-194)")
@@ -318,6 +321,8 @@ def main():
     if args.freeze and (freeze_who not in ("remote", "local") or not freeze_at.isdigit()
                         or freeze_who == "local" and not args.local_joiner or freeze_who == "remote" and args.no_joiner):
         fail("--freeze needs 'remote:STEP' (with a joiner) or 'local:STEP' (with --local-joiner)")
+    if args.rejoin >= 0 and freeze_who != "local":
+        fail("--rejoin needs --freeze local:STEP: the local game comes back")
     crash_who, _, crash_at = args.crash.partition(":")
     if args.crash and (crash_who not in ("remote", "local") or not crash_at.isdigit()
                        or crash_who == "local" and not args.local_joiner or crash_who == "remote" and args.no_joiner):
@@ -437,6 +442,7 @@ def main():
 
     seen = {w: 0 for w in who_all}
     chose_lost = False
+    rejoin_started = False
     done = {}
     deadline = time.time() + args.timeout
     while time.time() < deadline:
@@ -453,9 +459,17 @@ def main():
             for e in evs[seen[who]:]:
                 log("%s %s" % (who, json.dumps(e)))
                 if e["event"] in ("done", "closed", "desyncexit", "quitexit", "crash", "mismatch", "frozeexit"):
-                    done[who] = e
+                    if not (who == "local" and rejoin_started and e["event"] == "frozeexit"):
+                        done[who] = e
             seen[who] = len(evs)
             (run / ("%s-events.jsonl" % who)).write_text(text, encoding="utf-8")
+        if args.rejoin >= 0 and not rejoin_started:
+            left = [e for e in events(texts["local"]) if e["event"] == "frozeexit"]
+            if left and time.time() * 1000 - left[0]["t"] >= args.rejoin * 1000:
+                start_here(local3, "role=join,name=Local,address=127.0.0.1,crash=-1,%s" % common, NETEM["local"])
+                rejoin_started = True
+                done.pop("local", None)  # its frozeexit was not its end
+                log("the local game started again: it asks to come back (SOS-195)")
         if args.crash and not chose_lost and any(e["event"] == "go" for e in events(texts["host"])):
             # a crash breaks the connection, so it shows as lost, which the host waits out: it chooses at once instead
             with open(local / EVENTS.parent / "command.txt", "a", encoding="utf-8") as f:
@@ -484,6 +498,8 @@ def main():
         sys.exit(0 if files_verdict(args, done, game_pid, (local, local2)) else 1)
     if args.crash:
         sys.exit(0 if gone_verdict(args, evs, done, local, crash_who, int(crash_at)) else 1)
+    if args.rejoin >= 0:
+        sys.exit(0 if rejoin_verdict(evs, done) else 1)
     if args.freeze:
         sys.exit(0 if freeze_verdict(evs, done, local, freeze_who) else 1)
     if args.hot_join >= 0 and args.join_answer == "refuse":
@@ -662,6 +678,36 @@ def freeze_verdict(evs, done, local, freeze_who):
     record = newest_record(local)
     log("host: campaign saved after the freeze: %s; newest record: %s" % (bool(saved), record.name if record else "none"))
     ok = ok and saved and record is not None and "frozen=true" in record.read_text(encoding="utf-8")
+    log("RESULT: %s" % ("PASS" if ok else "FAIL"))
+    return bool(ok)
+
+
+def rejoin_verdict(evs, done):
+    """SOS-195: the local game left frozen, came back, the host accepted; every game restarted with it and played on
+    with the same world hashes after the restart, the local game's city thawed."""
+    ok = all(done.get(w, {}).get("event") == "done" for w in evs)
+    for w in evs:
+        log("%s ended: %s" % (w, done.get(w, {}).get("event")))
+    left = [e for e in evs["local"] if e["event"] == "frozeexit"]
+    asked = [e for e in evs["host"] if e["event"] == "joinask"]
+    rejoined = {w: [e for e in evs[w] if e["event"] == "rejoined"] for w in evs}
+    gos = {w: [i for i, e in enumerate(evs[w]) if e["event"] == "go"] for w in evs}
+    log("local left frozen: %s; host asked: %s; rejoined: %s; Go events: %s" % (
+        left[:1], [e.get("name") for e in asked], {w: r[:1] for w, r in rejoined.items()}, {w: len(g) for w, g in gos.items()}))
+    ok = ok and left and asked and all(rejoined.values()) and all(len(g) >= 2 for g in gos.values())
+
+    def after_restart(w):
+        start = gos[w][-1] if gos[w] else len(evs[w])
+        return {e["step"]: e["hash"] for e in evs[w][start:] if e["event"] == "hash"}
+
+    h = after_restart("host")
+    for w in [w for w in evs if w != "host"]:
+        o = after_restart(w)
+        common = sorted(set(h) & set(o))
+        differ = [s for s in common if h[s] != o[s]]
+        log("after the restart, host and %s: %d common hash steps, %d differ%s" % (
+            w, len(common), len(differ), (", first at %d" % differ[0]) if differ else ""))
+        ok = ok and common and not differ
     log("RESULT: %s" % ("PASS" if ok else "FAIL"))
     return bool(ok)
 

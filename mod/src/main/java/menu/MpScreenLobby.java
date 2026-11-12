@@ -20,6 +20,7 @@ import sosgsgmp.game.WorldGenAdapter;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
+import sosgsgmp.net.Message;
 import sosgsgmp.net.SteamNode;
 import sosgsgmp.session.LobbySession;
 import sosgsgmp.session.SetupSession;
@@ -49,6 +50,10 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 	private CampaignRecord resumed;
 	/** Why this PC left a resume lobby by itself: it lacks the save. Null otherwise. */
 	private String resumeProblem;
+	/** A frozen player's PC coming back into the running game (SOS-195): no snapshot; the host's restart, then its own save. */
+	private boolean returning;
+	/** With {@link #returning}: the setup the host's restart made, until its slot map is here. */
+	private SetupSession restarted;
 	private int shownChanges = -1;
 	private int shownPlayers;
 	private final GText[] rows = new GText[LobbySettings.MAX_PLAYERS];
@@ -280,6 +285,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 	/** The lobby has started: its connection and players go to the setup; the host starts the first build. */
 	private void startSetup() {
 		world = new WorldGenAdapter();
+		returning = session.running() && session.returning();
 		setup = session.handOver(world, new WorldSetupAdapter());
 		if (setup.isHost() && resumed == null)
 			setup.build(mp.prefs.mapSize);
@@ -290,6 +296,10 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		setup.update();
 		if (setup.closed()) {
 			status.clear().add(setup.closedReason());
+			return;
+		}
+		if (setup.candidate() && returning) {
+			comeBack();
 			return;
 		}
 		if (setup.candidate()) { // hot-join (SOS-190): this PC picks on the host's snapshot
@@ -307,6 +317,32 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		if (setup.step().pendingBuild() == 0)
 			return;
 		leaveMenu(new MpGameBuild(setup, world, mp.mapSizeMemory()));
+	}
+
+	/**
+	 * A frozen player's PC coming back (SOS-195): once the host's restart is here and its slot map with it, this PC loads
+	 * its own latest save of the campaign, the one its city froze in; every load then reads the host's world.
+	 */
+	private void comeBack() {
+		if (restarted == null)
+			restarted = setup.takeRestart();
+		if (restarted == null)
+			return;
+		restarted.update();
+		if (restarted.closed()) {
+			status.clear().add(restarted.closedReason());
+			return;
+		}
+		if (restarted.factions() == null || !restarted.factions().initialized())
+			return;
+		Message.Restart r = restarted.restartInfo();
+		CampaignRecord own = MpSaves.store().latest(r.campaign().id());
+		if (own == null || own.slot() != r.rejoinSlot() || !Files.exists(DataFolders.layout().save(own.file())))
+			throw new IllegalStateException("SOSGSGMP: this PC has no save of " + r.campaign().name() + " in slot "
+					+ r.rejoinSlot() + " to come back from" + (own == null ? "" : " (its latest: save " + own.number() + ")"));
+		SetupSession next = restarted;
+		restarted = null;
+		leaveMenu(new MpWorldLoad(next, own));
 	}
 
 	private void leaveMenu(snake2d.CORE_STATE.Constructor next) {
@@ -354,7 +390,9 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		status.clear();
 		switch (session.state()) {
 			case CONNECTING -> status.add("Connecting to the host...");
-			case OPEN -> status.add(session.running()
+			case OPEN -> status.add(session.running() && session.returning()
+					? "The game is under way. The host is asked whether you can come back to your city."
+					: session.running()
 					? "The game is under way. The host is asked whether you can join it with a city-state of your own."
 					: !session.isHost() ? "Waiting for the host to start."
 					: ls != null && ls.resume() != null && !missing(ls.resume(), players).isEmpty()
@@ -362,7 +400,9 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 									? ". Wait for them, or start now: they are removed from the campaign and can't play in it again."
 									: ". The player in the campaign's first slot has to be in before it can start.")
 							: session.canStart() ? "Start the lobby when everyone is in." : "Waiting for players. Start needs 2 or more.");
-			case STARTED -> status.add(session.running() ? "The host lets you in. Getting a copy of the world to pick your spot on..."
+			case STARTED -> status.add(session.running() && session.returning()
+					? "The host lets you back in. Every game saves and reloads with your city in it..."
+					: session.running() ? "The host lets you in. Getting a copy of the world to pick your spot on..."
 					: resumed != null ? "The lobby has started. Loading your save of the campaign..."
 					: "The lobby has started. Building the game for the map...");
 			case CLOSED -> status.add(resumeProblem != null ? resumeProblem : session.closedReason());

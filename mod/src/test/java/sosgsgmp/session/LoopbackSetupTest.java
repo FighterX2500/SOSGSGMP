@@ -1208,6 +1208,82 @@ class LoopbackSetupTest {
         assertFalse(bob.closed());
     }
 
+    /**
+     * SOS-195: Cid, frozen, says hello again and is asked about as coming back, not refused as already in the game. On
+     * Accept there is no snapshot: the host's rejoin files reach every PC whole, Cid's too, before the restart, which
+     * thaws Cid's slot in the campaign and gives every PC's new setup Cid back in slot 2.
+     */
+    @Test
+    void aFrozenPlayerComesBackAndEveryPcRestartsWithTheHostsWorld() throws Exception {
+        EngineLinkTest.FakePort hp = new EngineLinkTest.FakePort();
+        playing(hp, new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        hp.step = 500;
+        cid.leave();
+        playUntil("Bob holds for Cid", () -> bob.departures().waiting());
+        host.chooseGone(Departures.Choice.FREEZE);
+        playUntil("Bob hears Freeze them", () -> bob.departures().choice() == Departures.Choice.FREEZE);
+        for (SetupSession s : List.of(host, bob))
+            s.departures().continued();
+        setups.remove(cid);
+
+        HostedLobby h = lobby;
+        JoinedLobby jc = join(h, "Cid");
+        playUntil("Cid's ask at the host", () -> {
+            jc.update();
+            return "Cid".equals(host.joinAsk()) && jc.running();
+        });
+        assertTrue(host.joinReturning());
+        assertTrue(jc.returning(), "Cid hears that he comes back");
+        host.answerJoin(null);
+        playUntil("Cid let in", () -> {
+            jc.update();
+            return jc.state() == LobbyState.STARTED;
+        });
+        FakeWorld cidWorld = new FakeWorld();
+        SetupSession cidBack = jc.handOver(cidWorld, cidWorld);
+        assertTrue(cidBack.candidate());
+
+        byte[] files = new byte[Pieces.PIECE_BYTES * 3 + 11];
+        for (int i = 0; i < files.length; i++)
+            files[i] = (byte) (i * 5);
+        int cidId = jc.localPlayerId();
+        assertThrows(IllegalStateException.class, () -> host.restart(5, 2, null, 0, new byte[1]), "no pick for a rejoin");
+        SetupSession host2 = host.restartRejoin(5, files);
+        SetupSession[] next = new SetupSession[2];
+        SetupSession[] olds = {bob, cidBack};
+        until("the restart at Bob and Cid", () -> {
+            host2.update();
+            boolean all = true;
+            for (int i = 0; i < 2; i++) {
+                olds[i].update();
+                if (next[i] == null)
+                    next[i] = olds[i].takeRestart();
+                all &= next[i] != null;
+            }
+            return all;
+        });
+        setups.clear();
+        setups.add(host2);
+        setups.addAll(List.of(next));
+        for (SetupSession s : setups) {
+            assertTrue(s.restartInfo().rejoins());
+            assertEquals(2, s.restartInfo().rejoinSlot());
+            assertEquals(cidId, s.restartInfo().newcomerId());
+            assertEquals(5, s.restartInfo().number());
+            assertFalse(s.restartInfo().campaign().inSlot(2).frozen(), "Cid is back in the campaign");
+            assertArrayEquals(files, s.rejoinFiles(), "the host's rejoin files, whole, on every PC");
+        }
+        until("the slot maps", () -> {
+            for (SetupSession s : setups)
+                if (s.factions() == null || !s.factions().initialized())
+                    return false;
+            return next[0].players().size() == 3;
+        });
+        for (SetupSession s : setups)
+            assertEquals(2, s.factions().slotOf(cidId), "Cid's slot on every PC");
+        assertFalse(host2.closed() || next[0].closed() || next[1].closed());
+    }
+
     private static int idOf(SetupSession s, String name) {
         for (LobbyPlayer p : s.players())
             if (p.name().equals(name))

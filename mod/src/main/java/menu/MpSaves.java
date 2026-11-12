@@ -49,6 +49,9 @@ final class MpSaves {
 	private int exitedQuitter = SaveOrder.NO_QUITTER;
 	/** After this PC's Leave and freeze save (SOS-194): its outcome, empty when every PC saved; null before. */
 	private String frozeHere;
+	/** Host, a rejoin (SOS-195): the next save also writes the rejoin's files, which wait here until taken. */
+	private boolean rejoinOutNext;
+	private byte[] rejoinFiles;
 	/** The Engage step of the last battle this PC saved before, held there (SOS-67); -1 before the first. */
 	private long savedBeforeBattle = -1;
 	/** The step of this PC's last save. */
@@ -268,6 +271,11 @@ final class MpSaves {
 					for (CampaignRecord gone : store.rotate(order.campaign().id(), order.keep()))
 						game.deleteSave(gone.file());
 				log.line(String.format("save %d written at step %d: %s, world hash %016x", order.number(), engine.step(), file, hash));
+				if (rejoinOutNext) { // the host's rejoin files at the founding save's own step, as every PC's save (SOS-195)
+					rejoinOutNext = false;
+					rejoinFiles = game.rejoinOut();
+					log.line("save " + order.number() + ": the rejoin's files, " + rejoinFiles.length + " bytes");
+				}
 				reports.saved(game.savePath(file), store.recordFile(order.campaign().id(), order.number()));
 			} catch (RuntimeException e) {
 				// the save's own boundary: every PC reports, so the host releases the hold and names this PC's problem
@@ -323,6 +331,19 @@ final class MpSaves {
 	/** Whether a save is under way: ordered, not yet done. */
 	boolean saving() {
 		return order != null;
+	}
+
+	/** Host, a rejoin (SOS-195): the next save this PC makes also writes the rejoin's files, at the save's own step. */
+	void rejoinOutAtNextSave() {
+		rejoinOutNext = true;
+		rejoinFiles = null;
+	}
+
+	/** Host: the rejoin's files of the last save, once; null when it wrote none. */
+	byte[] takeRejoinFiles() {
+		byte[] f = rejoinFiles;
+		rejoinFiles = null;
+		return f;
 	}
 
 	/** Whether this PC's Leave and freeze save is under way: ordered, not yet done (SOS-194). */

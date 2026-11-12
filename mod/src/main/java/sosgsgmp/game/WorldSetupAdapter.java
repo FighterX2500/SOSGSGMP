@@ -2,6 +2,7 @@ package sosgsgmp.game;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -179,6 +180,50 @@ public final class WorldSetupAdapter implements FactionWorld {
     /** Removes a {@link #saveTemp} save and its folder. */
     public void deleteTemp(Path file) {
         deleteTree(file.getParent());
+    }
+
+    /**
+     * Host, a rejoin (SOS-195), right after its founding save, at that save's step: the world's sections as the save had
+     * them and the world's state no save holds (SOSDET Engine.rejoinOut), packed for every PC's {@link #rejoin}.
+     */
+    public byte[] rejoinOut() {
+        Path file = null;
+        try {
+            file = Files.createTempFile("sosgsgmp-rejoin", ".save");
+            byte[] state = Engine.rejoinOut(file);
+            byte[] world = Files.readAllBytes(file);
+            return ByteBuffer.allocate(4 + world.length + state.length).putInt(world.length).put(world).put(state).array();
+        } catch (IOException e) {
+            throw new UncheckedIOException("SOSGSGMP: can't write the rejoin's world", e);
+        } finally {
+            if (file != null)
+                deleteSaveFile(file);
+        }
+    }
+
+    /**
+     * Every PC, a rejoin (SOS-195), after its load and the humans, before step 0: the host's {@code files}
+     * ({@link #rejoinOut}) load into this game, keeping its city, and the frozen human in {@code slot} thaws (SOSDET
+     * Engine.rejoinLoad, thawHuman).
+     */
+    public void rejoin(byte[] files, int slot) {
+        ByteBuffer b = ByteBuffer.wrap(files);
+        int length = b.getInt();
+        if (length <= 0 || length > b.remaining())
+            throw new IllegalArgumentException("SOSGSGMP: rejoin files with a world of " + length + " bytes");
+        byte[] world = new byte[length];
+        b.get(world);
+        byte[] state = new byte[b.remaining()];
+        b.get(state);
+        Path file = saveFile(world);
+        try {
+            Engine.rejoinLoad(file, state);
+        } finally {
+            deleteSaveFile(file);
+        }
+        if (!Engine.frozen(slot))
+            throw new IllegalStateException("SOSGSGMP: the rejoin's world has no frozen human in slot " + slot);
+        Engine.thawHuman(slot);
     }
 
     private static HumanStart[] starts(List<FactionPick> humans) {

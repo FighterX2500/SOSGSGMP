@@ -24,6 +24,9 @@ import sosgsgmp.setup.FactionStep;
  * world; the session holds at step 0. Then every PC's human is set (PC number = slot), a joining PC makes its own city
  * at its capital (the save holds the host's), and this PC reports its world hash. The session reaches the loaded game
  * through this object, the panel it shows and the per-frame {@link MpPlay}, never through a static.
+ *
+ * <p>At a rejoin's restart (SOS-195) every PC loads its own save, the returning PC its latest, where its city froze;
+ * then every PC loads the host's world into its game and the frozen slot thaws, before the world hash goes to the host.
  */
 public final class MpWorldLoad implements CORE_STATE.Constructor {
 
@@ -77,8 +80,10 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 			autopilot.loading();
 		FactionStep f = setup.factions();
 		int seed = resumed == null ? setup.choices().seed() : resumed.campaign().seed();
-		// every PC names the same start: the host's world, or the campaign's save
-		long startId = resumed == null ? WorldSetupAdapter.startId(save) : resumed.campaign().id() ^ resumed.number();
+		Message.Restart restart = setup.restartInfo();
+		// every PC names the same start: the host's world, or the campaign's save (a restart's, which a rejoining PC lacks)
+		long startId = resumed == null ? WorldSetupAdapter.startId(save)
+				: resumed.campaign().id() ^ (restart != null ? restart.number() : resumed.number());
 		Path file = save != null ? game.saveFile(save) : game.savePath(resumed.file());
 		game.beginSession(setup.isHost(), f.slotOf(setup.localPlayerId()), startId, seed);
 		CORE_STATE view;
@@ -88,13 +93,13 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 			if (save != null)
 				game.deleteSaveFile(file);
 		}
-		Message.Restart restart = setup.restartInfo();
-		boolean newcomer = restart != null && restart.newcomerId() == setup.localPlayerId();
-		if (restart != null)
+		boolean rejoin = restart != null && restart.rejoins();
+		boolean newcomer = restart != null && !rejoin && restart.newcomerId() == setup.localPlayerId();
+		if (restart != null && !rejoin)
 			view = addNewcomer(restart, log);
 		game.humans(slots(), seed);
-		if (resumed != null)
-			for (int slot : Campaign.missingSlots(resumed.campaign(), slotList())) {
+		if (resumed != null) // a restart's campaign is the host's now: a rejoining PC's own record is older
+			for (int slot : Campaign.missingSlots(restart != null ? restart.campaign() : resumed.campaign(), slotList())) {
 				game.removeAtStart(slot); // a player missing at a resume (spec §11 Resuming)
 				log.line("the missing player in slot " + slot + " is removed at the start");
 			}
@@ -112,6 +117,18 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 				int[] c = game.capitalOf(slot);
 				log.line("living world: slot " + slot + "'s capital at " + c[0] + "," + c[1]);
 			}
+		if (rejoin) {
+			byte[] files = setup.rejoinFiles();
+			if (files == null)
+				throw new IllegalStateException("SOSGSGMP: a rejoin's restart without the host's rejoin files");
+			long r = System.nanoTime();
+			game.rejoin(files, restart.rejoinSlot());
+			log.line(String.format(Locale.ROOT, "rejoin: the host's world (%d bytes) loaded and slot %d thawed in %.1f s",
+					files.length, restart.rejoinSlot(), (System.nanoTime() - r) / 1e9));
+			setup.chat().notice(restart.campaign().inSlot(restart.rejoinSlot()).name() + " is back.");
+			if (autopilot != null)
+				autopilot.event("rejoined", "\"slot\":" + restart.rejoinSlot());
+		}
 		log.line("own city: " + game.activeEntries() + " entry points active"); // none: no roads (SOS-75)
 		setup.worldLoaded(game.worldHash());
 		if (newcomer) { // a hot-join's newcomer lands as a setup's joiner does: its city at the capital carved for it

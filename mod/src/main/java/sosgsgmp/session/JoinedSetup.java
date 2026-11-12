@@ -43,6 +43,9 @@ public final class JoinedSetup implements SetupSession {
     /** The lobby's world: a living world, where this PC's player settles on the host's built world (SOS-187). */
     private final boolean livingWorld;
     private final Pieces.Receiver settleParts = new Pieces.Receiver();
+    /** A rejoin (SOS-195): the host's rejoin files' pieces, then the files, for the setup its restart makes. */
+    private final Pieces.Receiver rejoinParts = new Pieces.Receiver();
+    private byte[] rejoinFiles;
     /** A living world built around the host, once all its pieces are here, until this PC takes it; null otherwise. */
     private byte[] settleWorld;
     private final Cursors cursors = new Cursors();
@@ -228,6 +231,11 @@ public final class JoinedSetup implements SetupSession {
             }
             case Message.JoinPicked p when candidate -> joinPicked = p.problem();
             case Message.Restart r -> restart(r);
+            case Message.RejoinPart w -> { // the host's rejoin files, before its Restart (SOS-195)
+                byte[] all = rejoinParts.accept(1, w.index(), w.count(), w.bytes());
+                if (all != null)
+                    rejoinFiles = all;
+            }
             case Message.SettlePart w when factions != null && factions.living() && !factions.settling() -> {
                 byte[] all = settleParts.accept(1, w.index(), w.count(), w.bytes());
                 if (all != null) {
@@ -553,6 +561,11 @@ public final class JoinedSetup implements SetupSession {
         JoinedSetup next = new JoinedSetup(node, localPlayerId(), players, world, factionWorld,
                 new LobbySettings.Resume(r.campaign(), r.number()), fullTransferLog, false, chat, builds, false);
         next.restartInfo = r;
+        if (r.rejoins() && rejoinFiles == null) {
+            close("The host brought a frozen player back without its world.");
+            return;
+        }
+        next.rejoinFiles = r.rejoins() ? rejoinFiles : null;
         node.send(Node.HOST, new Message.Restarted());
         restarted = next;
         replaced = true;
@@ -569,6 +582,11 @@ public final class JoinedSetup implements SetupSession {
     @Override
     public Message.Restart restartInfo() {
         return restartInfo;
+    }
+
+    @Override
+    public byte[] rejoinFiles() {
+        return rejoinFiles == null ? null : rejoinFiles.clone();
     }
 
     @Override

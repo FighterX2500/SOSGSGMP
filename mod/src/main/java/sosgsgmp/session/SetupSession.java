@@ -319,6 +319,25 @@ public interface SetupSession {
         throw new UnsupportedOperationException("SOSGSGMP: only the host restarts");
     }
 
+    /** Host: whether the PC that asks to join, or is joining, is a frozen player coming back (SOS-195). */
+    default boolean joinReturning() {
+        return false;
+    }
+
+    /**
+     * Host, a rejoin (SOS-195), once the founding save {@code number} is done: every PC gets the host's rejoin files
+     * {@code rejoinFiles} and restarts from its own save, the returning PC from its last one; then the frozen player's slot
+     * thaws. Returns the setup that replaces this one over the same connection.
+     */
+    default SetupSession restartRejoin(int number, byte[] rejoinFiles) {
+        throw new UnsupportedOperationException("SOSGSGMP: only the host restarts");
+    }
+
+    /** A setup made by a rejoin's restart: the host's rejoin files, every PC's load reads them; else null (SOS-195). */
+    default byte[] rejoinFiles() {
+        return null;
+    }
+
     /** Joined PC: the setup that replaces this one after the host's restart, once; else null. */
     default SetupSession takeRestart() {
         return null;
