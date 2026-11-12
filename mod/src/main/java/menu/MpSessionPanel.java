@@ -74,6 +74,7 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 	/** The panel's content, below its title bar: a press above it, on the title bar, drags the panel (owner, 2026-10-25). */
 	private final GuiSection inner = new GuiSection();
 	private final MpDrag drag = new MpDrag();
+	private final GPanel panel;
 	/** Hidden by the top bar's button (SOS-91). */
 	private boolean hidden = MpAutopilot.previewing(); // a preview's shots need the minimap under it
 
@@ -119,8 +120,9 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 		}));
 		inner.addRightC(8, sally);
 		sally.visableSet(false);
-		GPanel panel = new GPanel(inner.body().width(), inner.body().height());
+		panel = new GPanel(inner.body().width(), inner.body().height());
 		panel.setTitle("Multiplayer setup");
+		panel.setCloseAction(this::toggle); // the X in the corner, as vanilla's windows have (SOS-201)
 		panel.inner().set(inner);
 		section.add(panel);
 		section.add(inner);
@@ -148,7 +150,7 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 
 	@Override
 	protected void mouseClick(MButt button) {
-		if (button != MButt.LEFT)
+		if (button != MButt.LEFT || panel.hoveredIs()) // the X closes it in its own hover
 			return;
 		if (!drag.grab(section, inner, VIEW.mouse().x(), VIEW.mouse().y()))
 			section.click();
