@@ -318,8 +318,10 @@ final class MpAutopilotCommands {
 		}
 		case "peace":
 		case "ally":
+		case "pact":
 		case "trade": {
-			int treaty = a[0].equals("peace") ? DealBook.PEACE : a[0].equals("ally") ? DealBook.ALLY : DealBook.TRADE;
+			int treaty = a[0].equals("peace") ? DealBook.PEACE : a[0].equals("ally") ? DealBook.ALLY
+					: a[0].equals("pact") ? DealBook.PACT : DealBook.TRADE;
 			int credits = a.length > 1 ? Integer.parseInt(a[1]) : 0;
 			DealBook.Terms t = new DealBook.Terms(treaty, credits, 0, new int[0], new int[0]);
 			String why = PlayerDeals.refusal(slot, t);
@@ -754,6 +756,10 @@ final class MpAutopilotCommands {
 			return "closing the view";
 		case "look":
 			return look(a);
+		case "worldlook": // test aid (SOS-200): the world map, centred on tile X Y, for a shot
+			view.main.VIEW.world().activate();
+			view.main.VIEW.world().window.centererTile.set(Integer.parseInt(a[1]), Integer.parseInt(a[2]));
+			return "world map at " + a[1] + "," + a[2];
 		case "speed":
 			if (!host && !Hooks.speedVoteHere()) // a battle's commanders vote (spec §8)
 				return "refused: the host sets the speed";
