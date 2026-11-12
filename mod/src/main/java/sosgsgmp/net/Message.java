@@ -364,9 +364,17 @@ public sealed interface Message {
 
     /**
      * Host to every joined PC: its choice for the hold at {@code holdStep}: Continue without the players gone
-     * ({@code continued}), or Return to the last save, which ends the session.
+     * ({@link #CONTINUE}), Freeze them ({@link #FREEZE}, SOS-194), or Return to the last save ({@link #RETURN}), which
+     * ends the session.
      */
-    record GoneChoice(long holdStep, boolean continued) implements Message {}
+    record GoneChoice(long holdStep, int choice) implements Message {
+        public static final int RETURN = 0, CONTINUE = 1, FREEZE = 2;
+
+        public GoneChoice {
+            if (choice < RETURN || choice > FREEZE)
+                throw new IllegalArgumentException("SOSGSGMP: gone choice " + choice);
+        }
+    }
 
     /**
      * Host to every joined PC (SOS-177): player {@code playerId}'s PC went silent, its connection still open, for
@@ -418,6 +426,13 @@ public sealed interface Message {
      * soon as a save can start, and then the session ends; a repeated ask changes nothing.
      */
     record QuitAsk() implements Message {}
+
+    /**
+     * A joined PC to the host: its player chose Leave and freeze (spec §11 Freezing a player, SOS-194). The host saves
+     * the campaign on every PC as soon as a save can start, with this player as its quitter; once it is done, that PC
+     * leaves and the host freezes its human. A repeated ask changes nothing.
+     */
+    record FreezeAsk() implements Message {}
 
     /**
      * City viewing (spec §10, SOS-82), the viewer's PC to the host: its player, in slot {@code viewer}, asks to view the

@@ -284,6 +284,25 @@ public final class EnginePlay implements EnginePort {
         return Engine.retired(slot);
     }
 
+    /**
+     * Host, between steps: freezes the human in {@code slot}, whose player left and may come back (spec §11 Freezing a
+     * player, SOS-194). As {@link #removeHuman}, every PC freezes it at a step ahead; it keeps its capital. Check
+     * {@link #freezeRefusal} first.
+     */
+    public void freezeHuman(int slot) {
+        Engine.freezeHuman(slot);
+    }
+
+    /** Host: why {@link #freezeHuman} would refuse {@code slot} now, as a sentence for the player; null when it wouldn't. */
+    public String freezeRefusal(int slot) {
+        return Engine.freezeRefusal(slot);
+    }
+
+    /** Whether the human in {@code slot} is frozen: its player left, and its city waits for them. */
+    public boolean frozen(int slot) {
+        return Engine.frozen(slot);
+    }
+
     /** Whether the engine's session runs: it ends at Save and exit. */
     public boolean active() {
         return Engine.active();

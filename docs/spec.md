@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.60 · 2026-11-12
+Version 0.61 · 2026-11-12
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -257,6 +257,21 @@ Any player can view any other player's city, enemies included. This is intended.
 
 **Removing a player.** The host can remove a player who is missing at resume or disconnected. Every region they held, their city's included, becomes a free region with no owner, as vanilla leaves a destroyed faction's land, and their armies are disbanded. They can't rejoin the campaign as a player. Play goes on without them; nobody waits for them. A city-state carved into the world (a player who settled in a living world or joined later) is removed from the map: its land goes back to the regions around it, while the game holds for every player for a moment, and the chat says so (owner, 2026-11-11; SOS-188).
 
+**Freezing a player.** (owner, 2026-11-12; SOS-192 to SOS-196) A player can leave a running campaign and come back later.
+
+- **Leaving.** A player chooses **Leave and freeze** in the escape menu. Their game saves their city, and the session goes on without them. The host has no Leave and freeze: the host's leaving ends the session (see Host disconnect). At a disconnect (see Disconnects), the host can also choose **Freeze them**. That player's city then comes back from their last campaign save, so what happened in it after that save is lost.
+- **While frozen:**
+  - Their capital stays theirs and can't be besieged or attacked.
+  - Every war with them ends, and their relations with everyone become neutral.
+  - Every other region they held becomes free land with no owner, and their vassals become independent.
+  - Their armies go home to their capital and stay as they are.
+  - No NPC faction makes war on them or raids them.
+  - Their treaties and trade routes stay. Goods and people sent to their city wait until they return.
+  - Nobody can propose a deal to them.
+  - The chat says who is frozen. Their city appears to everyone as it was when they left.
+- **Coming back.** A frozen player joins the running game as a new player does (see Joining). The host Accepts, every game saves and reloads with them back in, which holds every player for up to half a minute, and their city goes on where it stopped.
+- **Saves and resumes.** The campaign remembers who is frozen. A resume starts without waiting for a frozen player, and they can come back into it later. The host can remove a frozen player for good at any time (see Removing a player).
+
 **Host disconnect.** (owner, 2026-11-08; SOS-177, SOS-179) When the host's PC goes silent for 5 seconds, or its connection breaks, every other player sees "Lost the connection to the host: waiting" with the time it has been gone, and the whole simulation stops: the world, every city and any battle. Their games connect again by themselves as soon as the host is back, and play goes on with nothing lost; the host sees them as lost meanwhile, as above. Each player can leave from that window: their game leaves the session, and the host can continue without them or return to the last save. When the host quits or its game crashes, every player gets a popup saying the host disconnected, and play can't continue in that session. The players resume the campaign from a save with any player as host (see Resuming); the save made before the last battle is the natural point.
 
 **World desyncs.** When a player's world map differs from the host's, the game stops at the same moment for every player, and every player sees a window saying the world desynced and which player differs. The host chooses what follows; the others wait:
@@ -272,8 +287,9 @@ The window appears on every world desync; there is no automatic resync.
 
 - **Return to the last save:** the session ends, and the players resume the campaign from its last save, the disconnected player included (see Resuming). When they dropped out of a battle, that is the save made before it.
 - **Continue without them:** the player is removed (see Removing a player), and play goes on. A battle or siege they were in ends for their side, attacker or defender, with no result: the other side's armies stay as they were before it.
+- **Freeze them:** the player is frozen (see Freezing a player), and play goes on.
 
-A disconnected player never rejoins a running session; they come back only through a resume. A player who only lost connection is not disconnected: their own game reconnects, as above. No city is frozen because its player is gone: the only frozen city is a viewer's own city (section 10).
+A disconnected player rejoins a running session only after a freeze; otherwise they come back only through a resume. A player who only lost connection is not disconnected: their own game reconnects, as above. A city frozen because its player is gone follows Freezing a player; the only other frozen city is a viewer's own city (section 10).
 
 **Elimination.** An eliminated player becomes a spectator. Spectators can view every city and battle and can use chat, but cannot act in the game. Decided by the owner on 2026-10-31 (SOS-111):
 
@@ -291,7 +307,7 @@ Players talk through one in-game chat. Every player and spectator reads the same
 - **The chat box.** It starts in the bottom-left corner and can be moved, like the multiplayer panel. A button next to the multiplayer panel's on the top bar collapses and expands it. Players click the box to type; no key opens it. There is no sound and no unread count.
 - **Messages.** A message is at most 200 characters. Each player's name shows in their cursor color. Text uses the game's own font, so a character that a player's language font lacks shows as `?`.
 - **History.** The chat keeps its last 200 lines for the session. It isn't part of the campaign save, so a resumed campaign starts with an empty chat.
-- **Event notifications** appear in the chat. Every player sees a new player joining, a war declared, a peace, a vassalage, a siege's start, an assault's start and outcome, an NPC invasion of a capital, a battle between players starting and ending, another player's battle against NPCs starting and ending, a player leaving, returning or being eliminated, and a pause with who paused. Deals, gifts, tariffs and view requests appear only for the players involved. Notifications never give army positions or numbers. A notice about another player's invasion or battle against NPCs is a link: a click opens that player's window, where View city or Watch battle starts watching (owner, 2026-11-04; SOS-144).
+- **Event notifications** appear in the chat. Every player sees a new player joining, a war declared, a peace, a vassalage, a siege's start, an assault's start and outcome, an NPC invasion of a capital, a battle between players starting and ending, another player's battle against NPCs starting and ending, a player leaving, returning or being eliminated, a player frozen ("*Name* left and is frozen") or back from a freeze ("*Name* is back"), and a pause with who paused. Deals, gifts, tariffs and view requests appear only for the players involved. Notifications never give army positions or numbers. A notice about another player's invasion or battle against NPCs is a link: a click opens that player's window, where View city or Watch battle starts watching (owner, 2026-11-04; SOS-144).
 - **Information without a choice** appears as a notification, not a popup. The one exception is the loading window below.
 - **Loading window** (owner, 2026-11-06; SOS-158). While the game freezes or holds every PC for seconds, every PC shows a window that says why and counts the seconds, until every PC is done:
   - **world generation** and **world initialization**: the host's click opens the window on every PC, and the host's work starts only once it shows;
@@ -468,6 +484,10 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A new player joins two playing PCs: every PC restarts from the same save with the newcomer's city-state, and every world hash matches after it. [AT]
 - A refused join changes nothing for the players in the game. [AT]
 - A removed or eliminated player's carved city-state comes off the map: the region map, roads and paths are as before it was carved, and every PC's world is the same through it and after. [AT]
+- A freeze and a rejoin on three PCs keep every world hash equal through and after. [AT]
+- A frozen player's capital can't be besieged. [AT]
+- A frozen player resumes later from a campaign save. [AT]
+- A freeze during a war leaves every stance with them neutral. [AT]
 
 ### Disconnects
 
@@ -481,6 +501,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - Return to the last save resumes every player, the disconnected one included, from the campaign's last save. [PT]
 - Continue without them frees every region the player held and disbands their armies, with the same world hash on every PC. [AT]
 - In a battle or siege, Continue without them ends it with no result, and the other side's armies stay as they were before it. [AT]
+- Freeze them keeps the player's capital, frees their other regions and sends their armies home, with the same world hash on every PC. [AT]
 - A spectator who leaves or falls behind pauses nobody, and the host has nothing to choose. [AT]
 
 ### Chat and notifications
@@ -568,6 +589,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-12 | **Living world:** a lobby option; the world is built around the host, and every other player settles a city-state carved into its real map, with the split rule for the land it is cut from (spec 0.59; section 5). | SOS-187 |
 | 2026-11-12 | **A gone player's city-state comes off the map:** a removed or eliminated player's carved city-state is un-carved while every PC holds a moment (spec 0.59; sections 9, 11, 15). | SOS-188 |
 | 2026-11-12 | **Joining a running campaign:** a new player joins after the host's Accept, picks their spot on a copy of the world while everyone plays on, and every game reloads with their city-state; they start with the campaign's starting resources (spec 0.60; sections 2, 11, 12, 15). | SOS-189, SOS-190 |
+| 2026-11-12 | **Freezing a player:** Leave and freeze in the escape menu and Freeze them at a disconnect keep a player's capital, frozen and protected, until they come back into the running game (spec 0.61; sections 11, 12, 15). | SOS-192 to SOS-196 |
 
 ### Where each v1 feature stands (2026-11-01)
 

@@ -291,7 +291,8 @@ public final class JoinedSetup implements SetupSession {
             }
             case Message.Refused f -> close(f.reason().text); // a spectator's PC too far behind (spec §11)
             case Message.GoneChoice c when link != null -> {
-                Departures.Choice choice = c.continued() ? Departures.Choice.CONTINUE : Departures.Choice.RETURN;
+                Departures.Choice choice = c.choice() == Message.GoneChoice.CONTINUE ? Departures.Choice.CONTINUE
+                        : c.choice() == Message.GoneChoice.FREEZE ? Departures.Choice.FREEZE : Departures.Choice.RETURN;
                 if (departures.chosen(c.holdStep(), choice) && choice == Departures.Choice.RETURN)
                     close("The host chose to return to the last save. Resume the campaign from Load Saved Lobby.");
             }
@@ -677,6 +678,24 @@ public final class JoinedSetup implements SetupSession {
     /** None: only the host takes a player's ask to quit. */
     @Override
     public int takeQuitAsk() {
+        return -1;
+    }
+
+    @Override
+    public void askFreeze() {
+        if (!closed)
+            node.send(Node.HOST, new Message.FreezeAsk());
+    }
+
+    /** None: only the host takes a player's ask to leave frozen. */
+    @Override
+    public int takeFreezeAsk() {
+        return -1;
+    }
+
+    /** None: only the host freezes a player. */
+    @Override
+    public int takeFrozenLeaver() {
         return -1;
     }
 

@@ -47,6 +47,8 @@ final class MpSaves {
 	private String exited;
 	/** After a save that ended the session: the player who quit with it, or SaveOrder.NO_QUITTER (SOS-79). */
 	private int exitedQuitter = SaveOrder.NO_QUITTER;
+	/** After this PC's Leave and freeze save (SOS-194): its outcome, empty when every PC saved; null before. */
+	private String frozeHere;
 	/** The Engage step of the last battle this PC saved before, held there (SOS-67); -1 before the first. */
 	private long savedBeforeBattle = -1;
 	/** The step of this PC's last save. */
@@ -182,6 +184,16 @@ final class MpSaves {
 		order(kind, false, engine.stepPastPeers());
 	}
 
+	/**
+	 * Host: player {@code leaver}'s Leave and freeze (SOS-194): every PC saves the campaign; then that player's PC leaves
+	 * and the others play on. Check {@link #canSaveToExit()} first.
+	 */
+	void saveAndFreeze(int leaver) {
+		waiting = null;
+		closingViews = false;
+		order(CampaignRecord.Kind.SAVE, false, leaver, engine.stepPastPeers());
+	}
+
 	/** Host: a desync's Save and exit, after the resync: every PC saves the campaign, then the session ends. Check {@link #canSaveToExit()} first. */
 	void saveAndExit() {
 		saveAndExit(SaveOrder.NO_QUITTER);
@@ -280,7 +292,11 @@ final class MpSaves {
 	private void finish(String outcome) {
 		lastDone = new Done(order.number(), outcome, savedFile);
 		savedFile = null;
-		engine.release(EnginePlay.Hold.SAVE);
+		boolean leaving = order.freezes() && order.quitter() == setup.localPlayerId();
+		if (leaving)
+			frozeHere = outcome; // held at the save's step, as its city saved, this PC leaves from there (SOS-194)
+		else
+			engine.release(EnginePlay.Hold.SAVE);
 		if (engine.battleAhead() >= 0)
 			savedBeforeBattle = engine.battleAhead(); // a failed save too: the battle still begins, its outcome shown
 		status = outcome.isEmpty() ? "Campaign saved (save " + order.number() + ")." : "Save " + order.number() + ": " + outcome;
@@ -307,6 +323,16 @@ final class MpSaves {
 	/** Whether a save is under way: ordered, not yet done. */
 	boolean saving() {
 		return order != null;
+	}
+
+	/** Whether this PC's Leave and freeze save is under way: ordered, not yet done (SOS-194). */
+	boolean freezing() {
+		return order != null && order.freezes() && order.quitter() == setup.localPlayerId();
+	}
+
+	/** After this PC's Leave and freeze save: its outcome, empty when every PC saved; null before (SOS-194). */
+	String frozeHere() {
+		return frozeHere;
 	}
 
 	/** Whether a save that ends the session is under way: ordered, not yet done. */

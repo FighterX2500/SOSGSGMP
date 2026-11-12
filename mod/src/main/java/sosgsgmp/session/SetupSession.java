@@ -234,6 +234,21 @@ public interface SetupSession {
     /** Host: the first player who asked to quit and wasn't taken yet, once; -1 when none. */
     int takeQuitAsk();
 
+    /**
+     * A joining PC: its player chose Leave and freeze (spec §11 Freezing a player, SOS-194); the host saves the campaign
+     * on every PC, then this PC leaves and the host freezes its human.
+     */
+    void askFreeze();
+
+    /** Host: the first player who asked to leave frozen and wasn't taken yet, once; -1 when none. */
+    int takeFreezeAsk();
+
+    /**
+     * Host: a player whose Leave and freeze save is done on every PC, once; -1 when none. They leave without a hold,
+     * the campaign has them frozen, and the host freezes their human now.
+     */
+    int takeFrozenLeaver();
+
     /** This PC saved for order {@code number} with world hash {@code hash}, or couldn't: {@code problem}, null when it saved. */
     void saved(int number, long hash, String problem);
 

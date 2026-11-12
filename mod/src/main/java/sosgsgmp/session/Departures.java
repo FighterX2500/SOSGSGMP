@@ -35,8 +35,9 @@ public final class Departures {
     /** A player gone: their id, name and slot (their PC number). */
     public record Gone(int playerId, String name, int slot) {}
 
+    /** Continue without them (removed), Return to the last save, or Freeze them (spec §11 Freezing a player, SOS-194). */
     public enum Choice {
-        CONTINUE, RETURN
+        CONTINUE, RETURN, FREEZE
     }
 
     private final List<Gone> gone = new ArrayList<>();
@@ -143,13 +144,14 @@ public final class Departures {
     }
 
     /**
-     * After Continue: the game side ran on and the players gone are removed. The hold is over; a later drop opens a new
-     * one.
+     * After Continue or Freeze them: the game side ran on and the players gone are removed, or frozen. The hold is over;
+     * a later drop opens a new one.
      */
     public void continued() {
-        if (choice != Choice.CONTINUE)
-            throw new IllegalStateException("SOSGSGMP: continued without the host's Continue (" + choice + ")");
-        removed.addAll(gone);
+        if (choice != Choice.CONTINUE && choice != Choice.FREEZE)
+            throw new IllegalStateException("SOSGSGMP: continued without the host's Continue or Freeze them (" + choice + ")");
+        if (choice == Choice.CONTINUE)
+            removed.addAll(gone);
         gone.clear();
         lostSince.clear();
         holdStep = -1;

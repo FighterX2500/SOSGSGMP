@@ -70,8 +70,9 @@ import world.WORLD;
  * SOSDET's rig {@code wcorrupt}), {@code ondesync} (host: {@code resync} or {@code exit} at a desync), {@code save}
  * (host: save the campaign at this step), {@code resume} (host, {@code 1}: host the newest campaign save of this data
  * folder instead of a new game; the joining PC learns it from the lobby), {@code crash} (this PC's game stops dead at
- * this step, as a crash or a pulled cable leaves the others: SOS-65), {@code ongone} (host: {@code continue} or
- * {@code return} when a player left), {@code startafter} (host: keep the lobby open this many seconds first),
+ * this step, as a crash or a pulled cable leaves the others: SOS-65), {@code ongone} (host: {@code continue},
+ * {@code freeze} (SOS-194) or {@code return} when a player left), {@code freeze} (join: at this step choose the escape
+ * menu's Leave and freeze, confirmed: SOS-194), {@code startafter} (host: keep the lobby open this many seconds first),
  * {@code deal} (join: at this step propose trade, up to 100 denari and 5 of a good it has to the host, who accepts every
  * proposal: SOS-72), {@code fulllog} (host, {@code 0}: the lobby's transfer log lists only transfers between players: SOS-81),
  * {@code living} (host, {@code 1}: the lobby's world is a living world, every joiner settling on the host's map: SOS-187),
@@ -123,6 +124,8 @@ public final class MpAutopilot {
 	private final long tariff;
 	/** The step this PC's player quits at, through the escape menu's Exit (SOS-79); -1 for never. */
 	private final long quit;
+	/** The step this PC's player leaves frozen at, through the escape menu (SOS-194); -1 for never. */
+	private final long freeze;
 	/** The step this PC's player renames the faction and changes the banner at (SOS-78); -1 for never. */
 	private final long rename;
 	/** The host opens each siege window in turn from this step, for screenshots (SOS-92); -1 for none. */
@@ -244,6 +247,7 @@ public final class MpAutopilot {
 		living = "1".equals(m.getOrDefault("living", "0"));
 		tariff = Long.parseLong(m.getOrDefault("tariff", "-1"));
 		quit = Long.parseLong(m.getOrDefault("quit", "-1"));
+		freeze = Long.parseLong(m.getOrDefault("freeze", "-1"));
 		rename = Long.parseLong(m.getOrDefault("rename", "-1"));
 		guiPreview = Long.parseLong(m.getOrDefault("guipreview", "-1"));
 		String[] view = m.getOrDefault("view", "-1:-1").split(":");
@@ -262,8 +266,8 @@ public final class MpAutopilot {
 		capitalY = Integer.parseInt(capital[1]);
 		startAfterNanos = Long.parseLong(m.getOrDefault("startafter", "0")) * 1_000_000_000L;
 		onGone = m.getOrDefault("ongone", "continue");
-		if (!onGone.equals("continue") && !onGone.equals("return"))
-			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " ongone '" + onGone + "', not continue or return");
+		if (!onGone.equals("continue") && !onGone.equals("freeze") && !onGone.equals("return"))
+			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " ongone '" + onGone + "', not continue, freeze or return");
 		if (!onDesync.equals("resync") && !onDesync.equals("exit"))
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " ondesync '" + onDesync + "', not resync or exit");
 		String net = m.getOrDefault("net", "ip");
@@ -731,6 +735,11 @@ public final class MpAutopilot {
 			CORE.annihilate();
 			return;
 		}
+		if (saves.frozeHere() != null && first("frozeexit")) { // this PC left frozen (SOS-194)
+			event("frozeexit", "\"outcome\":\"" + clean(saves.frozeHere()) + "\",\"save\":" + saves.lastDone().number());
+			CORE.annihilate();
+			return;
+		}
 		if (setup.closed()) {
 			if (first("closed")) {
 				event("closed", "\"reason\":\"" + clean(setup.closedReason()) + "\"");
@@ -764,6 +773,10 @@ public final class MpAutopilot {
 		if (host && commands.takeSave()) { // a driver's save (SOS-162): pressed whatever the escape menu would refuse
 			exit.save();
 			event("saveorder", "\"step\":" + engine.step() + ",\"refusal\":\"" + clean(String.valueOf(exit.saveRefusal())) + "\"");
+		}
+		if (freeze >= 0 && engine.step() >= freeze && first("freeze")) {
+			exit.freezeConfirmed(); // the escape menu's Leave and freeze, confirmed
+			event("freeze", "\"step\":" + engine.step());
 		}
 		if (quit >= 0 && engine.step() >= quit && first("quit")) {
 			exit.quitConfirmed(true); // the escape menu's Exit, confirmed
@@ -821,12 +834,16 @@ public final class MpAutopilot {
 		// the host reads the window first, as a player would: every other PC shows the hold before the choice arrives;
 		// a hold of players only lost is waited out, as they may come back (SOS-177)
 		if (host && gone.waiting() && now - goneSeenAt > CHOOSE_AFTER_NANOS && (anyLeft(d) || commands.chooseLost()))
-			gone.choose(onGone.equals("continue"));
+			gone.choose(onGone.equals("continue") ? Departures.Choice.CONTINUE
+					: onGone.equals("freeze") ? Departures.Choice.FREEZE : Departures.Choice.RETURN);
 		// every removed player of the campaign, by Continue or missing at a resume
 		if (setup.campaign() != null)
 			for (Campaign.Player p : setup.campaign().players())
 				if (p.slot() != 0 && engine.retired(p.slot()) && first("retired" + p.slot()))
 					event("retired", "\"slot\":" + p.slot() + ",\"step\":" + step);
+		for (int slot = 1; slot < LobbySettings.MAX_SLOTS; slot++) // every frozen player, on every PC (SOS-194)
+			if (engine.frozen(slot) && first("frozen" + slot))
+				event("frozen", "\"slot\":" + slot + ",\"step\":" + step);
 		for (Departures.Gone g : d.removed()) // a joining PC learns the campaign only from the first save order
 			if (engine.retired(g.slot()) && first("retired" + g.slot()))
 				event("retired", "\"slot\":" + g.slot() + ",\"step\":" + step);

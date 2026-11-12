@@ -19,24 +19,32 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
     /**
      * A player of the campaign: the key its PC sends in its hello, its name, its human's slot, whether the host removed
      * them (spec §11 Removing a player, SOS-65): a removed player stays listed, but never plays again, and whether that
-     * was by elimination (SOS-111): only they may come back, to watch, and no resume waits for them.
+     * was by elimination (SOS-111): only they may come back, to watch, and no resume waits for them. A frozen player
+     * (spec §11 Freezing a player, SOS-194) left with their city kept: no resume waits for them, and they may come back.
      */
-    public record Player(long key, String name, int slot, boolean removed, boolean eliminated) {
+    public record Player(long key, String name, int slot, boolean removed, boolean eliminated, boolean frozen) {
         public Player {
             if (name == null || name.isEmpty())
                 throw new IllegalArgumentException("SOSGSGMP: a campaign player without a name (slot " + slot + ")");
             if (slot < 0)
                 throw new IllegalArgumentException("SOSGSGMP: campaign player " + name + " in slot " + slot);
+            if (frozen && removed)
+                throw new IllegalArgumentException("SOSGSGMP: campaign player " + name + " both frozen and removed");
         }
 
         /** A player still in the campaign. */
         public Player(long key, String name, int slot) {
-            this(key, name, slot, false, false);
+            this(key, name, slot, false, false, false);
         }
 
         /** A player removed or not, not by elimination. */
         public Player(long key, String name, int slot, boolean removed) {
-            this(key, name, slot, removed, false);
+            this(key, name, slot, removed, false, false);
+        }
+
+        /** A player removed or not, eliminated or not, not frozen. */
+        public Player(long key, String name, int slot, boolean removed, boolean eliminated) {
+            this(key, name, slot, removed, eliminated, false);
         }
 
         /** Whether this player can't join a resume. */
@@ -68,16 +76,24 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
         return null;
     }
 
-    /** The players not removed: the ones a resume waits for. */
+    /** The players neither removed nor frozen: the ones a resume waits for. */
     public List<Player> playing() {
         List<Player> in = new ArrayList<>();
         for (Player p : players)
-            if (!p.removed())
+            if (!p.removed() && !p.frozen())
                 in.add(p);
         return in;
     }
 
-    /** This campaign with the players in {@code slots} removed (spec §11 Removing a player). */
+    /** This campaign with the players in {@code slots} frozen (spec §11 Freezing a player, SOS-194). */
+    public Campaign freezing(Collection<Integer> slots) {
+        List<Player> now = new ArrayList<>(players.size());
+        for (Player p : players)
+            now.add(slots.contains(p.slot()) && !p.removed() ? new Player(p.key(), p.name(), p.slot(), false, false, true) : p);
+        return new Campaign(id, name, seed, difficulty, now);
+    }
+
+    /** This campaign with the players in {@code slots} removed (spec §11 Removing a player); a frozen one too, for good. */
     public Campaign removing(Collection<Integer> slots) {
         List<Player> now = new ArrayList<>(players.size());
         for (Player p : players)

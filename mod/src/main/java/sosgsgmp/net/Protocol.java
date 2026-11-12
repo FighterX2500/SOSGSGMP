@@ -32,7 +32,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 29;
+    public static final int VERSION = 30;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -51,6 +51,7 @@ public final class Protocol {
     private static final int SEQUENCED = 46, RESUME = 47, RESUMED = 48;
     private static final int SETTLE_PART = 49;
     private static final int RUNNING = 50, JOIN_PICK = 51, JOIN_PICKED = 52, RESTART = 53, RESTARTED = 54; // hot-join (SOS-190)
+    private static final int FREEZE_ASK = 55; // freeze (SOS-194)
     /** The bytes {@link Message.Sequenced} adds in front of its message: version, type and sequence number. */
     private static final int SEQUENCED_HEADER = 2 + 1 + 8;
     /** Largest frame on a connection: a message, or one wrapped in {@link Message.Sequenced} (SOS-178). */
@@ -141,6 +142,7 @@ public final class Protocol {
                 }
                 case Message.Leave l -> out.writeByte(LEAVE);
                 case Message.QuitAsk q -> out.writeByte(QUIT_ASK);
+                case Message.FreezeAsk q -> out.writeByte(FREEZE_ASK);
                 case Message.MapBuild b -> {
                     out.writeByte(MAP_BUILD);
                     out.writeInt(b.buildId());
@@ -308,7 +310,7 @@ public final class Protocol {
                 case Message.GoneChoice c -> {
                     out.writeByte(GONE_CHOICE);
                     out.writeLong(c.holdStep());
-                    out.writeBoolean(c.continued());
+                    out.writeByte(c.choice());
                 }
                 case Message.PlayerLost l -> {
                     out.writeByte(PLAYER_LOST);
@@ -491,7 +493,13 @@ public final class Protocol {
             case SAVED -> new Message.Saved(number(in, "save"), in.readLong(), text(in, MAX_REASON, "save problem"));
             case SAVE_DONE -> new Message.SaveDone(number(in, "save"), text(in, MAX_OUTCOME, "save outcome"));
             case PLAYER_GONE -> new Message.PlayerGone(playerId(in), step(in, "player gone hold"));
-            case GONE_CHOICE -> new Message.GoneChoice(step(in, "gone choice hold"), in.readBoolean());
+            case GONE_CHOICE -> {
+                long hold = step(in, "gone choice hold");
+                int choice = in.readUnsignedByte();
+                if (choice > Message.GoneChoice.FREEZE)
+                    throw new IOException("SOSGSGMP: gone choice " + choice);
+                yield new Message.GoneChoice(hold, choice);
+            }
             case PLAYER_LOST -> new Message.PlayerLost(playerId(in), step(in, "player lost hold"), step(in, "player lost silence"));
             case PLAYER_BACK -> new Message.PlayerBack(playerId(in), step(in, "player back hold"));
             case HEARTBEAT -> new Message.Heartbeat(in.readLong(), in.readLong(), in.readInt(), received(in));
@@ -510,6 +518,7 @@ public final class Protocol {
                 yield new Message.Resumed(received);
             }
             case QUIT_ASK -> new Message.QuitAsk();
+            case FREEZE_ASK -> new Message.FreezeAsk();
             case VIEW_ASK -> new Message.ViewAsk(slot(in), slot(in));
             case VIEW_ANSWER -> new Message.ViewAnswer(slot(in), slot(in), in.readBoolean(), text(in, MAX_REASON, "view answer"));
             case VIEW_CLOSE -> {
@@ -621,6 +630,7 @@ public final class Protocol {
             out.writeByte(p.slot());
             out.writeBoolean(p.removed());
             out.writeBoolean(p.eliminated());
+            out.writeBoolean(p.frozen());
         }
     }
 
@@ -637,7 +647,12 @@ public final class Protocol {
             int slot = in.readUnsignedByte();
             if (slot >= LobbySettings.MAX_SLOTS)
                 throw new IOException("SOSGSGMP: campaign slot " + slot);
-            players.add(new Campaign.Player(key, name2, slot, in.readBoolean(), in.readBoolean()));
+            boolean removed = in.readBoolean();
+            boolean eliminated = in.readBoolean();
+            boolean frozen = in.readBoolean();
+            if (frozen && removed)
+                throw new IOException("SOSGSGMP: campaign player in slot " + slot + " both frozen and removed");
+            players.add(new Campaign.Player(key, name2, slot, removed, eliminated, frozen));
         }
         try {
             return new Campaign(id, name, seed, difficulty, players);
