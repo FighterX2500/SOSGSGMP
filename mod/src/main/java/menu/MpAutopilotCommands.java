@@ -224,6 +224,38 @@ final class MpAutopilotCommands {
 		}
 	}
 
+	/**
+	 * Test aid (SOS-197): the factions whose capitals this PC's human reaches by vanilla's diplomatic rule (SEA when over
+	 * water), and for each human how many of its regions this PC's fog leaves clear, with "reach" when vanilla's rule
+	 * reaches it and "trade" when its trade does, which player treaties need.
+	 */
+	private static String reach() {
+		world.map.regions.Region cap = FACTIONS.player().capitolRegion();
+		if (cap == null)
+			return "reach: no capital";
+		StringBuilder b = new StringBuilder("reach of slot " + FACTIONS.player().index() + " from " + cap.cx() + "," + cap.cy() + ":");
+		for (world.map.pathing.WRegFinder.RegDist d : world.WORLD.PATH().regFinder.all(cap,
+				world.map.pathing.WRegFinder.Treaty.FACTION_REACHABLE, world.map.pathing.WRegSel.DUMMY()))
+			if (d.reg.capitol() && d.reg.faction() != null && d.reg.faction() != FACTIONS.player())
+				b.append(" [").append(d.reg.faction().index()).append(' ').append(d.reg.faction().name)
+						.append(d.water ? " SEA" : "").append(" d").append(d.distance).append(']');
+		b.append(" | clear regions of humans:");
+		for (int h : Hooks.humanSlots()) {
+			Faction f = FACTIONS.getByIndex(h);
+			int seen = 0;
+			int all = 0;
+			for (world.map.regions.Region r : world.WORLD.REGIONS().active())
+				if (r.faction() == f) {
+					all++;
+					seen += world.WORLD.FOW().is(r.cx(), r.cy()) ? 0 : 1;
+				}
+			b.append(' ').append(h).append(':').append(seen).append('/').append(all)
+					.append(world.region.RD.DIST().reachable(f) ? " reach" : "")
+					.append(f != FACTIONS.player() && Engine.tradeReaches(h) ? " trade" : "");
+		}
+		return b.toString();
+	}
+
 	private Faction other() {
 		return FACTIONS.getByIndex(target >= 0 ? target : Engine.local() == 0 ? 1 : 0);
 	}
@@ -239,6 +271,8 @@ final class MpAutopilotCommands {
 			return "pause toggled";
 		case "status":
 			return status(engine);
+		case "reach":
+			return reach();
 		case "shot":
 			if (setup.loading().shown() != null) // a shot at a loading window's freeze would deadlock the game (SOS-158)
 				return "refused: a loading window is open";
