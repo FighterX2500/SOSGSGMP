@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.62 · 2026-11-12
+Version 0.63 · 2026-11-12
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -126,7 +126,7 @@ Players use the same agreements that exist between a player and an NPC faction i
 - **No uniting.** Vanilla's "Unite" agreement, where a whole faction joins another, isn't available between players.
 - **Regions** other than capitals can be given in an agreement, as in vanilla.
 - **Emissaries** work as in vanilla against NPC factions. No emissary mission works against another player, Gather support in their regions included (owner, 2026-10-27).
-- **Reach.** As with an NPC in vanilla, a player can propose trade, Become Colleagues, an alliance or vassalage only to a player they reach: a neighbour, through land vanilla lets them through (colleagues, allies, vassals), across the land of a player they're at peace with, or along the guaranteed route to a player 6–15 tiles away (section 5). Peace, cancelling every agreement and a deal with no agreement in it need no reach. A player out of reach shows darkened in the faction list (owner, 2026-11-12; SOS-197).
+- **Reach.** As with an NPC in vanilla, a player can propose trade, Become Colleagues, an alliance or vassalage only to a player they reach: a neighbour, through land vanilla lets them through (colleagues, allies, vassals), across the land of a player they're at peace with, or along the guaranteed route to a player 6–15 tiles away (section 5). A player they reach with a stance that lets them through (colleagues, an alliance) carries their reach on through that player's land, as an NPC's does, so the factions past it are in reach too, and out of the fog (owner, 2026-11-12; SOS-200). Peace, cancelling every agreement and a deal with no agreement in it need no reach. A player out of reach shows darkened in the faction list (owner, 2026-11-12; SOS-197).
 - **Passage.** Players at peace can move armies through each other's territory freely, with no penalty, and their trade crosses it too, with no transit treaty (owner, 2026-10-27; section 7).
 - **Fog of war.** Each player's fog is their own: it lifts around their own land and what their own stances let them see, never another player's (SOS-197). A player with transit (Colleagues, Allies, Vassal, Protector) lifts the fog through the other player's land and past it, as an NPC with that stance does in vanilla. Peace alone doesn't: without transit the fog lifts over the other player's land but not past it (owner, 2026-11-10; SOS-182).
 - **Agreements reach a player's vassals.** While two players are trade partners or colleagues, each has at least that stance with every NPC vassal of the other, and is told so in the chat. An alliance never passes, and a war between a player and the vassal blocks it until they make peace. When the agreement ends, or the vassal stops being a vassal, the passed stance goes back to what the two had before; a stance they had on their own stays. A passed stance that the vassal or the player changes (a vassal's court cancelling it, as vanilla's NPCs do when their opinion is low, or the player's own diplomacy) is theirs from then on, and isn't passed again until the agreement ends and starts again. Nothing passes between two vassals (owner, 2026-11-04; SOS-140).
@@ -244,7 +244,7 @@ Any player can view any other player's city, enemies included. This is intended.
 
 **Saving.** When the host autosaves, every player autosaves their own city at the same moment. The game stays paused until every player has saved and the saves are in sync. A player viewing a city has their own city unloaded and can't save it, so an autosave or a Save Campaign waits until no player is viewing one, and no new view opens meanwhile; a spectator's view doesn't hold it up, since a resume goes on without them.
 
-**Saving by hand.** In a multiplayer game the escape menu has Save Campaign, which saves the campaign the same way. Only the host can use it; the other players see it greyed out, with the reason. The game's own Quick-save, Save and Load, and the Quick Load key, are gone in a multiplayer game, since their saves can't be resumed. Quit to menu and Exit save the campaign first, on every PC, and then end the session for every player; a joining player's quit asks the host's PC for the save. Such a save closes any open view first. During a battle no save can start, so a player who quits then leaves without one.
+**Saving by hand.** In a multiplayer game the escape menu has Save Campaign, which saves the campaign the same way. Only the host can use it; the other players see it greyed out, with the reason. The game's own Quick-save, Save and Load, and the Quick Load key, are gone in a multiplayer game, since their saves can't be resumed. The host's Quit to menu and Exit save the campaign first, on every PC, and then end the session for every player. A joining player's Quit to menu and Exit ask them to choose: **Leave and freeze** (see Freezing a player), so the others play on, or **End for everyone**, which asks the host's PC for the save that ends the session for every player (owner, 2026-11-12; SOS-203). Such a save closes any open view first. During a battle no save can start, so a player who quits then leaves without one.
 
 **Reports.** So a problem can be studied on the host's PC, every joining player's PC sends the host, in the background, its playtest log and connection log as they are written, its game's crash files from the last week it hasn't sent before, and each of its campaign saves (owner, 2026-11-04; SOS-133). It is on for every player, and the chat says so when the game starts; a player can turn it off on their own PC (`reports=false` in their lobby settings). Chat text and player keys are never sent. The sending is paced so the game's own traffic comes first. The host keeps the files under `sosgsgmp\reports`, a folder per campaign and per player.
 
@@ -260,7 +260,7 @@ Any player can view any other player's city, enemies included. This is intended.
 
 **Freezing a player.** (owner, 2026-11-12; SOS-192 to SOS-196) A player can leave a running campaign and come back later.
 
-- **Leaving.** A player chooses **Leave and freeze** in the escape menu. Their game saves their city, and the session goes on without them. The host has no Leave and freeze: the host's leaving ends the session (see Host disconnect). At a disconnect (see Disconnects), the host can also choose **Freeze them**. That player's city then comes back from their last campaign save, so what happened in it after that save is lost.
+- **Leaving.** A player chooses **Leave and freeze** in the escape menu, where a line under it says what it does, or at their Quit to menu or Exit. Their game saves their city, and the session goes on without them. The host has no Leave and freeze: the host's leaving ends the session (see Host disconnect). At a disconnect (see Disconnects), the host can also choose **Freeze them**. That player's city then comes back from their last campaign save, so what happened in it after that save is lost.
 - **While frozen:**
   - Their capital stays theirs and can't be besieged or attacked.
   - Every war with them ends, and their relations with everyone become neutral.
@@ -305,7 +305,7 @@ A disconnected player rejoins a running session only after a freeze; otherwise t
 Players talk through one in-game chat. Every player and spectator reads the same chat, in the same order. There are no private messages.
 
 - **Where it works.** In the lobby and the setup, on the world map and in cities, during views, battles and assaults, and while the game is paused or held.
-- **The chat box.** It starts in the bottom-left corner and can be moved, like the multiplayer panel. A button next to the multiplayer panel's on the top bar collapses and expands it. Players click the box to type; no key opens it. There is no sound and no unread count.
+- **The chat box.** It starts in the bottom-left corner and can be moved, like the multiplayer panel. A button next to the multiplayer panel's on the top bar collapses and expands it; on the setup's screens and the landing, which have no top bar, the two buttons sit in the top right corner. The box and the multiplayer panel also close with an X in their top right corner, as vanilla's windows do (owner, 2026-11-12; SOS-201, SOS-202). Players click the box to type; no key opens it. There is no sound and no unread count.
 - **Messages.** A message is at most 200 characters. Each player's name shows in their cursor color. Text uses the game's own font, so a character that a player's language font lacks shows as `?`.
 - **History.** The chat keeps its last 200 lines for the session. It isn't part of the campaign save, so a resumed campaign starts with an empty chat.
 - **Event notifications** appear in the chat. Every player sees a new player joining, a war declared, a peace, a vassalage, a siege's start, an assault's start and outcome, an NPC invasion of a capital, a battle between players starting and ending, another player's battle against NPCs starting and ending, a player leaving, returning or being eliminated, a player frozen ("*Name* left and is frozen") or back from a freeze ("*Name* is back"), and a pause with who paused. Deals, gifts, tariffs and view requests appear only for the players involved. Notifications never give army positions or numbers. A notice about another player's invasion or battle against NPCs is a link: a click opens that player's window, where View city or Watch battle starts watching (owner, 2026-11-04; SOS-144).
@@ -594,6 +594,9 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-12 | **Playtest of 2026-11-12:** each player's fog is their own; player treaties need reach (spec 0.62; section 6). | SOS-197 |
 | 2026-11-12 | **The hot-join pick** goes through the setup's race, Customize Faction and location screens (spec 0.62; section 11). | SOS-198 |
 | 2026-11-12 | **City-state spots** need only 6 tiles from every town and player; roads and water near them don't matter (spec 0.62; section 5). | SOS-199 |
+| 2026-11-12 | **A colleague player's land carries reach on**, as an NPC's does (spec 0.63; section 6). | SOS-200 |
+| 2026-11-12 | **A joining player's quit** asks: Leave and freeze, or End for everyone (spec 0.63; section 11). | SOS-203 |
+| 2026-11-12 | **The chat and the multiplayer panel** close with an X; their buttons also show on the setup's screens and the landing (spec 0.63; section 12). | SOS-201, SOS-202 |
 
 ### Where each v1 feature stands (2026-11-01)
 
