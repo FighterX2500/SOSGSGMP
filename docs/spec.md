@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.63 · 2026-11-12
+Version 0.64 · 2026-11-12
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -270,7 +270,7 @@ Any player can view any other player's city, enemies included. This is intended.
   - Their treaties and trade routes stay. Goods and people sent to their city wait until they return.
   - Nobody can propose a deal to them.
   - The chat says who is frozen. Their city appears to everyone as it was when they left.
-- **Coming back.** A frozen player joins the running game as a new player does (see Joining). The host Accepts, every game saves and reloads with them back in, which holds every player for up to half a minute, and their city goes on where it stopped.
+- **Coming back.** A frozen player joins the running game as a new player does (see Joining). The host Accepts, every game saves and reloads with them back in, which holds every player for up to half a minute, and their city goes on where it stopped. This works too when other players joined the campaign after they froze (owner, 2026-11-12; SOS-204).
 - **Saves and resumes.** The campaign remembers who is frozen. A resume starts without waiting for a frozen player, and they can come back into it later. The host can remove a frozen player for good at any time (see Removing a player).
 
 **Host disconnect.** (owner, 2026-11-08; SOS-177, SOS-179) When the host's PC goes silent for 5 seconds, or its connection breaks, every other player sees "Lost the connection to the host: waiting" with the time it has been gone, and the whole simulation stops: the world, every city and any battle. Their games connect again by themselves as soon as the host is back, and play goes on with nothing lost; the host sees them as lost meanwhile, as above. Each player can leave from that window: their game leaves the session, and the host can continue without them or return to the last save. When the host quits or its game crashes, every player gets a popup saying the host disconnected, and play can't continue in that session. The players resume the campaign from a save with any player as host (see Resuming); the save made before the last battle is the natural point.
@@ -597,6 +597,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-12 | **A colleague player's land carries reach on**, as an NPC's does (spec 0.63; section 6). | SOS-200 |
 | 2026-11-12 | **A joining player's quit** asks: Leave and freeze, or End for everyone (spec 0.63; section 11). | SOS-203 |
 | 2026-11-12 | **The chat and the multiplayer panel** close with an X; their buttons also show on the setup's screens and the landing (spec 0.63; section 12). | SOS-201, SOS-202 |
+| 2026-11-12 | **A frozen player comes back** also after others joined since they froze (spec 0.64; section 11). | SOS-204 |
 
 ### Where each v1 feature stands (2026-11-01)
 
