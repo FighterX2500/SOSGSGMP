@@ -137,6 +137,36 @@ public sealed interface Message {
         }
     }
 
+    /**
+     * Host to every joined PC, a living world (SOS-187): piece {@code index} of {@code count} of the world built around
+     * the host, which every PC loads to settle on, compressed. Once per setup.
+     */
+    record SettlePart(int index, int count, byte[] bytes) implements Message {
+        public SettlePart {
+            bytes = bytes.clone();
+        }
+
+        @Override
+        public byte[] bytes() {
+            return bytes.clone();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof SettlePart w && index == w.index && count == w.count && Arrays.equals(bytes, w.bytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(index, count, Arrays.hashCode(bytes));
+        }
+
+        @Override
+        public String toString() {
+            return "SettlePart[index=" + index + ", count=" + count + ", " + bytes.length + " bytes]";
+        }
+    }
+
     /** Host to every joined PC: piece {@code index} of {@code count} of the world save, compressed. */
     record WorldPart(int transfer, int index, int count, byte[] bytes) implements Message {
         public WorldPart {

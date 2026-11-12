@@ -348,6 +348,24 @@ public final class EnginePlay implements EnginePort {
         Engine.battleGo();
     }
 
+    /**
+     * Host, between steps, asked every frame: when a carved city-state's human is gone (removed, or eliminated and the
+     * city given to a neutral NPC) and nothing holds the world, every PC holds at a step ahead, so the host can take it
+     * off the map there (SOS-188, spec §11 Removing a player). True when the hold was asked for now. Nothing to do in a
+     * classic world, which has no carved city-state.
+     */
+    public boolean holdForUncarve() {
+        return Engine.desyncHold() == null && Engine.uncarveDue() >= 0 && Engine.worldEditHold();
+    }
+
+    /** Host, at an edit hold's step, before the world resync: the gone human's city-state off the map; its region, or -1. */
+    public int uncarveGone() {
+        int region = Engine.uncarveDue();
+        if (region >= 0)
+            Engine.uncarve(region);
+        return region;
+    }
+
     /** The world desync every PC holds for (SOS-53), or null. */
     public DesyncHold desyncHold() {
         return Engine.desyncHold();

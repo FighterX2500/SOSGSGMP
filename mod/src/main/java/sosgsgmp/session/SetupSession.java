@@ -84,9 +84,18 @@ public interface SetupSession {
 
     /**
      * Host: builds the world around every player's picks, locks them, and sends every PC its slot and the save; this
-     * PC loads it too ({@link #takeWorld}). Check {@link FactionStep#canInitialize()} first.
+     * PC loads it too ({@link #takeWorld}). Check {@link FactionStep#canInitialize()} first. In a living world
+     * (SOS-187) the first press, once {@link FactionStep#canBuildForSettling()}, builds the world around the host alone
+     * and sends it to every PC to settle on ({@link #takeSettleWorld}); the second, once the others settled, carves
+     * their city-states into it on this PC and sends that.
      */
     void initialize();
+
+    /**
+     * A living world (SOS-187): the world built around the host, once it is all here, for this PC to load and settle on;
+     * returned once, null otherwise.
+     */
+    byte[] takeSettleWorld();
 
     /** The host's world save, once it is all here, for this PC to load; returned once, null otherwise. */
     byte[] takeWorld();

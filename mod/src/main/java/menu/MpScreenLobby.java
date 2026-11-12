@@ -52,7 +52,9 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 	private int shownChanges = -1;
 	private int shownPlayers;
 	private final GText[] rows = new GText[LobbySettings.MAX_PLAYERS];
-	private final GText settings = new GText(UI.FONT().H2, 64);
+	/** The settings and status block's width. */
+	private static final int SETTINGS_WIDTH = 520;
+	private final GText settings = new GText(UI.FONT().H2, 96).setMaxWidth(SETTINGS_WIDTH);
 	private final GText status = new GText(UI.FONT().M, 2048);
 	/** This PC's game files code, every PC of the lobby's (SOS-159); and the unsupported mods' warning, if any. */
 	private final GText files = new GText(UI.FONT().M, 64);
@@ -66,6 +68,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 
 	MpScreenLobby(MpMenu mp) {
 		this.mp = mp;
+		settings.setMultipleLines(true);
 		MenuScreen screen = new MenuScreen("lobby", GUI.labelColor) {
 			@Override
 			protected void back() {
@@ -139,7 +142,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 					rows[i].render(r, body.x1(), body.y1() + i * rowH);
 			}
 		});
-		content.addRightC(40, new RENDEROBJ.RenderImp(520, rowH * rows.length) {
+		content.addRightC(40, new RENDEROBJ.RenderImp(SETTINGS_WIDTH, rowH * rows.length) {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				settings.render(r, body.x1(), body.y1());
@@ -337,7 +340,10 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 			settings.add(",  ").add(ls.resume().campaign().name()).add(", save ").add(ls.resume().number());
 		if (ls != null)
 			settings.add(ls.fullTransferLog() ? ",  every transfer logged" : ",  transfers between players logged");
+		if (ls != null && ls.livingWorld())
+			settings.add(",  living world");
 		settings.color(COLORS.label);
+		settings.adjustWidth(); // wraps at the block's width: a living world's line is longer than the block (SOS-187)
 
 		status.clear();
 		switch (session.state()) {

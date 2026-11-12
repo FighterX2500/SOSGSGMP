@@ -89,7 +89,8 @@ import world.map.regions.Region;
  * divisions' morale stays below zero until the battle ends, so they desert; only for a battle nobody watches);
  * {@code raid} (this city's invasion, this player's raid and its state, the raiders, the treasury, the last messages);
  * {@code victoryaccept} (the Accept of the newest won invasion's spoils message, with every lot selected);
- * {@code nextmessage} (the open message closes, as its close button, and the next queued one opens).
+ * {@code nextmessage} (the open message closes, as its close button, and the next queued one opens); {@code ui look X Y}
+ * (the world map centred on tile X Y, SOS-187).
  *
  * <p>Three-player test tooling (SOS-162), each applied at a step the host stamps, on every PC that runs what it changes:
  * {@code target <slot>} (the player that {@code war}, {@code peace}, {@code ally}, {@code trade}, {@code cancel},
@@ -253,6 +254,11 @@ final class MpAutopilotCommands {
 			if (a[1].equals("world")) {
 				VIEW.world().activate();
 				return "world view";
+			}
+			if (a[1].equals("look") && a.length > 3) { // the world map centred on tile X Y, for a shot (SOS-187)
+				VIEW.world().activate();
+				VIEW.world().window.centererTile.set(Integer.parseInt(a[2]), Integer.parseInt(a[3]));
+				return "world view at " + a[2] + "," + a[3];
 			}
 			if (a[1].equals("city")) {
 				VIEW.s().activate();

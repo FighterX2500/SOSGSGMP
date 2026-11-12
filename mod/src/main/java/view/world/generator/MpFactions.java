@@ -10,6 +10,7 @@ import init.sprite.UI.UI;
 import menu.MpAutopilot;
 import menu.MpCursors;
 import menu.MpSetupLeave;
+import menu.MpSettle;
 import menu.MpWorldLoad;
 import snake2d.CORE;
 import snake2d.SPRITE_RENDERER;
@@ -51,6 +52,9 @@ final class MpFactions {
 	private static final String READY_STATUS = "Press Ready when your city is where you want it.";
 	private static final CharSequence READY_INFO = "While you are ready your picks can't change. The host can initialize the world once every player is ready.";
 	private static final String INITIALIZE_STATUS = "Every player is ready. Initialize World builds the world and starts every player's game; the picks can't change after it.";
+	/** A living world's other players (SOS-187): no location on the terrain. */
+	private static final String SETTLE_LATER_STATUS = "Pick your race and customize your faction, then press Ready. Once the host's world is built, you pick where your city-state goes on its real map, with its kingdoms, borders and roads.";
+	private static final String BUILD_STATUS = "Every player is ready. Build World builds the world around your capital; the others then pick their spots on it.";
 
 	final WorldViewGenerator g;
 	final SetupSession setup;
@@ -112,10 +116,15 @@ final class MpFactions {
 		pump(0);
 		if (leaving || autopilot == null)
 			return;
-		autopilot.factions(setup, ownX != FactionPick.NONE, (x, y) -> {
+		autopilot.factions(setup, ownX != FactionPick.NONE || settlesLater(), (x, y) -> {
 			placeAt(x, y);
 			return ownX;
-		}, () -> MpLocationStage.place(this));
+		}, () -> {
+			if (settlesLater())
+				MpFactionStage.customize(this); // a living world's other player has no location here: Ready is on Customize
+			else
+				MpLocationStage.place(this);
+		});
 	}
 
 	/**
@@ -183,7 +192,7 @@ final class MpFactions {
 			}
 		}.hoverInfoSet(READY_INFO));
 		if (setup.isHost()) {
-			s.addRightC(16, new GButt.ButtPanel("initialize world") {
+			s.addRightC(16, new GButt.ButtPanel(setup.factions().living() ? "build world" : "initialize world") {
 				@Override
 				protected void clickA() {
 					setup.initialize();
@@ -209,7 +218,13 @@ final class MpFactions {
 	/** Tall enough for the longest status line, with a line to spare for a reason sent by the host. */
 	private static int statusHeight() {
 		int h = Math.max(UI.FONT().M.getHeight(PICK_STATUS, SIDE_WIDTH), UI.FONT().M.getHeight(INITIALIZE_STATUS, SIDE_WIDTH));
+		h = Math.max(h, UI.FONT().M.getHeight(SETTLE_LATER_STATUS, SIDE_WIDTH));
 		return h + UI.FONT().M.height();
+	}
+
+	/** A living world's other player (SOS-187): they settle on the host's built world, so this step places nothing. */
+	boolean settlesLater() {
+		return setup.factions().living() && !setup.isHost();
 	}
 
 	/**
@@ -217,7 +232,7 @@ final class MpFactions {
 	 * Leave is locked, and Ready and Initialize World until the world is built.
 	 */
 	boolean locked() {
-		return !setup.closed() && (setup.factions().initialized() || setup.factions().ready());
+		return !setup.closed() && (setup.factions().initialized() || setup.factions().ready() || setup.factions().settling());
 	}
 
 	/** The world is built, or being built: nothing can change now. */
@@ -291,6 +306,12 @@ final class MpFactions {
 			CORE.setCurrentState(new MpWorldLoad(setup, world));
 			return;
 		}
+		byte[] settle = setup.takeSettleWorld();
+		if (settle != null) { // a living world (SOS-187): every PC loads the host's world and settles on it
+			leaving = true;
+			CORE.setCurrentState(new MpSettle(setup, settle));
+			return;
+		}
 		cursors.send(g.window, onLocation ? sosgsgmp.session.Cursors.WORLD : sosgsgmp.session.Cursors.OFF);
 		sincePickCheck += ds;
 		if (sincePickCheck >= PICK_CHECK_SECONDS) {
@@ -314,7 +335,7 @@ final class MpFactions {
 
 	private void refresh() {
 		shownChanges = setup.changes();
-		canInitialize = !setup.closed() && setup.isHost() && setup.factions().canInitialize();
+		canInitialize = !setup.closed() && setup.isHost() && (setup.factions().canInitialize() || setup.factions().canBuildForSettling());
 		canReady = !setup.closed() && setup.factions().canReady();
 		named = game.pick(FactionPick.NONE, FactionPick.NONE) != null;
 		FactionStep f = setup.factions();
@@ -358,6 +379,12 @@ final class MpFactions {
 			} else if (pick.refused() != null) {
 				row.add(", location refused");
 				row.color(GCOLOR.T().IBAD);
+			} else if (f.living() && !p.host()) {
+				row.add(", settles on the built world");
+				if (pick.ready()) {
+					row.add(", ready");
+					row.color(GCOLOR.T().IGOOD);
+				}
 			} else {
 				row.add(", no location");
 			}
@@ -370,18 +397,24 @@ final class MpFactions {
 			status.add(setup.closedReason());
 		else if (f.initialized())
 			status.add(setup.isHost() ? "Sending the world to every player." : "The host built the world; getting it.");
+		else if (f.settling())
+			status.add(setup.isHost() ? "Sending the world to every player." : "The host built the world; getting it to settle on.");
 		else if (!named)
 			status.add("Your faction needs a name.");
 		else if (mine != null && mine.refused() != null)
 			status.add("Your location was refused: ").add(mine.refused()).add(". Pick another.");
-		else if (mine == null || !mine.pick().hasLocation())
+		else if (settlesLater() && !f.ready())
+			status.add(SETTLE_LATER_STATUS);
+		else if (!settlesLater() && (mine == null || !mine.pick().hasLocation()))
 			status.add(PICK_STATUS);
 		else if (!f.ready())
 			status.add(READY_STATUS);
 		else if (setup.isHost() && f.canInitialize())
 			status.add(INITIALIZE_STATUS);
+		else if (setup.isHost() && f.canBuildForSettling())
+			status.add(BUILD_STATUS);
 		else if (!setup.isHost() && allReady(table, players))
-			status.add("Every player is ready. Waiting for the host to initialize the world.");
+			status.add(f.living() ? "Every player is ready. Waiting for the host to build the world." : "Every player is ready. Waiting for the host to initialize the world.");
 		else
 			status.add("Waiting for every player to be ready.");
 	}

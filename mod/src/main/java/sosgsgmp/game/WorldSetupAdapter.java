@@ -61,22 +61,91 @@ public final class WorldSetupAdapter implements FactionWorld {
     public byte[] buildWorld(List<FactionPick> humans, String difficulty) {
         if (Engine.active())
             throw new IllegalStateException("SOSGSGMP: the world is built before any engine session");
+        HumanStart[] starts = starts(humans);
+        // The generator, to come back to: the build opens the host's city (its finish stage generates it), and the
+        // save below needs the world view; the generator's factions screen pumps the session (two-PC tests T2, T3).
+        VIEW.ViewSubSimple generator = VIEW.current();
+        Engine.buildWorld(starts);
+        setModes(starts.length, difficulty);
+        try {
+            return saveWorld(humans.size() + " humans");
+        } finally {
+            generator.activate();
+        }
+    }
+
+    @Override
+    public String settleProblem(int x, int y, int[] otherX, int[] otherY) {
+        if (x < 0 || y < 0 || x >= WORLD.TWIDTH() || y >= WORLD.THEIGHT())
+            return "outside the map";
+        return Engine.settleProblem(x, y, otherX, otherY);
+    }
+
+    /**
+     * The engine builds the world around the host's capital alone, as {@link #buildWorld} does for every human, keeping
+     * NPC slots 1 to {@code humans - 1} free for the others (SOSDET SOS-187). Every PC loads this save to settle on.
+     */
+    @Override
+    public byte[] buildForSettling(FactionPick host, int humans) {
+        if (Engine.active())
+            throw new IllegalStateException("SOSGSGMP: the world is built before any engine session");
+        VIEW.ViewSubSimple generator = VIEW.current();
+        Engine.buildWorldForCarving(starts(List.of(host))[0], humans);
+        try {
+            return saveWorld("living, the host alone, room for " + humans + " humans");
+        } finally {
+            generator.activate();
+        }
+    }
+
+    /**
+     * On the world built for settling, loaded on this PC: the engine carves every other human's city-state at their spot
+     * in slot order (SOSDET SOS-187; a spot an earlier carve made unfit moves at most 3 tiles), then this PC saves.
+     */
+    @Override
+    public byte[] settle(List<FactionPick> humans, String difficulty) {
+        if (Engine.active())
+            throw new IllegalStateException("SOSGSGMP: the humans settle before any engine session");
+        String carved = Engine.carveHumans(starts(humans));
+        LOG.ln("SOSGSGMP: the humans settled: " + carved);
+        setModes(humans.size(), difficulty);
+        return saveWorld("living, " + humans.size() + " humans settled");
+    }
+
+    /** A living world's human in {@code slot}: its capital's centre, which its carve may have moved from the spot. */
+    public int[] capitalOf(int slot) {
+        if (!(FACTIONS.getByIndex(slot) instanceof Player p) || p.capitolRegion() == null)
+            throw new IllegalStateException("SOSGSGMP: slot " + slot + " has no human with a capital: " + FACTIONS.getByIndex(slot));
+        return new int[] { p.capitolRegion().cx(), p.capitolRegion().cy() };
+    }
+
+    private static HumanStart[] starts(List<FactionPick> humans) {
         HumanStart[] starts = new HumanStart[humans.size()];
         for (int i = 0; i < starts.length; i++) {
             FactionPick p = humans.get(i);
             starts[i] = new HumanStart(p.race(), p.name(), p.ruler(), p.banner(), p.x(), p.y());
         }
-        // The generator, to come back to: the build opens the host's city (its finish stage generates it), and the
-        // save below needs the world view; the generator's factions screen pumps the session (two-PC tests T2, T3).
-        VIEW.ViewSubSimple generator = VIEW.current();
-        Engine.buildWorld(starts);
-        for (int slot = 0; slot < starts.length; slot++) {
+        return starts;
+    }
+
+    /**
+     * The lobby's difficulty on every human's Player: with the engine, a difficulty booster counts only for its own Player
+     * (SOSDET patch 15).
+     */
+    private static void setModes(int humans, String difficulty) {
+        for (int slot = 0; slot < humans; slot++) {
             if (!(FACTIONS.getByIndex(slot) instanceof Player p))
                 throw new IllegalStateException("SOSGSGMP: slot " + slot + " isn't a human after the world build: " + FACTIONS.getByIndex(slot));
             p.bonusesCustom.setMode(difficulty);
         }
-        // As vanilla's StageFinish before its save: the save records the current view, and the generator's isn't one,
-        // so a save taken in it would load into a new world generator (VIEW.setFirstView).
+    }
+
+    /**
+     * Saves the world as vanilla's StageFinish does before its save: the save records the current view, and the
+     * generator's isn't one, so a save taken in it would load into a new world generator (VIEW.setFirstView). The game
+     * saves to a temporary folder; the bytes are the save as the game wrote it, already compressed.
+     */
+    private static byte[] saveWorld(String what) {
         WORLD.FOW().toggled.set(true);
         VIEW.world().activate();
         Path dir = null;
@@ -86,13 +155,12 @@ public final class WorldSetupAdapter implements FactionWorld {
             if (file == null)
                 throw new IllegalStateException("SOSGSGMP: the game couldn't save the new world in " + dir);
             byte[] save = Files.readAllBytes(file);
-            LOG.ln("SOSGSGMP: the new world, " + humans.size() + " humans, saved: " + save.length + " bytes");
+            LOG.ln("SOSGSGMP: the new world (" + what + ") saved: " + save.length + " bytes");
             return save;
         } catch (IOException e) {
             throw new UncheckedIOException("SOSGSGMP: saving the new world failed", e);
         } finally {
             deleteTree(dir);
-            generator.activate();
         }
     }
 
