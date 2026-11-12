@@ -57,6 +57,8 @@ final class MpPlay implements ACTION {
 	private final MpLoading loading;
 	/** Another PC's game data isn't this one's: the session ends with what differs (SOS-159). */
 	private final MpMismatch mismatch;
+	/** Hot-join (SOS-190): a PC that joins the running game, and the restart every PC makes for it. */
+	private final MpHotJoin hotJoin;
 
 	MpPlay(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpLog log, MpSaves saves, MpExit exit, MpReports reports) {
 		this.setup = setup;
@@ -72,6 +74,7 @@ final class MpPlay implements ACTION {
 		this.reports = reports;
 		this.loading = new MpLoading(setup, engine);
 		this.mismatch = new MpMismatch(setup, engine, game, log);
+		this.hotJoin = new MpHotJoin(setup, game, saves, log, autopilot);
 	}
 
 	@Override
@@ -87,6 +90,10 @@ final class MpPlay implements ACTION {
 	}
 
 	private void frame() {
+		if (hotJoin.ended()) { // this session ended for a hot-join restart: only the restart goes on
+			hotJoin.frame();
+			return;
+		}
 		if (!setup.closed()) {
 			setup.update();
 			if (!setup.playing() && !setup.closed() && setup.factions().started()) {
@@ -116,6 +123,9 @@ final class MpPlay implements ACTION {
 				desync.frame();
 				views.frame();
 				saves.frame();
+				hotJoin.frame(); // after the saves: the snapshot and the founding save it waits for are done in their frame
+				if (hotJoin.ended())
+					return;
 				exit.frame(); // after the saves: a save that ends the session ends it in the frame it is done
 				if (engine.active())
 					pause.frame();

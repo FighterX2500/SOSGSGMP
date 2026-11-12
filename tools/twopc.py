@@ -286,6 +286,9 @@ def main():
                     help="test network conditions for one game (SOS-175): WHO is host, join or local; SPEC a preset (%s)"
                          " or SOSGSGMP_NETEM's key=value pairs joined by ';' (delay, jitter, loss, seed, steamlag, steamloss,"
                          " steamreorder). Repeatable" % ", ".join(NETEM_PRESETS))
+    ap.add_argument("--hot-join", type=int, default=-1, metavar="SECONDS",
+                    help="a third game on this PC asks to join the running game this many seconds after the host's Go;"
+                         " the host accepts, it settles, and every game restarts with it (SOS-190)")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
     args = ap.parse_args()
     if args.mods_from:
@@ -307,8 +310,12 @@ def main():
         fail("--crash is remote:STEP or local:STEP, for a joiner that is started")
     if args.no_joiner and not args.resume:
         fail("--no-joiner is for --resume")
+    if args.hot_join >= 0:
+        if args.resume or args.local_joiner:
+            fail("--hot-join is for a new game, without --local-joiner")
+        args.local_joiner = True  # the late game's data folder; it starts after the host's Go
     who_all = ["host"] + ([] if args.no_joiner else ["join"]) + (["local"] if args.local_joiner else [])
-    players = args.players or len(who_all)
+    players = args.players or len(who_all) - (1 if args.hot_join >= 0 else 0)
     run = RUNS / args.tag
     shutil.rmtree(run, ignore_errors=True)
     run.mkdir(parents=True)
@@ -389,7 +396,10 @@ def main():
     elif not args.no_joiner:
         start_remote(rdir, joiner)
         log("joiner started on the second PC")
-    if args.local_joiner:
+    late = "role=join,name=Late,address=127.0.0.1,crash=-1,%s%s" % (
+        common, ",guipreview=%d" % args.gui_preview if args.gui_preview >= 0 else "")
+    late_started = False
+    if args.local_joiner and args.hot_join < 0:
         time.sleep(20)  # the host's lobby is open before the second game here starts looking for it
         start_here(local3, "role=join,name=Local,address=127.0.0.1,crash=%s,%s"
                    % (crash_at if crash_who == "local" else "-1", common), NETEM["local"])
@@ -413,6 +423,12 @@ def main():
                     done[who] = e
             seen[who] = len(evs)
             (run / ("%s-events.jsonl" % who)).write_text(text, encoding="utf-8")
+        if args.hot_join >= 0 and not late_started:
+            gos = [e for e in events(texts["host"]) if e["event"] == "go"]
+            if gos and time.time() * 1000 - gos[0]["t"] >= args.hot_join * 1000:
+                start_here(local3, late, NETEM["local"])
+                late_started = True
+                log("the late game started on this PC: it asks to join the running game (SOS-190)")
         if len(done) == len(who_all) or args.expect_refused and "join" in done:
             break
         if "host" not in done and not running(game_pid):
@@ -430,6 +446,8 @@ def main():
         sys.exit(0 if files_verdict(args, done, game_pid, (local, local2)) else 1)
     if args.crash:
         sys.exit(0 if gone_verdict(args, evs, done, local, crash_who, int(crash_at)) else 1)
+    if args.hot_join >= 0:
+        sys.exit(0 if hot_join_verdict(evs, done) else 1)
     if args.no_joiner or args.local_joiner or (args.resume and players < len(who_all)):
         sys.exit(0 if resume_without_verdict(evs, done, who_all, args.no_joiner) else 1)
     after = -1
@@ -594,6 +612,35 @@ def files_verdict(args, done, host_pid, datas):
         log("crash file: %s" % c)
     ok = ok and not crashes
     log("PASS" if ok else "FAIL")
+    return bool(ok)
+
+
+def hot_join_verdict(evs, done):
+    """SOS-190: the late game asked, the host accepted, the late game settled; every game restarted (a second Go on the
+    host and the joiner) and played on with the same world hashes after the restart."""
+    ok = all(done.get(w, {}).get("event") == "done" for w in ("host", "join", "local"))
+    for w in ("host", "join", "local"):
+        log("%s ended: %s" % (w, done.get(w, {}).get("event")))
+    asked = [e for e in evs["host"] if e["event"] == "joinask"]
+    settled = [e for e in evs["local"] if e["event"] == "joinsettled"]
+    gos = {w: [i for i, e in enumerate(evs[w]) if e["event"] == "go"] for w in evs}
+    log("host asked: %s; late settled at %s; Go events: %s" % (
+        [e.get("name") for e in asked], [(e.get("x"), e.get("y")) for e in settled], {w: len(g) for w, g in gos.items()}))
+    ok = ok and asked and settled and len(gos["host"]) >= 2 and len(gos["join"]) >= 2 and len(gos["local"]) >= 1
+
+    def after_restart(w):
+        start = gos[w][-1] if gos[w] else len(evs[w])
+        return {e["step"]: e["hash"] for e in evs[w][start:] if e["event"] == "hash"}
+
+    h = after_restart("host")
+    for w in ("join", "local"):
+        o = after_restart(w)
+        common = sorted(set(h) & set(o))
+        differ = [s for s in common if h[s] != o[s]]
+        log("after the restart, host and %s: %d common hash steps, %d differ%s" % (
+            w, len(common), len(differ), (", first at %d" % differ[0]) if differ else ""))
+        ok = ok and common and not differ
+    log("RESULT: %s" % ("PASS" if ok else "FAIL"))
     return bool(ok)
 
 

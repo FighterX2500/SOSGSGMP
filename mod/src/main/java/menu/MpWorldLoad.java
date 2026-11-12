@@ -13,6 +13,7 @@ import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbyPlayer;
+import sosgsgmp.net.Message;
 import sosgsgmp.session.SetupSession;
 import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep;
@@ -46,6 +47,16 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 		this.resumed = record;
 	}
 
+	/**
+	 * A hot-join restart's newcomer (SOS-190): it has no copy of the founding save {@code record}, so it loads the host's,
+	 * {@code hostsSave}, as every PC loads its own; its own city is then made at its capital.
+	 */
+	MpWorldLoad(SetupSession setup, CampaignRecord record, byte[] hostsSave) {
+		this.setup = setup;
+		this.save = hostsSave.clone();
+		this.resumed = record;
+	}
+
 	@Override
 	public CORE_STATE getState() {
 		EnginePlay engine = new EnginePlay();
@@ -68,15 +79,19 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 		int seed = resumed == null ? setup.choices().seed() : resumed.campaign().seed();
 		// every PC names the same start: the host's world, or the campaign's save
 		long startId = resumed == null ? WorldSetupAdapter.startId(save) : resumed.campaign().id() ^ resumed.number();
-		Path file = resumed == null ? game.saveFile(save) : game.savePath(resumed.file());
+		Path file = save != null ? game.saveFile(save) : game.savePath(resumed.file());
 		game.beginSession(setup.isHost(), f.slotOf(setup.localPlayerId()), startId, seed);
 		CORE_STATE view;
 		try {
 			view = new GameLoader(file).getState();
 		} finally {
-			if (resumed == null)
+			if (save != null)
 				game.deleteSaveFile(file);
 		}
+		Message.Restart restart = setup.restartInfo();
+		boolean newcomer = restart != null && restart.newcomerId() == setup.localPlayerId();
+		if (restart != null)
+			view = addNewcomer(restart, log);
 		game.humans(slots(), seed);
 		if (resumed != null)
 			for (int slot : Campaign.missingSlots(resumed.campaign(), slotList())) {
@@ -99,7 +114,13 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 			}
 		log.line("own city: " + game.activeEntries() + " entry points active"); // none: no roads (SOS-75)
 		setup.worldLoaded(game.worldHash());
-		if (resumed != null) // a resumed city stands already: no landing party to place, so the rows say ready (SOS-163)
+		if (newcomer) { // a hot-join's newcomer lands as a setup's joiner does: its city at the capital carved for it
+			int[] capital = game.capitalOf(f.slotOf(setup.localPlayerId()));
+			game.ownCity(capital[0], capital[1]);
+			game.openLanding();
+			log.line("hot-join: this PC's city-state at " + capital[0] + "," + capital[1]);
+		}
+		if (resumed != null && !newcomer) // a resumed city stands already: no landing party to place, so the rows say ready (SOS-163)
 			setup.startSpot();
 		log.line(String.format(Locale.ROOT, "world loaded in %.1f s%s: map seed %d, this PC's slot %d, world hash %016x",
 				(System.nanoTime() - t) / 1e9, resumed == null ? "" : " from campaign save " + resumed.number() + " (" + resumed.file() + ")",
@@ -121,6 +142,20 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 			log.line("whole game loaded at step " + engine.step() + "; the mod is back in it");
 		});
 		return view;
+	}
+
+	/**
+	 * A hot-join restart (SOS-190), after this PC's load and before step 0: the newcomer is added to the world as on
+	 * every other PC, then the game is saved and loaded again, since objects may still hold the slot's old NPC.
+	 */
+	private CORE_STATE addNewcomer(Message.Restart restart, MpLog log) {
+		log.line("hot-join: " + game.addHuman(restart.pick(), restart.credits()));
+		Path again = game.saveTemp();
+		try {
+			return new GameLoader(again).getState();
+		} finally {
+			game.deleteTemp(again);
+		}
 	}
 
 	private List<Integer> slotList() {

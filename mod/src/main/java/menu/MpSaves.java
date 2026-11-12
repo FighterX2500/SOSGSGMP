@@ -247,6 +247,7 @@ final class MpSaves {
 		} else {
 			try {
 				String file = game.saveGame(label(order));
+				savedFile = file;
 				hash = game.worldHash();
 				int slot = setup.factions().slotOf(setup.localPlayerId());
 				store.write(new CampaignRecord(order.campaign(), order.number(), order.kind(), System.currentTimeMillis(), slot,
@@ -267,7 +268,18 @@ final class MpSaves {
 		setup.saved(order.number(), hash, problem);
 	}
 
+	/** Hot-join (SOS-190): the last save done on every PC, its outcome ("" when every PC saved) and this PC's file. */
+	record Done(int number, String outcome, String file) {
+	}
+
+	/** The last save done on every PC since this play began, or null. */
+	Done lastDone() {
+		return lastDone;
+	}
+
 	private void finish(String outcome) {
+		lastDone = new Done(order.number(), outcome, savedFile);
+		savedFile = null;
 		engine.release(EnginePlay.Hold.SAVE);
 		if (engine.battleAhead() >= 0)
 			savedBeforeBattle = engine.battleAhead(); // a failed save too: the battle still begins, its outcome shown
@@ -283,6 +295,10 @@ final class MpSaves {
 	}
 
 	/** The save's name in vanilla's list, before its time stamp: letters, digits and spaces of the campaign's name. */
+	/** This PC's file of the open save, once written; null otherwise. */
+	private String savedFile;
+	private Done lastDone;
+
 	private static String label(SaveOrder o) {
 		String name = o.campaign().name().replaceAll("[^A-Za-z0-9 ]", "");
 		return "MP " + name + (o.kind() == CampaignRecord.Kind.AUTO ? " Auto" : "");
