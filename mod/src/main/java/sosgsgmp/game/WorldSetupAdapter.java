@@ -164,6 +164,16 @@ public final class WorldSetupAdapter implements FactionWorld {
                 credits);
     }
 
+    /**
+     * At a rejoin's restart, on the returning PC after its freeze save's load (SOS-204): the human slots of
+     * {@code hostSlots} its game lacks, players who joined since it froze, become stand-ins the host's world replaces
+     * (SOSDET Engine.addMissingHumans). Returns a line for the log, empty when none was missing; otherwise the game is
+     * then saved ({@link #saveTemp}) and loaded again.
+     */
+    public String addMissingHumans(int[] hostSlots) {
+        return Engine.addMissingHumans(hostSlots);
+    }
+
     /** This PC's game in a temporary folder, for a load right after; {@link #deleteTemp} removes it. */
     public Path saveTemp() {
         try {

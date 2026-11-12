@@ -297,7 +297,9 @@ def main():
                          " steamreorder). Repeatable" % ", ".join(NETEM_PRESETS))
     ap.add_argument("--hot-join", type=int, default=-1, metavar="SECONDS",
                     help="a third game on this PC asks to join the running game this many seconds after the host's Go;"
-                         " the host accepts, it settles, and every game restarts with it (SOS-190)")
+                         " the host accepts, it settles, and every game restarts with it (SOS-190). With --freeze local:STEP"
+                         " and --rejoin: this many seconds after the local game left frozen, and the local game comes back"
+                         " --rejoin seconds after the late game's Go (SOS-204)")
     ap.add_argument("--campaign", default="", metavar="ID:NUMBER",
                     help="with --here: the host, the joiner and (3 players) the local game resume a copy of this real"
                          " campaign's save NUMBER, each as its player (its record and save from this PC's data folder or"
@@ -444,6 +446,8 @@ def main():
                    NETEM["local"])
         log("the second joiner started on this PC")
 
+    # SOS-204: the local game leaves frozen, the late game joins after that, then the local game comes back
+    chain = args.freeze and args.hot_join >= 0 and args.rejoin >= 0
     seen = {w: 0 for w in who_all}
     chose_lost = False
     rejoin_started = False
@@ -469,6 +473,7 @@ def main():
             (run / ("%s-events.jsonl" % who)).write_text(text, encoding="utf-8")
         if args.rejoin >= 0 and not rejoin_started:
             left = ([e for e in events(texts["host"]) if e["event"] == "go"] if args.resume
+                    else [e for e in events(texts["late"]) if e["event"] == "go"] if chain  # once the newcomer plays
                     else [e for e in events(texts["local"]) if e["event"] == "frozeexit"])
             if left and time.time() * 1000 - left[0]["t"] >= args.rejoin * 1000:
                 # the game clears its screenshots when it starts: keep those of the game that left (SOS-196)
@@ -485,7 +490,8 @@ def main():
                 f.write("chooselost" + chr(10))
             chose_lost = True
         if args.hot_join >= 0 and not late_started:
-            gos = [e for e in events(texts["host"]) if e["event"] == "go"]
+            gos = ([e for e in events(texts["local"]) if e["event"] == "frozeexit"] if chain  # after the freeze (SOS-204)
+                   else [e for e in events(texts["host"]) if e["event"] == "go"])
             if gos and time.time() * 1000 - gos[0]["t"] >= args.hot_join * 1000:
                 start_here(local4, late, NETEM["local"])
                 late_started = True
