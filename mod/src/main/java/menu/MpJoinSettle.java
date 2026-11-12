@@ -10,6 +10,7 @@ import game.save.GameLoader;
 import init.constant.C;
 import init.race.RACES;
 import init.race.Race;
+import init.sprite.SPRITES;
 import init.sprite.UI.UI;
 import snake2d.CORE;
 import snake2d.CORE_STATE;
@@ -19,6 +20,7 @@ import snake2d.Renderer;
 import snake2d.SPRITE_RENDERER;
 import snake2d.util.color.COLOR;
 import snake2d.util.datatypes.COORDINATE;
+import snake2d.util.datatypes.DIR;
 import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
@@ -33,11 +35,12 @@ import util.gui.misc.GBox;
 import util.gui.misc.GButt;
 import util.gui.misc.GText;
 import util.gui.panel.GPanel;
+import view.interrupter.InterManager;
 import view.interrupter.Interrupter;
 import view.main.VIEW;
 import view.tool.PlacableFixedImp;
-import view.tool.ToolConfig;
 import view.ui.profile.UIProfile;
+import view.world.generator.MpJoinStage;
 import world.WORLD;
 import world.map.regions.centre.WCentre;
 
@@ -70,7 +73,6 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 			game.deleteSaveFile(file);
 		}
 		GAME.SPEED.speedSet(0);
-		WORLD.FOW().toggled.set(false); // the whole map to pick on
 		Player p = FACTIONS.player();
 		int hostX = p.capitolRegion() == null ? WORLD.TWIDTH() / 2 : p.capitolRegion().cx();
 		int hostY = p.capitolRegion() == null ? WORLD.THEIGHT() / 2 : p.capitolRegion().cy();
@@ -82,24 +84,21 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 			p.name.clear();
 		LOG.ln("SOSGSGMP: the host's snapshot to join on loaded in " + (System.nanoTime() - t) / 1_000_000 + " ms");
 		Panel panel = new Panel(setup, game, race, hostX, hostY);
-		panel.open();
+		// the setup's location screen, not the running game's: the generator's view on the whole map, unfogged (SOS-198)
+		panel.open(MpJoinStage.open(panel.placer, hostX, hostY));
 		MpChat.show(setup);
-		VIEW.world().activate();
-		VIEW.world().window.centererTile.set(hostX, hostY);
-		panel.place();
 		return view;
 	}
 
-	/** The race, Customize, the status line, Place, Ready and Leave. */
+	/** The race, Customize, the status line, Ready and Leave; the placer is on the map throughout. */
 	private static final class Panel extends Interrupter {
 
 		private static final int WIDTH = 400;
 		private static final int STATUS_LINES = 7;
 		private static final int HALF = WCentre.TILE_DIM / 2;
 		private static final CharSequence TITLE = "Place your city-state";
-		private static final String PLACE = "Pick your race, name your faction (Customize), press Place and pick a spot"
-				+ " 6 tiles or more from every player, away from roads and large water, then press Ready. Everyone plays on"
-				+ " meanwhile.";
+		private static final String PLACE = "Pick your race, name your faction (Customize), click a spot on the map 6 tiles"
+				+ " or more from every town and every player's capital, then press Ready. Everyone plays on meanwhile.";
 
 		private final SetupSession setup;
 		private final WorldSetupAdapter game;
@@ -111,6 +110,7 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 		private final int hostX;
 		private final int hostY;
 		private final MpAutopilot autopilot = MpAutopilot.fromEnv();
+		final Placer placer = new Placer();
 		private String race;
 		private int ownX = FactionPick.NONE;
 		private int ownY = FactionPick.NONE;
@@ -194,18 +194,7 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 			status.setMaxWidth(WIDTH);
 			status.setMultipleLines(true);
 			GuiSection buttons = new GuiSection();
-			buttons.add(new GButt.ButtPanel("place") {
-				@Override
-				protected void clickA() {
-					place();
-				}
-
-				@Override
-				protected void renAction() {
-					activeSet(!locked());
-				}
-			});
-			buttons.addRightC(16, new GButt.ButtPanel("ready") {
+			buttons.add(new GButt.ButtPanel("ready") {
 				@Override
 				protected void clickA() {
 					ready();
@@ -219,27 +208,16 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 			buttons.addRightC(16, MpSetupLeave.button(setup, () -> leaving = true));
 			inner.addDown(8, buttons);
 			GPanel panel = new GPanel(inner.body().width(), inner.body().height());
-			panel.setTitle("Joining the game");
+			panel.setTitle(TITLE);
 			panel.inner().set(inner);
 			section.add(panel);
 			section.add(inner);
-			section.body().moveX2(C.WIDTH() - 16).moveY1(96);
+			section.body().moveX1(16).moveY1(64); // on the left, as the setup's location screen
 			showStatus();
 		}
 
-		void open() {
-			show(VIEW.inters().manager);
-		}
-
-		void place() {
-			if (locked())
-				return;
-			VIEW.world().tools.place(new Placer(), new ToolConfig() {
-				@Override
-				public boolean back() {
-					return false;
-				}
-			});
+		void open(InterManager screen) {
+			show(screen);
 		}
 
 		/** Sent and waiting for the host, taken, or restarting: nothing changes. */
@@ -482,21 +460,25 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 					mark(r, GCOLOR.MAP().BAD, sx, sy);
 					capNames[i].render(r, sx, sy - capNames[i].height());
 				}
-				if (ownX != FactionPick.NONE)
-					mark(r, GCOLOR.MAP().OK, square(x, tx, ownX), square(y, ty, ownY));
+				if (ownX != FactionPick.NONE) // the placed spot as the placer draws a spot, fixed there (SOS-198)
+					mark(r, GCOLOR.MAP().SOSO, square(x, tx, ownX), square(y, ty, ownY));
 			}
 
 			private int square(int at, int t, int c) {
 				return at + (c - HALF - t) * C.TILE_SIZE;
 			}
 
+			/** A capital's square in vanilla's placer tiles, edges masked as PlacableFixedTool masks them. */
 			private void mark(SPRITE_RENDERER r, COLOR color, int x1, int y1) {
-				int size = WCentre.TILE_DIM * C.TILE_SIZE;
-				int t = 3;
-				color.render(r, x1, x1 + size, y1, y1 + t);
-				color.render(r, x1, x1 + size, y1 + size - t, y1 + size);
-				color.render(r, x1, x1 + t, y1, y1 + size);
-				color.render(r, x1 + size - t, x1 + size, y1, y1 + size);
+				int n = WCentre.TILE_DIM;
+				color.bind();
+				for (int dy = 0; dy < n; dy++) {
+					for (int dx = 0; dx < n; dx++) {
+						int m = (dx == 0 ? DIR.W.mask() : 0) | (dx == n - 1 ? DIR.E.mask() : 0)
+								| (dy == 0 ? DIR.N.mask() : 0) | (dy == n - 1 ? DIR.S.mask() : 0);
+						SPRITES.cons().BIG.solid.render(r, ~m & 0x0F, x1 + dx * C.TILE_SIZE, y1 + dy * C.TILE_SIZE);
+					}
+				}
 				COLOR.unbind();
 			}
 		}
