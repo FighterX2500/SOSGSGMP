@@ -326,6 +326,14 @@ public final class EnginePlay implements EnginePort {
             GAME.SPEED.speedSet(1);
     }
 
+    /**
+     * Each frame, on a PC that isn't the host: the world speed this PC's player pressed since the last call, which only
+     * the host can set, or 0 (spec §4). The engine has put the buttons back on the agreed speed. No allocation.
+     */
+    public double takeSpeedAsked() {
+        return Engine.takeSpeedAsked();
+    }
+
     /** The speed every PC runs at now. Builds the engine's stats: for the panel's refresh, not every frame. */
     public double agreedSpeed() {
         return Engine.stats().agreedSpeed;

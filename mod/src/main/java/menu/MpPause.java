@@ -10,7 +10,7 @@ import sosgsgmp.session.SetupSession;
  * SOSGSGMP: the pause every PC shares (spec §4, SOS-110). Any player's pause or unpause goes through the host and sets
  * every PC's game speed, so any player can unpause, and the chat says who it was. Once per frame from {@link MpPlay},
  * between steps. Battles keep their own pause: this never touches one, and the watch waits for the loads around them to
- * settle.
+ * settle. A joining player's press of another speed changes nothing but asks the host in the chat (playtest 2026-11-14).
  */
 final class MpPause {
 
@@ -35,6 +35,9 @@ final class MpPause {
 		long now = System.nanoTime();
 		if (engine.anyBattle())
 			settledAt = now + SETTLE_NANOS;
+		double asked = engine.takeSpeedAsked();
+		if (asked >= 1 && now - settledAt >= 0 && !engine.spectating())
+			setup.say(speedRequest(asked));
 		boolean paused = paused();
 		if (paused != seen && engine.spectating()) { // a spectator can't pause or unpause (SOS-111)
 			GAME.SPEED.togglePause();
@@ -43,6 +46,11 @@ final class MpPause {
 		if (now - settledAt >= 0 && paused != seen)
 			setup.pause(paused);
 		seen = paused;
+	}
+
+	/** The chat line of a joining player's press of another speed: only the host sets it (spec §4). */
+	static String speedRequest(double speed) {
+		return "requests " + Math.round(speed) + "x speed";
 	}
 
 	private void heard(Message.Pause p) {
