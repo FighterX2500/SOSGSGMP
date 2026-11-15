@@ -73,7 +73,7 @@ import world.map.regions.Region;
  * army at the capital); {@code mercs} (the mercenary bands for hire); {@code merc <index>} (hire one into the first army);
  * {@code divs} (the city's divisions); {@code attach <division|all>} (the city army screen's send out, to the first army);
  * {@code attack} (the first army intercepts the other player's nearest army); {@code fight}, {@code start}, {@code retreat}
- * (the open battle prompt or battle); {@code speed <x>} (host); {@code view} (ask to view the other player's city) and
+ * (the open battle prompt or battle); {@code speed <x>} (host); {@code press <x>} (a speed button on any PC); {@code view} (ask to view the other player's city) and
  * {@code closeview} (SOS-82); {@code route} (the walk to the other player's capital, SOS-122); {@code say <text>} (the chat, SOS-110); {@code pause} (as the pause key); {@code pop} (this
  * city's people); {@code besiege} (the first army besieges the other player's capital); {@code siegewait} (test tooling:
  * the siege of the other player's capital has waited long enough); {@code storm} (test tooling for the prompt: the next
@@ -521,6 +521,10 @@ final class MpAutopilotCommands {
 			if (a.length < 2)
 				return "trace at which step?";
 			traceAt = Long.parseLong(a[1]);
+			if (a.length > 2 && a[2].equals("city")) { // the city's draws too: a viewed city against its viewer's copy
+				Engine.traceAllDraws(1400);
+				return "world and city draws traced, written to trace.txt at step " + traceAt;
+			}
 			Engine.traceDraws(1400);
 			return "world draws traced, written to trace.txt at step " + traceAt;
 		case "npcbesiege":
@@ -777,6 +781,9 @@ final class MpAutopilotCommands {
 				return "refused: the host sets the speed";
 			GAME.SPEED.speedSet(Double.parseDouble(a[1]));
 			return "speed set";
+		case "press": // a speed button pressed on any PC; a joiner's only asks the host (playtest 2026-11-14)
+			GAME.SPEED.speedSet(Double.parseDouble(a[1]));
+			return "speed pressed";
 		default:
 			return "unknown action";
 		}
