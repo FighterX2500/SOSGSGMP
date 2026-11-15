@@ -1,0 +1,13 @@
+diff --git a/view/sett/ui/minimap/UIMiniMapSettViewMap.java b/view/sett/ui/minimap/UIMiniMapSettViewMap.java
+index e1e9614..b231b75 100644
+--- a/view/sett/ui/minimap/UIMiniMapSettViewMap.java
++++ b/view/sett/ui/minimap/UIMiniMapSettViewMap.java
+@@ -240,6 +240,8 @@ class UIMiniMapSettViewMap {
+ 			
+ 			
+ 			if (!div.settings().mustering()) {
++				if (menu.MpPlayers.inGame())
++					continue; // SOSGSGMP hook M14 (docs/hooks.md): in multiplayer a division shows only while mustered (SOS-211)
+ 				div.order().dest.get(forCurrent);
+ 				COORDINATE c = forCurrent.centrePixel();
+ 				if (c != null && forCurrent.deployed() > 0) {

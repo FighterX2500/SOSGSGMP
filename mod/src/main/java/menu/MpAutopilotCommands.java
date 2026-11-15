@@ -73,7 +73,7 @@ import world.map.regions.Region;
  * army at the capital); {@code mercs} (the mercenary bands for hire); {@code merc <index>} (hire one into the first army);
  * {@code divs} (the city's divisions); {@code attach <division|all>} (the city army screen's send out, to the first army);
  * {@code attack} (the first army intercepts the other player's nearest army); {@code fight}, {@code start}, {@code retreat}
- * (the open battle prompt or battle); {@code speed <x>} (host); {@code view} (ask to view the other player's city) and
+ * (the open battle prompt or battle); {@code speed <x>} (host); {@code press <x>} (a speed button on any PC); {@code view} (ask to view the other player's city) and
  * {@code closeview} (SOS-82); {@code route} (the walk to the other player's capital, SOS-122); {@code say <text>} (the chat, SOS-110); {@code pause} (as the pause key); {@code pop} (this
  * city's people); {@code besiege} (the first army besieges the other player's capital); {@code siegewait} (test tooling:
  * the siege of the other player's capital has waited long enough); {@code storm} (test tooling for the prompt: the next
@@ -307,6 +307,11 @@ final class MpAutopilotCommands {
 				VIEW.s().activate();
 				return "city view";
 			}
+			if (a[1].equals("citymap")) { // the city's map with its division cards, for a shot (SOS-211)
+				VIEW.s().activate();
+				VIEW.s().mini.open();
+				return "city map";
+			}
 			if (a[1].equals("region") && a.length > 2) { // a region's panel, as clicking it on the map (SOS-162)
 				Region r = WORLD.REGIONS().getByIndex(Integer.parseInt(a[2]));
 				VIEW.world().activate();
@@ -521,6 +526,10 @@ final class MpAutopilotCommands {
 			if (a.length < 2)
 				return "trace at which step?";
 			traceAt = Long.parseLong(a[1]);
+			if (a.length > 2 && a[2].equals("city")) { // the city's draws too: a viewed city against its viewer's copy
+				Engine.traceAllDraws(1400);
+				return "world and city draws traced, written to trace.txt at step " + traceAt;
+			}
 			Engine.traceDraws(1400);
 			return "world draws traced, written to trace.txt at step " + traceAt;
 		case "npcbesiege":
@@ -777,9 +786,86 @@ final class MpAutopilotCommands {
 				return "refused: the host sets the speed";
 			GAME.SPEED.speedSet(Double.parseDouble(a[1]));
 			return "speed set";
+		case "press": // a speed button pressed on any PC; a joiner's only asks the host (playtest 2026-11-14)
+			GAME.SPEED.speedSet(Double.parseDouble(a[1]));
+			return "speed pressed";
+		case "muster": { // a player's muster of division I in this city, as the UI gives it (SOS-209)
+			Div d = GAME.ARMIES().player().divisions().get(Integer.parseInt(a[1]));
+			AiHooks.muster(d, !a[2].equals("0"));
+			return "division " + d.index() + " muster " + a[2] + " ordered";
+		}
+		case "mustered": { // this city's mustered divisions (SOS-209)
+			StringBuilder b = new StringBuilder();
+			for (Div d : GAME.ARMIES().player().divisions())
+				if (d.settings().mustering())
+					b.append(d.index()).append(" (men ").append(d.menNrOf()).append(") ");
+			return b.length() == 0 ? "none mustered" : "mustered: " + b;
+		}
+		case "depotmsg": // the depot's message with player traders counted, beside vanilla's (SOS-210)
+			return depotMessage(a[1].equals("import"));
 		default:
 			return "unknown action";
 		}
+	}
+
+	/**
+	 * Test tooling (SOS-210): for goods another player trades with this one, sets this city's price cap to one only
+	 * that player meets, opens the depot's window for a shot, and says vanilla's message and the mod's. Goods where the
+	 * NPCs alone miss the cap come first.
+	 */
+	private String depotMessage(boolean importing) {
+		String fallback = null;
+		for (int i = 0; i < TR.ALL().size(); i++) {
+			TRADABLE t = TR.ALL().get(i);
+			if (importing ? !t.pb().importing() : t.ps().exporting() != null)
+				continue; // this city's depot isn't set to the goods: vanilla's own message stands
+			LIST<Faction> all = FACTIONS.active();
+			for (int k = 0; k < all.size(); k++) {
+				Faction f = all.get(k);
+				if (!PlayerDeals.otherPlayer(f) || !PlayerDeals.tradeReaches(f.index()))
+					continue;
+				int p = MpPlayers.depotPrice(f, t, importing);
+				if (p <= 0)
+					continue;
+				int cap;
+				int npc;
+				if (importing) {
+					npc = FACTIONS.player().trade.pricesBuy.get(t);
+					cap = p + 1; // the player sells under it
+					if (npc > 0 && npc != Integer.MAX_VALUE && npc <= cap && fallback == null) {
+						fallback = t.key();
+						continue; // the NPCs meet it too: vanilla is right there
+					}
+				} else {
+					npc = FACTIONS.player().trade.pricesSell.get(t);
+					int toll = p - t.ps().priceCapsI.get();
+					cap = sosgsgmp.trade.DepotPrice.highestAsked(PlayerDeals.price(f.index(), t.index(), false), toll);
+					if (cap <= npc || cap <= 0)
+						continue; // no cap the player pays and the NPCs don't
+				}
+				if (importing) {
+					t.pb().priceCapsI.set(cap);
+					view.ui.goods.UIGoodsImport im = new view.ui.goods.UIGoodsImport();
+					im.res.set(t);
+					VIEW.inters().popup.show(im, null);
+				} else {
+					t.ps().priceCapsI.set(cap);
+					view.ui.goods.UIGoodsExport ex = new view.ui.goods.UIGoodsExport(true);
+					ex.res.set(t);
+					VIEW.inters().popup.show(ex, null);
+				}
+				return t.key() + " with " + f.name + ": player " + MpPlayers.depotPrice(f, t, importing) + ", npc " + npc + ", cap "
+						+ cap + ", trade agreement " + DIP.get(FACTIONS.player(), f).trades + " | vanilla: "
+						+ message(importing ? t.pb().problem() : t.ps().problem(), importing ? t.pb().warning() : t.ps().warning())
+						+ " | mod: " + message(importing ? MpDepotMessages.importProblem(t) : MpDepotMessages.exportProblem(t),
+								importing ? MpDepotMessages.importWarning(t) : MpDepotMessages.exportWarning(t));
+			}
+		}
+		return "no goods where only another player meets a cap" + (fallback == null ? "" : " (NPCs meet it too for " + fallback + ")");
+	}
+
+	private static String message(CharSequence problem, CharSequence warning) {
+		return problem != null ? "problem: " + problem : warning != null ? "warning: " + warning : "none";
 	}
 
 	/** Test tooling: holds every enemy division's morale below zero, so its soldiers desert (vanilla's PlanEscape). */

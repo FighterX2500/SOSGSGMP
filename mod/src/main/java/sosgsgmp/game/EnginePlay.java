@@ -326,6 +326,14 @@ public final class EnginePlay implements EnginePort {
             GAME.SPEED.speedSet(1);
     }
 
+    /**
+     * Each frame, on a PC that isn't the host: the world speed this PC's player pressed since the last call, which only
+     * the host can set, or 0 (spec §4). The engine has put the buttons back on the agreed speed. No allocation.
+     */
+    public double takeSpeedAsked() {
+        return Engine.takeSpeedAsked();
+    }
+
     /** The speed every PC runs at now. Builds the engine's stats: for the panel's refresh, not every frame. */
     public double agreedSpeed() {
         return Engine.stats().agreedSpeed;
@@ -586,6 +594,12 @@ public final class EnginePlay implements EnginePort {
     /** The viewer's PC: whether its copy of the city lost step with the owner's. */
     public boolean viewDesync() {
         return Engine.viewDesync() != null;
+    }
+
+    /** The viewer's PC, after {@link #viewDesync}: the first step that differs, its sections and divisions, for the log. */
+    public String viewDesyncParts() {
+        sosdet.hash.Desync d = Engine.viewDesync();
+        return d == null ? "none" : d.toString();
     }
 
     /** The viewer's PC: the limit it hit ({@code View.NOT_CAUGHT_UP}, {@code View.FELL_BEHIND}), or {@code View.OPEN}. */

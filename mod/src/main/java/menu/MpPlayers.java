@@ -111,6 +111,50 @@ public final class MpPlayers {
 	}
 
 	/**
+	 * Hook M12: the hover of a depot's Best or Closest button, which order from NPC traders only: in a multiplayer game
+	 * it starts with "Only to NPC traders:", in single player it is vanilla's (playtest 2026-11-14). The windows are
+	 * built once, so the text decides as it is read.
+	 */
+	public static CharSequence npcOnly(CharSequence vanilla) {
+		return new NpcOnly(vanilla);
+	}
+
+	private static final class NpcOnly implements CharSequence {
+
+		private final CharSequence vanilla;
+		private final String multiplayer;
+
+		NpcOnly(CharSequence vanilla) {
+			this.vanilla = vanilla;
+			this.multiplayer = "Only to NPC traders: " + vanilla;
+		}
+
+		private CharSequence now() {
+			return Engine.active() ? multiplayer : vanilla;
+		}
+
+		@Override
+		public int length() {
+			return now().length();
+		}
+
+		@Override
+		public char charAt(int index) {
+			return now().charAt(index);
+		}
+
+		@Override
+		public CharSequence subSequence(int start, int end) {
+			return now().subSequence(start, end);
+		}
+
+		@Override
+		public String toString() {
+			return now().toString();
+		}
+	}
+
+	/**
 	 * Hook M12, each frame a depot's partner list draws: adds to {@code out} after its first {@code n} the other players
 	 * this player's trade reaches, and returns the new count. No allocation.
 	 */

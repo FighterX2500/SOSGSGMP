@@ -1,0 +1,64 @@
+diff --git a/settlement/room/infra/export/Gui.java b/settlement/room/infra/export/Gui.java
+index 1c927c7..3ee92a7 100644
+--- a/settlement/room/infra/export/Gui.java
++++ b/settlement/room/infra/export/Gui.java
+@@ -90,7 +90,7 @@ class Gui extends UIRoomModuleImp<ExportInstance, ROOM_EXPORT> {
+ 				@Override
+ 				protected void hoverResource(RESOURCE res, GBox b) {
+ 					
+-					FACTIONS.player().seller(TR.get(res)).hover(b);
++					menu.MpDepotMessages.exportHover(b, TR.get(res)); // SOSGSGMP hook M13 (docs/hooks.md): player traders count (SOS-210)
+ 					
+ 					
+ 				}
+diff --git a/settlement/room/infra/importt/Gui.java b/settlement/room/infra/importt/Gui.java
+index 90d8295..69449fa 100644
+--- a/settlement/room/infra/importt/Gui.java
++++ b/settlement/room/infra/importt/Gui.java
+@@ -154,7 +154,7 @@ class Gui extends UIRoomModuleImp<ImportInstance, ROOM_IMPORT> {
+ 			@Override
+ 			protected void hoverResource(RESOURCE res, GBox b) {
+ 
+-				FACTIONS.player().buyer(TR.get(res)).hover(b);
++				menu.MpDepotMessages.importHover(b, TR.get(res)); // SOSGSGMP hook M13 (docs/hooks.md): player traders count (SOS-210)
+ 				
+ 			}
+ 		};
+diff --git a/view/ui/economy/UITreasury.java b/view/ui/economy/UITreasury.java
+index 3837a64..1a2c3a6 100644
+--- a/view/ui/economy/UITreasury.java
++++ b/view/ui/economy/UITreasury.java
+@@ -159,13 +159,13 @@ public final class UITreasury extends IFullView {
+ 		for (TRADABLE res : TR.ALL()) {
+ 			if (res.pb().importing()) {
+ 				GText t = b.text();
+-				CharSequence p = FACTIONS.player().buyer(res).problem();
++				CharSequence p = menu.MpDepotMessages.importProblem(res); // SOSGSGMP hook M13 (docs/hooks.md): player traders count (SOS-210)
+ 				if (p != null) {
+ 					b.add(res.icon());
+ 					b.add(t.errorify().add(p));
+ 					b.NL();
+ 				}else {
+-					p = FACTIONS.player().buyer(res).warning();
++					p = menu.MpDepotMessages.importWarning(res); // SOSGSGMP hook M13 (docs/hooks.md): player traders count (SOS-210)
+ 					if (p != null) {
+ 						b.add(res.icon());
+ 						b.add(t.warnify().add(p));
+@@ -176,7 +176,7 @@ public final class UITreasury extends IFullView {
+ 			
+ 			if (res.ps().exporting() == null) {
+ 				GText t = b.text();
+-				CharSequence p = FACTIONS.player().seller(res).problem();
++				CharSequence p = menu.MpDepotMessages.exportProblem(res); // SOSGSGMP hook M13 (docs/hooks.md): player traders count (SOS-210)
+ 				
+ 				
+ 				if (p != null) {
+@@ -184,7 +184,7 @@ public final class UITreasury extends IFullView {
+ 					b.add(t.errorify().add(p));
+ 					b.NL();
+ 				}else {
+-					p = FACTIONS.player().seller(res).warning();
++					p = menu.MpDepotMessages.exportWarning(res); // SOSGSGMP hook M13 (docs/hooks.md): player traders count (SOS-210)
+ 					if (p != null) {
+ 						b.add(res.icon());
+ 						b.add(t.warnify().add(p));
