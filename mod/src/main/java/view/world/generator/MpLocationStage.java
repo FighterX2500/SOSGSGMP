@@ -2,7 +2,6 @@ package view.world.generator;
 
 import game.faction.FACTIONS;
 import init.constant.C;
-import init.sprite.UI.UI;
 import snake2d.SPRITE_RENDERER;
 import snake2d.util.color.COLOR;
 import snake2d.util.gui.GuiSection;
@@ -10,13 +9,11 @@ import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
 import snake2d.util.sets.LIST;
 import snake2d.util.sets.LISTE;
-import snake2d.util.sprite.text.Font;
-import snake2d.util.sprite.text.Str;
-import sosdet.HumanStart;
 import sosgsgmp.setup.FactionPick;
 import util.colors.GCOLOR;
 import util.gui.misc.GBox;
 import util.gui.misc.GButt;
+import util.gui.misc.GText;
 import util.gui.panel.GPanel;
 import view.tool.PlacableFixedImp;
 import view.tool.ToolConfig;
@@ -59,7 +56,7 @@ final class MpLocationStage {
 		side.body().moveX1(16).moveY1(64);
 
 		Placer placer = new Placer(f);
-		RouteNotice notice = new RouteNotice(f, placer);
+		MpSpotNotice notice = new MpSpotNotice(placer);
 		ToolConfig config = new ToolConfig() {
 			@Override
 			public boolean back() {
@@ -76,77 +73,10 @@ final class MpLocationStage {
 	}
 
 	/**
-	 * Under the top of the screen, as the speed notice sits in the game (SOS-42), twice its size with a black outline to
-	 * read on any terrain: the spot in range of another player's city, 6 to 15 tiles, where the connection is guaranteed
-	 * (spec §5, SOS-120). The spot is the cursor's where a city can go there, else this PC's location.
+	 * The capital placer: a 3x3 square whose centre is the location, as vanilla's (StageCapitol.afterPlaced). It feeds
+	 * the notice (spec §5, SOS-120); on the terrain there are no road links to name yet.
 	 */
-	private static final class RouteNotice extends RENDEROBJ.RenderImp {
-
-		private static final int SCALE = 2;
-		private static final int OUTLINE = 2;
-		private static final int Y = 40;
-
-		private final MpFactions f;
-		private final Placer placer;
-		private final Str text = new Str(96);
-		private int shownX = FactionPick.NONE;
-		private int shownY = FactionPick.NONE;
-		private int shownChanges = -1;
-
-		RouteNotice(MpFactions f, Placer placer) {
-			super(0, 0);
-			this.f = f;
-			this.placer = placer;
-		}
-
-		@Override
-		public void render(SPRITE_RENDERER r, float ds) {
-			placer.frames++;
-			boolean hover = placer.onSpot();
-			int x = hover ? placer.checkedX : f.ownX();
-			int y = hover ? placer.checkedY : f.ownY();
-			if (x != shownX || y != shownY || f.setup.changes() != shownChanges) {
-				shownX = x;
-				shownY = y;
-				shownChanges = f.setup.changes();
-				set(x, y);
-			}
-			if (text.length() == 0)
-				return;
-			Font font = UI.FONT().S;
-			int cx = C.WIDTH() / 2;
-			int cy = Y + font.height(SCALE) / 2;
-			COLOR.BLACK.bind();
-			for (int dy = -OUTLINE; dy <= OUTLINE; dy += OUTLINE)
-				for (int dx = -OUTLINE; dx <= OUTLINE; dx += OUTLINE)
-					if (dx != 0 || dy != 0)
-						font.renderC(r, cx + dx, cy + dy, text, SCALE);
-			GCOLOR.T().WARNING.bind();
-			font.renderC(r, cx, cy, text, SCALE);
-			COLOR.unbind();
-		}
-
-		private void set(int x, int y) {
-			text.clear();
-			if (x == FactionPick.NONE)
-				return;
-			int n = 0;
-			int first = 0;
-			for (int i = 0; i < f.others; i++) {
-				if (HumanStart.inRouteRange(x, y, f.otherX[i], f.otherY[i])) {
-					if (n++ == 0)
-						first = i;
-				}
-			}
-			if (n == 1)
-				text.add("Guaranteed connection to ").add(f.otherNames[first]);
-			else if (n > 1)
-				text.add("Guaranteed connection to ").add(n).add(" players");
-		}
-	}
-
-	/** The capital placer: a 3x3 square whose centre is the location, as vanilla's (StageCapitol.afterPlaced). */
-	private static final class Placer extends PlacableFixedImp {
+	private static final class Placer extends PlacableFixedImp implements MpSpotNotice.Spots {
 
 		private final MpFactions f;
 		private final UIWorldToolCapitolPlaceInfo info = new UIWorldToolCapitolPlaceInfo();
@@ -202,8 +132,48 @@ final class MpLocationStage {
 		}
 
 		/** The cursor is over a spot a city can go, this frame or the last: {@link #checkedX}, {@link #checkedY}. */
-		boolean onSpot() {
+		private boolean onSpot() {
 			return frames - spotAt <= 1;
+		}
+
+		@Override
+		public void frame() {
+			frames++;
+		}
+
+		@Override
+		public int noticeX() {
+			return onSpot() ? checkedX : f.ownX();
+		}
+
+		@Override
+		public int noticeY() {
+			return onSpot() ? checkedY : f.ownY();
+		}
+
+		@Override
+		public int noticeKey() {
+			return f.setup.changes();
+		}
+
+		@Override
+		public int others() {
+			return f.others;
+		}
+
+		@Override
+		public int otherX(int i) {
+			return f.otherX[i];
+		}
+
+		@Override
+		public int otherY(int i) {
+			return f.otherY[i];
+		}
+
+		@Override
+		public GText otherName(int i) {
+			return f.otherNames[i];
 		}
 
 		@Override

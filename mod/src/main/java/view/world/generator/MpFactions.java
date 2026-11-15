@@ -52,9 +52,9 @@ final class MpFactions implements MpFactionScreens {
 	private static final String READY_STATUS = "Press Ready when your city is where you want it.";
 	private static final CharSequence READY_INFO = "While you are ready your picks can't change. The host can initialize the world once every player is ready.";
 	private static final String INITIALIZE_STATUS = "Every player is ready. Initialize World builds the world and starts every player's game; the picks can't change after it.";
-	/** A living world's other players (SOS-187): no location on the terrain. */
-	private static final String SETTLE_LATER_STATUS = "Pick your race and customize your faction, then press Ready. Once the host's world is built, you pick where your city-state goes on its real map, with its kingdoms, borders and roads.";
-	private static final String BUILD_STATUS = "Every player is ready. Build World builds the world around your capital; the others then pick their spots on it.";
+	/** A living world's players (SOS-187), the host too (SOS-214): no location on the terrain. */
+	private static final String SETTLE_LATER_STATUS = "Pick your race and customize your faction, then press Ready. Once the world is built, you pick where your city-state goes on its real map, with its kingdoms, borders and roads.";
+	private static final String BUILD_STATUS = "Every player is ready. Build World builds the world; then every player, you too, picks their spot on it.";
 
 	final WorldViewGenerator g;
 	final SetupSession setup;
@@ -121,7 +121,7 @@ final class MpFactions implements MpFactionScreens {
 			return ownX;
 		}, () -> {
 			if (settlesLater())
-				MpFactionStage.customize(this); // a living world's other player has no location here: Ready is on Customize
+				MpFactionStage.customize(this); // a living world's player has no location here: Ready is on Customize
 			else
 				MpLocationStage.place(this);
 		});
@@ -223,9 +223,9 @@ final class MpFactions implements MpFactionScreens {
 		return h + UI.FONT().M.height();
 	}
 
-	/** A living world's other player (SOS-187): they settle on the host's built world, so this step places nothing. */
+	/** A living world's player, the host too (SOS-187, SOS-214): they settle on the built world, so this step places nothing. */
 	boolean settlesLater() {
-		return setup.factions().living() && !setup.isHost();
+		return setup.factions().living();
 	}
 
 	/**
@@ -400,7 +400,7 @@ final class MpFactions implements MpFactionScreens {
 			} else if (pick.refused() != null) {
 				row.add(", location refused");
 				row.color(GCOLOR.T().IBAD);
-			} else if (f.living() && !p.host()) {
+			} else if (f.living()) {
 				row.add(", settles on the built world");
 				if (pick.ready()) {
 					row.add(", ready");

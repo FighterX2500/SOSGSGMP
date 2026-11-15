@@ -424,20 +424,22 @@ class LoopbackSetupTest {
     }
 
     /**
-     * SOS-187: in a living world only the host places a capital on the terrain; the first Initialize builds the world
-     * around it, every PC gets it, and the others settle on it by the carving rule before the second Initialize carves
-     * them in and sends the world every PC starts from.
+     * SOS-187, SOS-214: in a living world nobody places a capital on the terrain; the first Initialize builds the world,
+     * every PC gets it, and every player, the host too, settles on it by the carving rule before the second Initialize
+     * carves them in and sends the world every PC starts from.
      */
     @Test
-    void aLivingWorldIsBuiltAroundTheHostAndTheOthersSettleOnIt() throws Exception {
+    void aLivingWorldIsBuiltAndEveryPlayerSettlesOnIt() throws Exception {
         confirmMap(true);
         assertTrue(bob.factions().living() && cid.factions().living(), "every PC knows the lobby's world");
         host.pick(pick("Ann", 10, 10));
         bob.pick(pick("Bob", 20, 10));
         cid.pick(pick("Cid", FactionPick.NONE, FactionPick.NONE));
         until("every pick on every PC", () -> names(bob).size() == 3 && names(cid).size() == 3);
+        assertFalse(host.factions().table().get(0).pick().hasLocation(), "the host settles later too: no location on the terrain");
         assertFalse(host.factions().table().get(1).pick().hasLocation(), "a joiner settles later: no location on the terrain");
-        assertTrue(bob.factions().canReady() && cid.factions().canReady(), "Ready needs no location before settling");
+        assertTrue(host.factions().canReady() && bob.factions().canReady() && cid.factions().canReady(),
+                "Ready needs no location before settling");
         host.ready(true);
         bob.ready(true);
         cid.ready(true);
@@ -446,16 +448,19 @@ class LoopbackSetupTest {
 
         host.initialize();
         byte[] settle = settleWorld(host);
-        assertEquals(List.of("Ann"), hostWorld.settleBuilt.stream().map(FactionPick::name).toList(), "built around the host alone");
+        assertEquals(List.of("Ann"), hostWorld.settleBuilt.stream().map(FactionPick::name).toList(), "built once, for the host's faction");
+        assertFalse(hostWorld.settleBuilt.get(0).hasLocation(), "with no host spot: the engine places a stand-in");
         assertEquals(3, hostWorld.settleRoom, "with room for every player");
         assertTrue(hostWorld.built.isEmpty(), "no classic build");
         assertArrayEquals(settle, settleWorld(bob));
         assertArrayEquals(settle, settleWorld(cid));
         assertTrue(bob.factions().settling() && !bob.factions().ready(), "Bob settles now, not ready");
         until("Bob's Ready gone on every PC", () -> !cid.factions().table().get(1).ready() && !host.factions().table().get(1).ready());
-        assertTrue(host.factions().table().get(0).ready(), "the host's capital is placed: it stays ready");
-        assertFalse(bob.factions().canReady(), "settling, Ready needs a spot");
+        assertFalse(host.factions().table().get(0).ready() || host.factions().ready(), "the host settles too: their Ready goes");
+        assertFalse(host.factions().canReady() || bob.factions().canReady(), "settling, Ready needs a spot");
 
+        host.pick(pick("Ann", 10, 10));
+        until("the host's spot on every PC", () -> bob.factions().table().get(0).pick().hasLocation());
         bob.pick(pick("Bob", 99, 40));
         until("a spot on a road cleared", () -> "on a road".equals(bob.factions().table().get(1).refused()));
         bob.pick(pick("Bob", 12, 10));
@@ -466,6 +471,9 @@ class LoopbackSetupTest {
         until("both spots held", () -> bob.factions().canReady() && cid.factions().canReady());
         bob.ready(true);
         cid.ready(true);
+        until("the others ready on the host", () -> host.factions().table().get(1).ready() && host.factions().table().get(2).ready());
+        assertFalse(host.factions().canInitialize(), "the host isn't ready yet");
+        host.ready(true);
         until("everyone settled", host.factions()::canInitialize);
 
         host.initialize();
