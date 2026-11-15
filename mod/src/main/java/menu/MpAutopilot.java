@@ -1334,7 +1334,8 @@ public final class MpAutopilot {
 
 	/**
 	 * Hot-join (SOS-190), on the joining PC's snapshot: the nearest spot 7 tiles or more from the host's capital that the
-	 * carving rule takes, then Ready, once; with a GUI preview, a shot of the screen three seconds after the spot is picked.
+	 * carving rule takes (or {@code capital=X:Y} when the rule takes it, SOS-216), then Ready, once; with a GUI preview, a
+	 * shot of the screen three seconds after the spot is picked.
 	 */
 	void joinSettle(int hostX, int hostY, boolean placed, java.util.function.BiFunction<Integer, Integer, String> problem,
 			IntBinaryOperator placeAt, Runnable ready) {
@@ -1346,6 +1347,15 @@ public final class MpAutopilot {
 		}))
 			return;
 		if (!placed && due() && first("joinplace")) {
+			if (capitalX >= 0) {
+				String why = problem.apply(capitalX, capitalY);
+				if (why == null) {
+					placeAt.applyAsInt(capitalX, capitalY);
+					event("joinsettled", "\"x\":" + capitalX + ",\"y\":" + capitalY);
+					return;
+				}
+				event("capitalrefused", "\"x\":" + capitalX + ",\"y\":" + capitalY + ",\"reason\":\"" + clean(why) + "\"");
+			}
 			for (int r = 7; r < WORLD.TWIDTH(); r++) {
 				int found = spiral(hostX, hostY, r, (x, y) -> problem.apply(x, y) == null ? 1 : 0);
 				if (found >= 0) {

@@ -304,6 +304,8 @@ def main():
                     help="with --here: the host, the joiner and (3 players) the local game resume a copy of this real"
                          " campaign's save NUMBER, each as its player (its record and save from this PC's data folder or"
                          " the host's reports of the joining players' files)")
+    ap.add_argument("--late-capital", default="", metavar="X:Y",
+                    help="with --hot-join: the late game picks this world tile when the carving rule takes it (SOS-216)")
     ap.add_argument("--join-answer", choices=("accept", "refuse"), default="accept",
                     help="with --hot-join: the host's answer to the late game")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the runner gives up")
@@ -435,8 +437,9 @@ def main():
     elif not args.no_joiner:
         start_remote(rdir, joiner)
         log("joiner started on the second PC")
-    late = "role=join,name=Late,address=127.0.0.1,crash=-1,%s%s" % (
-        common, ",guipreview=%d" % args.gui_preview if args.gui_preview >= 0 else "")
+    late = "role=join,name=Late,address=127.0.0.1,crash=-1,%s%s%s" % (
+        common, ",guipreview=%d" % args.gui_preview if args.gui_preview >= 0 else "",
+        ",capital=" + args.late_capital if args.late_capital else "")
     late_started = False
     if args.local_joiner and not (args.resume and args.rejoin >= 0):  # a frozen local game comes back later instead
         time.sleep(20)  # the host's lobby is open before the second game here starts looking for it
