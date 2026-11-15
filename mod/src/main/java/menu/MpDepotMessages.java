@@ -4,7 +4,6 @@ import game.faction.FACTIONS;
 import game.faction.Faction;
 import game.faction.diplomacy.DIP;
 import init.trade.TRADABLE;
-import settlement.main.SETT;
 import settlement.trade.PBuyer;
 import settlement.trade.PSeller;
 import snake2d.util.gui.GUI_BOX;
@@ -32,7 +31,7 @@ public final class MpDepotMessages {
 	public static CharSequence importProblem(TRADABLE t) {
 		PBuyer b = FACTIONS.player().buyer(t);
 		CharSequence p = b.problem();
-		switch (DepotMessages.importProblem(p != null, SETT.ENTRY().isClosed(), partners(), cheapestPlayer(t))) {
+		switch (DepotMessages.importProblem(npcProblem(p), partners(), cheapestPlayer(t))) {
 		case DepotMessages.NONE:
 			return null;
 		case DepotMessages.NO_TRADERS:
@@ -45,8 +44,14 @@ public final class MpDepotMessages {
 	/** The Import depot's warning (yellow) for {@code t}, or null; read when {@link #importProblem} is null. */
 	public static CharSequence importWarning(TRADABLE t) {
 		PBuyer b = FACTIONS.player().buyer(t);
+		CharSequence w = b.warning();
+		int npc = FACTIONS.player().trade.pricesBuy.get(t);
+		boolean npcWarning = DepotTexts.is(w, DepotTexts.credits()) || DepotTexts.is(w, DepotTexts.importPriceCap())
+				|| DepotTexts.is(w, DepotTexts.treasury()) || w == null && (npc <= 0 || npc == Integer.MAX_VALUE);
+		if (!npcWarning)
+			return w; // the depot's own: none set to the goods, full, its level at nothing
 		int player = partners() ? cheapestPlayer(t) : 0;
-		switch (DepotMessages.importWarning(FACTIONS.player().trade.pricesBuy.get(t), player,
+		switch (DepotMessages.importWarning(npc, player,
 				FACTIONS.player().credits().getD(), b.priceCapsI.get(), b.minMoney.get())) {
 		case DepotMessages.NONE:
 			return null;
@@ -57,14 +62,15 @@ public final class MpDepotMessages {
 		case DepotMessages.TREASURY:
 			return DepotTexts.treasury();
 		default:
-			return b.warning();
+			return w;
 		}
 	}
 
 	/** The Export depot's problem (red) for {@code t}, or null. */
 	public static CharSequence exportProblem(TRADABLE t) {
 		CharSequence p = FACTIONS.player().seller(t).problem();
-		switch (DepotMessages.exportProblem(p != null, partners(), playerTakes(t))) {
+		boolean npcProblem = npcProblem(p) || DepotTexts.is(p, DepotTexts.noBuyer());
+		switch (DepotMessages.exportProblem(npcProblem, partners(), playerTakes(t))) {
 		case DepotMessages.NONE:
 			return null;
 		case DepotMessages.NO_BUYER:
@@ -78,9 +84,11 @@ public final class MpDepotMessages {
 	public static CharSequence exportWarning(TRADABLE t) {
 		PSeller s = FACTIONS.player().seller(t);
 		CharSequence w = s.warning();
-		if (s.playerOwned() <= 0 || !partners())
-			return w; // vanilla's "no goods" comes first
-		switch (DepotMessages.exportWarning(FACTIONS.player().trade.pricesSell.get(t), playerTakes(t), playerBuys(t),
+		int npc = FACTIONS.player().trade.pricesSell.get(t);
+		boolean npcWarning = DepotTexts.is(w, DepotTexts.exportPriceCap()) || w == null && npc <= 0;
+		if (!npcWarning || !partners())
+			return w; // the depot's own: no goods, full
+		switch (DepotMessages.exportWarning(npc, playerTakes(t), playerBuys(t),
 				s.priceCapsI.get())) {
 		case DepotMessages.NONE:
 			return null;
@@ -149,6 +157,11 @@ public final class MpDepotMessages {
 		g.tab(6);
 		g.add(GFORMAT.i(g.text(), value));
 		g.NL();
+	}
+
+	/** True for a problem the NPCs alone pose: no NPC neighbour or no NPC trade agreement or no NPC trader of the goods. */
+	private static boolean npcProblem(CharSequence p) {
+		return DepotTexts.is(p, Dic.¤¤noTrade) || DepotTexts.is(p, Dic.¤¤noTradePartners);
 	}
 
 	/** True when this player trades with another: a trade agreement and trade reach, as the market needs. */

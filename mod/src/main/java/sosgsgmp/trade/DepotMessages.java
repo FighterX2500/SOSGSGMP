@@ -31,12 +31,13 @@ public final class DepotMessages {
     }
 
     /**
-     * The Import depot's problem (red). {@code vanillaProblem}: vanilla found one; {@code closed}: the city's gate is
-     * shut, which stops a player's goods too. {@code partners}: a player trades with this one (an agreement and trade
-     * reach); {@code playerPrice}: the cheapest such player's price for one item, toll included, 0 when none sells.
+     * The Import depot's problem (red). {@code npcProblem}: vanilla's is one the NPCs alone pose (no trade, no trade
+     * partners); any other, a missing depot or a shut gate, stands. {@code partners}: a player trades with this one (an
+     * agreement and trade reach); {@code playerPrice}: the cheapest such player's price for one item, toll included, 0
+     * when none sells.
      */
-    public static int importProblem(boolean vanillaProblem, boolean closed, boolean partners, int playerPrice) {
-        if (!vanillaProblem || closed || !partners) {
+    public static int importProblem(boolean npcProblem, boolean partners, int playerPrice) {
+        if (!npcProblem || !partners) {
             return VANILLA;
         }
         return playerPrice > 0 ? NONE : NO_TRADERS;
@@ -80,11 +81,12 @@ public final class DepotMessages {
     }
 
     /**
-     * The Export depot's problem (red). {@code takes}: a player this one trades with has an Import depot for the goods,
+     * The Export depot's problem (red). {@code npcProblem}: vanilla's is one the NPCs alone pose (no trade, no trade
+     * partners, no one willing to buy). {@code takes}: a player this one trades with has an Import depot for the goods,
      * so it would buy at some price.
      */
-    public static int exportProblem(boolean vanillaProblem, boolean partners, boolean takes) {
-        if (!vanillaProblem || !partners) {
+    public static int exportProblem(boolean npcProblem, boolean partners, boolean takes) {
+        if (!npcProblem || !partners) {
             return VANILLA;
         }
         return takes ? NONE : NO_BUYER;

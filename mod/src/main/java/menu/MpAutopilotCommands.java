@@ -812,6 +812,8 @@ final class MpAutopilotCommands {
 		String fallback = null;
 		for (int i = 0; i < TR.ALL().size(); i++) {
 			TRADABLE t = TR.ALL().get(i);
+			if (importing ? !t.pb().importing() : t.ps().exporting() != null)
+				continue; // this city's depot isn't set to the goods: vanilla's own message stands
 			LIST<Faction> all = FACTIONS.active();
 			for (int k = 0; k < all.size(); k++) {
 				Faction f = all.get(k);

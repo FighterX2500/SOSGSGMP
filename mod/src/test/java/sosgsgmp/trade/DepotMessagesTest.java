@@ -9,7 +9,7 @@ class DepotMessagesTest {
 
     @Test
     void withoutPlayerPartnersVanillasMessagesStand() {
-        assertEquals(DepotMessages.VANILLA, DepotMessages.importProblem(true, false, false, 0));
+        assertEquals(DepotMessages.VANILLA, DepotMessages.importProblem(true, false, 0));
         assertEquals(DepotMessages.VANILLA, DepotMessages.importWarning(500, 0, 10_000, 411, 1));
         assertEquals(DepotMessages.VANILLA, DepotMessages.exportProblem(true, false, false));
         assertEquals(DepotMessages.VANILLA, DepotMessages.exportWarning(100, false, false, 200));
@@ -17,11 +17,11 @@ class DepotMessagesTest {
 
     @Test
     void aPlayerSellingClearsTheImportProblemThatNpcsAlonePose() {
-        assertEquals(DepotMessages.NONE, DepotMessages.importProblem(true, false, true, 16), "no NPC partner, a player sells");
-        assertEquals(DepotMessages.NO_TRADERS, DepotMessages.importProblem(true, false, true, 0),
+        assertEquals(DepotMessages.NONE, DepotMessages.importProblem(true, true, 16), "no NPC partner, a player sells");
+        assertEquals(DepotMessages.NO_TRADERS, DepotMessages.importProblem(true, true, 0),
                 "a player partner who doesn't sell it: no traders of the goods, not 'no trade agreements'");
-        assertEquals(DepotMessages.VANILLA, DepotMessages.importProblem(true, true, true, 16), "a shut gate stops a player's goods too");
-        assertEquals(DepotMessages.VANILLA, DepotMessages.importProblem(false, false, true, 16), "no problem stays none");
+        assertEquals(DepotMessages.VANILLA, DepotMessages.importProblem(false, true, 16),
+                "vanilla's own problems, a missing Import depot or a shut gate, stand (twopc M209: no depot for stone)");
     }
 
     /** The screenshot: NPCs cheapest at 453, the cap 411, another player at 16. */

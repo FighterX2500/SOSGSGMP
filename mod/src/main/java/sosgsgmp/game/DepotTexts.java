@@ -46,6 +46,25 @@ public final class DepotTexts {
         return Texts.BEST_PRICE;
     }
 
+    /**
+     * True when {@code message} says {@code text}: vanilla returns some of its texts as copies ({@code Str.TMP}), so
+     * the characters are compared. No allocation.
+     */
+    public static boolean is(CharSequence message, CharSequence text) {
+        if (message == text) {
+            return true;
+        }
+        if (message == null || text == null || message.length() != text.length()) {
+            return false;
+        }
+        for (int i = 0; i < text.length(); i++) {
+            if (message.charAt(i) != text.charAt(i)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /** Read on first use, once: a holder class, so nothing reads before the game's own classes have loaded. */
     private static final class Texts {
         static final CharSequence CREDITS = read(PBuyer.class, "¤¤probCredits");
