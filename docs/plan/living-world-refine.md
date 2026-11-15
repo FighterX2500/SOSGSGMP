@@ -88,3 +88,4 @@ spot is drawn the same way, with their name over it.
 | LW6 | `twopc --here --living --gui-preview 0`, 900 steps | PASS: both settle (host 222,228; joiner 215,221), capitals at the spots, hashes equal |
 | CS3 | `rig.py city --humans 3 --new-world 12345 --carve-setup`, 3 copies, 1,500 steps | PASS: host carved first, the stand-in (region 0) to NPC 31, round trip keeps the humans, copies identical |
 | HJ10 | `twopc --here --living --hot-join 20 --gui-preview 0`, 6,000 steps | PASS: the late game picks on the same screen (hover window, notices, frames, names), every game restarts with it, hashes equal after the restart |
+| CL1 | `twopc --here --gui-preview 0` (classic setup), 600 steps | PASS: the classic location screen and its notice unchanged (shared MpSpotNotice) |
