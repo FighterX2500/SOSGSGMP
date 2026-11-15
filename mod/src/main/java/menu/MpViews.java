@@ -321,7 +321,8 @@ final class MpViews {
 		if (engine.viewDesync()) {
 			if (!desyncLogged) {
 				desyncLogged = true;
-				log.line("viewdesync: this copy of " + name(v.owner) + "'s city differs from theirs at step " + engine.step());
+				log.line("viewdesync: this copy of " + name(v.owner) + "'s city differs from theirs at step " + engine.step()
+						+ " (" + engine.viewDesyncParts() + ")");
 			}
 			close(View.DESYNC);
 			return;

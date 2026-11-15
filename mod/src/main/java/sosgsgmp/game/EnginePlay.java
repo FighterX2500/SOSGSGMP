@@ -596,6 +596,12 @@ public final class EnginePlay implements EnginePort {
         return Engine.viewDesync() != null;
     }
 
+    /** The viewer's PC, after {@link #viewDesync}: the first step that differs, its sections and divisions, for the log. */
+    public String viewDesyncParts() {
+        sosdet.hash.Desync d = Engine.viewDesync();
+        return d == null ? "none" : d.toString();
+    }
+
     /** The viewer's PC: the limit it hit ({@code View.NOT_CAUGHT_UP}, {@code View.FELL_BEHIND}), or {@code View.OPEN}. */
     public int viewLimit() {
         return Engine.viewLimit();
