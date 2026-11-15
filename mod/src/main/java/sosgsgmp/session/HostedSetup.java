@@ -35,9 +35,9 @@ public final class HostedSetup implements SetupSession {
     private final String difficulty;
     /** The lobby's switch for the playtest log (SOS-81). */
     private final boolean fullTransferLog;
-    /** The lobby's world: a living world, where the other players settle on the host's built world (SOS-187). */
+    /** The lobby's world: a living world, where every player settles on the built world (SOS-187, SOS-214). */
     private final boolean livingWorld;
-    /** A living world built around the host, until this PC takes it to load and settle on; null otherwise. */
+    /** A living world built to settle on, until this PC takes it to load; null otherwise. */
     private byte[] settleWorld;
     /** Connected peers in the setup, to their player ids. */
     private final Map<Integer, Integer> joined;
@@ -1215,7 +1215,7 @@ public final class HostedSetup implements SetupSession {
         int key = ++loadingKey;
         if (factions.canBuildForSettling()) {
             announceLoading(Loading.Kind.WORLD_INITIALIZATION, key,
-                    "Building the world around the host. Every PC loads it, and the other players pick their spot on it.", true);
+                    "Building the world. Every PC loads it, and every player picks their spot on it.", true);
             afterLoadingShows(() -> buildForSettlingNow(key));
             return;
         }
@@ -1224,9 +1224,9 @@ public final class HostedSetup implements SetupSession {
     }
 
     /**
-     * A living world's first Initialize (SOS-187), once the loading window shows: the world is built around the host
-     * alone, the others' Ready goes, and every PC gets the save to settle on, this one too. The window closes once it is
-     * sent: each PC's load shows the game's own loading screen.
+     * A living world's first Initialize (SOS-187), once the loading window shows: the world is built around a stand-in
+     * capital for the host (SOS-214), every Ready goes, and every PC gets the save to settle on, this one too. The window
+     * closes once it is sent: each PC's load shows the game's own loading screen.
      */
     private void buildForSettlingNow(int key) {
         if (factions == null || !factions.canBuildForSettling()) { // a player left meanwhile: the host presses again
