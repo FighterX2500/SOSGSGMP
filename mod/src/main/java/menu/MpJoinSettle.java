@@ -6,20 +6,15 @@ import game.GAME;
 import game.faction.FACTIONS;
 import game.faction.FactionProfileFlusher;
 import game.faction.player.Player;
+import init.race.Race;
 import game.save.GameLoader;
-import init.constant.C;
-import init.sprite.SPRITES;
 import init.sprite.UI.UI;
 import snake2d.CORE;
 import snake2d.CORE_STATE;
 import snake2d.LOG;
 import snake2d.SPRITE_RENDERER;
-import snake2d.util.color.COLOR;
-import snake2d.util.datatypes.DIR;
 import snake2d.util.gui.GuiSection;
-import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
-import snake2d.util.sets.LIST;
 import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.net.Message;
@@ -29,11 +24,10 @@ import util.colors.GCOLOR;
 import util.gui.misc.GButt;
 import util.gui.misc.GHeader;
 import util.gui.misc.GText;
-import view.tool.PLACABLE;
-import view.tool.PlacableFixedImp;
 import view.world.generator.MpJoinScreens;
+import view.main.VIEW;
+import view.world.generator.MpSpotPlacer;
 import world.WORLD;
-import world.map.regions.centre.WCentre;
 
 /**
  * SOSGSGMP hot-join (SOS-190, docs/plan/hot-join-restart.md): a PC that joins a running game picks its race, faction
@@ -90,7 +84,6 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 
 		private static final int WIDTH = 420;
 		private static final int STATUS_LINES = 6;
-		private static final int HALF = WCentre.TILE_DIM / 2;
 		private static final CharSequence TITLE = "Place your city-state";
 		private static final String PLACE = "Pick your race and customize your faction, then pick where your city-state goes:"
 				+ " 6 tiles or more from every town and every player's capital. Ready sends it to the host. Everyone plays on"
@@ -208,7 +201,7 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 		}
 
 		@Override
-		public PLACABLE placer() {
+		public MpSpotPlacer placer() {
 			return placer;
 		}
 
@@ -306,7 +299,7 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 				if (restarted.closed())
 					throw new IllegalStateException("SOSGSGMP: the connection ended during the restart: " + restarted.closedReason());
 			}
-			if (autopilot != null && restarted == null && atLocation)
+			if (autopilot != null && restarted == null && atLocation) {
 				autopilot.joinSettle(hostX, hostY, ownX != FactionPick.NONE, game::joinProblem, (x, y) -> {
 					placeAt(x, y);
 					return ownX;
@@ -314,94 +307,74 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 					if (!locked() && named())
 						sendReady();
 				});
+				if (autopilot.spotHover() && ownX != FactionPick.NONE) // a GUI preview's shot of the hover window
+					placer.placeInfo(VIEW.hoverBox(), ownX - 1, ownY - 1);
+			}
 		}
 
-		/** The city-state placer: a 3x3 square whose centre is the spot, checked by the carving rule on the snapshot. */
-		private final class Placer extends PlacableFixedImp {
-
-			private int checkedX = -1;
-			private int checkedY = -1;
-			private CharSequence problem;
+		/**
+		 * The city-state placer: a 3x3 square whose centre is the spot, checked by the carving rule on the snapshot; every
+		 * human's capital marked and named, and the picked spot fixed there (SOS-198, SOS-212).
+		 */
+		private final class Placer extends MpSpotPlacer {
 
 			Placer() {
-				super(TITLE, 1, 1);
+				super(TITLE, false);
 			}
 
 			@Override
-			public int width() {
-				return WCentre.TILE_DIM;
+			protected CharSequence locked() {
+				return Join.this.locked() ? "Your spot went to the host." : null;
 			}
 
 			@Override
-			public int height() {
-				return WCentre.TILE_DIM;
+			protected CharSequence problem(int cx, int cy) {
+				return game.joinProblem(cx, cy);
 			}
 
 			@Override
-			public void place(int tx, int ty, int rx, int ry) {
-				// Nothing on the map: the spot goes to the host with Ready.
+			protected void picked(int cx, int cy) {
+				placeAt(cx, cy);
 			}
 
 			@Override
-			public void afterPlaced(int tx1, int ty1) {
-				placeAt(tx1 + HALF, ty1 + HALF);
+			protected Race race() {
+				return FACTIONS.player().race(); // this PC's own, as the race screen set it
 			}
 
 			@Override
-			public CharSequence placableWhole(int tx1, int ty1) {
-				if (locked())
-					return "Your spot went to the host.";
-				int cx = tx1 + HALF;
-				int cy = ty1 + HALF;
-				if (cx != checkedX || cy != checkedY) {
-					checkedX = cx;
-					checkedY = cy;
-					problem = game.joinProblem(cx, cy);
-				}
-				return problem;
+			protected int ownX() {
+				return ownX;
 			}
 
 			@Override
-			public CharSequence placable(int tx, int ty, int rx, int ry) {
-				return null;
+			protected int ownY() {
+				return ownY;
 			}
 
 			@Override
-			public LIST<CLICKABLE> getAdditionalButt() {
-				return null;
+			public int noticeKey() {
+				return 0; // the snapshot's capitals and rule don't change
 			}
 
 			@Override
-			public void renderPlaceHolder(SPRITE_RENDERER r, int mask, int x, int y, int tx, int ty, int rx, int ry, boolean isPlacable, boolean areaIsPlacable) {
-				super.renderPlaceHolder(r, mask, x, y, tx, ty, rx, ry, isPlacable, areaIsPlacable);
-				if (rx != 0 || ry != 0)
-					return;
-				for (int i = 0; i < caps; i++) {
-					int sx = square(x, tx, capX[i]);
-					int sy = square(y, ty, capY[i]);
-					mark(r, GCOLOR.MAP().BAD, sx, sy);
-					capNames[i].render(r, sx, sy - capNames[i].height());
-				}
-				if (ownX != FactionPick.NONE) // the picked spot as the placer draws a spot, fixed there (SOS-198)
-					mark(r, GCOLOR.MAP().SOSO, square(x, tx, ownX), square(y, ty, ownY));
+			public int others() {
+				return caps;
 			}
 
-			private int square(int at, int t, int c) {
-				return at + (c - HALF - t) * C.TILE_SIZE;
+			@Override
+			public int otherX(int i) {
+				return capX[i];
 			}
 
-			/** A capital's square in vanilla's placer tiles, edges masked as PlacableFixedTool masks them. */
-			private void mark(SPRITE_RENDERER r, COLOR color, int x1, int y1) {
-				int n = WCentre.TILE_DIM;
-				color.bind();
-				for (int dy = 0; dy < n; dy++) {
-					for (int dx = 0; dx < n; dx++) {
-						int m = (dx == 0 ? DIR.W.mask() : 0) | (dx == n - 1 ? DIR.E.mask() : 0)
-								| (dy == 0 ? DIR.N.mask() : 0) | (dy == n - 1 ? DIR.S.mask() : 0);
-						SPRITES.cons().BIG.solid.render(r, ~m & 0x0F, x1 + dx * C.TILE_SIZE, y1 + dy * C.TILE_SIZE);
-					}
-				}
-				COLOR.unbind();
+			@Override
+			public int otherY(int i) {
+				return capY[i];
+			}
+
+			@Override
+			public GText otherName(int i) {
+				return capNames[i];
 			}
 		}
 	}

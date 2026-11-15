@@ -693,12 +693,26 @@ public final class MpAutopilot {
 		if (setup.closed() || setup.factions().initialized() || stageChat("settling", setup::say))
 			return;
 		FactionStep f = setup.factions();
-		if (!host && !placed && due()) {
-			FactionPick at = f.table().isEmpty() ? null : f.table().get(0).pick();
-			if (at == null || !at.hasLocation())
-				return;
+		spotHover = false;
+		if (!placed && due()) {
+			// the host nearest its stand-in capital (SOS-214), each other player nearest the host's spot, 7 tiles out
+			int fromX;
+			int fromY;
+			if (host) {
+				world.map.regions.Region standIn = FACTIONS.getByIndex(0).capitolRegion();
+				if (standIn == null)
+					return;
+				fromX = standIn.cx();
+				fromY = standIn.cy();
+			} else {
+				FactionPick at = f.table().isEmpty() ? null : f.table().get(0).pick();
+				if (at == null || !at.hasLocation())
+					return;
+				fromX = at.x();
+				fromY = at.y();
+			}
 			for (int r = 7; r < WORLD.TWIDTH(); r++) {
-				int found = spiral(at.x(), at.y(), r, (x, y) -> setup.locationProblem(x, y) == null ? 1 : 0);
+				int found = spiral(fromX, fromY, r, (x, y) -> setup.locationProblem(x, y) == null ? 1 : 0);
 				if (found >= 0) {
 					int x = found >> 16, y = found & 0xFFFF;
 					placeAt.applyAsInt(x, y);
@@ -707,6 +721,8 @@ public final class MpAutopilot {
 				}
 			}
 		}
+		if (placed && previewSpot("settleshot", "settle"))
+			return;
 		if (f.canReady() && !f.ready() && placed && !stageChat("settled", setup::say)) {
 			event("ready", "\"settling\":true");
 			setup.ready(true);
@@ -1329,8 +1345,30 @@ public final class MpAutopilot {
 		}
 	}
 
-	/** Hot-join with a GUI preview: when this PC picked its spot, for the shot (SOS-198). */
-	private long joinPlacedAt;
+	/** With a GUI preview: when this PC picked its spot, for the shot of the pick screen (SOS-198, SOS-213). */
+	private long spotPlacedAt;
+	/** The pick screen's shot waits: the spot's hover window shows meanwhile (SOS-213). */
+	private boolean spotHover;
+
+	/**
+	 * With a GUI preview, once this PC picked its spot: three seconds with the spot's hover window shown, then a shot named
+	 * {@code shot}, once ({@code key}). True while it waits.
+	 */
+	private boolean previewSpot(String key, String shot) {
+		if (guiPreview < 0 || once.containsKey(key))
+			return false;
+		if (spotPlacedAt == 0)
+			spotPlacedAt = System.nanoTime();
+		spotHover = true;
+		if (System.nanoTime() - spotPlacedAt >= 3_000_000_000L && first(key))
+			guiShot(shot);
+		return true;
+	}
+
+	/** With a GUI preview, while the pick screen's shot waits: the screen shows the picked spot's hover window. */
+	boolean spotHover() {
+		return spotHover;
+	}
 
 	/**
 	 * Hot-join (SOS-190), on the joining PC's snapshot: the nearest spot 7 tiles or more from the host's capital that the
@@ -1357,13 +1395,9 @@ public final class MpAutopilot {
 			}
 			event("joinsettled", "\"x\":-1");
 		}
-		if (placed && guiPreview >= 0 && !once.containsKey("joinshot")) { // the pick screen as a newcomer sees it (SOS-198)
-			if (joinPlacedAt == 0)
-				joinPlacedAt = System.nanoTime();
-			if (System.nanoTime() - joinPlacedAt >= 3_000_000_000L && first("joinshot"))
-				guiShot("joinsettle");
+		spotHover = false;
+		if (placed && previewSpot("joinshot", "joinsettle")) // the pick screen as a newcomer sees it (SOS-198)
 			return;
-		}
 		if (placed && first("joinready")) {
 			event("joinready", "");
 			ready.run();

@@ -83,8 +83,8 @@ public final class WorldSetupAdapter implements FactionWorld {
     }
 
     /**
-     * The engine builds the world around the host's capital alone, as {@link #buildWorld} does for every human, keeping
-     * NPC slots 1 to {@code humans - 1} free for the others (SOSDET SOS-187). Every PC loads this save to settle on.
+     * The engine builds the world around a stand-in capital for the host, which its generator places (SOSDET SOS-187,
+     * SOS-214), keeping NPC slots 1 to {@code humans - 1} free for the others. Every PC loads this save to settle on.
      */
     @Override
     public byte[] buildForSettling(FactionPick host, int humans) {
@@ -93,7 +93,7 @@ public final class WorldSetupAdapter implements FactionWorld {
         VIEW.ViewSubSimple generator = VIEW.current();
         Engine.buildWorldForCarving(starts(List.of(host))[0], humans);
         try {
-            return saveWorld("living, the host alone, room for " + humans + " humans");
+            return saveWorld("living, the host's stand-in, room for " + humans + " humans");
         } finally {
             generator.activate();
         }
@@ -111,6 +111,16 @@ public final class WorldSetupAdapter implements FactionWorld {
         LOG.ln("SOSGSGMP: the humans settled: " + carved);
         setModes(humans.size(), difficulty);
         return saveWorld("living, " + humans.size() + " humans settled");
+    }
+
+    /**
+     * The regions a city-state at {@code x, y} would get a road link to, by index (SOSDET Engine.carveLinks): the
+     * settling's notice and hover (SOS-213). Between steps, or on a world loaded to pick on.
+     */
+    public int[] carveLinks(int x, int y) {
+        if (x < 0 || y < 0 || x >= WORLD.TWIDTH() || y >= WORLD.THEIGHT())
+            return new int[0];
+        return Engine.carveLinks(x, y);
     }
 
     /** A living world's human in {@code slot}: its capital's centre, which its carve may have moved from the spot. */
