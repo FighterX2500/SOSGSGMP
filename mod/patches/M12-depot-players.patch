@@ -1,5 +1,5 @@
 diff --git a/view/ui/goods/UIGoodsExport.java b/view/ui/goods/UIGoodsExport.java
-index b8fc273..b8540fc 100644
+index b8fc273..e822a05 100644
 --- a/view/ui/goods/UIGoodsExport.java
 +++ b/view/ui/goods/UIGoodsExport.java
 @@ -61,13 +61,23 @@ public class UIGoodsExport extends GuiSection{
@@ -48,8 +48,48 @@ index b8fc273..b8540fc 100644
  			b.icon(UI.icons().s.wheel);
  			b.setDim(180);
  			s.addRightC(0, b);
+@@ -214,7 +224,7 @@ public class UIGoodsExport extends GuiSection{
+ 			
+ 			@Override
+ 			public void hoverInfoGet(GUI_BOX text) {
+-				FACTIONS.player().seller(res).hover(text);
++				menu.MpDepotMessages.exportHover(text, res); // SOSGSGMP hook M12 (docs/hooks.md): player traders count (SOS-210)
+ 			}
+ 			
+ 		};
+@@ -244,10 +254,10 @@ public class UIGoodsExport extends GuiSection{
+ 					COLOR.BLACK.render(r, body);
+ 					OPACITY.unbind();
+ 				}else {
+-					if (FACTIONS.player().seller(res).problem() != null) {
++					if (menu.MpDepotMessages.exportProblem(res) != null) { // SOSGSGMP hook M12 (docs/hooks.md): player traders count (SOS-210)
+ 						GCOLOR.UI().BAD.hovered.bind();
+ 						UI.icons().s.alert.renderC(r, body().x2()-8, body().y1());
+-					}else if (FACTIONS.player().seller(res).warning() != null) {
++					}else if (menu.MpDepotMessages.exportWarning(res) != null) { // SOSGSGMP hook M12 (docs/hooks.md): player traders count (SOS-210)
+ 						GCOLOR.UI().SOSO.hovered.bind();
+ 						UI.icons().s.alert.renderC(r, body().x2()-8, body().y1());
+ 					}
+@@ -469,7 +479,7 @@ public class UIGoodsExport extends GuiSection{
+ 				GCOLOR.UI().bg().render(r, body);
+ 				GCOLOR.UI().borderH(r, body, 0);
+ 				
+-				CharSequence p = FACTIONS.player().seller(res.get()).problem();
++				CharSequence p = menu.MpDepotMessages.exportProblem(res.get()); // SOSGSGMP hook M12 (docs/hooks.md): player traders count (SOS-210)
+ 				
+ 				if (p != null) {
+ 					GCOLOR.UI().BAD.hovered.bind();
+@@ -478,7 +488,7 @@ public class UIGoodsExport extends GuiSection{
+ 				}
+ 					
+ 				else {
+-					p = FACTIONS.player().seller(res.get()).warning();
++					p = menu.MpDepotMessages.exportWarning(res.get()); // SOSGSGMP hook M12 (docs/hooks.md): player traders count (SOS-210)
+ 					GCOLOR.UI().SOSO.hovered.bind();
+ 					if (p != null)
+ 						UI.FONT().S.render(r, p, body().x1()+8, body().y1()+8, body().width()-16, 1.0);
 diff --git a/view/ui/goods/UIGoodsImport.java b/view/ui/goods/UIGoodsImport.java
-index 2e0d1c3..9df266b 100644
+index 2e0d1c3..6eb1734 100644
 --- a/view/ui/goods/UIGoodsImport.java
 +++ b/view/ui/goods/UIGoodsImport.java
 @@ -79,13 +79,23 @@ public class UIGoodsImport extends GuiSection{
@@ -98,6 +138,46 @@ index 2e0d1c3..9df266b 100644
  			b.icon(UI.icons().s.wheel);
  			b.setDim(180);
  			s.addRightC(0, b);
+@@ -525,7 +535,7 @@ public class UIGoodsImport extends GuiSection{
+ 				GCOLOR.UI().bg().render(r, body);
+ 				GCOLOR.UI().borderH(r, body, 0);
+ 				
+-				CharSequence p = FACTIONS.player().buyer(res.get()).problem();
++				CharSequence p = menu.MpDepotMessages.importProblem(res.get()); // SOSGSGMP hook M12 (docs/hooks.md): player traders count (SOS-210)
+ 				
+ 				if (p != null) {
+ 					GCOLOR.UI().BAD.hovered.bind();
+@@ -534,7 +544,7 @@ public class UIGoodsImport extends GuiSection{
+ 				}
+ 					
+ 				else {
+-					p = FACTIONS.player().buyer(res.get()).warning();
++					p = menu.MpDepotMessages.importWarning(res.get()); // SOSGSGMP hook M12 (docs/hooks.md): player traders count (SOS-210)
+ 					GCOLOR.UI().SOSO.hovered.bind();
+ 					if (p != null)
+ 						UI.FONT().S.render(r, p, body().x1()+8, body().y1()+8, body().width()-16, 1.0);
+@@ -567,7 +577,7 @@ public class UIGoodsImport extends GuiSection{
+ 			@Override
+ 			public void hoverInfoGet(GUI_BOX text) {
+ 				
+-				FACTIONS.player().buyer(res).hover(text);
++				menu.MpDepotMessages.importHover(text, res); // SOSGSGMP hook M12 (docs/hooks.md): player traders count (SOS-210)
+ 				text.title(¤¤name);
+ 			}
+ 		};
+@@ -613,10 +623,10 @@ public class UIGoodsImport extends GuiSection{
+ 			@Override
+ 			public void render(SPRITE_RENDERER r, float ds) {
+ 				if (FACTIONS.player().buyer(res).importing()) {
+-					if (FACTIONS.player().buyer(res).problem() != null) {
++					if (menu.MpDepotMessages.importProblem(res) != null) { // SOSGSGMP hook M12 (docs/hooks.md): player traders count (SOS-210)
+ 						GCOLOR.UI().BAD.hovered.bind();
+ 						UI.icons().s.alert.renderC(r, body().x2()-8, body().y1());
+-					}else if (FACTIONS.player().buyer(res).warning() != null) {
++					}else if (menu.MpDepotMessages.importWarning(res) != null) { // SOSGSGMP hook M12 (docs/hooks.md): player traders count (SOS-210)
+ 						GCOLOR.UI().SOSO.hovered.bind();
+ 						UI.icons().s.alert.renderC(r, body().x2()-8, body().y1());
+ 					}
 diff --git a/view/ui/goods/UIGoodsTraders.java b/view/ui/goods/UIGoodsTraders.java
 index 0809f45..0b5d87e 100644
 --- a/view/ui/goods/UIGoodsTraders.java
