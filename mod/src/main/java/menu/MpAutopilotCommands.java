@@ -307,6 +307,11 @@ final class MpAutopilotCommands {
 				VIEW.s().activate();
 				return "city view";
 			}
+			if (a[1].equals("citymap")) { // the city's map with its division cards, for a shot (SOS-211)
+				VIEW.s().activate();
+				VIEW.s().mini.open();
+				return "city map";
+			}
 			if (a[1].equals("region") && a.length > 2) { // a region's panel, as clicking it on the map (SOS-162)
 				Region r = WORLD.REGIONS().getByIndex(Integer.parseInt(a[2]));
 				VIEW.world().activate();
