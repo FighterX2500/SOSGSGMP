@@ -167,6 +167,8 @@ public final class MpAutopilot {
 	/** When this PC left frozen; when the next chat shot is due (0: none). */
 	private long frozeAt;
 	private long chatShotAt;
+	/** With a GUI preview: when the window this PC's session ended with, Exit's question and the desync window showed. */
+	private long endAt, quitPromptAt, desyncSeenAt;
 	private static final long CHOOSE_AFTER_NANOS = 3_000_000_000L;
 	/** The players this PC saw lost and not back yet (SOS-177). */
 	private final java.util.Set<Integer> lostSeen = new java.util.HashSet<>();
@@ -754,11 +756,54 @@ public final class MpAutopilot {
 
 	/** Another PC's game data ended the session here (SOS-159): the window's text, then quit. */
 	void mismatch(String text) {
-		if (!first("mismatch"))
+		if (first("mismatch")) {
+			first("closed"); // the session closed for this, not for a reason of its own
+			event("mismatch", "\"text\":\"" + clean(text) + "\"");
+		} else if (guiPreview < 0) {
 			return;
-		first("closed"); // the session closed for this, not for a reason of its own
-		event("mismatch", "\"text\":\"" + clean(text) + "\"");
-		CORE.annihilate();
+		}
+		if (!endPreview("mismatch"))
+			CORE.annihilate();
+	}
+
+	/**
+	 * With a GUI preview, the window this PC's session ended with (MpExit's, MpGone's, MpClosed's, MpMismatch's) stays
+	 * three seconds, with a shot at two. True meanwhile; without a preview, false at once.
+	 */
+	private boolean endPreview(String what) {
+		if (guiPreview < 0)
+			return false;
+		long now = System.nanoTime();
+		if (first("endpreview"))
+			endAt = now;
+		if (now - endAt >= 2_000_000_000L && first("endshot"))
+			guiShot(what);
+		return now - endAt < 3_000_000_000L;
+	}
+
+	/**
+	 * With a GUI preview, Exit's question as a player meets it: the escape menu's Exit, shown three seconds with a shot.
+	 * True meanwhile; the autopilot then confirms, as before.
+	 */
+	private boolean quitPreview(MpExit exit) {
+		if (guiPreview < 0)
+			return false;
+		long now = System.nanoTime();
+		if (first("quitprompt")) {
+			exit.quit(true);
+			quitPromptAt = now;
+		}
+		if (now - quitPromptAt >= 2_000_000_000L && first("quitshot"))
+			guiShot("quitprompt");
+		if (now - quitPromptAt < 3_000_000_000L)
+			return true;
+		if (first("quitpromptdone")) { // nobody clicks here: the question goes, as a click would take it
+			if (VIEW.inters().yesNo.isActivated())
+				VIEW.inters().yesNo.deactivate();
+			if (VIEW.inters().fullScreen.isActivated())
+				VIEW.inters().fullScreen.deactivate();
+		}
+		return false;
 	}
 
 	/**
@@ -806,6 +851,9 @@ public final class MpAutopilot {
 	void game(SetupSession setup, EnginePlay engine, MpDesync desync, MpSaves saves, MpGone gone, MpExit exit, MpViews views,
 			MpLoading loading) {
 		loadingShot(setup, engine, engine.active() ? engine.step() : -1, loading);
+		if ((exit.outcome() != null || setup.closed() && saves.frozeHere() == null)
+				&& endPreview(exit.outcome() != null ? "exit" : "closed"))
+			return;
 		if (exit.outcome() != null && first("exit")) {
 			// the engine has ended: a desync's Save and exit, or a player's quit (SOS-79)
 			if (saves.exitedQuitter() == SaveOrder.NO_QUITTER)
@@ -867,7 +915,7 @@ public final class MpAutopilot {
 			exit.freezeConfirmed(); // the escape menu's Leave and freeze, confirmed
 			event("freeze", "\"step\":" + engine.step());
 		}
-		if (quit >= 0 && engine.step() >= quit && first("quit")) {
+		if (quit >= 0 && engine.step() >= quit && !quitPreview(exit) && first("quit")) {
 			exit.quitConfirmed(true); // the escape menu's Exit, confirmed
 			event("quit", "\"step\":" + engine.step());
 		}
@@ -944,8 +992,15 @@ public final class MpAutopilot {
 		DesyncHold hold = desync.shown();
 		if (hold != null && hold != seenHold) {
 			seenHold = hold;
+			desyncSeenAt = now;
 			event("desynchold", "\"desyncStep\":" + hold.desyncStep + ",\"pc\":" + hold.pc + ",\"holdStep\":" + hold.holdStep + ",\"step\":" + step);
-			if (host)
+			if (host && guiPreview < 0)
+				desync.choose(onDesync.equals("resync"));
+		}
+		if (host && guiPreview >= 0 && hold != null) { // with a GUI preview, the host's window shows three seconds first, with a shot
+			if (now - desyncSeenAt >= 2_000_000_000L && first("desyncshot" + hold.holdStep))
+				guiShot("desync");
+			if (now - desyncSeenAt >= CHOOSE_AFTER_NANOS)
 				desync.choose(onDesync.equals("resync"));
 		}
 		if (desync.resyncedStep() > resyncedAt) {

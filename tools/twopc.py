@@ -281,7 +281,10 @@ def main():
     ap.add_argument("--steam-p2p", action="store_true",
                     help="with --net steam: both games use the old P2P packets (SOSGSGMP_STEAM_NET=p2p, SOS-105)")
     ap.add_argument("--gui-preview", type=int, default=-1,
-                    help="both PCs hold each setup screen for a screenshot, the joiner settling near the host (SOS-120); the host opens each siege window in turn from this step, 6 s each (SOS-92), then the faction list, a player's Goods tab and the Export depot (SOS-134 to SOS-136), then both depots with the other player's row over the buyer's price (SOS-148), then that row's hover in each depot (SOS-153)")
+                    help="both PCs hold each setup screen for a screenshot, the joiner settling near the host (SOS-120); the host opens each siege window in turn from this step, 6 s each (SOS-92), then the faction list, a player's Goods tab and the Export depot (SOS-134 to SOS-136), then both depots with the other player's row over the buyer's price (SOS-148), then that row's hover in each depot (SOS-153); on every PC, the host's desync window (--corrupt), Exit's question (--quit) and the window a session ends with stay 3 s each, with a shot")
+    ap.add_argument("--window", default="", metavar="WxH",
+                    help="every game on this PC gets a window of this size (a new game's data folders), for screenshots at"
+                         " one size; default: the host 1920x1080 with --gui-preview, else 1280x720, the others 1024x640")
     ap.add_argument("--joiner-mod", default="",
                     help="a mod folder the joiner also enables, after ours (SOS-159): with --expect-refused, the lobby refuses it")
     ap.add_argument("--extra-mod", default="",
@@ -315,6 +318,10 @@ def main():
         MOD_DIRS["SOSGSGMP"] = ROOT / "build" / "mod" / "SOSGSGMP"
     if (args.joiner_mod or args.extra_mod or args.expect_refused or args.same_files) and (not args.here or args.resume):
         fail("--joiner-mod, --extra-mod, --expect-refused and --same-files are for a new game with --here")
+    width, _, height = args.window.partition("x")
+    if args.window and not (width.isdigit() and height.isdigit()):
+        fail("--window is WxH, such as 1280x720: '%s'" % args.window)
+    window = (int(width), int(height)) if args.window else None
     STEAM_NET[0] = "p2p" if args.steam_p2p else ""
     for item in args.netem:
         who, _, spec = item.partition("=")
@@ -381,9 +388,9 @@ def main():
             refresh_mods(local, rdir)
         log("resuming in the last run's data folders")
     else:
-        local = data_folder(INST / "1", (1920, 1080) if args.gui_preview >= 0 else (1280, 720))  # screenshots at full size
-        local3 = data_folder(INST / "3", (1024, 640)) if args.local_joiner else INST / "3" / "songsofsyx"
-        remote_data = data_folder(INST / str(REMOTE_K), (1024, 640) if args.here else (1600, 900))
+        local = data_folder(INST / "1", window or ((1920, 1080) if args.gui_preview >= 0 else (1280, 720)))  # screenshots at full size
+        local3 = data_folder(INST / "3", window or (1024, 640)) if args.local_joiner else INST / "3" / "songsofsyx"
+        remote_data = data_folder(INST / str(REMOTE_K), (window or (1024, 640)) if args.here else (1600, 900))
         local2 = remote_data
         for data, seed in zip((local, local2, local3), seeds):
             seed_campaign(data, seed)
@@ -396,7 +403,7 @@ def main():
             add_mod(local2, pathlib.Path(args.extra_mod))
         log("data folders ready; sending the joiner's to the second PC")
         rdir = None if args.here else send_remote(remote_data.parent)
-    local4 = data_folder(INST / "4", (1024, 640)) if args.hot_join >= 0 else INST / "4" / "songsofsyx"
+    local4 = data_folder(INST / "4", window or (1024, 640)) if args.hot_join >= 0 else INST / "4" / "songsofsyx"
     for v in (args.view, args.host_view):
         if v and (len(v.split(":")) != 2 or not v.split(":")[0].isdigit()):
             fail("--view and --host-view are STEP:CLOSE")
