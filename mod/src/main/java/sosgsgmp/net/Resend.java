@@ -99,6 +99,12 @@ final class Resend {
         return l == null ? 0 : l.received;
     }
 
+    /** How many messages to {@code peer} were wrapped so far; 0 for a peer this node doesn't know. */
+    long sent(int peer) {
+        Line l = lines.get(peer);
+        return l == null ? 0 : l.sent;
+    }
+
     /** The bytes kept for {@code peer}, waiting for its acknowledgement. */
     long keptBytes(int peer) {
         Line l = lines.get(peer);

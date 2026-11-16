@@ -114,6 +114,10 @@ public final class FakeSteam {
             synchronized (FakeSteam.this) {
                 if (silentJoins)
                     return;
+                if (down.contains(self)) { // no internet, no lobby
+                    later(() -> listener.lobbyEntered(lobby, "no connection"));
+                    return;
+                }
                 Set<Long> members = lobbies.get(lobby);
                 if (members == null) {
                     later(() -> listener.lobbyEntered(lobby, "no such lobby"));

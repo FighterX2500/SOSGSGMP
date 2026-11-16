@@ -1120,6 +1120,19 @@ class LoopbackSetupTest {
         assertFalse(bob.closed());
     }
 
+    /** Spec §11 Host disconnect: the host's game ends without a word in play; every joining PC's session says so. */
+    @Test
+    void aHostThatDisconnectsInPlayEndsEveryJoiningSessionWithWhatToDo() throws Exception {
+        System.setProperty(NetConditions.PROPERTY, "delay=0"); // the host's node can close without its Leave
+        playing(new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        host.testNetwork().close();
+        playUntil("both joining sessions ended", () -> bob.closed() && cid.closed());
+        for (SetupSession s : List.of(bob, cid)) {
+            assertTrue(s.closedReason().startsWith("The host disconnected. "), s.closedReason());
+            assertTrue(s.closedReason().endsWith(" Resume the campaign from Load Saved Lobby."), s.closedReason());
+        }
+    }
+
     @Test
     void returnToTheLastSaveEndsTheSessionOnEveryPc() throws Exception {
         playing(new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());

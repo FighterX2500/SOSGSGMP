@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.GameFiles;
+import sosgsgmp.lobby.Refusal;
 
 class SteamNodeTest {
 
@@ -213,6 +214,114 @@ class SteamNodeTest {
         h.send(bobPeer, new Message.Chat(0, "after"));
         assertEquals(new Message.Chat(0, "after"), nextMessage(bob).message());
         Thread.sleep(300);
+        assertNoMessage(bob);
+        assertNoMessage(h);
+    }
+
+    private static Message.Hello hello(String name) {
+        return new Message.Hello(name, 2, new Builds("0.71.44", 1, 2, new GameFiles(3, List.of())));
+    }
+
+    /** The next event from {@code node} that matches; fails after 5 s, naming {@code what} and every event skipped. */
+    private static Node.Event expect(SteamNode node, String what, Predicate<Node.Event> match) throws InterruptedException {
+        List<Node.Event> skipped = new ArrayList<>();
+        long deadline = System.currentTimeMillis() + 5_000;
+        while (System.currentTimeMillis() < deadline) {
+            Node.Event e = node.poll();
+            if (e != null && match.test(e))
+                return e;
+            if (e == null)
+                Thread.sleep(2);
+            else
+                skipped.add(e);
+        }
+        fail("no " + what + "; events instead: " + skipped);
+        return null;
+    }
+
+    /**
+     * Bob and the host exchange messages, then Bob's line breaks for good: he loses Steam (out of the lobby), his
+     * internet goes down, the session fails, and his game closes, with no Left for the host. The host keeps his line and
+     * queues {@code whileAway} for it. Returns his peer number on the host.
+     */
+    private int bobsGameEndsWhileHisLineIsBroken(SteamNode h, Message whileAway, boolean removeHim) throws Exception {
+        FakeSteam.Port[] oldPort = new FakeSteam.Port[1];
+        SteamNode old = SteamNode.join(() -> oldPort[0] = steam.port(2), h.lobby());
+        nodes.add(old);
+        next(old, e -> e instanceof Node.Event.Connected);
+        int oldPeer = ((Node.Event.Connected) next(h, e -> e instanceof Node.Event.Connected)).peer();
+        old.send(Node.HOST, hello("Bob"));
+        assertEquals(hello("Bob"), nextMessage(h).message());
+        for (int i = 0; i < 3; i++) {
+            h.send(oldPeer, new Message.Chat(0, "host " + i));
+            old.send(Node.HOST, new Message.Chat(1, "bob " + i));
+            assertEquals(new Message.Chat(0, "host " + i), nextMessage(old).message());
+            assertEquals(new Message.Chat(1, "bob " + i), nextMessage(h).message());
+        }
+
+        oldPort[0].loseSteam(h.lobby());
+        steam.down(2, true);
+        Thread.sleep(100);
+        steam.failSession(1, 2);
+        expect(h, "the host's note that Bob's line broke",
+                e -> e instanceof Node.Event.Disconnected d && d.peer() < 0 && d.reason().contains("broke"));
+        h.send(oldPeer, whileAway);
+        if (removeHim)
+            h.disconnect(oldPeer);
+        old.close();
+        steam.down(2, false);
+        return oldPeer;
+    }
+
+    /**
+     * Bob's game starts again under the same Steam ID while the host still holds his broken line (a restart, or Leave
+     * and join again): the old line ends as a disconnect, the new game is a new peer, and nothing of the old stream
+     * reaches it.
+     */
+    @Test
+    void aGameThatStartsAgainWhileItsLineIsBrokenIsANewPeer() throws Exception {
+        SteamNode h = host();
+        int oldPeer = bobsGameEndsWhileHisLineIsBroken(h, new Message.Chat(0, "for the old game"), false);
+
+        SteamNode bob = join(2, h.lobby());
+        next(bob, e -> e instanceof Node.Event.Connected);
+        bob.send(Node.HOST, hello("Bob again"));
+        Node.Event.Disconnected d = (Node.Event.Disconnected) expect(h, "a disconnect of the old line",
+                e -> e instanceof Node.Event.Disconnected x && x.peer() >= 0);
+        assertEquals(oldPeer, d.peer());
+        int newPeer = ((Node.Event.Connected) expect(h, "the new game as a peer", e -> e instanceof Node.Event.Connected)).peer();
+        assertTrue(newPeer != oldPeer, "a new peer, not " + oldPeer);
+        Node.Event.Received r = (Node.Event.Received) expect(h, "the new game's hello", e -> e instanceof Node.Event.Received);
+        assertEquals(newPeer, r.peer());
+        assertEquals(hello("Bob again"), r.message());
+
+        h.send(newPeer, new Message.Chat(0, "for the new game"));
+        assertEquals(new Message.Chat(0, "for the new game"), nextMessage(bob).message());
+        Thread.sleep(SteamNode.RESUME_MS + 500); // the old line would ask to resume by now
+        assertNoMessage(bob);
+        assertNoMessage(h);
+    }
+
+    /** As above, after the host removed the old line while it was broken: it ends silently, and its refusal stays with it. */
+    @Test
+    void aGameThatStartsAgainAfterItsLineWasRemovedIsANewPeer() throws Exception {
+        SteamNode h = host();
+        bobsGameEndsWhileHisLineIsBroken(h, new Message.Refused(Refusal.REMOVED), true);
+
+        SteamNode bob = join(2, h.lobby());
+        next(bob, e -> e instanceof Node.Event.Connected);
+        bob.send(Node.HOST, hello("Bob again"));
+        int newPeer = ((Node.Event.Connected) expect(h, "the new game as a peer", e -> {
+            assertFalse(e instanceof Node.Event.Disconnected x && x.peer() >= 0, "no disconnect: " + e);
+            return e instanceof Node.Event.Connected;
+        })).peer();
+        Node.Event.Received r = (Node.Event.Received) expect(h, "the new game's hello", e -> e instanceof Node.Event.Received);
+        assertEquals(newPeer, r.peer());
+        assertEquals(hello("Bob again"), r.message());
+
+        h.send(newPeer, new Message.Chat(0, "for the new game"));
+        assertEquals(new Message.Chat(0, "for the new game"), nextMessage(bob).message());
+        Thread.sleep(SteamNode.RESUME_MS + 500);
         assertNoMessage(bob);
         assertNoMessage(h);
     }
