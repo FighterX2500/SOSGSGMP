@@ -47,10 +47,10 @@ The fix goes into the nodes (`TcpNode`, `SteamNode`), below the sessions. A brok
   - A real Left from the lobby is still a disconnect.
   - A joining PC thrown out of the lobby because it lost Steam tries to enter it again; failing that changes nothing.
 - **Removed while away.** `disconnect(peer)` on a detached line keeps the queued `Refused(REMOVED)`. When the PC comes back it gets the refusal and then its connection is closed, as SOS-177 already does for a silent one.
-- **Crash or quit:** still a disconnect.
-  - A quit sends `Leave`.
-  - A crash closes the socket cleanly through the operating system, or Steam reports a Left.
-  - If a crash shows up as a reset instead, the player shows as lost, and the host chooses as for a player who left.
+- **Crash or quit:**
+  - A quit sends `Leave`: still a disconnect.
+  - A crash can show either way (spec section 11, Lost connection). Usually it breaks the connection (a reset, or Steam's session times out), and the player shows as lost. Sometimes the operating system closes the socket cleanly, or Steam reports a Left, and it is a disconnect.
+  - In both cases the host chooses; a crashed game never comes back by itself.
 - **Test tooling.** `ConditionedNode`'s cut becomes a real break: `Node.cut(peer)` resets the socket (TCP) or fails the session (Steam fake). While a test outage lasts, the joining PC's new connections fail too, so a cut inside an outage stays down until the outage ends.
 - **Protocol 26 → 27.**
 
