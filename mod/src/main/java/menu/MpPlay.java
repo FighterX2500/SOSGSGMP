@@ -59,6 +59,8 @@ final class MpPlay implements ACTION {
 	private final MpMismatch mismatch;
 	/** Hot-join (SOS-190): a PC that joins the running game, and the restart every PC makes for it. */
 	private final MpHotJoin hotJoin;
+	/** The window when the session closed under this PC's player and no other window says so (spec §11 Host disconnect). */
+	private final MpClosed closed;
 
 	MpPlay(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpLog log, MpSaves saves, MpExit exit, MpReports reports) {
 		this.setup = setup;
@@ -75,6 +77,7 @@ final class MpPlay implements ACTION {
 		this.loading = new MpLoading(setup, engine);
 		this.mismatch = new MpMismatch(setup, engine, game, log);
 		this.hotJoin = new MpHotJoin(setup, game, saves, log, autopilot);
+		this.closed = new MpClosed(setup, engine, game);
 	}
 
 	@Override
@@ -117,9 +120,9 @@ final class MpPlay implements ACTION {
 		}
 		if (setup.playing()) {
 			mismatch.frame();
-			if (!mismatch.ended()) // the session ended here: the connections it closed are no players gone
+			if (!mismatch.ended() && !closed.ended()) // the session ended here: the connections it closed are no players gone
 				gone.frame();
-			if (!gone.ended() && !mismatch.ended()) { // Return to the last save, or other game data, ended the engine
+			if (!gone.ended() && !mismatch.ended() && !closed.ended()) { // Return to the last save, other game data, or a close, ended the engine
 				desync.frame();
 				views.frame();
 				saves.frame();
@@ -127,6 +130,7 @@ final class MpPlay implements ACTION {
 				if (hotJoin.ended())
 					return;
 				exit.frame(); // after the saves: a save that ends the session ends it in the frame it is done
+				closed.frame(); // after the exit: a close its window reports, or this PC's own Leave, ended the engine
 				if (engine.active())
 					pause.frame();
 			}

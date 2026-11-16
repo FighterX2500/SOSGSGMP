@@ -130,8 +130,9 @@ public final class JoinedSetup implements SetupSession {
                         changes++;
                 }
                 case Node.Event.Disconnected d -> {
-                    if (d.peer() == Node.HOST)
-                        close("Lost the connection to the host. " + d.reason());
+                    if (d.peer() == Node.HOST) // in play, the host quit or crashed: spec §11 Host disconnect
+                        close(link == null ? "Lost the connection to the host. " + d.reason()
+                                : "The host disconnected. " + d.reason() + " Resume the campaign from Load Saved Lobby.");
                     else if (d.peer() < 0)
                         notes.add(d.reason()); // the network's own news, such as a broken line it waits for (SOS-178)
                 }
