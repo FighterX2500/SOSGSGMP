@@ -1,6 +1,6 @@
 # 0008: Steam's newer messages through JNA
 
-Status: Proposed (decided as recommended overnight, 2026-10-30; the owner asked for SOS-105 to be built that night) · Card: [SOS-105](https://fighterx2500.atlassian.net/browse/SOS-105) · Builds on SOS-60's Steam transport
+Status: Accepted, built (decided as recommended overnight, 2026-10-30, when the owner asked for SOS-105 to be built that night; the default Steam transport in every playtest pack since 2026-10-30d, on Linux and macOS too since 2026-11-16, see the update at the end) · Card: [SOS-105](https://fighterx2500.atlassian.net/browse/SOS-105) · Builds on SOS-60's Steam transport
 
 ## Context
 
@@ -33,7 +33,7 @@ Status: Proposed (decided as recommended overnight, 2026-10-30; the owner asked 
 ## Consequences
 
 - A wrong offset or signature crashes the game rather than throwing. The surface is small (9 functions, 3 offsets) and the test is a twopc run over Steam.
-- Windows only for now, like the rest of the mod (AGENTS.md); Linux and macOS need the same names from `libsteam_api`.
+- Windows only at first, like the rest of the mod then; Linux and macOS need the same names from `libsteam_api` (built since, see the update below).
 
 ## Update, 2026-11-16: Linux and macOS
 

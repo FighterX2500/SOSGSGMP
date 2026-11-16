@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.68 · 2026-11-16
+Version 0.69 · 2026-11-16
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -372,6 +372,8 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A joining PC with an extra mod, a missing mod, another version of a mod or a changed `assets/init` file is refused, and the refusal names it; two PCs with the same game files and mods join, whatever their languages. [AT]
 - A location that breaks the start location rules can't be confirmed, and the reason is shown. [AT]
 - The game stays paused until the last player picks their city start spot, then unpauses automatically. [PT]
+- In a living world, a city-state spot closer than 6 tiles to a region's town or to another player's capital or spot, in a besieged region, or cutting one of a region's roads off from its own town can't be picked, and the reason is shown. [AT]
+- Carving a city-state into a region of an NPC realm of 4 or more regions that isn't its capital, or into unowned land, makes a new neutral NPC state; with no free faction slot the land stays as it was; every PC's world hash matches after the carve. [AT]
 - Every player starts with the same resources and difficulty. [AT]
 
 ### World sync
@@ -498,7 +500,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - An outage of up to 60 seconds, on a player's PC or the host's, removes nobody and desyncs nothing. [PT]
 - When the host's connection breaks, alone or inside an outage of up to 60 seconds, every player's game connects again by itself and play goes on with nothing lost; meanwhile each player can leave from the lost-host window. [AT]
 - When the host quits or its game crashes, every player sees a "host disconnected" popup and the whole simulation stops within 2 seconds. [PT]
-- After a disconnect, nothing runs until the host chooses Return to the last save or Continue without them. [AT]
+- After a disconnect, nothing runs until the host chooses Return to the last save, Continue without them or Freeze them. [AT]
 - Return to the last save resumes every player, the disconnected one included, from the campaign's last save. [PT]
 - Continue without them frees every region the player held and disbands their armies, with the same world hash on every PC. [AT]
 - In a battle or siege, Continue without them ends it with no result, and the other side's armies stay as they were before it. [AT]
@@ -539,7 +541,7 @@ Every change, not only features, is done when:
 - [ ] **Viewing numbers:** the catch-up numbers in section 10 (a 5-second gap closed in about 2 seconds, and the 1-minute limit before a view that can't keep up ends) are first guesses. Confirm them in playtests (owner, 2026-10-24): city save size and time, loading a city into a running game, and a 10,000-person city.
 - [ ] **Order delay above 1×:** since SOS-90 the engine applies an order at least 30 steps after it is given (half a second at 1×), and at higher speeds half a second of real time, up to 400 steps. With ping added, that should stay inside the 1-second limit (section 8). Measure the delay in playtests at several speeds and pings, and decide whether it needs to change.
 - [x] **Passage and trade reach:** players at peace move armies freely through each other's land (section 6). Should free passage between players also let trade through? Yes: a player's trade crosses the land of any player it is at peace with, whatever the destination, NPC factions included (owner, 2026-10-27; sections 6 and 7).
-- [ ] **A commander who drops out of a battle with allies:** section 11's Continue without them ends a battle with no result. Should that still end a battle with an ally left in it, or should the host's AI take the dropped player's divisions? The same goes for a slow ally in a joined NPC battle: a watcher is dropped once 3 minutes behind. To decide before allies ship (owner, 2026-10-31).
+- [ ] **A commander who drops out of a battle with allies:** section 11's Continue without them ends a battle with no result. Should that still end a battle with an ally left in it, or should the host's AI take the dropped player's divisions? The same goes for a slow ally in a joined NPC battle: a watcher is dropped once 3 minutes behind. Raised before allies shipped (owner, 2026-10-31); they shipped on 2026-10-31 with sections 8 and 11 as written, so the question stays open.
 
 ### Things to optimize (optional)
 
@@ -580,13 +582,15 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-04 | Players that trade reaches aren't darkened in the faction lists; the depots list other players; a player's Goods tab shows the goods traded with them (section 7). | SOS-134, SOS-135, SOS-136 |
 | 2026-11-04 | The 2026-11-04 playtest's list: the depots list only players whose depot takes the goods, with the price in its parts; trade and colleague agreements reach a player's NPC vassals; no trespassing for colleagues; another player's battle against NPCs is told in the chat, and notices about a player open their window (sections 6, 7, 12). | SOS-138 to SOS-141, SOS-144 |
 | 2026-11-06 | **Several watchers:** any number of players can watch one NPC battle or view one city; each join reloads the owner's game and every viewer's for a few seconds (spec 0.49; sections 8, 10, 15). | SOS-151 |
+| 2026-11-06 | **Joining an assault:** a player can join a running assault's view as any city's; an attacker who joins again commands their soldiers again (spec 0.49; section 10). | SOS-151 |
 | 2026-11-06 | **Cursors in a battle:** the other players' cursors show on the battle map too (spec 0.49; section 12). | SOS-152 |
 | 2026-11-06 | **One data folder:** the mod's saves, records, logs, reports and lobby settings live under `songsofsyx\sosgsgmp`; an older version's move there once (spec 0.50; section 11). | SOS-155 |
 | 2026-11-06 | **Loading window:** every PC shows why the game freezes, and for how long, while the world generates or initializes, a battle starts or ends and a city view starts or ends; the playtest log times every freeze and hold (spec 0.51; sections 12, 15). | SOS-158 |
 | 2026-11-07 | **Same game files:** a PC whose game files or mods differ from the host's can't join, and the lobby names what differs; other mods are allowed when every player has them, with a warning; game data that still differ in play end the session with a message instead of a crash (spec 0.52; sections 2, 3, 5, 15). | SOS-159 |
 | 2026-11-08 | **Every ally in an NPC battle:** every allied player near a battle against NPCs is asked Join, and every player who joined fights it on their own PC with the fighting player's (spec 0.53; sections 8, 15). | SOS-160, SOS-161 |
 | 2026-11-08 | **The end of a battle every PC runs:** a battle between players or an assault opens the loading window on every PC before the load that ends it (spec 0.54; section 12). | SOS-169 |
-| 2026-11-06 | **Joining an assault:** a player can join a running assault's view as any city's; an attacker who joins again commands their soldiers again (spec 0.49; section 10). | SOS-151 |
+| 2026-11-09 | **Reconnect:** a PC silent for 5 seconds pauses every PC with the lost-connection window; a broken connection, a player's or the host's, connects again by itself, and every message sent meanwhile arrives once, in order (section 11). | SOS-175 to SOS-180 |
+| 2026-11-10 | **Fog through a colleague's land:** a player with transit lifts the fog through another player's land and past it; peace alone lifts it over their land only (section 6). | SOS-182 |
 | 2026-11-12 | **Living world:** a lobby option; the world is built around the host, and every other player settles a city-state carved into its real map, with the split rule for the land it is cut from (spec 0.59; section 5). | SOS-187 |
 | 2026-11-12 | **A gone player's city-state comes off the map:** a removed or eliminated player's carved city-state is un-carved while every PC holds a moment (spec 0.59; sections 9, 11, 15). | SOS-188 |
 | 2026-11-12 | **Joining a running campaign:** a new player joins after the host's Accept, picks their spot on a copy of the world while everyone plays on, and every game reloads with their city-state; they start with the campaign's starting resources (spec 0.60; sections 2, 11, 12, 15). | SOS-189, SOS-190 |
@@ -602,21 +606,22 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-15 | **Living world settling:** every player, the host too, settles on the built world, which has a stand-in capital for the host; the pick is on the world generator's screen with vanilla's hover window, the guaranteed connection and the road links to NPC states; picked spots are thick squares; hot-join has the same window and notices (spec 0.66; sections 5, 11). | SOS-212 to SOS-214 |
 | 2026-11-16 | **Linux and macOS:** the mod runs on Windows, Linux (the Steam Deck too) and macOS; on macOS, Steam P2P goes through Valve's relays only (spec 0.67; section 3). | SOS-157, PR #118 |
 
-### Where each v1 feature stands (2026-11-01)
+### Where each v1 feature stands (2026-11-16)
 
 | Feature (section 2) | State | Still to do |
 | --- | --- | --- |
-| Groundwork: the lockstep engine, lobby, setup, network, Steam, saves, disconnects, desyncs | Built | The 2-hour world check, the tests at 300 ms ping, the order delay above 1× (section 16). Two PCs held 25× at 400 steps a second in the 2026-10-31 runs; 250×, and 25× in a late-game city, run only as fast as the slowest PC. Open: the engine's speed floor is 0.25× (`Pacer.MIN_SPEED`), against section 4's 0.5× |
+| Groundwork: the lockstep engine, lobby, setup, network, Steam, saves, disconnects, desyncs | Built | Done since 2026-11-01: the same game files in the lobby (SOS-159), reconnect after a lost connection (SOS-175 to SOS-180), Linux and macOS (SOS-157, PR #118). Left: a full session between a Mac and another PC over Steam; the 2-hour world check, the tests at 300 ms ping, the order delay above 1× (section 16). Two PCs held 25× at 400 steps a second in the 2026-10-31 runs; 250×, and 25× in a late-game city, run only as fast as the slowest PC. Open: the engine's speed floor is 0.25× (`Pacer.MIN_SPEED`), against section 4's 0.5× |
 | A shared NPC world | Built | Covered by the groundwork's long tests |
 | Diplomacy (section 6) | Built | Done: treaties, money and goods, regions, vassalage, passage, war (SOS-72 to SOS-74, SOS-83); notifications of a war in the chat (SOS-110). Left: a check that breaking a treaty with a player leaves NPC opinion alone; no test covers it yet |
 | Trade (section 7) | Built | Done: no trade into or out of a besieged capital (SOS-92). Left: caravans on a disconnect, checked in a playtest |
 | Field battles (section 8) | Built | Done: battles between players with each side's commanders, deployment, retreat, the result for the winner, the sally (SOS-83); watching an NPC battle (SOS-109); resync in a battle (SOS-92); the winner's choice on either army (SOS-116); the commanders' speed vote (SOS-117); allies in a battle between players (SOS-118) and in an NPC battle (SOS-119). Left: section 16's open question on a commander who drops out, and allies seen in a playtest |
 | Sieges of player cities (section 9) | Built | Done: sieges by another player arrive, the sally from a region, the save before an assault (SOS-67, SOS-71, SOS-83); the siege of a capital with its wait, the popup and Sally out (SOS-92 step A); the lockstep assault with each side's commanders, Retreat, the outcomes, Sack, Vassalage and Eliminate with the removed people, the two-minute default, allied attackers and their share, NPC invasions (SOS-92). Left: confirmed by players in a playtest, and each attacker's own bonuses in an assault, which no card covers yet |
+| Joining, freezing and the living world (sections 5, 11) | Built | Done: the living world and its settling (SOS-187, SOS-212 to SOS-214); a gone player's city-state un-carved (SOS-188); joining a running campaign (SOS-189, SOS-190, SOS-198); freezing a player and coming back (SOS-192 to SOS-196, SOS-204). Left: a join over Steam (SOS-191) |
 | City viewing (section 10) | Built | Done: the live view on request, catching up, the frozen own city, the other PCs' world reload (SOS-82); several viewers of one city or battle (SOS-151). Left: a viewer's PC that stopped at a view's load (SOS-85), the catch-up numbers confirmed in playtests (section 16) |
 | Chat, notifications, pause, spectators (sections 4, 11, 12) | Built, apart from debug mode | Done: cursors on the world map and in cities (SOS-58); chat, notifications, who paused, any player unpausing (SOS-110); elimination and spectating (SOS-92, SOS-111). Left: debug mode isn't off in multiplayer (section 4) |
 | Release: performance and distribution (sections 13, 14) | Not done | Done: the README, the license and the Steam Workshop texts. Left: the 10,000-person city at 1×, the 30-minute battle with 2,000 units per side, publishing on the Steam Workshop (SOS-18), the test plan (SOS-19) |
 
-Every feature in section 2 is built as of 2026-11-01. The table above lists what's left.
+Every feature in section 2 is built as of 2026-11-01, and joining, freezing and the living world as of 2026-11-12. The table above lists what's left.
 
 ### Estimate for v1
 
