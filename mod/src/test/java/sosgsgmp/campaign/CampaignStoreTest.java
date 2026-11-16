@@ -23,7 +23,8 @@ public class CampaignStoreTest {
     Path dir;
 
     static CampaignRecord record(int number, CampaignRecord.Kind kind, long time) {
-        return new CampaignRecord(CAMPAIGN_FOR_TESTS, number, kind, time, 1, "MP Ann's campaign " + number + ".save", 0x8000_0000_0000_0042L);
+        return new CampaignRecord(CAMPAIGN_FOR_TESTS, number, kind, time, 1, "MP Ann's campaign " + number + ".save", 0x8000_0000_0000_0042L,
+                false);
     }
 
     @Test
@@ -39,17 +40,33 @@ public class CampaignStoreTest {
         assertEquals(List.of(new Campaign.Player(-5, "Ann", 0, true), CAMPAIGN_FOR_TESTS.players().get(1)), c.players());
         assertEquals(List.of(CAMPAIGN_FOR_TESTS.players().get(1)), c.playing(), "a resume waits only for Bob");
         assertEquals(c, c.removing(java.util.Set.of(0)), "removing twice changes nothing");
-        CampaignRecord r = new CampaignRecord(c, 4, CampaignRecord.Kind.AUTO, 9, 1, "b.save", 77);
+        CampaignRecord r = new CampaignRecord(c, 4, CampaignRecord.Kind.AUTO, 9, 1, "b.save", 77, false);
         assertEquals(r, CampaignRecord.fromText(r.toText()));
-        CampaignRecord e = new CampaignRecord(c.eliminating(1), 5, CampaignRecord.Kind.AUTO, 9, 1, "b.save", 77);
+        CampaignRecord e = new CampaignRecord(c.eliminating(1), 5, CampaignRecord.Kind.AUTO, 9, 1, "b.save", 77, false);
         assertTrue(e.campaign().inSlot(1).eliminated());
         assertEquals(e, CampaignRecord.fromText(e.toText()));
+    }
+
+    /**
+     * Spec §11 Resuming: a record written by this version says its save holds every player's last report, so a resume
+     * can freeze a missing player (format 5); an older record says not.
+     */
+    @Test
+    void aFormat5RecordSaysItsSaveCanFreezeAndAFormat4OneSaysNot() {
+        CampaignRecord r = new CampaignRecord(CAMPAIGN_FOR_TESTS, 3, CampaignRecord.Kind.SAVE, 5, 1, "a.save", 77, true);
+        assertTrue(r.toText().startsWith("format=5\n"));
+        assertEquals(r, CampaignRecord.fromText(r.toText()));
+        String v4 = r.toText().replace("format=5", "format=4").replace("lastReports=true\n", "");
+        CampaignRecord old = CampaignRecord.fromText(v4);
+        assertFalse(old.lastReports(), "a format 4 record's save holds no last reports");
+        assertEquals(new CampaignRecord(CAMPAIGN_FOR_TESTS, 3, CampaignRecord.Kind.SAVE, 5, 1, "a.save", 77, false), old);
     }
 
     @Test
     void aFormat1RecordLoadsWithNobodyRemoved() {
         CampaignRecord r = record(2, CampaignRecord.Kind.SAVE, 5);
-        String v1 = r.toText().replace("format=4", "format=1").replaceAll("player\\.\\d+\\.(removed|eliminated|frozen)=false\n", "");
+        String v1 = r.toText().replace("format=5", "format=1").replaceAll("player\\.\\d+\\.(removed|eliminated|frozen)=false\n", "")
+                .replace("lastReports=false\n", "");
         assertEquals(r, CampaignRecord.fromText(v1));
     }
 
@@ -62,13 +79,14 @@ public class CampaignStoreTest {
         assertFalse(c.inSlot(1).refused(), "a frozen player isn't removed");
         assertEquals(List.of(CAMPAIGN_FOR_TESTS.players().get(0)), c.playing(), "a resume waits only for Ann");
         assertEquals(List.of(), Campaign.missingSlots(c, List.of(0)), "nobody is missing, so nobody is removed at the start");
-        CampaignRecord r = new CampaignRecord(c, 6, CampaignRecord.Kind.SAVE, 9, 0, "a.save", 77);
+        CampaignRecord r = new CampaignRecord(c, 6, CampaignRecord.Kind.SAVE, 9, 0, "a.save", 77, false);
         assertEquals(r, CampaignRecord.fromText(r.toText()));
         Campaign removed = c.removing(java.util.Set.of(1));
         assertTrue(removed.inSlot(1).removed(), "the host can remove a frozen player for good");
         assertFalse(removed.inSlot(1).frozen());
         CampaignRecord old = record(2, CampaignRecord.Kind.SAVE, 5);
-        String v3 = old.toText().replace("format=4", "format=3").replaceAll("player\\.\\d+\\.frozen=false\n", "");
+        String v3 = old.toText().replace("format=5", "format=3").replaceAll("player\\.\\d+\\.frozen=false\n", "")
+                .replace("lastReports=false\n", "");
         assertEquals(old, CampaignRecord.fromText(v3), "a format 3 record has nobody frozen");
         assertThrows(IllegalArgumentException.class, () -> new Campaign.Player(1, "Ann", 0, true, false, true),
                 "frozen and removed at once");
@@ -91,7 +109,7 @@ public class CampaignStoreTest {
         assertEquals(new Campaign.Player(3, "Cid the Second", 5), again.player(3), "the new entry");
         assertEquals(new Campaign.Player(3, "Cid", 2, true), again.inSlot(2), "the old one keeps its slot");
         assertEquals(List.of(again.players().get(0), again.players().get(1), again.players().get(3)), again.playing());
-        CampaignRecord r = new CampaignRecord(again, 7, CampaignRecord.Kind.AUTO, 9, 5, "c.save", 77);
+        CampaignRecord r = new CampaignRecord(again, 7, CampaignRecord.Kind.AUTO, 9, 5, "c.save", 77, true);
         assertEquals(r, CampaignRecord.fromText(r.toText()), "the record round trip, with both entries");
 
         Campaign removedAgain = again.removing(java.util.Set.of(5));
@@ -99,7 +117,7 @@ public class CampaignStoreTest {
         Campaign third = removedAgain.adding(3, "Cid the Third", 7);
         assertEquals(3, third.players().stream().filter(p -> p.key() == 3).count());
         assertEquals(new Campaign.Player(3, "Cid the Third", 7), third.player(3), "the newest");
-        CampaignRecord r3 = new CampaignRecord(third, 9, CampaignRecord.Kind.SAVE, 9, 7, "c.save", 77);
+        CampaignRecord r3 = new CampaignRecord(third, 9, CampaignRecord.Kind.SAVE, 9, 7, "c.save", 77, true);
         assertEquals(r3, CampaignRecord.fromText(r3.toText()));
 
         assertThrows(IllegalArgumentException.class, () -> again.adding(3, "Cid", 9), "two entries of one key not refused");
@@ -119,7 +137,7 @@ public class CampaignStoreTest {
     @Test
     void anUnknownFormatOrABrokenRecordIsRefused() {
         String text = record(1, CampaignRecord.Kind.SAVE, 1).toText();
-        assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("format=4", "format=5")));
+        assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("format=5", "format=6")));
         assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("player.0.removed=false",
                 "player.0.removed=yes")));
         assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("\nslot=1\n", "\n")));

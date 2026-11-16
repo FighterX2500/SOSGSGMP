@@ -114,8 +114,8 @@ class SteamNodeTest {
         assertEquals(bobPeer, r.peer());
         assertEquals(new Message.Hello("Bob", 2, new Builds("0.71.44", 1, 2, new GameFiles(3, List.of()))), r.message());
 
-        h.send(bobPeer, new Message.Start());
-        assertEquals(new Message.Start(), ((Node.Event.Received) next(bob, e -> e instanceof Node.Event.Received)).message());
+        h.send(bobPeer, new Message.Start(false));
+        assertEquals(new Message.Start(false), ((Node.Event.Received) next(bob, e -> e instanceof Node.Event.Received)).message());
 
         SteamNode cid = join(3, h.lobby());
         next(cid, e -> e instanceof Node.Event.Connected);
@@ -160,8 +160,8 @@ class SteamNodeTest {
 
         bobPort[0].loseSteam(h.lobby()); // the host hears Disconnected; Bob hears he was kicked for it
         Thread.sleep(50);
-        h.send(bobPeer, new Message.Start());
-        assertEquals(new Message.Start(), nextMessage(bob).message());
+        h.send(bobPeer, new Message.Start(false));
+        assertEquals(new Message.Start(false), nextMessage(bob).message());
         bob.send(Node.HOST, new Message.Chat(1, "back"));
         assertEquals(new Message.Chat(1, "back"), nextMessage(h).message());
     }
@@ -180,8 +180,8 @@ class SteamNodeTest {
         Thread.sleep(50);
         bob.send(Node.HOST, new Message.Chat(1, "still here"));
         assertEquals(new Message.Chat(1, "still here"), nextMessage(h).message());
-        h.send(bobPeer, new Message.Start());
-        assertEquals(new Message.Start(), nextMessage(bob).message());
+        h.send(bobPeer, new Message.Start(false));
+        assertEquals(new Message.Start(false), nextMessage(bob).message());
     }
 
     /**
@@ -335,8 +335,8 @@ class SteamNodeTest {
         int bobPeer = ((Node.Event.Connected) next(h, e -> e instanceof Node.Event.Connected)).peer();
         bob.send(Node.HOST, hello("Bob"));
         assertEquals(hello("Bob"), nextMessage(h).message());
-        h.send(bobPeer, new Message.Start()); // once Bob has it, his line's handshake is done
-        assertEquals(new Message.Start(), nextMessage(bob).message());
+        h.send(bobPeer, new Message.Start(false)); // once Bob has it, his line's handshake is done
+        assertEquals(new Message.Start(false), nextMessage(bob).message());
         h.send(bobPeer, new Message.Refused(Refusal.JOIN_BUSY));
         h.disconnect(bobPeer);
         assertEquals(new Message.Refused(Refusal.JOIN_BUSY), nextMessage(bob).message(), "the refusal arrives");

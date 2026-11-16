@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.70 · 2026-11-16
+Version 0.71 · 2026-11-16
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -251,7 +251,7 @@ Any player can view any other player's city, enemies included. This is intended.
 
 **Save before battles.** Before every real-time battle between players or siege assault starts, the campaign is saved the same way. If the connection is lost during the battle, the players can resume from that save. This save can't wait for a view: the world is held at the battle's start, and a view needs the world to run to end. A player viewing a city then has no save from that moment.
 
-**Resuming.** Any player can host when a saved campaign is resumed. If a player is missing, the host can wait for them or start without them; a player left out is removed (see Removing a player).
+**Resuming.** Any player can host when a saved campaign is resumed. If a player is missing, the host can wait for them, or start without them. Starting without them asks the host: **Freeze them** (their capital waits as the save has it, and they can come back into the running game; see Freezing a player) or **Remove them** (see Removing a player). The choice is one for all the missing players (owner, 2026-11-16). A save made before this version holds no city report for a player who wasn't frozen, so it can't freeze a missing player: the host is then offered Remove them only, and told why.
 
 **Joining.** (owner, 2026-11-11; SOS-189, SOS-190) A new player can join a running campaign. They join through the host's IP or Steam, after the same game-files check as a lobby, and the host Accepts or Refuses in a popup. On Accept, every game saves the campaign and the newcomer gets a copy of the current world, paused, to pick their race, customize their faction and pick a spot for their city-state by the rules of a living world (section 5) while everyone else plays on. They pick through the setup's own screens, on the world map with no fog, none of the running game's bars and no city to enter: the race screen, Customize Faction, then the location screen with every player's row, the status line, Back, Ready and Leave, and the picked spot drawn as one thick square (owner, 2026-11-12; SOS-198, SOS-212). The location screen has the living world's hover window and notices (section 5; SOS-213). The host checks the spot on the live world when they press Ready. Then every game saves the campaign again and loads that save with the newcomer's city-state carved in, which holds every player for up to half a minute, and the newcomer lands in their city. A late joiner starts as every player did: the campaign's starting resources and difficulty, no catch-up bonus. A join waits while a battle, an assault, a save, a city view or a desync window is under way, and only one player joins at a time. A join is refused when the world has no faction slot left for another city-state, or the campaign has 16 players. A player the host removed joins the same way, as a new player (see Removing a player).
 
@@ -259,7 +259,7 @@ Any player can view any other player's city, enemies included. This is intended.
 
 **Freezing a player.** (owner, 2026-11-12; SOS-192 to SOS-196) A player can leave a running campaign and come back later.
 
-- **Leaving.** A player chooses **Leave and freeze** in the escape menu, where a line under it says what it does, or at their Quit to menu or Exit. Their game saves their city, and the session goes on without them. The host has no Leave and freeze: the host's leaving ends the session (see Host disconnect). At a disconnect (see Disconnects), the host can also choose **Freeze them**. That player's city then comes back from their last campaign save, so what happened in it after that save is lost.
+- **Leaving.** A player chooses **Leave and freeze** in the escape menu, where a line under it says what it does, or at their Quit to menu or Exit. Their game saves their city, and the session goes on without them. The host has no Leave and freeze: the host's leaving ends the session (see Host disconnect). At a disconnect (see Disconnects), the host can also choose **Freeze them**. That player's city then comes back from their last campaign save, so what happened in it after that save is lost. A resume started without them with Freeze them (see Resuming) freezes them too; their city comes back from their last campaign save, as after Freeze them.
 - **While frozen:**
   - Their capital stays theirs and can't be besieged or attacked.
   - Every war with them ends, and their relations with everyone become neutral.
@@ -480,7 +480,8 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - Before a battle between players or a siege assault starts, every player has a confirmed campaign save from that moment, except a player viewing a city then. [AT]
 - A saved campaign with a spectator resumes, with them back as a spectator or without them, and nobody waits. [AT]
 - A campaign saved under one host can be resumed with a different host. [PT]
-- The host can start a resume without a missing player, who is then removed. [AT]
+- The host can start a resume without a missing player and remove them. [AT]
+- A resume started without a player and with Freeze them keeps every world hash equal, the player is frozen in the campaign, and they come back through a rejoin. [AT]
 - After a session the host has every joining player's playtest log and campaign saves, and a joiner whose game froze or crashed has its log on the host up to its last lines. [AT + PT]
 - A campaign saved from the escape menu's Save Campaign resumes. A joining player's Exit makes every PC save the campaign before the session ends, and that save resumes too. [AT]
 - Every region a removed player held, their city's included, becomes free with no owner, and they can join again only as a new player, with a new city-state. [AT]
@@ -606,6 +607,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-15 | **Living world settling:** every player, the host too, settles on the built world, which has a stand-in capital for the host; the pick is on the world generator's screen with vanilla's hover window, the guaranteed connection and the road links to NPC states; picked spots are thick squares; hot-join has the same window and notices (spec 0.66; sections 5, 11). | SOS-212 to SOS-214 |
 | 2026-11-16 | **Linux and macOS:** the mod runs on Windows, Linux (the Steam Deck too) and macOS; on macOS, Steam P2P goes through Valve's relays only (spec 0.67; section 3). | SOS-157, PR #118 |
 | 2026-11-16 | **A removed player joins again** as a new player, with a new city-state, while the game runs; an eliminated player still comes back only to watch, at a resume (spec 0.70; sections 11, 15). | Batch 12 |
+| 2026-11-16 | **A resume can freeze its missing players:** starting without them asks the host Freeze them or Remove them; a save of an older version offers Remove them only (spec 0.71; sections 11, 15). | Batch 12 |
 
 ### Where each v1 feature stands (2026-11-16)
 

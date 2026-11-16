@@ -27,6 +27,8 @@ public final class JoinedLobby implements LobbySession {
     private boolean running;
     /** With {@link #running}: this PC's player is frozen in the campaign and comes back (SOS-195). */
     private boolean returning;
+    /** The host's Start: a resume's missing players are frozen at the start, not removed. */
+    private boolean freezeMissing;
     private List<LobbyPlayer> players = List.of();
     private LobbySettings settings;
     private int localId = -1;
@@ -88,7 +90,12 @@ public final class JoinedLobby implements LobbySession {
             case Message.Roster r -> players = r.players();
             case Message.Chat c -> chat.heard(c.playerId(), players, c.text());
             case Message.Refused f -> close(f.text());
-            case Message.Start s -> state = LobbyState.STARTED;
+            case Message.Start s when s.freezeMissing() && (settings == null || settings.resume() == null) ->
+                    close("The host started a game that freezes missing players, but this lobby resumes no campaign.");
+            case Message.Start s -> {
+                state = LobbyState.STARTED;
+                freezeMissing = s.freezeMissing(); // every PC freezes or removes as the host chose
+            }
             case Message.Running r -> { // hot-join (SOS-190): the host is asked whether this PC joins, or comes back (SOS-195)
                 running = true;
                 returning = r.returning();
@@ -149,7 +156,7 @@ public final class JoinedLobby implements LobbySession {
     }
 
     @Override
-    public void start() {
+    public void start(boolean freezeMissing) {
         throw new IllegalStateException("SOSGSGMP: only the host starts the lobby");
     }
 
@@ -167,7 +174,7 @@ public final class JoinedLobby implements LobbySession {
             throw new IllegalStateException("SOSGSGMP: only a started lobby hands over, once (state " + state + ", handed over " + handedOver + ")");
         handedOver = true;
         return new JoinedSetup(node, localId, players, world, factions, settings.resume(), settings.fullTransferLog(),
-                settings.livingWorld(), chat, builds, running);
+                settings.livingWorld(), chat, builds, running, freezeMissing);
     }
 
     @Override

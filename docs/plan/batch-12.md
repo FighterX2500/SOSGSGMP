@@ -4,7 +4,7 @@ Three items from the owner's Steam session of 2026-11-16 (16:01 to 16:15), built
 
 1. A player the host continued without can't join again.
 2. The buttons of the player-left window aren't centred.
-3. A resume can start without a missing player and keep them frozen (section "Item 3" is added once it is planned).
+3. A resume can start without a missing player and keep them frozen.
 
 Branch `batch-12-1116`, worktree `C:\ClaudeFolder\SOS-wt\b12`. Item 2 is built on `batch-12-gui` (`C:\ClaudeFolder\SOS-wt\b12-gui`) and picked onto the batch branch before the tests.
 
@@ -76,7 +76,47 @@ Screenshot: `C:\ClaudeFolder\PTreport\NotCenteredGui.png` (the host's window wit
 
 ## Item 3: start a resume without a missing player, frozen
 
-To be planned.
+### The request
+
+Owner, 2026-11-16: "if I want to continue lobby without players, I should have a choice of 'continue with freezing', where players not present in the game are frozen and reconnected."
+
+Today a resume's lobby can start without a player of the campaign, and whoever is left out is removed (spec section 11, Resuming; `HostedSetup`'s constructor, `MpWorldLoad.load`). The new choice keeps them frozen instead, as Freeze them does at a disconnect, so they come back into the running game through the existing rejoin.
+
+### New rule (spec section 11, in the same commit)
+
+- **Resuming:** if a player is missing, the host can wait for them, or start without them. Starting without them asks the host: **Freeze them** (their capital waits as the save has it, and they can come back into the running game, see Freezing a player) or **Remove them** (see Removing a player). The choice is one for all the missing players.
+- **Freezing a player, Leaving:** add the resume as a third way into a freeze. Their city comes back from their last campaign save, as after Freeze them.
+- **Section 15:** a resume started without a player and with Freeze them keeps every world hash equal, the player is frozen in the campaign, and they come back through a rejoin. [AT]
+- A save made before this version holds no city report for a player who isn't frozen, so it can't freeze a missing player: the choice then offers Remove them only, and says why.
+- The version number and the decisions table, as the file's earlier changes did them.
+
+### Engine (SOSDET, branch `batch-12-1116`, worktree `C:\ClaudeFolder\SOSDET-wt\b12`)
+
+Built separately; the mod part starts from its report. In short: the world save keeps every human's last city report (a new version of the frozen humans' section), `Engine.freezeHumanAtStart(slot)` freezes a human in the first world part of a resumed session on every PC, and `Engine.freezeAtStartRefusal(slot)` says why it can't (an older save among the reasons). The mod builds against `SOSDET_DIR=C:\ClaudeFolder\SOSDET-wt\b12` from this item on.
+
+### Mod
+
+- **The choice travels with Start.** `Message.Start` gets one field: whether the missing players are frozen. `HostedLobby.start` takes it; `JoinedLobby` keeps it and hands it to `JoinedSetup`; `SetupSession` tells the load. This changes a message's format: **protocol 32**. The hot-join's `Start` to a candidate sends false.
+- **Host:** `HostedSetup`'s resume constructor marks the missing players frozen (`campaign.freezing`) instead of removed, so every save from then on says so, and a missing player's hello during play is taken as a frozen player coming back (the path that exists).
+- **Every PC's load** (`MpWorldLoad.load`): for each missing slot, `freezeAtStart` instead of `removeAtStart`, through a new adapter method in `WorldSetupAdapter` beside `removeAtStart`, in the same place and order. A hot-join restart has nobody missing; nothing changes there.
+- **The lobby knows before Start whether the save can freeze.** The engine can only say after the load, which is too late for a choice in the lobby. So a campaign record written by this version says its save holds every player's report: record format 5 with one new key. An older record reads as "no". Every PC's copy of a save was written in the same session by the same builds, so the host's record answers for all. If the engine still refuses at the load, that is a broken invariant: throw, naming the slot and the refusal, as `removeAtStart` does.
+- **The lobby's screen** (`MpScreenLobby`): Start with players missing opens a question in the screen's own pattern (as its Leave question): the missing names, **Freeze them**, **Remove them**, **Back**. With an older save Freeze them isn't offered, and a line says the save is from an older version. Start with nobody missing goes as today. The status line's text follows the new rule.
+- **Chat:** every PC's chat says who is frozen at the start, in the words Freeze them uses.
+- **Coming back** is the existing rejoin (SOS-195): the returning PC restarts from its own latest save of the campaign. Read that path for a player frozen at a resume and say what happens when their latest save is the resumed one, an older one, or none (don't change it; report).
+- **Autopilot and `tools/twopc.py`** (test tooling): the host's autopilot chooses freeze or remove at a resume's Start (`--resume ... --on-missing freeze|remove`, or the name that fits the file); a verdict as the freeze test has.
+
+### Tests
+
+1. `LoopbackSetupTest`: a campaign of three resumed with one missing and Freeze them: the host's campaign lists them frozen, not removed; every joined setup reports the freeze to its load; the missing key's hello during play is asked as a return from a freeze (`joinReturning`).
+2. The same with Remove them: as today.
+3. `Protocol` round trip of the new `Start`; `LobbyTest` for the start with the choice.
+4. `CampaignRecord`: format 5 round trip; a format 4 text reads with the new key false.
+5. In the test cycle: a resume with a missing player frozen, play, the player comes back, equal hashes on every PC through and after.
+
+### Not in this item
+
+- Freezing some of the missing players and removing others.
+- Changing what a frozen player loses (their other regions, their vassals): a freeze at a resume does what every freeze does.
 
 ## The test cycle
 
@@ -84,7 +124,7 @@ After all three items are on the batch branch. In-game runs take turns with any 
 
 1. Item 1: a two-game run on this PC over direct IP: the joiner leaves in play, the host continues without them, the same game starts again and asks to join, the host accepts, it settles, every game restarts, and both play on with equal hashes.
 2. Item 2: the screenshots above.
-3. Item 3: with its plan.
+3. Item 3: the engine's rig runs FS1 to FS3 (`docs/plan/0021-freeze-at-start.md` in SOSDET), then a resume in the game with a missing player frozen, who comes back.
 
 No other in-game runs.
 

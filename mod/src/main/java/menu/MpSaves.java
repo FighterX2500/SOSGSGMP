@@ -265,8 +265,9 @@ final class MpSaves {
 				savedFile = file;
 				hash = game.worldHash();
 				int slot = setup.factions().slotOf(setup.localPlayerId());
+				// this engine's saves hold every playing human's last report: a resume can freeze a missing player (SOSDET 0021)
 				store.write(new CampaignRecord(order.campaign(), order.number(), order.kind(), System.currentTimeMillis(), slot,
-						file, hash));
+						file, hash, true));
 				if (order.keep() > 0)
 					for (CampaignRecord gone : store.rotate(order.campaign().id(), order.keep()))
 						game.deleteSave(gone.file());

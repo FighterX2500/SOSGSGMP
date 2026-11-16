@@ -291,7 +291,7 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 				if (world != null) {
 					Message.Restart r = restarted.restartInfo();
 					CampaignRecord record = new CampaignRecord(r.campaign(), r.number(), CampaignRecord.Kind.AUTO,
-							System.currentTimeMillis(), restarted.factions().slotOf(restarted.localPlayerId()), "the host's", 0);
+							System.currentTimeMillis(), restarted.factions().slotOf(restarted.localPlayerId()), "the host's", 0, true);
 					leaving = true;
 					CORE.setCurrentState(new MpWorldLoad(restarted, record, world));
 					return;

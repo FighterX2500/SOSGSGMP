@@ -102,8 +102,14 @@ public final class MpWorldLoad implements CORE_STATE.Constructor {
 		game.humans(slots(), seed);
 		if (resumed != null) // a restart's campaign is the host's now: a rejoining PC's own record is older
 			for (int slot : Campaign.missingSlots(restart != null ? restart.campaign() : resumed.campaign(), slotList())) {
-				game.removeAtStart(slot); // a player missing at a resume (spec §11 Resuming)
-				log.line("the missing player in slot " + slot + " is removed at the start");
+				// a player missing at a resume (spec §11 Resuming), frozen or removed as the host's Start said
+				if (setup.freezesMissing()) {
+					game.freezeAtStart(slot);
+					log.line("the missing player in slot " + slot + " is frozen at the start");
+				} else {
+					game.removeAtStart(slot);
+					log.line("the missing player in slot " + slot + " is removed at the start");
+				}
 			}
 		if (resumed == null && !setup.isHost() && f.living()) {
 			int[] capital = game.capitalOf(f.slotOf(setup.localPlayerId())); // a carve may have moved it from the spot (SOS-187)

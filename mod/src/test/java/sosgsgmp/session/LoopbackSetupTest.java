@@ -1414,6 +1414,8 @@ class LoopbackSetupTest {
         setups.add(host2);
         setups.addAll(List.of(next));
         host = host2;
+        for (SetupSession s : setups)
+            assertFalse(s.freezesMissing(), "a restart has nobody missing: nothing to freeze or remove");
         until("the slot maps", () -> {
             for (SetupSession s : setups)
                 if (s.factions() == null || !s.factions().initialized())
@@ -1540,6 +1542,65 @@ class LoopbackSetupTest {
         });
         assertEquals(Refusal.FULL.text, jd.closedReason());
         assertNull(host.joinAsk(), "nobody to ask about");
+    }
+
+    /**
+     * Spec §11 Resuming: Ann and Bob resume a campaign of three without Cid, Ann's Start choosing {@code freeze}. Every
+     * PC's setup tells its load the host's choice; the host's campaign lists Cid frozen or removed, and Play goes on.
+     * Returns the host's campaign once both play.
+     */
+    private Campaign resumedWithoutCid(boolean freeze) throws Exception {
+        Campaign c = new Campaign(0x1234L, "Ann's campaign", 99, "normal", List.of(new Campaign.Player("Ann".hashCode(), "Ann", 0),
+                new Campaign.Player("Bob".hashCode(), "Bob", 1), new Campaign.Player("Cid".hashCode(), "Cid", 2)));
+        HostedLobby h = new HostedLobby(LobbySettings.resuming(new LobbySettings.Resume(c, 3)), "Ann", "Ann".hashCode(), BUILDS, 0);
+        lobby = h;
+        lobbies.add(h);
+        JoinedLobby jb = join(h, "Bob");
+        untilLobbies("Bob joined", () -> h.players().size() == 2 && jb.players().size() == 2);
+        h.start(freeze);
+        untilLobbies("Bob started", () -> jb.state() == LobbyState.STARTED);
+        host = h.handOver(hostWorld, hostWorld);
+        bob = jb.handOver(bobWorld, bobWorld);
+        setups.addAll(List.of(host, bob));
+        assertEquals(freeze, host.freezesMissing(), "the host's load");
+        assertEquals(freeze, bob.freezesMissing(), "Bob's load, from the host's Start");
+        until("the slots on Bob's PC", () -> bob.factions().initialized());
+        host.worldLoaded(42);
+        bob.worldLoaded(42);
+        host.startSpot();
+        bob.startSpot();
+        until("started on both", () -> host.factions().started() && bob.factions().started());
+        host.play(new EngineLinkTest.FakePort());
+        bob.play(new EngineLinkTest.FakePort());
+        return host.campaign();
+    }
+
+    /** A resume started with Freeze them: Cid is frozen in the campaign, and his hello in play is a return from a freeze. */
+    @Test
+    void aResumeStartedWithFreezeThemKeepsTheMissingPlayerFrozen() throws Exception {
+        Campaign c = resumedWithoutCid(true);
+        assertTrue(c.inSlot(2).frozen(), "the next save keeps Cid frozen");
+        assertFalse(c.inSlot(2).removed());
+        JoinedLobby jc = join(lobby, "Cid");
+        playUntil("Cid's ask at the host", () -> {
+            jc.update();
+            return "Cid".equals(host.joinAsk()) && jc.running();
+        });
+        assertTrue(host.joinReturning(), "Cid comes back from his freeze");
+        assertTrue(jc.returning());
+    }
+
+    /** A resume started with Remove them: as before, Cid is removed, and his hello in play is a new player's. */
+    @Test
+    void aResumeStartedWithRemoveThemRemovesTheMissingPlayer() throws Exception {
+        Campaign c = resumedWithoutCid(false);
+        assertTrue(c.inSlot(2).refused(), "Cid is removed");
+        JoinedLobby jc = join(lobby, "Cid");
+        playUntil("Cid's ask at the host", () -> {
+            jc.update();
+            return "Cid".equals(host.joinAsk()) && jc.running();
+        });
+        assertFalse(host.joinReturning(), "Cid joins as a new player");
     }
 
     /** Spec §11 Elimination: an eliminated player who left says hello to the running game, and is told why not. */

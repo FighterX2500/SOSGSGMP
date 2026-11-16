@@ -49,8 +49,11 @@ public sealed interface Message {
         }
     }
 
-    /** Host to every joined PC: the host pressed Start Lobby. */
-    record Start() implements Message {}
+    /**
+     * Host to every joined PC: the host pressed Start Lobby. {@code freezeMissing}: a resume's missing players are frozen
+     * at the start instead of removed (spec §11 Resuming); false for a new game and for a hot-join's candidate.
+     */
+    record Start(boolean freezeMissing) implements Message {}
 
     /** Either way: the sender leaves (from the host: the lobby is closed). */
     record Leave() implements Message {}

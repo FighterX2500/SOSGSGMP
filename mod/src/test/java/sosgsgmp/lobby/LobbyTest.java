@@ -48,6 +48,27 @@ class LobbyTest {
                 () -> new Lobby(LobbySettings.resuming(new LobbySettings.Resume(THREE_PLAYED, 4)), "Cid", 3), "a removed host");
     }
 
+    /** Spec §11 Resuming: the host starts a resume with its missing players frozen; with nobody missing, nobody is. */
+    @Test
+    void aResumeStartsWithItsMissingPlayersFrozenOnlyWhenSomeoneIsMissing() {
+        Lobby lobby = new Lobby(LobbySettings.resuming(new LobbySettings.Resume(THREE_PLAYED, 4)), "Ann", 1);
+        lobby.start(true);
+        assertTrue(lobby.freezesMissing(), "Bob is missing, and frozen");
+        Lobby all = new Lobby(LobbySettings.resuming(new LobbySettings.Resume(THREE_PLAYED, 4)), "Ann", 1);
+        all.join("Bob", 2);
+        all.start(true);
+        assertFalse(all.freezesMissing(), "nobody missing, nobody to freeze");
+        Lobby removing = new Lobby(LobbySettings.resuming(new LobbySettings.Resume(THREE_PLAYED, 4)), "Ann", 1);
+        removing.start(false);
+        assertFalse(removing.freezesMissing(), "Bob is removed, as before");
+        Lobby fresh = new Lobby(THREE, "Ann", 1);
+        fresh.join("Bob", 2);
+        assertThrows(IllegalArgumentException.class, () -> fresh.start(true), "a new game has nobody to freeze");
+        assertFalse(fresh.started());
+        fresh.start();
+        assertFalse(fresh.freezesMissing());
+    }
+
     @Test
     void theHostIsTheFirstPlayer() {
         Lobby lobby = new Lobby(THREE, "Ann", 1);

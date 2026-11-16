@@ -83,6 +83,8 @@ public final class JoinedSetup implements SetupSession {
     private boolean replaced;
     /** A setup made by a hot-join restart: the restart, for this PC's load to add the newcomer; else null. */
     private Message.Restart restartInfo;
+    /** The host's Start froze a resume's missing players instead of removing them. */
+    private final boolean freezeMissing;
 
     /**
      * Takes over a started lobby's connection to the host, this PC's player id, the players, the chat and this PC's builds. A resume ({@code resume}
@@ -90,14 +92,20 @@ public final class JoinedSetup implements SetupSession {
      */
     JoinedSetup(Node node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld,
             LobbySettings.Resume resume, boolean fullTransferLog, boolean livingWorld, Chat chat, Builds builds) {
-        this(node, localId, players, world, factionWorld, resume, fullTransferLog, livingWorld, chat, builds, false);
+        this(node, localId, players, world, factionWorld, resume, fullTransferLog, livingWorld, chat, builds, false, false);
     }
 
-    /** {@code candidate}: this PC asked to join a running game (hot-join, SOS-190), and the host let it in. */
+    /**
+     * {@code candidate}: this PC asked to join a running game (hot-join, SOS-190), and the host let it in.
+     * {@code freezeMissing}: the host's Start froze a resume's missing players instead of removing them.
+     */
     JoinedSetup(Node node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld,
             LobbySettings.Resume resume, boolean fullTransferLog, boolean livingWorld, Chat chat, Builds builds,
-            boolean candidate) {
+            boolean candidate, boolean freezeMissing) {
+        if (freezeMissing && resume == null)
+            throw new IllegalArgumentException("SOSGSGMP: missing players frozen at the start of a game that resumes nothing");
         this.candidate = candidate;
+        this.freezeMissing = freezeMissing;
         this.node = node;
         this.livingWorld = livingWorld;
         this.chat = chat;
@@ -559,8 +567,9 @@ public final class JoinedSetup implements SetupSession {
      * newcomer's id is the Welcome's.
      */
     private void restart(Message.Restart r) {
+        // a restart has nobody missing: nothing is frozen or removed at its start
         JoinedSetup next = new JoinedSetup(node, localPlayerId(), players, world, factionWorld,
-                new LobbySettings.Resume(r.campaign(), r.number()), fullTransferLog, false, chat, builds, false);
+                new LobbySettings.Resume(r.campaign(), r.number()), fullTransferLog, false, chat, builds, false, false);
         next.restartInfo = r;
         if (r.rejoins() && rejoinFiles == null) {
             close("The host brought a frozen player back without its world.");
@@ -583,6 +592,11 @@ public final class JoinedSetup implements SetupSession {
     @Override
     public Message.Restart restartInfo() {
         return restartInfo;
+    }
+
+    @Override
+    public boolean freezesMissing() {
+        return freezeMissing;
     }
 
     @Override

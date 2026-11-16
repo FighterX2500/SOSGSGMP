@@ -390,6 +390,19 @@ public final class WorldSetupAdapter implements FactionWorld {
     }
 
     /**
+     * At step 0, before the game starts: the human in {@code slot} is frozen, its player missing at a resume the host
+     * started with Freeze them (spec §11 Resuming, SOSDET Engine.freezeHumanAtStart). Every PC does it for the same
+     * slots. The host offered it only for a save that holds every player's last report, so a refusal is a broken invariant.
+     */
+    public void freezeAtStart(int slot) {
+        String refusal = Engine.freezeAtStartRefusal(slot);
+        if (refusal != null)
+            throw new IllegalStateException("SOSGSGMP: the missing player in slot " + slot + " can't be frozen: " + refusal);
+        Engine.freezeHumanAtStart(slot);
+        LOG.ln("SOSGSGMP: froze the missing player in slot " + slot + " at the start");
+    }
+
+    /**
      * A joining PC's own city at its capital: the save holds the host's city, and each PC runs only its own (own-city
      * mode, ADR 0005). The engine makes it as vanilla's StageFinish does, keeping the world state the city's generation
      * would change on this PC only (SOSDET Engine.ownCityAt, hook 18; the landing view's Regenerate goes through it too).
