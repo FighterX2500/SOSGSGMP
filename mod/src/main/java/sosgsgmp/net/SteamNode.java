@@ -1,6 +1,7 @@
 package sosgsgmp.net;
 
 import java.io.IOException;
+import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -23,6 +24,12 @@ import java.util.function.Supplier;
  * peer: this PC sends {@link Message.Resume} every {@link #RESUME_MS}, which opens a new session, and each side sends
  * again what the other lacks. A message past a gap (one a failed session lost) asks for the rest the same way.
  *
+ * <p>A line's identity is its joining node's random token, as over direct IP: the Steam ID alone can't tell a game that
+ * started again (a restart, or Leave and join again) from the one the host still holds a line for. A joining node's
+ * line starts with the handshake: it sends {@link Message.Resume} with its token and takes nothing from its host but
+ * {@link Message.Resumed}, so nothing of an older game's stream reaches it. A host that hears another token on a line
+ * ends that line and makes the Steam ID a new peer.
+ *
  * <p>One I/O thread (AGENTS.md, approved exception) creates the {@link SteamPort}, makes every Steam call, runs Steam's
  * callbacks and reads packets; it only decodes messages and queues {@link Event}s. Each message is one reliable packet
  * of {@link Protocol#encode}'s bytes ({@link Protocol#MAX_MESSAGE} is well under Steam's 1 MB reliable limit).
@@ -35,7 +42,7 @@ public final class SteamNode implements Node {
     private static final long LOOP_MS = 5;
     private static final long CLOSE_FLUSH_MS = 1_000;
     private static final long FRIENDS_MS = 2_000;
-    /** How long a joining PC waits for Steam's lobby, and then for the host's first message (SOS-105). */
+    /** How long a joining PC waits for Steam's lobby, and then for the host's answer to its handshake (SOS-105). */
     private static final long JOIN_MS = 30_000;
     /** How often members' sessions are accepted again: Steam's newer messages forget an accept made before the first packet. */
     private static final long ACCEPT_MS = 250;
@@ -65,6 +72,8 @@ public final class SteamNode implements Node {
     private volatile long invited;
     /** While set and false, the node closes itself (SOS-103: the main menu's invite watch, once the menu is gone). */
     private volatile BooleanSupplier wanted;
+    /** This node's connection token: a joining node's line is known by it; never 0. */
+    private final long token;
 
     // Owned by the I/O thread.
     private SteamPort port;
@@ -74,7 +83,7 @@ public final class SteamNode implements Node {
     private long owner;
     /** A joining node has asked to enter a lobby. */
     private boolean entering;
-    /** Until when a joining node waits for the lobby, then for the host's first message; 0 when it doesn't wait. */
+    /** Until when a joining node waits for the lobby, then for the host's first {@link Message.Resumed}; 0 when it doesn't wait. */
     private long joinDeadline;
     private final long joinMs;
 
@@ -88,6 +97,10 @@ public final class SteamNode implements Node {
     private final Set<Integer> dropWhenSent = new HashSet<>();
     /** A joining PC put out of the lobby as it lost Steam: when it tries to enter again; 0 while it is in. */
     private long rejoinAt;
+    /** A host's: each line's token, once heard in a {@link Message.Resume}. */
+    private final Map<Integer, Long> tokens = new HashMap<>();
+    /** A joining node took its host's first {@link Message.Resumed}: its line's handshake is done. */
+    private boolean resumedOnce;
 
     /** Written once on the I/O thread: only that thread may call the port. */
     private volatile String persona;
@@ -114,6 +127,11 @@ public final class SteamNode implements Node {
     private SteamNode(Supplier<SteamPort> steam, boolean hosting, int maxMembers, long joinLobby, long joinMs) {
         this.hosting = hosting;
         this.joinMs = joinMs;
+        SecureRandom random = new SecureRandom();
+        long t = 0;
+        while (t == 0)
+            t = random.nextLong();
+        this.token = t;
         thread = new Thread(() -> run(steam, maxMembers, joinLobby), "SOSGSGMP steam");
         thread.setDaemon(true);
         thread.start();
@@ -345,9 +363,6 @@ public final class SteamNode implements Node {
             Integer peer = peers.get(from[0]);
             if (peer == null)
                 continue; // not a member of this lobby: dropped
-            joinDeadline = 0;
-            long now = Liveness.now();
-            liveness.heard(peer, now);
             Message m;
             try {
                 m = Protocol.decode(bytes);
@@ -355,16 +370,31 @@ public final class SteamNode implements Node {
                 drop(peer, "It sent a broken message: " + e.getMessage());
                 continue;
             }
+            if (beforeHandshake(peer, m))
+                continue;
+            long now = Liveness.now();
+            liveness.heard(peer, now);
             switch (m) {
                 case Message.Heartbeat h -> {
                     liveness.beat(peer, h, now);
                     resend.acked(peer, h.received());
                 }
                 case Message.Resume r -> {
+                    if (hosting)
+                        peer = line(peer, from[0], r.token());
+                    else if (r.token() != 0 && r.token() != token)
+                        break; // the host asks an older game of this Steam ID
                     port.send(from[0], Protocol.encode(new Message.Resumed(resend.received(peer))));
                     sendAgain(peer, r.received());
                 }
-                case Message.Resumed r -> sendAgain(peer, r.received());
+                case Message.Resumed r -> {
+                    if (!hosting && !resumedOnce) { // the handshake: nothing came back, nothing to note
+                        resumedOnce = true;
+                        joinDeadline = 0;
+                        broken.remove(peer);
+                    }
+                    sendAgain(peer, r.received());
+                }
                 case Message.Sequenced q -> {
                     switch (resend.in(peer, q.seq())) {
                         case NEXT -> events.add(new Event.Received(peer, q.message()));
@@ -376,6 +406,44 @@ public final class SteamNode implements Node {
                 default -> events.add(new Event.Received(peer, m)); // another version's, which the sessions refuse
             }
         }
+    }
+
+    /**
+     * A joining node takes nothing from its host before the first {@link Message.Resumed} that fits what it sent: until
+     * then its host's Steam ID may still carry the line of an older game on this PC.
+     */
+    private boolean beforeHandshake(int peer, Message m) {
+        return !hosting && !resumedOnce && !(m instanceof Message.Resumed r && r.received() <= resend.sent(peer));
+    }
+
+    /**
+     * A host heard token {@code t} on {@code peer}'s line, from Steam ID {@code user}: the line's first token is
+     * remembered. Another one is a game of that Steam ID that started again: the old line ends, as a disconnect unless the
+     * sessions dropped it already, its Steam session stays, and the Steam ID becomes a new peer. Returns the line's peer.
+     */
+    private int line(int peer, long user, long t) {
+        Long known = tokens.get(peer);
+        if (t == 0 || known == null || known == t) {
+            if (t != 0)
+                tokens.put(peer, t);
+            return peer;
+        }
+        boolean dropped = dropWhenSent.contains(peer);
+        users.remove(peer);
+        peers.remove(user);
+        forget(peer);
+        int fresh = nextPeer++;
+        port.note("Player " + peer + "'s game started again; it is player " + fresh + " now.");
+        if (!dropped)
+            events.add(new Event.Disconnected(peer, "Their game started again."));
+        added(fresh, user);
+        tokens.put(fresh, t);
+        return fresh;
+    }
+
+    /** The token a {@link Message.Resume} on {@code peer}'s line carries: the joining node's, 0 while a host hasn't heard it. */
+    private long tokenOf(int peer) {
+        return hosting ? tokens.getOrDefault(peer, 0L) : token;
     }
 
     /**
@@ -415,7 +483,7 @@ public final class SteamNode implements Node {
         broken.put(peer, now + RESUME_MS);
         Long user = users.get(peer);
         if (user != null)
-            port.send(user, Protocol.encode(new Message.Resume(0, resend.received(peer), 0)));
+            port.send(user, Protocol.encode(new Message.Resume(tokenOf(peer), resend.received(peer), 0)));
     }
 
     /**
@@ -441,7 +509,7 @@ public final class SteamNode implements Node {
             if (user == null || now < e.getValue())
                 continue;
             e.setValue(now + RESUME_MS);
-            port.send(user, Protocol.encode(new Message.Resume(0, resend.received(e.getKey()), 0)));
+            port.send(user, Protocol.encode(new Message.Resume(tokenOf(e.getKey()), resend.received(e.getKey()), 0)));
         }
     }
 
@@ -485,6 +553,7 @@ public final class SteamNode implements Node {
         resend.remove(peer);
         broken.remove(peer);
         dropWhenSent.remove(peer);
+        tokens.remove(peer);
     }
 
     private void added(int peer, long user) {
@@ -532,6 +601,7 @@ public final class SteamNode implements Node {
                 return;
             }
             added(HOST, owner);
+            broken.put(HOST, Liveness.now()); // a new line: messages wait for the handshake, which goes at once
         }
 
         @Override

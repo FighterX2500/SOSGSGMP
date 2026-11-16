@@ -464,10 +464,11 @@ public sealed interface Message {
 
     /**
      * The first message on a new connection, and an ask for what is missing (SOS-178): the PC whose connection token is
-     * {@code token} (a direct-IP joining PC's own random number; 0 over Steam, where the Steam ID says who) has had
-     * {@code received} {@link Sequenced} messages from the other side. The other side sends again those after it and
-     * answers {@link Resumed}. {@code attempt} numbers a joining PC's connections from 1, so its host can tell an
-     * abandoned one, still waiting in its queue, from the newest; 0 over Steam. The transports consume it.
+     * {@code token} (a joining PC's own random number, over direct IP and Steam alike; 0 from a Steam host that hasn't
+     * heard it yet, or from an older build) has had {@code received} {@link Sequenced} messages from the other side.
+     * The other side sends again those after it and answers {@link Resumed}. {@code attempt} numbers a joining PC's
+     * connections from 1, so its host can tell an abandoned one, still waiting in its queue, from the newest; 0 over
+     * Steam. The transports consume it.
      */
     record Resume(long token, long received, int attempt) implements Message {}
 
