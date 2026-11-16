@@ -326,6 +326,50 @@ class SteamNodeTest {
         assertNoMessage(h);
     }
 
+    /**
+     * Bob joins the host, which sends him {@code Refused} and drops him in the same update, as the sessions refuse a
+     * PC (batch 12, item 1B).
+     */
+    private void refusedInOneUpdate(SteamNode h, SteamNode bob) throws Exception {
+        next(bob, e -> e instanceof Node.Event.Connected);
+        int bobPeer = ((Node.Event.Connected) next(h, e -> e instanceof Node.Event.Connected)).peer();
+        bob.send(Node.HOST, hello("Bob"));
+        assertEquals(hello("Bob"), nextMessage(h).message());
+        h.send(bobPeer, new Message.Start()); // once Bob has it, his line's handshake is done
+        assertEquals(new Message.Start(), nextMessage(bob).message());
+        h.send(bobPeer, new Message.Refused(Refusal.JOIN_BUSY));
+        h.disconnect(bobPeer);
+        assertEquals(new Message.Refused(Refusal.JOIN_BUSY), nextMessage(bob).message(), "the refusal arrives");
+    }
+
+    /** A dropped peer gets what was sent to it; its Steam session closes once it leaves the lobby. */
+    @Test
+    void aDroppedPeerGetsItsRefusalAndItsSessionClosesWhenItLeaves() throws Exception {
+        FakeSteam.Port[] hostPort = new FakeSteam.Port[1];
+        SteamNode h = SteamNode.host(() -> hostPort[0] = steam.port(1), 4);
+        nodes.add(h);
+        waitFor("the lobby", () -> h.lobby() != 0);
+        SteamNode bob = join(2, h.lobby());
+        refusedInOneUpdate(h, bob);
+        assertTrue(hostPort[0].inSession(2), "the session stays while Bob's game reads");
+        bob.close();
+        waitFor("the session closed", () -> !hostPort[0].inSession(2));
+        assertNoMessage(h);
+    }
+
+    /** A dropped peer that never leaves the lobby: its session closes at the limit. */
+    @Test
+    void aDroppedPeersSessionClosesAtTheLimitIfItStaysInTheLobby() throws Exception {
+        FakeSteam.Port[] hostPort = new FakeSteam.Port[1];
+        SteamNode h = SteamNode.host(() -> hostPort[0] = steam.port(1), 4, 300);
+        nodes.add(h);
+        waitFor("the lobby", () -> h.lobby() != 0);
+        SteamNode bob = join(2, h.lobby());
+        refusedInOneUpdate(h, bob);
+        waitFor("the session closed at the limit", () -> !hostPort[0].inSession(2));
+        assertNoMessage(h);
+    }
+
     /** Nothing more for the sessions but the network's own notes: no repeat, no disconnect. */
     private static void assertNoMessage(SteamNode node) {
         Node.Event e;

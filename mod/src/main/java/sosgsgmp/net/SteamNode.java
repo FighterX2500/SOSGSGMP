@@ -17,7 +17,8 @@ import java.util.function.Supplier;
  * enter it and talk to its owner. Peers are lobby members: the host numbers them from 1 as they enter; a joining PC's
  * host is {@link #HOST}. A P2P session is accepted only from a member, and a member who leaves the lobby is a
  * disconnect; for a joining PC, the owner leaving is losing the host. A member who only lost its connection to Steam
- * stays a peer (SOS-177), and a joining PC put out of the lobby for it enters it again.
+ * stays a peer (SOS-177), and a joining PC put out of the lobby for it enters it again. A peer the sessions drop keeps
+ * its Steam session until it leaves the lobby, or at most {@link #DROP_CLOSE_MS}, so what was sent to it arrives.
  *
  * <p>A peer's messages outlive its session (SOS-178): each goes as a {@link Message.Sequenced} and is kept until
  * acknowledged ({@link Resend}). A failed session, or a message Steam refuses, breaks the line instead of dropping the
@@ -48,6 +49,8 @@ public final class SteamNode implements Node {
     private static final long ACCEPT_MS = 250;
     /** How often a broken line asks its peer to resume (SOS-178), and a joining PC put out of the lobby tries it again. */
     static final long RESUME_MS = 2_000;
+    /** How long a dropped peer's Steam session stays open at most, so it still gets what was sent to it (a refusal). */
+    private static final long DROP_CLOSE_MS = 10_000;
 
     private sealed interface Command {
         record Send(int peer, byte[] bytes) implements Command {}
@@ -86,6 +89,7 @@ public final class SteamNode implements Node {
     /** Until when a joining node waits for the lobby, then for the host's first {@link Message.Resumed}; 0 when it doesn't wait. */
     private long joinDeadline;
     private final long joinMs;
+    private final long dropCloseMs;
 
     private final Liveness liveness = new Liveness();
     /** When the I/O thread next looks for heartbeats due. */
@@ -101,13 +105,22 @@ public final class SteamNode implements Node {
     private final Map<Integer, Long> tokens = new HashMap<>();
     /** A joining node took its host's first {@link Message.Resumed}: its line's handshake is done. */
     private boolean resumedOnce;
+    /**
+     * Steam IDs of peers the sessions dropped, and when their session closes: Steam loses what it hasn't delivered when
+     * a session closes, so it closes once that Steam ID leaves the lobby, or at {@link #DROP_CLOSE_MS}.
+     */
+    private final Map<Long, Long> closeAt = new HashMap<>();
 
     /** Written once on the I/O thread: only that thread may call the port. */
     private volatile String persona;
 
     /** Hosts: creates a lobby for up to {@code maxMembers} friends. Joining PCs appear as they enter it. */
     public static SteamNode host(Supplier<SteamPort> steam, int maxMembers) {
-        return new SteamNode(steam, true, maxMembers, 0, JOIN_MS);
+        return host(steam, maxMembers, DROP_CLOSE_MS);
+    }
+
+    static SteamNode host(Supplier<SteamPort> steam, int maxMembers, long dropCloseMs) {
+        return new SteamNode(steam, true, maxMembers, 0, JOIN_MS, dropCloseMs);
     }
 
     /** Joins {@code lobby}: success arrives as {@link Event.Connected} for {@link #HOST}, failure as {@link Event.Disconnected}. */
@@ -116,17 +129,18 @@ public final class SteamNode implements Node {
     }
 
     static SteamNode join(Supplier<SteamPort> steam, long lobby, long joinMs) {
-        return new SteamNode(steam, false, 0, lobby, joinMs);
+        return new SteamNode(steam, false, 0, lobby, joinMs, DROP_CLOSE_MS);
     }
 
     /** Starts Steam without a lobby yet: friends' lobbies and accepted invites appear; {@link #join(long)} picks one. */
     public static SteamNode browse(Supplier<SteamPort> steam) {
-        return new SteamNode(steam, false, 0, 0, JOIN_MS);
+        return new SteamNode(steam, false, 0, 0, JOIN_MS, DROP_CLOSE_MS);
     }
 
-    private SteamNode(Supplier<SteamPort> steam, boolean hosting, int maxMembers, long joinLobby, long joinMs) {
+    private SteamNode(Supplier<SteamPort> steam, boolean hosting, int maxMembers, long joinLobby, long joinMs, long dropCloseMs) {
         this.hosting = hosting;
         this.joinMs = joinMs;
+        this.dropCloseMs = dropCloseMs;
         SecureRandom random = new SecureRandom();
         long t = 0;
         while (t == 0)
@@ -263,6 +277,7 @@ public final class SteamNode implements Node {
                 resume();
                 rejoin();
                 joinTimeout();
+                closeDue();
                 if (!hosting && !entering && System.currentTimeMillis() >= friendsAt) {
                     friendLobbies = List.copyOf(port.friendLobbies());
                     friendsAt = System.currentTimeMillis() + FRIENDS_MS;
@@ -278,6 +293,8 @@ public final class SteamNode implements Node {
                 drop(peer, "Steam stopped working: " + e);
         } finally {
             for (long user : peers.keySet())
+                port.closeSession(user);
+            for (long user : closeAt.keySet())
                 port.closeSession(user);
             if (lobby != 0)
                 port.leaveLobby(lobby);
@@ -310,6 +327,20 @@ public final class SteamNode implements Node {
                         + " the same build, or connect by IP address instead.";
         port.note(reason);
         fail(reason);
+    }
+
+    /** A dropped peer's session that is still open at its limit closes now. */
+    private void closeDue() {
+        if (closeAt.isEmpty())
+            return;
+        long now = System.currentTimeMillis();
+        for (java.util.Iterator<Map.Entry<Long, Long>> i = closeAt.entrySet().iterator(); i.hasNext();) {
+            Map.Entry<Long, Long> e = i.next();
+            if (now >= e.getValue()) {
+                port.closeSession(e.getKey());
+                i.remove();
+            }
+        }
     }
 
     private void fail(String reason) {
@@ -347,9 +378,9 @@ public final class SteamNode implements Node {
                     }
                     Long user = users.remove(d.peer());
                     forget(d.peer());
-                    if (user != null) {
+                    if (user != null) { // what was just sent to it still has to arrive: its session closes later
                         peers.remove(user);
-                        port.closeSession(user);
+                        closeAt.put(user, System.currentTimeMillis() + dropCloseMs);
                     }
                 }
             }
@@ -556,6 +587,7 @@ public final class SteamNode implements Node {
     }
 
     private void added(int peer, long user) {
+        closeAt.remove(user); // a peer again: its session stays
         resend.add(peer);
         liveness.add(peer, Liveness.now());
         users.put(peer, user);
@@ -614,6 +646,8 @@ public final class SteamNode implements Node {
         @Override
         public void memberLeft(long id, long user, boolean lostSteam) {
             Integer peer = peers.get(user);
+            if (id == lobby && peer == null && !lostSteam && closeAt.remove(user) != null)
+                port.closeSession(user); // a dropped peer's game had what was sent to it and left
             if (id != lobby || peer == null)
                 return;
             if (lostSteam) { // a blip: its session decides, failing only past Steam's timeout (sessionFailed)
