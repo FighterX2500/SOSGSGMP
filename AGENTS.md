@@ -39,7 +39,7 @@ Touch only what you must. Clean up only your own mess.
 *   **Minimal Impact:** Don't "improve" adjacent code, comments, or formatting. Don't refactor things that aren't broken. Don't run a formatter or "optimize imports" over whole files.
 *   **Style Match:** Match existing style, even if you'd do it differently (naming, `final` usage, brace style, import ordering, wildcard vs. explicit imports).
 *   **Cleanup Scope:** Remove imports/fields/methods that YOUR changes made unused. Don't remove pre-existing dead code unless asked.
-*   **Traceability:** Every changed line should trace directly to the user's request or the Jira card being worked on.
+*   **Traceability:** Every changed line should trace directly to the user's request or the task being worked on.
 
 ## Goal-Driven Execution
 Define success criteria. Loop until verified.

@@ -55,8 +55,6 @@ Written 2026-10-25, end of day, after SOS-64; status brought up to main on 2026-
 - **Status text boxes** are sized for their longest message plus a spare line (`Font.getHeight(text, width)`), so the panel grows downward instead of the text overlapping the buttons. A new long status message must go into that measure (`MpFactions.statusHeight`).
 - **Full-screen prompts with one button** go through `menu.MpPrompt.show(text, button)`: vanilla's `IPromtScreen` puts a lone button half a slot left of centre. Two or more buttons are centred already, so call `fullScreen.activate` directly.
 
-**Jira.** The board holds each card's state; this file doesn't track it. A card goes to In Review when its PR opens. When the PR merges, comment with it and move the card to Done.
-
 **Installed for play.** The newest playtest pack is `C:\ClaudeFolder\modpack\SOSGSGMP-playtest-2026-11-08.zip` (both batch-10 branches, before their merge), with CHANGELOG.txt and `send-logs.cmd`; its Workshop entry is on top of `C:\ClaudeFolder\modpack\WORKSHOP-CHANGELOG.txt`.
 
 ## 3. Next
@@ -107,16 +105,13 @@ Every PC writes its own log of each multiplayer session, with no setup:
 
 ## 7. How to work
 
-- **Plan first** for anything larger than a small fix; one card at a time; new cards need the owner's approval.
+- **Plan first** for anything larger than a small fix; one piece of work at a time; new work needs the owner's approval.
 - **Git:**
-  - branches are named after the card;
+  - one branch per piece of work;
   - PRs are based on main;
-  - never merge PRs or rename a branch with an open PR. Jira cards follow their PRs (section 2).
+  - never merge PRs or rename a branch with an open PR.
   - Commits end with the `Co-Authored-By` line, PR bodies with the Claude Code line.
 - **Secrets:** the keys in `C:\ClaudeFolder\SOS\.env` are never printed. Read the GitHub token into `GH_TOKEN` (see memory `jira-github-setup`). Push with `git -c credential.helper= -c credential.helper='!gh auth git-credential' push`.
-- **Jira:** `python C:\Users\FighterX2500\.claude\projects\C--ClaudeFolder-SOS\jira.py list|get|comment|create|move`.
-  - `comment` takes a file.
-  - Set `PYTHONIOENCODING=utf-8` for `list`.
 - **Shell:**
   - never `cmd /c` from Git Bash;
   - Gradle goes through PowerShell;
