@@ -71,7 +71,9 @@ import world.WORLD;
  * (host: save the campaign at this step), {@code resume} (host, {@code 1}: host the newest campaign save of this data
  * folder instead of a new game; the joining PC learns it from the lobby), {@code crash} (this PC's game stops dead at
  * this step, as a crash or a pulled cable leaves the others: SOS-65), {@code ongone} (host: {@code continue},
- * {@code freeze} (SOS-194) or {@code return} when a player left), {@code freeze} (join: at this step choose the escape
+ * {@code freeze} (SOS-194) or {@code return} when a player left), {@code onmissing} (host, a resume: {@code remove},
+ * the default, or {@code freeze}: how Start leaves out the campaign's players not in the lobby, as the lobby's question
+ * answers it), {@code freeze} (join: at this step choose the escape
  * menu's Leave and freeze, confirmed: SOS-194), {@code startafter} (host: keep the lobby open this many seconds first),
  * {@code deal} (join: at this step propose trade, up to 100 denari and 5 of a good it has to the host, who accepts every
  * proposal: SOS-72), {@code fulllog} (host, {@code 0}: the lobby's transfer log lists only transfers between players: SOS-81),
@@ -157,6 +159,8 @@ public final class MpAutopilot {
 	private final long startAfterNanos;
 	private long lobbyAt;
 	private final String onGone;
+	/** Host, a resume: Start freezes the missing players instead of removing them (onmissing=freeze). */
+	private final boolean freezeMissing;
 	/** The hold step of the last player-gone hold seen; -1 before the first. */
 	private long seenGone = -1;
 	private long goneSeenAt;
@@ -275,6 +279,10 @@ public final class MpAutopilot {
 		capitalY = Integer.parseInt(capital[1]);
 		startAfterNanos = Long.parseLong(m.getOrDefault("startafter", "0")) * 1_000_000_000L;
 		onGone = m.getOrDefault("ongone", "continue");
+		String onMissing = m.getOrDefault("onmissing", "remove");
+		if (!onMissing.equals("remove") && !onMissing.equals("freeze"))
+			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " onmissing '" + onMissing + "', not remove or freeze");
+		freezeMissing = onMissing.equals("freeze");
 		if (!onGone.equals("continue") && !onGone.equals("freeze") && !onGone.equals("return"))
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " ongone '" + onGone + "', not continue, freeze or return");
 		if (!onDesync.equals("resync") && !onDesync.equals("exit"))
@@ -497,8 +505,8 @@ public final class MpAutopilot {
 			return;
 		if (host && s.canStart() && s.players().size() >= players && System.nanoTime() - lobbyAt >= startAfterNanos
 				&& first("started")) {
-			s.start();
-			event("started", "\"players\":" + s.players().size());
+			s.start(resume && freezeMissing); // the lobby's question for missing players, answered (spec §11 Resuming)
+			event("started", "\"players\":" + s.players().size() + ",\"freezeMissing\":" + (resume && freezeMissing));
 		}
 	}
 
