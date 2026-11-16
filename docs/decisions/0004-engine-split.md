@@ -1,6 +1,6 @@
 # 0004: The deterministic engine is a separate project (SOSDET)
 
-Status: Accepted (owner decision, 2026-10-22) for "Decision"; the items under "Proposed" are open until the cards named there settle them · Card: [SOS-24](https://fighterx2500.atlassian.net/browse/SOS-24)
+Status: Accepted (owner decision, 2026-10-22) for "Decision"; the items under "Proposed" have since been settled as built (see the update at the end, 2026-11-16) · Card: [SOS-24](https://fighterx2500.atlassian.net/browse/SOS-24)
 
 ## Context
 
@@ -57,3 +57,12 @@ Where these stand on 2026-10-30: the API is built (`sosdet.Engine`, SOS-27 to SO
 - **Distribution covers both.** SOS-18 now has to cover the engine's patches and the mod's together, with SOS-25 as its engine half.
 - **Mod code inside the step.** Any mod hook or code that runs inside the step or feeds the state hash follows SOSDET's determinism rules (AGENTS.md "Determinism").
 - **Spec 0.10.** §13 and §14 name the engine as the project behind the battle sync targets.
+
+## Update, 2026-11-16: how the proposed items settled
+
+- **Repository.** SOSDET went public under the MIT license on 2026-10-23, as [FighterX2500/Songs-of-Syx-Deterministic-Engine](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine) (spec §14). Jira is no longer part of either repository's workflow (2026-11-16).
+- **API.** Built as `sosdet.Engine`, far wider than the list above: own cities, several humans, deals, views, sieges, carving, freezing (SOSDET `docs/api.md`, requirements §3). It carries no API version and promises no stability; the formats that cross it carry versions.
+- **Releases.** Not by tag, and the mod pins no release: it compiles against whatever SOSDET jar it finds ([ADR 0007](0007-mod-compiles-against-engine-jar.md)), and the lobby compares every PC's game files and mods, SOSDET's jar included (SOS-159). A release is a mod folder with the patched classes in its jar (SOSDET ADR 0001, from SOS-25).
+- **The mod's own hooks.** A second patch set in `mod/patches/`, but not applied on top of the engine's: the two sets never touch the same game file, and each project compiles and ships its own classes ([ADR 0010](0010-mod-hooks-ship-in-script-jar.md)). The "Patch order" consequence above therefore never arises.
+- **B1–B6.** The battle's sides and the player's army went to the engine: the commanders table and its patch `94-own-army` (SOS-15, SOS-83).
+- **The mod's build** needs a local SOSDET build; there is no CI (spec §14).

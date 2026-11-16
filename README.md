@@ -8,26 +8,29 @@ The simulation runs in lockstep on every PC through the deterministic engine [SO
 
 ## What it does
 
-- **Lobby and setup:** a Multiplayer button in the main menu. The host creates a lobby over Steam or by IP, picks the map with vanilla's options, and every player picks a race, a faction and a capital location. NPC realms are generated around the players; each player then places their landing party.
+- **Lobby and setup:** a Multiplayer button in the main menu. The host creates a lobby over Steam or by IP, picks the map with vanilla's options, and every player picks a race, a faction and a capital location. NPC realms are generated around the players; each player then places their landing party. The lobby refuses a PC whose game files or mods differ from the host's, and says what differs.
+- **Living world:** instead of the classic setup, the host can build a vanilla world first; every player then settles a small city-state carved into its real map.
 - **One world, own cities:** every PC runs only its own city, with no delay, and the world map runs in lockstep on every PC. The world never reads a live city: it reads city reports and changes a city only through transactions applied exactly once.
 - **Diplomacy between players:** peace, trade, colleagues and alliance as proposals; money, goods and regions in a deal; vassals with a tribute rate, and protectors; free passage at peace. You open another player's window wherever you'd click an NPC.
 - **Trade between players:** each sells to the other in the market, as with an NPC, across any land at peace, with each player's own tariff on what the other sells them.
 - **War and real-time battles:** a declaration of war applies at once. When two players' armies meet, each player commands their own army on the battle map, with their own technology and bonuses, while everyone else watches. A siege of a player's region (not the capital) asks the defender to sally out or fall back. A siege of a player's capital shows the defender a popup and the days to the assault, and they can sally out at any time. When the wait ends the attacker can storm: a real-time assault every player watches, ending in Sack, Eliminate or Vassalage.
 - **Viewing a city:** ask to watch another player's city live; they allow or refuse. Your own city freezes until you close the view, then loads back where it stopped.
 - **Saves:** Save Campaign in the escape menu, the host's autosave, a save before every battle, and Quit or Exit saving first. The host resumes a campaign with Load Saved Lobby.
-- **Robustness:** a player dropping out holds every PC at the same step, and the host goes on without them or returns to the last save. If the worlds ever split, the host chooses Resync (every PC takes the host's world and keeps its own city) or Save and exit.
+- **Robustness:** a PC whose connection drops for a while, the host's too, connects again by itself, with nothing lost. A player whose game crashes or quits holds every PC at the same step, and the host goes on without them, freezes them, or returns to the last save. If the worlds ever split, the host chooses Resync (every PC takes the host's world and keeps its own city) or Save and exit.
+- **Joining and leaving:** a new player can join a running campaign after the host accepts, and a player can leave with Leave and freeze and come back later; their capital waits for them, protected.
 - **Pace:** the host sets the speed, and the slowest PC caps it for everyone. Menus, popups and prompts never pause the game.
 - **Chat and spectators:** one chat for every player, with wars, sieges and battles announced in it. An eliminated player stays in the session and watches.
 - **Routes:** in a new world, players who start 6 to 15 tiles apart get a direct road or sea crossing.
 - **Global events:** eclipses, comets, storms and similar events reach every city at the same step, and world news applies once.
-- **Session log:** every PC logs its session in `sosgsgmp/logs` in the game's data folder (see [Playing](#playing)), including every transfer of goods and money, for bug reports.
+- **Session log:** every PC logs its session in `sosgsgmp/logs` in the game's data folder (see [Playing](#playing)), including every transfer of goods and money, for bug reports. Each joining PC also sends the host its logs, crash files and campaign saves; a player can turn that off.
 
 The rules are in [docs/spec.md](docs/spec.md).
 
 ## Status
 
 **Built** (merged, playtested with up to 3 players over Steam):
-- the lockstep engine (SOSDET), the lobby, the setup, Steam and direct IP, campaign saves and resume, disconnects and desync recovery;
+- the lockstep engine (SOSDET), the lobby with its game-files check, the setup and the living world, Steam and direct IP, campaign saves and resume, disconnects, reconnecting after a lost connection, and desync recovery;
+- joining a running campaign, and leaving with Leave and freeze and coming back;
 - diplomacy between players: treaties, money, goods, regions, vassalage, passage;
 - trade between players, with tariffs, and direct routes in new worlds;
 - war between players, and real-time field battles with each side's commanders, deployment, retreat, spoils, the sally, allies, a speed vote and resync inside a battle;
@@ -35,13 +38,14 @@ The rules are in [docs/spec.md](docs/spec.md).
 - sieges of a player's capital: the wait, Sally out, the real-time assault, its outcomes and allied attackers;
 - viewing another player's city live;
 - chat, notifications, who paused, spectators, global events;
-- names and banners on every PC; other players' cursors on the maps and minimaps; a session log on every PC.
+- names and banners on every PC; other players' cursors on the maps and minimaps; a session log on every PC, sent to the host;
+- Windows, Linux (the Steam Deck too) and macOS.
 
 **Still open:**
 - **Spec gaps:** debug mode isn't turned off in multiplayer, the code's lowest speed is 0.25× where spec §4 says 0.5×, and each attacker's own bonuses in an assault aren't built.
-- **Tests:** a 2-hour session, a 30-minute battle with 2,000 units per side, the 10,000-person city at 1x, and 300 ms ping.
+- **Tests:** a 2-hour session, a 30-minute battle with 2,000 units per side, the 10,000-person city at 1x, 300 ms ping, a join over Steam, and a full session between a Mac and another PC over Steam.
 
-**Out of scope for v1:** anti-cheat, a world that runs without players, new players joining a campaign in progress, AI running a disconnected player's city, other mods, later game versions, GOG and itch.io (spec §2).
+**Out of scope for v1:** anti-cheat, a world that runs without players, AI running a disconnected player's city, support for other mods (allowed when every player has them, but untested), later game versions, GOG and itch.io (spec §2).
 
 ## Playing
 
@@ -98,7 +102,7 @@ No game files or game source are ever committed. The game jar is a compile-only 
 | `mod/src/test/java/` | Tests (JUnit 5) |
 | `mod/patches/` | The mod's small hooks into the game's own screens ([docs/hooks.md](docs/hooks.md)) |
 | `docs/` | The spec, the architecture, the decisions (ADRs), the plans and the hook list |
-| `tools/` | The two-PC test driver and the log collector |
+| `tools/` | The two-PC test driver (`twopc.py`), the three-game test runners (`battles3.py`, `raid3.py`), the network-conditions runner (`netbase.py`) and the log collector |
 | `spikes/` | Throwaway experiments; never part of the build |
 
 ## Documentation

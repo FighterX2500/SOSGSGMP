@@ -9,7 +9,7 @@ AGENTS.md holds the coding rules: Java, the game, hooks, threads, saves, network
 ## Source of truth
 
 - `docs/spec.md`: what the mod must do. Read the relevant section before any planning or feature work. Never change a rule in it without asking me first; when I approve a change, update the spec in the same PR.
-- `docs/architecture.md`: the proposed architecture. It is a direction, not a decision, until an ADR confirms it.
+- `docs/architecture.md`: the architecture as built. The choices behind it are recorded in the ADRs.
 - `docs/decisions/`: ADRs, one per decision, numbered `0001-short-name.md`. Each records context, the decision, the options rejected and why.
 - `docs/plan/`: plans per milestone or sprint.
 - `docs/hooks.md`: every change to the game's own code that the mod makes, with the reason it exists.
@@ -17,15 +17,16 @@ AGENTS.md holds the coding rules: Java, the game, hooks, threads, saves, network
 
 ## Current phase
 
-- **Engine (SOSDET): release** (owner, 2026-11-01). Merged through SOSDET PR #73. The work happens in the SOSDET repository and follows its CLAUDE.md.
-- **Mod (this repository): release** (owner, 2026-11-01). Every v1 feature is merged through PR #81; the audit of 2026-11-01 lists what must go in before the Steam release. Merged through PR #66 (2026-10-30):
+- **Engine (SOSDET): release** (owner, 2026-11-01). Merged through SOSDET PR #100 (2026-11-16). The work happens in the SOSDET repository and follows its CLAUDE.md.
+- **Mod (this repository): release** (owner, 2026-11-01). Every v1 feature was merged by PR #81 (2026-11-01); the audit of 2026-11-01 lists what must go in before the Steam release. Merged through PR #119 (2026-11-16):
   - the walking skeleton: the lobby, the setup, the game over the network, the desync window, Steam, battles, the playtest log (SOS-49 to SOS-63);
   - campaign saves and resume, the save before every battle, disconnects and removing a player (SOS-64, SOS-65, SOS-67, SOS-68);
   - diplomacy, trade and war between players, and battles between players (SOS-72 to SOS-77, SOS-83);
   - Save Campaign in the escape menu, names and banners, the transfer log (SOS-78, SOS-79, SOS-81);
   - city viewing (SOS-82);
   - sieges of a player's capital, with the assault and its outcomes (SOS-92); battles with allies and the speed vote (SOS-116 to SOS-119); NPC battles on their own clock (SOS-93, SOS-109); chat and spectators (SOS-110, SOS-111); the fixes from the 2026-11-01 playtest (SOS-120 to SOS-125);
-  - playtest fixes, among them cursors in cities (SOS-58), the governor's reasons (SOS-94), stream compression (SOS-96) and a Steam invite from the main menu (SOS-103).
+  - playtest fixes, among them cursors in cities (SOS-58), the governor's reasons (SOS-94), stream compression (SOS-96) and a Steam invite from the main menu (SOS-103);
+  - since 2026-11-01: reports to the host (SOS-133), one data folder (SOS-155), the loading window (SOS-158), the same game files in the lobby (SOS-159), reconnect (SOS-175 to SOS-180), the living world, joining a running campaign and freezing a player (SOS-187 to SOS-199, SOS-204, SOS-212 to SOS-216), and Linux and macOS (SOS-157, PR #118).
 
   Where things stand and what's next: [docs/plan/HANDOFF.md](docs/plan/HANDOFF.md). The rest of this section applies to the mod.
 
@@ -45,7 +46,7 @@ Planning tasks from Sprint 0, in rough order (7 is now the walking-skeleton plan
     - ~~Late-game save size and save time~~: checked in playtests instead (owner, 2026-10-24).
     - ~~Two game processes on one PC~~: not needed, viewing is lockstep (ADR 0006).
     - ~~Networking from inside the game process~~: built, direct IP (SOS-49) and Steam P2P under Songs of Syx's App ID 1162750 (SOS-60).
-5. **Distribution:** how players get the changed game code (the engine's patches and the mod's) and the mod, without committing game files. SOS-25 covers the engine's half.
+5. **Distribution:** how players get the changed game code (the engine's patches and the mod's) and the mod, without committing game files. Settled for the engine (SOSDET ADR 0001, from SOS-25) and the mod's hooks ([ADR 0010](docs/decisions/0010-mod-hooks-ship-in-script-jar.md)); publishing on the Steam Workshop is what's left.
 6. **Test plan:** what runs before every pull request, before a release and in play sessions, and how each [AT] criterion in spec section 15 becomes an automated test.
 7. ~~**Walking skeleton plan:** two players connect over Steam P2P and see the same world map, with one army's movement synced.~~ Done: steps 1 to 5 are merged ([walking-skeleton.md](docs/plan/walking-skeleton.md)).
 8. **Work list:** propose the work (spikes, decisions, stories) with acceptance criteria. Don't start it until I approve the list.

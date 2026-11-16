@@ -91,7 +91,7 @@ Multiplayer needs entry points the game's script/mod API may not offer. Use, in 
 2.  Reflection through the adapter layer (above).
 3.  A change to the game's own code, as a small named hook.
 
-A hook only calls into the mod (for example `isLocalPlayer(f)` asking the multiplayer module); the logic stays in the mod, behind the adapter boundary. Every hook is listed in `docs/hooks.md` with the game file it touches and why no API or adapter route was enough. How hooks are distributed to players is decided in an ADR; until then, do not add one without approval.
+A hook only calls into the mod (for example `isLocalPlayer(f)` asking the multiplayer module); the logic stays in the mod, behind the adapter boundary. Every hook is listed in `docs/hooks.md` with the game file it touches and why no API or adapter route was enough. Hooks reach players as patched classes in the mod's own script jar ([ADR 0010](docs/decisions/0010-mod-hooks-ship-in-script-jar.md)); the mod never patches a game file SOSDET patches. Every new hook still needs the owner's approval.
 
 ### Determinism
 Code that runs in lockstep lives in the deterministic engine, [SOSDET](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine), and follows its determinism rules ([ADR 0004](docs/decisions/0004-engine-split.md)). In v1 that is field battles (ADR 0003), siege assaults and viewed cities (ADR 0006). The mod never simulates battle state itself: it carries orders, the host's AI log, state hashes and resync saves, and talks to the engine only through its API.
