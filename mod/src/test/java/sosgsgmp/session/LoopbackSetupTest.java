@@ -26,7 +26,6 @@ import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.GameFiles;
-import sosgsgmp.lobby.Lobby;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
@@ -1311,7 +1310,8 @@ class LoopbackSetupTest {
     /**
      * Spec §11 Removing a player: Cid leaves and the host continues without him. His PC says hello again with the same
      * key: the host is asked about a new player, not a returning one. On Accept and his pick, the restart's campaign lists
-     * his key once, not removed, in his new slot, and the next resume's lobby takes him.
+     * his key twice, removed in his old slot and playing in his new one, and the next resume's lobby takes him and gives
+     * him the new slot.
      */
     @Test
     void aRemovedPlayerJoinsTheRunningGameAgainAsANewPlayer() throws Exception {
@@ -1327,40 +1327,85 @@ class LoopbackSetupTest {
         setups.remove(cid);
         assertTrue(host.campaign().inSlot(2).refused(), "Cid is removed");
 
-        JoinedLobby jc = join(lobby, "Cid");
-        playUntil("Cid's ask at the host", () -> {
-            jc.update();
-            return "Cid".equals(host.joinAsk()) && jc.running();
+        int cidId = newPlayerJoins("Cid", 37, 4).localPlayerId();
+        long cidKey = "Cid".hashCode();
+        for (SetupSession s : setups) {
+            Campaign c = s.restartInfo().campaign();
+            assertEquals(List.of(new Campaign.Player(cidKey, "Cid", 2, true), new Campaign.Player(cidKey, "Cid", 37)),
+                    c.players().stream().filter(p -> p.key() == cidKey).toList(), "the old entry stays, with its slot");
+            assertEquals(new Campaign.Player(cidKey, "Cid", 37), c.player(cidKey), "the new entry");
+        }
+        for (SetupSession s : setups)
+            assertEquals(37, s.factions().slotOf(cidId), "Cid's new slot on every PC");
+        for (SetupSession s : setups)
+            assertFalse(s.closed());
+
+        // the next resume: Ann hosts it, Bob and Cid join, and Cid gets his new slot
+        Campaign c = host.restartInfo().campaign();
+        HostedLobby h = new HostedLobby(LobbySettings.resuming(new LobbySettings.Resume(c, 4)), "Ann", "Ann".hashCode(), BUILDS, 0);
+        lobbies.add(h);
+        JoinedLobby jb = join(h, "Bob");
+        JoinedLobby jc = join(h, "Cid");
+        until("Bob and Cid in the resume's lobby", () -> {
+            for (LobbySession l : List.of(h, jb, jc))
+                l.update();
+            return h.players().size() == 3 && jb.players().size() == 3 && jc.players().size() == 3;
+        });
+        h.start();
+        until("the resume started", () -> {
+            for (LobbySession l : List.of(h, jb, jc))
+                l.update();
+            return jb.state() == LobbyState.STARTED && jc.state() == LobbyState.STARTED;
+        });
+        SetupSession annR = h.handOver(hostWorld, hostWorld);
+        SetupSession bobR = jb.handOver(bobWorld, bobWorld);
+        SetupSession cidR = jc.handOver(cidWorld, cidWorld);
+        setups.addAll(List.of(annR, bobR, cidR));
+        until("the slots on Cid's PC", () -> cidR.factions() != null && cidR.factions().initialized());
+        assertEquals(37, annR.factions().slotOf(jc.localPlayerId()), "the host gives Cid his new slot");
+        assertEquals(37, cidR.factions().slotOf(cidR.localPlayerId()));
+    }
+
+    /**
+     * Hot-join as far as the restart's slot maps: {@code name} says hello to the running game, the host accepts him as a
+     * new player and takes his pick, and every PC restarts from campaign save {@code number} with him in {@code slot}.
+     * {@link #host} and {@link #setups} are the restarted ones; returns the newcomer's.
+     */
+    private SetupSession newPlayerJoins(String name, int slot, int number) throws Exception {
+        JoinedLobby j = join(lobby, name);
+        playUntil(name + "'s ask at the host", () -> {
+            j.update();
+            return name.equals(host.joinAsk()) && j.running();
         });
         assertFalse(host.joinReturning(), "a new player, not one coming back");
-        assertFalse(jc.returning());
+        assertFalse(j.returning());
         host.answerJoin(null);
-        playUntil("Cid let in", () -> {
-            jc.update();
-            return jc.state() == LobbyState.STARTED;
+        playUntil(name + " let in", () -> {
+            j.update();
+            return j.state() == LobbyState.STARTED;
         });
-        FakeWorld cidWorld = new FakeWorld();
-        SetupSession cidNew = jc.handOver(cidWorld, cidWorld);
-        assertTrue(cidNew.candidate());
-        FactionPick pick = new FactionPick("HUMAN", "Cid's again", "", new byte[0], 70, 80);
-        cidNew.pick(pick);
+        FakeWorld w = new FakeWorld();
+        SetupSession candidate = j.handOver(w, w);
+        assertTrue(candidate.candidate());
+        candidate.pick(new FactionPick("HUMAN", name + " again", "", new byte[0], 70, 80));
         FactionPick[] got = new FactionPick[1];
-        playUntil("Cid's pick at the host", () -> {
-            cidNew.update();
+        playUntil(name + "'s pick at the host", () -> {
+            candidate.update();
             return (got[0] = host.takeJoinPick()) != null;
         });
 
-        int cidId = jc.localPlayerId();
-        SetupSession host2 = host.restart(4, 37, got[0], 1500, new byte[Pieces.PIECE_BYTES + 3]);
-        SetupSession[] next = new SetupSession[2];
-        SetupSession[] olds = {bob, cidNew};
-        until("the restart at Bob and Cid", () -> {
+        SetupSession host2 = host.restart(number, slot, got[0], 1500, new byte[Pieces.PIECE_BYTES + 3]);
+        List<SetupSession> olds = new ArrayList<>(setups);
+        olds.remove(host);
+        olds.add(candidate);
+        SetupSession[] next = new SetupSession[olds.size()];
+        until("the restart at every joined PC", () -> {
             host2.update();
             boolean all = true;
-            for (int i = 0; i < 2; i++) {
-                olds[i].update();
+            for (int i = 0; i < next.length; i++) {
+                olds.get(i).update();
                 if (next[i] == null)
-                    next[i] = olds[i].takeRestart();
+                    next[i] = olds.get(i).takeRestart();
                 all &= next[i] != null;
             }
             return all;
@@ -1368,23 +1413,92 @@ class LoopbackSetupTest {
         setups.clear();
         setups.add(host2);
         setups.addAll(List.of(next));
-        for (SetupSession s : setups) {
-            Campaign c = s.restartInfo().campaign();
-            assertEquals(1, c.players().stream().filter(p -> p.key() == "Cid".hashCode()).count(), "Cid's key once");
-            assertEquals(new Campaign.Player("Cid".hashCode(), "Cid", 37), c.player("Cid".hashCode()), "in the new slot");
-        }
+        host = host2;
         until("the slot maps", () -> {
             for (SetupSession s : setups)
                 if (s.factions() == null || !s.factions().initialized())
                     return false;
-            return next[0].players().size() == 3;
+            return true;
+        });
+        return next[next.length - 1];
+    }
+
+    /** After a restart: every PC loads, lands and plays again, each with a new engine. */
+    private void playAgain() throws Exception {
+        for (SetupSession s : setups)
+            s.worldLoaded(77);
+        for (SetupSession s : setups)
+            s.startSpot();
+        until("the restarted session started everywhere", () -> {
+            for (SetupSession s : setups)
+                if (!s.factions().started())
+                    return false;
+            return true;
         });
         for (SetupSession s : setups)
-            assertEquals(37, s.factions().slotOf(cidId), "Cid's new slot on every PC");
-        assertFalse(host2.closed() || next[0].closed() || next[1].closed());
+            s.play(new EngineLinkTest.FakePort());
+    }
 
-        Lobby resume = new Lobby(LobbySettings.resuming(new LobbySettings.Resume(host2.restartInfo().campaign(), 4)), "Ann", "Ann".hashCode());
-        assertNull(resume.refusal("Cid".hashCode()), "the next resume takes Cid");
+    /**
+     * Batch 12 item 1: Bob is frozen; Dan joins in slot 37, is removed, and joins again in slot 38. Bob's hello is then
+     * a return from a freeze, and the restart for his rejoin carries a campaign that still lists slot 37: Bob's game,
+     * which froze before Dan came, adds a stand-in for every human slot the host's world has (MpWorldLoad.addMissedJoins).
+     */
+    @Test
+    void aFrozenPlayersRejoinStillListsTheSlotOfAPlayerWhoWasRemovedAndJoinedAgain() throws Exception {
+        playing(new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        bob.leave();
+        playUntil("Cid holds for Bob", () -> cid.departures().waiting());
+        host.chooseGone(Departures.Choice.FREEZE);
+        playUntil("Cid hears Freeze them", () -> cid.departures().choice() == Departures.Choice.FREEZE);
+        for (SetupSession s : List.of(host, cid))
+            s.departures().continued();
+        setups.remove(bob);
+
+        SetupSession dan = newPlayerJoins("Dan", 37, 4);
+        playAgain();
+        dan.leave();
+        setups.remove(dan);
+        playUntil("every PC holds for Dan", () -> {
+            for (SetupSession s : setups)
+                if (!s.departures().waiting())
+                    return false;
+            return true;
+        });
+        host.chooseGone(Departures.Choice.CONTINUE);
+        playUntil("every PC hears Continue", () -> {
+            for (SetupSession s : setups)
+                if (s.departures().choice() != Departures.Choice.CONTINUE)
+                    return false;
+            return true;
+        });
+        for (SetupSession s : setups)
+            s.departures().continued();
+        assertTrue(host.campaign().inSlot(37).refused(), "Dan is removed");
+
+        newPlayerJoins("Dan", 38, 5);
+        playAgain();
+        JoinedLobby jb = join(lobby, "Bob");
+        playUntil("Bob's ask at the host", () -> {
+            jb.update();
+            return "Bob".equals(host.joinAsk()) && jb.running();
+        });
+        assertTrue(host.joinReturning(), "Bob comes back from his freeze");
+        host.answerJoin(null);
+        playUntil("Bob let in", () -> {
+            jb.update();
+            return jb.state() == LobbyState.STARTED;
+        });
+        FakeWorld w = new FakeWorld();
+        setups.add(jb.handOver(w, w));
+        SetupSession rejoin = host.restartRejoin(6, new byte[Pieces.PIECE_BYTES + 1]);
+        setups.add(rejoin);
+        Campaign c = rejoin.restartInfo().campaign();
+        long danKey = "Dan".hashCode();
+        assertEquals(new Campaign.Player(danKey, "Dan", 37, true), c.inSlot(37), "the removed Dan's slot, for Bob's game");
+        assertEquals(new Campaign.Player(danKey, "Dan", 38), c.player(danKey));
+        assertEquals(List.of(0, 1, 2, 37, 38), c.players().stream().map(Campaign.Player::slot).sorted().toList(),
+                "every human slot of the host's world");
     }
 
     /** Spec §11 Elimination: an eliminated player who left says hello to the running game, and is told why not. */

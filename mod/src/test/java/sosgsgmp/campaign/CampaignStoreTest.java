@@ -75,28 +75,42 @@ public class CampaignStoreTest {
     }
 
     /**
-     * Spec §11 Removing a player: a removed player joins the running game again as a new player. Their old entry goes;
-     * an eliminated, playing or frozen entry stays, so adding its key or slot again still throws. The engine's join slot
-     * is never a removed human's (SOSDET GameHumans.joinSlot: retired humans keep their slot), so a removed entry's
-     * slot taken by another key still throws too.
+     * Spec §11 Removing a player: a removed player joins the running game again as a new player, a new entry of the
+     * same key. The old entry stays with its slot (the host's world still has that human), and {@code player(key)} gives
+     * the new one; removed again and back again, that key has three entries. One key has at most one entry that isn't
+     * refused, and a slot one entry: the engine's join slot is never a removed human's (SOSDET GameHumans.joinSlot:
+     * retired humans keep their slot).
      */
     @Test
-    void aRemovedPlayerAddedAgainReplacesTheirOldEntry() {
+    void aRemovedPlayerAddedAgainKeepsTheirOldEntry() {
         Campaign c = new Campaign(9, "Ann's campaign", 1, "normal", List.of(new Campaign.Player(1, "Ann", 0),
                 new Campaign.Player(2, "Bob", 1), new Campaign.Player(3, "Cid", 2))).removing(java.util.Set.of(2));
         Campaign again = c.adding(3, "Cid the Second", 5);
         assertEquals(List.of(new Campaign.Player(1, "Ann", 0), new Campaign.Player(2, "Bob", 1),
-                new Campaign.Player(3, "Cid the Second", 5)), again.players());
-        assertEquals(5, again.player(3).slot());
-        assertNull(again.inSlot(2), "the old slot is no player's now");
+                new Campaign.Player(3, "Cid", 2, true), new Campaign.Player(3, "Cid the Second", 5)), again.players());
+        assertEquals(new Campaign.Player(3, "Cid the Second", 5), again.player(3), "the new entry");
+        assertEquals(new Campaign.Player(3, "Cid", 2, true), again.inSlot(2), "the old one keeps its slot");
+        assertEquals(List.of(again.players().get(0), again.players().get(1), again.players().get(3)), again.playing());
         CampaignRecord r = new CampaignRecord(again, 7, CampaignRecord.Kind.AUTO, 9, 5, "c.save", 77);
-        assertEquals(r, CampaignRecord.fromText(r.toText()), "the record round trip");
+        assertEquals(r, CampaignRecord.fromText(r.toText()), "the record round trip, with both entries");
 
-        assertThrows(IllegalArgumentException.class, () -> c.adding(4, "Dan", 2), "a removed player's slot, another key");
+        Campaign removedAgain = again.removing(java.util.Set.of(5));
+        assertEquals(new Campaign.Player(3, "Cid the Second", 5, true), removedAgain.player(3), "every entry refused: the last");
+        Campaign third = removedAgain.adding(3, "Cid the Third", 7);
+        assertEquals(3, third.players().stream().filter(p -> p.key() == 3).count());
+        assertEquals(new Campaign.Player(3, "Cid the Third", 7), third.player(3), "the newest");
+        CampaignRecord r3 = new CampaignRecord(third, 9, CampaignRecord.Kind.SAVE, 9, 7, "c.save", 77);
+        assertEquals(r3, CampaignRecord.fromText(r3.toText()));
+
+        assertThrows(IllegalArgumentException.class, () -> again.adding(3, "Cid", 9), "two entries of one key not refused");
         assertThrows(IllegalArgumentException.class, () -> c.adding(2, "Bob", 5), "a playing player's key");
+        assertThrows(IllegalArgumentException.class, () -> c.adding(4, "Dan", 2), "a removed player's slot, another key");
+        assertThrows(IllegalArgumentException.class, () -> c.adding(3, "Cid", 2), "a removed player's slot, their key");
         assertThrows(IllegalArgumentException.class, () -> c.adding(4, "Dan", 1), "a playing player's slot");
         Campaign eliminated = c.eliminating(1);
         assertThrows(IllegalArgumentException.class, () -> eliminated.adding(2, "Bob", 5), "an eliminated player's key");
+        assertThrows(IllegalArgumentException.class, () -> new Campaign(1, "x", 1, "normal",
+                List.of(new Campaign.Player(1, "A", 0), new Campaign.Player(1, "A", 1, true, true))), "a playing and an eliminated entry");
         Campaign frozen = c.freezing(java.util.Set.of(1));
         assertThrows(IllegalArgumentException.class, () -> frozen.adding(2, "Bob", 5), "a frozen player's key");
         assertThrows(IllegalArgumentException.class, () -> frozen.adding(4, "Dan", 1), "a frozen player's slot");
