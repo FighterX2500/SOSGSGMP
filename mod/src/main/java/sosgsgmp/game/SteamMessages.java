@@ -112,10 +112,12 @@ final class SteamMessages {
         configure(config, utils, CONFIG_RATE_MIN, SEND_RATE_BYTES);
         configure(config, utils, CONFIG_RATE_MAX, SEND_RATE_BYTES);
         configure(config, utils, CONFIG_TIMEOUT_CONNECTED, TIMEOUT_CONNECTED_MS);
-        // macOS: the game's JRE is x86_64, and under Rosetta Steam's WebRTC ICE thread crashes the game in
-        // rtc::PhysicalSocketServer::WaitSelect, so peers meet through Valve's relays only
-        if (Platform.isMac())
+        // the game's macOS JRE is x86_64, and under Rosetta (Apple Silicon) Steam's WebRTC ICE thread crashes the game
+        // in rtc::PhysicalSocketServer::WaitSelect, so peers meet through Valve's relays only; an Intel Mac keeps ICE
+        boolean rosetta = Platform.isMac() && rosetta();
+        if (rosetta)
             configure(config, utils, CONFIG_ICE_ENABLE, ICE_DISABLE);
+        trace.accept("direct connections (ICE): " + (rosetta ? "off, under Rosetta" : "on"));
         Pointer name = function(module, "SteamAPI_ISteamNetworkingUtils_GetConfigValueInfo")
                 .invokePointer(new Object[] {utils, CONFIG_TIMEOUT_CONNECTED, new Memory(4), new Memory(4)});
         trace.accept("session timeout: " + (name == null ? "?" : name.getString(0)) + " = " + TIMEOUT_CONNECTED_MS + " ms");
@@ -210,6 +212,20 @@ final class SteamMessages {
                 return loaded(image);
         }
         throw new IllegalStateException("SOSGSGMP: " + DYLIB + " isn't loaded: Steam's messages need steamworks4j started first");
+    }
+
+    /**
+     * macOS: whether Rosetta translates this process, which is an x86_64 Java on Apple Silicon. The
+     * {@code sysctl.proc_translated} name is 1 then, 0 for a native process, and missing on an Intel Mac.
+     */
+    private static boolean rosetta() {
+        Memory value = new Memory(4);
+        Memory size = new Memory(Native.SIZE_T_SIZE);
+        value.setInt(0, 0);
+        size.setLong(0, 4);
+        int result = NativeLibrary.getInstance("System").getFunction("sysctlbyname")
+                .invokeInt(new Object[] {"sysctl.proc_translated", value, size, null, 0L});
+        return result == 0 && value.getInt(0) == 1;
     }
 
     /** Opening the file steamworks4j loaded again gives the copy Steam already started. */
