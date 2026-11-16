@@ -29,7 +29,7 @@ AGENTS.md holds the coding rules: Java, the game, hooks, threads, saves, network
 
   Where things stand and what's next: [docs/plan/HANDOFF.md](docs/plan/HANDOFF.md). The rest of this section applies to the mod.
 
-Feature code for the mod is allowed for approved cards only. Also allowed:
+Feature code for the mod is allowed for work I approved only. Also allowed:
 
 - Read the game source (path in AGENTS.md Project Facts) and the docs.
 - Write plans, ADRs and reports under `docs/`.
@@ -48,11 +48,11 @@ Planning tasks from Sprint 0, in rough order (7 is now the walking-skeleton plan
 5. **Distribution:** how players get the changed game code (the engine's patches and the mod's) and the mod, without committing game files. SOS-25 covers the engine's half.
 6. **Test plan:** what runs before every pull request, before a release and in play sessions, and how each [AT] criterion in spec section 15 becomes an automated test.
 7. ~~**Walking skeleton plan:** two players connect over Steam P2P and see the same world map, with one army's movement synced.~~ Done: steps 1 to 5 are merged ([walking-skeleton.md](docs/plan/walking-skeleton.md)).
-8. **Board:** propose Jira cards (spikes, decisions, stories) with acceptance criteria. Don't create them until I approve the list.
+8. **Work list:** propose the work (spikes, decisions, stories) with acceptance criteria. Don't start it until I approve the list.
 
 ## Working style
 
 - Planning first: for anything larger than a small fix, propose a plan and wait for my approval before editing.
-- One Jira card at a time. Link the card in the branch name and PR.
+- One piece of work at a time, on its own branch and PR.
 - If the spec, architecture and code disagree, stop and ask; don't pick one silently.
 - Report at the end as AGENTS.md "Reporting" describes, plus which spec sections the work touched.

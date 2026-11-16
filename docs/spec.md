@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.67 · 2026-11-16
+Version 0.68 · 2026-11-16
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -351,13 +351,13 @@ These targets are tested with 2 players at 300 ms ping. The battle targets depen
 
 The project lives in a public GitHub repository, and every change is built and tested before it is merged.
 
-- **Work tracking:** a Kanban board in Jira, connected to the repository through the Jira API.
+- **Work tracking:** GitHub pull requests. The owner tracks their own work privately; contributors don't need it (owner, 2026-11-16).
 - **Checks before merge:** each change passes the local check (build, unit tests and a short multi-copy smoke run) before it is merged, and its result goes in the pull request. There is no CI server for now. The build needs the game's source and jar, which never leave the developer's PC. A self-hosted runner on the public SOSDET repository would also run outside code. Revisit this when outside contributors or a second developer join, or for game version updates (owner, 2026-10-24).
-- **Deterministic engine:** a separate project in its own public repository, SOSDET, open source under the MIT license for its own code, with its own requirements and tests ([ADR 0004](decisions/0004-engine-split.md)). The game source lines in its patches stay the game developer's, published with their permission; nothing built from them is sold (owner, 2026-10-23). The mod uses it only through its API. Engine work is tracked on the same board.
+- **Deterministic engine:** a separate project in its own public repository, SOSDET, open source under the MIT license for its own code, with its own requirements and tests ([ADR 0004](decisions/0004-engine-split.md)). The game source lines in its patches stay the game developer's, published with their permission; nothing built from them is sold (owner, 2026-10-23). The mod uses it only through its API.
 
 ## 15. Acceptance criteria
 
-A v1 feature is accepted when every criterion below passes. **[AT]** marks an automated test, run by the local check or the scenario suite; **[PT]** marks a play-test with 2 players at 300 ms ping on PCs at or above the reference spec. Story-level criteria are written when each story is pulled onto the board.
+A v1 feature is accepted when every criterion below passes. **[AT]** marks an automated test, run by the local check or the scenario suite; **[PT]** marks a play-test with 2 players at 300 ms ping on PCs at or above the reference spec. Story-level criteria are written when work on each story starts.
 
 ### Lobby and setup
 
@@ -527,11 +527,11 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 
 ### Definition of Done
 
-Every card on the board, not only features, is done when:
+Every change, not only features, is done when:
 
 - the code is reviewed and merged, and the local check passed (result in the pull request)
 - every [AT] criterion it covers has an automated test
-- every [PT] criterion it covers has passed a play-test, noted on the card
+- every [PT] criterion it covers has passed a play-test, noted in the pull request
 - any rule that changed is updated in this spec
 
 ## 16. Open questions
