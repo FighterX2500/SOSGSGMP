@@ -428,16 +428,15 @@ public final class SteamNode implements Node {
                 tokens.put(peer, t);
             return peer;
         }
-        boolean dropped = dropWhenSent.contains(peer);
+        if (!dropWhenSent.contains(peer)) // before it is forgotten: a forgotten peer reads as heard to the sessions
+            events.add(new Event.Disconnected(peer, "Their game started again."));
         users.remove(peer);
         peers.remove(user);
         forget(peer);
         int fresh = nextPeer++;
-        port.note("Player " + peer + "'s game started again; it is player " + fresh + " now.");
-        if (!dropped)
-            events.add(new Event.Disconnected(peer, "Their game started again."));
         added(fresh, user);
         tokens.put(fresh, t);
+        port.note("Player " + peer + "'s game started again; it is player " + fresh + " now.");
         return fresh;
     }
 
