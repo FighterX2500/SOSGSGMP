@@ -23,7 +23,7 @@ import sosgsgmp.net.SteamPort;
  * SOSGSGMP: Steam's newer peer-to-peer messages ({@code ISteamNetworkingMessages}, SOS-105) for {@link SteamworksPort},
  * in place of the deprecated {@code ISteamNetworking}. steamworks4j doesn't wrap them, but the {@code steam_api64.dll}
  * it loads from the game jar (Steamworks SDK 1.53) exports their flat API, and the game jar carries JNA, so this calls
- * the DLL steamworks4j already loaded, found by name ({@code libsteam_api.so} on Linux, by its path). Each function is looked up once, here; a missing one fails with
+ * the DLL steamworks4j already loaded, found by name ({@code libsteam_api.so} on Linux and {@code libsteam_api.dylib} on macOS, by its path). Each function is looked up once, here; a missing one fails with
  * its name. Only the first three fields of {@code SteamNetworkingMessage_t} are read (data, size, the sender's identity
  * at 16), stable since the API began; identities go through the DLL's own helpers.
  *
@@ -59,9 +59,13 @@ final class SteamMessages {
     private static final int CONFIG_TIMEOUT_CONNECTED = 25;
     /** A player's internet blip up to a minute keeps the session, as a direct IP connection does (SOS-177). */
     private static final int TIMEOUT_CONNECTED_MS = 60_000;
+    /** {@code k_ESteamNetworkingConfig_P2P_Transport_ICE_Enable}; 0 is {@code k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_Disable}. */
+    private static final int CONFIG_ICE_ENABLE = 104, ICE_DISABLE = 0;
     private static final String DLL = "steam_api64.dll";
     /** The same library on Linux, as steamworks4j names it there. */
     private static final String SO = "libsteam_api.so";
+    /** The same library on macOS, as steamworks4j names it there. */
+    private static final String DYLIB = "libsteam_api.dylib";
     /** {@code SteamNetConnectionInfo_t}, for the log: {@code m_eEndReason}, {@code m_szEndDebug}, {@code m_szConnectionDescription}. */
     private static final int INFO_BYTES = 696, INFO_END_REASON = 180, INFO_END_DEBUG = 184, INFO_DESCRIPTION = 312;
 
@@ -88,7 +92,7 @@ final class SteamMessages {
      * be initialized.
      */
     SteamMessages(Supplier<SteamPort.Listener> listener, Consumer<String> trace) {
-        Lookup module = Platform.isWindows() ? windows() : linux();
+        Lookup module = Platform.isWindows() ? windows() : Platform.isMac() ? mac() : linux();
         messages = function(module, "SteamAPI_SteamNetworkingMessages_SteamAPI_v002").invokePointer(new Object[0]);
         utils = function(module, "SteamAPI_SteamNetworkingUtils_SteamAPI_v004").invokePointer(new Object[0]);
         if (messages == null || utils == null)
@@ -108,6 +112,10 @@ final class SteamMessages {
         configure(config, utils, CONFIG_RATE_MIN, SEND_RATE_BYTES);
         configure(config, utils, CONFIG_RATE_MAX, SEND_RATE_BYTES);
         configure(config, utils, CONFIG_TIMEOUT_CONNECTED, TIMEOUT_CONNECTED_MS);
+        // macOS: the game's JRE is x86_64, and under Rosetta Steam's WebRTC ICE thread crashes the game in
+        // rtc::PhysicalSocketServer::WaitSelect, so peers meet through Valve's relays only
+        if (Platform.isMac())
+            configure(config, utils, CONFIG_ICE_ENABLE, ICE_DISABLE);
         Pointer name = function(module, "SteamAPI_ISteamNetworkingUtils_GetConfigValueInfo")
                 .invokePointer(new Object[] {utils, CONFIG_TIMEOUT_CONNECTED, new Memory(4), new Memory(4)});
         trace.accept("session timeout: " + (name == null ? "?" : name.getString(0)) + " = " + TIMEOUT_CONNECTED_MS + " ms");
@@ -185,6 +193,27 @@ final class SteamMessages {
         String path = LoadedLibraries.path(maps, SO);
         if (path == null)
             throw new IllegalStateException("SOSGSGMP: " + SO + " isn't loaded: Steam's messages need steamworks4j started first");
+        return loaded(path);
+    }
+
+    /**
+     * macOS: steamworks4j loads {@code libsteam_api.dylib} by its path in an extract folder too, and there is no
+     * {@code /proc}, so the path comes from dyld's list of the images this process loaded.
+     */
+    private static Lookup mac() {
+        NativeLibrary system = NativeLibrary.getInstance("System");
+        Function imageName = system.getFunction("_dyld_get_image_name");
+        int count = system.getFunction("_dyld_image_count").invokeInt(new Object[0]);
+        for (int i = 0; i < count; i++) {
+            String image = imageName.invokeString(new Object[] {i}, false);
+            if (image != null && image.endsWith("/" + DYLIB))
+                return loaded(image);
+        }
+        throw new IllegalStateException("SOSGSGMP: " + DYLIB + " isn't loaded: Steam's messages need steamworks4j started first");
+    }
+
+    /** Opening the file steamworks4j loaded again gives the copy Steam already started. */
+    private static Lookup loaded(String path) {
         NativeLibrary library = NativeLibrary.getInstance(path);
         return name -> {
             try {
