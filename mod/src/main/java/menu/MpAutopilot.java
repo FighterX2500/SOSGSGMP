@@ -839,6 +839,8 @@ public final class MpAutopilot {
 			hostSilentSeen = false;
 			event("hostback", "\"step\":" + step);
 		}
+		if (guiPreview >= 0 && hostSilentSeen && silent >= Departures.LOST_MS + 2_000 && first("hostlostshot"))
+			guiShot("hostlost"); // the lost-host window, with its Leave the game
 	}
 
 	private static boolean inHold(Departures d, int id) {
