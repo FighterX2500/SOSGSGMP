@@ -45,7 +45,7 @@ Version 1 includes six features:
 | Players per campaign | 2–16 supported, tested so far with up to 3; 2–3 expected |
 | Who plays | Friends who trust each other |
 | Location | Worldwide, with no ping limit |
-| Operating system | Windows, Linux (the Steam Deck too) and macOS (owner, 2026-11-16; SOS-157, PR #118). On macOS, Steam P2P goes through Valve's relays only: the game's macOS Java is x86_64 and runs under Rosetta on Apple Silicon, where Steam's direct-connection (ICE) code crashes the game. Direct IP works the same on every system. |
+| Operating system | Windows, Linux (the Steam Deck too) and macOS (owner, 2026-11-16; SOS-157, PR #118). On a Mac with Apple Silicon, Steam P2P goes through Valve's relays only: the game's macOS Java is x86_64 and runs under Rosetta there, where Steam's direct-connection (ICE) code crashes the game. An Intel Mac connects directly, as Windows and Linux do. Direct IP works the same on every system. |
 | Store | Steam only |
 | Hosting | Listen server: the host plays and hosts |
 | Networking | Two modes: direct IP (an open port, or a VPN such as Radmin VPN), or Steam P2P under Songs of Syx's own App ID (1162750) |
