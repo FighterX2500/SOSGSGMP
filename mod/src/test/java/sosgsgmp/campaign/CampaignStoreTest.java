@@ -74,6 +74,34 @@ public class CampaignStoreTest {
                 "frozen and removed at once");
     }
 
+    /**
+     * Spec §11 Removing a player: a removed player joins the running game again as a new player. Their old entry goes;
+     * an eliminated, playing or frozen entry stays, so adding its key or slot again still throws. The engine's join slot
+     * is never a removed human's (SOSDET GameHumans.joinSlot: retired humans keep their slot), so a removed entry's
+     * slot taken by another key still throws too.
+     */
+    @Test
+    void aRemovedPlayerAddedAgainReplacesTheirOldEntry() {
+        Campaign c = new Campaign(9, "Ann's campaign", 1, "normal", List.of(new Campaign.Player(1, "Ann", 0),
+                new Campaign.Player(2, "Bob", 1), new Campaign.Player(3, "Cid", 2))).removing(java.util.Set.of(2));
+        Campaign again = c.adding(3, "Cid the Second", 5);
+        assertEquals(List.of(new Campaign.Player(1, "Ann", 0), new Campaign.Player(2, "Bob", 1),
+                new Campaign.Player(3, "Cid the Second", 5)), again.players());
+        assertEquals(5, again.player(3).slot());
+        assertNull(again.inSlot(2), "the old slot is no player's now");
+        CampaignRecord r = new CampaignRecord(again, 7, CampaignRecord.Kind.AUTO, 9, 5, "c.save", 77);
+        assertEquals(r, CampaignRecord.fromText(r.toText()), "the record round trip");
+
+        assertThrows(IllegalArgumentException.class, () -> c.adding(4, "Dan", 2), "a removed player's slot, another key");
+        assertThrows(IllegalArgumentException.class, () -> c.adding(2, "Bob", 5), "a playing player's key");
+        assertThrows(IllegalArgumentException.class, () -> c.adding(4, "Dan", 1), "a playing player's slot");
+        Campaign eliminated = c.eliminating(1);
+        assertThrows(IllegalArgumentException.class, () -> eliminated.adding(2, "Bob", 5), "an eliminated player's key");
+        Campaign frozen = c.freezing(java.util.Set.of(1));
+        assertThrows(IllegalArgumentException.class, () -> frozen.adding(2, "Bob", 5), "a frozen player's key");
+        assertThrows(IllegalArgumentException.class, () -> frozen.adding(4, "Dan", 1), "a frozen player's slot");
+    }
+
     @Test
     void anUnknownFormatOrABrokenRecordIsRefused() {
         String text = record(1, CampaignRecord.Kind.SAVE, 1).toText();

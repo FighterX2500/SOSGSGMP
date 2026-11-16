@@ -27,7 +27,7 @@ class LobbyTest {
         assertEquals(List.of(), lobby.missing());
         assertTrue(lobby.canStart(), "even the eliminated host of slot 0 isn't waited for");
         assertNull(lobby.refusal(1), "Ann watches");
-        assertEquals(Refusal.REMOVED, lobby.refusal(3), "a removal is for good");
+        assertEquals(Refusal.REMOVED, lobby.refusal(3), "a removed player joins only a running game, as a new player");
     }
 
     @Test

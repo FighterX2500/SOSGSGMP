@@ -18,7 +18,8 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
 
     /**
      * A player of the campaign: the key its PC sends in its hello, its name, its human's slot, whether the host removed
-     * them (spec §11 Removing a player, SOS-65): a removed player stays listed, but never plays again, and whether that
+     * them (spec §11 Removing a player, SOS-65): a removed player stays listed and never plays in that slot again (they
+     * may join the running game again as a new player: {@link Campaign#adding}), and whether that
      * was by elimination (SOS-111): only they may come back, to watch, and no resume waits for them. A frozen player
      * (spec §11 Freezing a player, SOS-194) left with their city kept: no resume waits for them, and they may come back.
      */
@@ -109,9 +110,15 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
         return new Campaign(id, name, seed, difficulty, now);
     }
 
-    /** This campaign with a player who joined a running game in {@code slot} (hot-join, SOS-190). */
+    /**
+     * This campaign with a player who joined a running game in {@code slot} (hot-join, SOS-190). A removed, not
+     * eliminated player of the same key joined again as a new player: their old entry goes (spec §11 Removing a player).
+     */
     public Campaign adding(long key, String name, int slot) {
-        List<Player> now = new ArrayList<>(players);
+        List<Player> now = new ArrayList<>(players.size() + 1);
+        for (Player p : players)
+            if (p.key() != key || !p.refused())
+                now.add(p);
         now.add(new Player(key, name, slot));
         return new Campaign(id, this.name, seed, difficulty, now);
     }

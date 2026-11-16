@@ -397,7 +397,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 					: !session.isHost() ? "Waiting for the host to start."
 					: ls != null && ls.resume() != null && !missing(ls.resume(), players).isEmpty()
 							? "Still missing: " + missing(ls.resume(), players) + (session.canStart()
-									? ". Wait for them, or start now: they are removed from the campaign and can't play in it again."
+									? ". Wait for them, or start now: they are removed from the campaign, and can join its game again only as a new player."
 									: ". The player in the campaign's first slot has to be in before it can start.")
 							: session.canStart() ? "Start the lobby when everyone is in." : "Waiting for players. Start needs 2 or more.");
 			case STARTED -> status.add(session.running() && session.returning()
