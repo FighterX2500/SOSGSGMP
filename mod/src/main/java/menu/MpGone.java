@@ -354,10 +354,10 @@ final class MpGone {
 			}
 		};
 		if (freezeRefusal(d) != null) {
-			VIEW.inters().fullScreen.activate(text, COLOR.WHITE100, null, remove, back);
+			MpPrompt.show(text, remove, back);
 			return;
 		}
-		VIEW.inters().fullScreen.activate(text, COLOR.WHITE100, null, remove, new GButt.ButtPanel("Freeze them") {
+		MpPrompt.show(text, remove, new GButt.ButtPanel("Freeze them") {
 			@Override
 			protected void clickA() {
 				choose(Departures.Choice.FREEZE);

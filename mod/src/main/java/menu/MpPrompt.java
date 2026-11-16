@@ -6,8 +6,9 @@ import util.gui.misc.GButt;
 import view.main.VIEW;
 
 /**
- * SOSGSGMP: vanilla's full-screen prompt with a single button, centred. Vanilla's IPromtScreen places a lone button
- * half a slot left of the centre; with two buttons it is centred already.
+ * SOSGSGMP: vanilla's full-screen prompt with its buttons centred. Vanilla's IPromtScreen centres a row of buttons only
+ * when there are two of the same width: a lone button sits half a slot left of the centre, three half a slot right.
+ * Every window of the mod with buttons in that prompt goes through here.
  */
 final class MpPrompt {
 

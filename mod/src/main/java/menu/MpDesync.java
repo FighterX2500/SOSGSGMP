@@ -120,7 +120,7 @@ final class MpDesync {
 					COLOR.WHITE100, null);
 			return;
 		}
-		VIEW.inters().fullScreen.activate(message, COLOR.WHITE100, null, new GButt.ButtPanel("Resync") {
+		MpPrompt.show(message, new GButt.ButtPanel("Resync") {
 			@Override
 			protected void clickA() {
 				choose(true);
