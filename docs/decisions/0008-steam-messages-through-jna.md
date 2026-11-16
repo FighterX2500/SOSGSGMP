@@ -34,3 +34,9 @@ Status: Proposed (decided as recommended overnight, 2026-10-30; the owner asked 
 
 - A wrong offset or signature crashes the game rather than throwing. The surface is small (9 functions, 3 offsets) and the test is a twopc run over Steam.
 - Windows only for now, like the rest of the mod (AGENTS.md); Linux and macOS need the same names from `libsteam_api`.
+
+## Update, 2026-11-16: Linux and macOS
+
+The same functions now come from `libsteam_api` on Linux (SOS-157) and macOS (PR #118). steamworks4j loads it by its path in an extract folder, so the mod finds that path among the loaded libraries (`/proc/self/maps` on Linux, dyld's image list on macOS) and opens the same file again with JNA. Windows keeps `GetModuleHandleA` and `GetProcAddress`.
+
+On macOS the mod also sets `k_ESteamNetworkingConfig_P2P_Transport_ICE_Enable` to Disable. The game's macOS Java is x86_64, so on Apple Silicon it runs under Rosetta, and there Steam's WebRTC ICE thread crashed the game (SIGSEGV in `libsteamwebrtc.dylib`). A Mac's sessions go through Valve's relays only, with a little more delay. Turning ICE off only under Rosetta (`sysctl.proc_translated`) was not done: Intel Macs are rare, and one path is simpler to test. A full session between a Mac and another PC over the relays is still to be tested.

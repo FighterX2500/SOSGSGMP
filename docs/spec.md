@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.66 · 2026-11-15
+Version 0.67 · 2026-11-16
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -36,7 +36,6 @@ Version 1 includes six features:
 - GOG and itch.io versions
 - Compatibility with other mods. They are allowed when every player has the same ones (section 5), but untested.
 - Updating the mod for new game versions
-- Linux and macOS
 - AI running a disconnected player's city
 
 ## 3. Players and platform
@@ -46,7 +45,7 @@ Version 1 includes six features:
 | Players per campaign | 2–16 supported, tested so far with up to 3; 2–3 expected |
 | Who plays | Friends who trust each other |
 | Location | Worldwide, with no ping limit |
-| Operating system | Windows only |
+| Operating system | Windows, Linux (the Steam Deck too) and macOS (owner, 2026-11-16; SOS-157, PR #118). On macOS, Steam P2P goes through Valve's relays only: the game's macOS Java is x86_64 and runs under Rosetta on Apple Silicon, where Steam's direct-connection (ICE) code crashes the game. Direct IP works the same on every system. |
 | Store | Steam only |
 | Hosting | Listen server: the host plays and hosts |
 | Networking | Two modes: direct IP (an open port, or a VPN such as Radmin VPN), or Steam P2P under Songs of Syx's own App ID (1162750) |
@@ -248,7 +247,7 @@ Any player can view any other player's city, enemies included. This is intended.
 
 **Reports.** So a problem can be studied on the host's PC, every joining player's PC sends the host, in the background, its playtest log and connection log as they are written, its game's crash files from the last week it hasn't sent before, and each of its campaign saves (owner, 2026-11-04; SOS-133). It is on for every player, and the chat says so when the game starts; a player can turn it off on their own PC (`reports=false` in their lobby settings). Chat text and player keys are never sent. The sending is paced so the game's own traffic comes first. The host keeps the files under `sosgsgmp\reports`, a folder per campaign and per player.
 
-**Where the files are.** Everything the mod keeps on a PC is in one folder, `%APPDATA%\songsofsyx\sosgsgmp`: the multiplayer saves (the host's and every player's), the campaign records, the logs, the reports and the lobby settings (owner, 2026-11-06; SOS-155). Multiplayer saves are not in the game's own Load list, where they can't be resumed anyway, and Steam Cloud doesn't sync them. A PC that played an older version gets its files moved there once, at the main menu; a file that can't move yet is still found where it was, so every campaign resumes. Every player needs the same version, so an older one never looks for the moved files.
+**Where the files are.** Everything the mod keeps on a PC is in one folder, `sosgsgmp` in the game's own data folder (`%APPDATA%\songsofsyx` on Windows, `~/.local/share/songsofsyx` on Linux, `~/Library/Application Support/songsofsyx` on macOS): the multiplayer saves (the host's and every player's), the campaign records, the logs, the reports and the lobby settings (owner, 2026-11-06; SOS-155). Multiplayer saves are not in the game's own Load list, where they can't be resumed anyway, and Steam Cloud doesn't sync them. A PC that played an older version gets its files moved there once, at the main menu; a file that can't move yet is still found where it was, so every campaign resumes. Every player needs the same version, so an older one never looks for the moved files.
 
 **Save before battles.** Before every real-time battle between players or siege assault starts, the campaign is saved the same way. If the connection is lost during the battle, the players can resume from that save. This save can't wait for a view: the world is held at the battle's start, and a view needs the world to run to end. A player viewing a city then has no save from that moment.
 
@@ -601,6 +600,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-12 | **A frozen player comes back** also after others joined since they froze (spec 0.64; section 11). | SOS-204 |
 | 2026-11-15 | **Playtest of 2026-11-14:** another player's speed press asks the host in the chat (section 4); trade and reach carry on along a reached player's guaranteed routes (sections 6, 7); the depots' Best and Closest say they reach NPC traders only, and their messages count player traders (section 7) (spec 0.65). | SOS-205 to SOS-207, SOS-210 |
 | 2026-11-15 | **Living world settling:** every player, the host too, settles on the built world, which has a stand-in capital for the host; the pick is on the world generator's screen with vanilla's hover window, the guaranteed connection and the road links to NPC states; picked spots are thick squares; hot-join has the same window and notices (spec 0.66; sections 5, 11). | SOS-212 to SOS-214 |
+| 2026-11-16 | **Linux and macOS:** the mod runs on Windows, Linux (the Steam Deck too) and macOS; on macOS, Steam P2P goes through Valve's relays only (spec 0.67; section 3). | SOS-157, PR #118 |
 
 ### Where each v1 feature stands (2026-11-01)
 
