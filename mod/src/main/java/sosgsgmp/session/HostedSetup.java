@@ -704,7 +704,8 @@ public final class HostedSetup implements SetupSession {
     /**
      * A hello after the start (hot-join, SOS-190): a running game takes it as a candidate, if its builds and files are
      * the host's, there is room and nobody else is joining; the host is then asked. Before the game runs, it is refused.
-     * A removed player's key is taken as a new player's; an eliminated player's is refused.
+     * A removed player's key is taken as a new player's; an eliminated player's is refused. A new player is refused too
+     * once the campaign lists {@link LobbySettings#MAX_PLAYERS} players, the removed ones included.
      */
     private void hello(int peer, Message.Hello h) {
         if (link == null || restartInfo != null && !beforeRestarted.isEmpty()) {
@@ -725,6 +726,9 @@ public final class HostedSetup implements SetupSession {
         if (refusal == null && present(h.playerKey())) // not a key whose player left: a frozen one comes back (SOS-195)
             refusal = Refusal.ALREADY_JOINED;
         if (refusal == null && players.size() >= LobbySettings.MAX_PLAYERS)
+            refusal = Refusal.FULL;
+        // a new player adds an entry, and a campaign carries no more than MAX_PLAYERS, the removed ones included
+        if (refusal == null && known == null && campaign != null && campaign.players().size() >= LobbySettings.MAX_PLAYERS)
             refusal = Refusal.FULL;
         if (refusal == null && candidate != null)
             refusal = Refusal.JOIN_BUSY;

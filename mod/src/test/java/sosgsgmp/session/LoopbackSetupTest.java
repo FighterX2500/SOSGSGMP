@@ -1501,6 +1501,47 @@ class LoopbackSetupTest {
                 "every human slot of the host's world");
     }
 
+    /**
+     * A campaign lists at most {@link LobbySettings#MAX_PLAYERS} players, the removed ones too: a save order and a resume
+     * lobby carry no more. Ann and Bob resume one that lists 16, 14 of them removed; a new player's hello during play is
+     * refused as full, before the host is asked.
+     */
+    @Test
+    void aNewPlayersHelloIsRefusedWhenTheCampaignListsSixteenPlayers() throws Exception {
+        List<Campaign.Player> in = new ArrayList<>();
+        in.add(new Campaign.Player("Ann".hashCode(), "Ann", 0));
+        in.add(new Campaign.Player("Bob".hashCode(), "Bob", 1));
+        for (int slot = 2; slot < LobbySettings.MAX_PLAYERS; slot++)
+            in.add(new Campaign.Player(1000 + slot, "Gone " + slot, slot, true));
+        Campaign c = new Campaign(0x1234L, "Ann's campaign", 99, "normal", in);
+        HostedLobby h = new HostedLobby(LobbySettings.resuming(new LobbySettings.Resume(c, 3)), "Ann", "Ann".hashCode(), BUILDS, 0);
+        lobby = h;
+        lobbies.add(h);
+        JoinedLobby jb = join(h, "Bob");
+        untilLobbies("Bob joined", () -> h.players().size() == 2 && jb.players().size() == 2);
+        h.start();
+        untilLobbies("Bob started", () -> jb.state() == LobbyState.STARTED);
+        host = h.handOver(hostWorld, hostWorld);
+        bob = jb.handOver(bobWorld, bobWorld);
+        setups.addAll(List.of(host, bob));
+        until("the slots on Bob's PC", () -> bob.factions().initialized());
+        host.worldLoaded(42);
+        bob.worldLoaded(42);
+        host.startSpot();
+        bob.startSpot();
+        until("started on both", () -> host.factions().started() && bob.factions().started());
+        host.play(new EngineLinkTest.FakePort());
+        bob.play(new EngineLinkTest.FakePort());
+
+        JoinedLobby jd = join(h, "Dan");
+        playUntil("Dan refused", () -> {
+            jd.update();
+            return jd.closedReason() != null;
+        });
+        assertEquals(Refusal.FULL.text, jd.closedReason());
+        assertNull(host.joinAsk(), "nobody to ask about");
+    }
+
     /** Spec §11 Elimination: an eliminated player who left says hello to the running game, and is told why not. */
     @Test
     void anEliminatedPlayersHelloInPlayIsRefused() throws Exception {
