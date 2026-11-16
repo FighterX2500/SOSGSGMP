@@ -20,7 +20,7 @@ The simulation runs in lockstep on every PC through the deterministic engine [SO
 - **Chat and spectators:** one chat for every player, with wars, sieges and battles announced in it. An eliminated player stays in the session and watches.
 - **Routes:** in a new world, players who start 6 to 15 tiles apart get a direct road or sea crossing.
 - **Global events:** eclipses, comets, storms and similar events reach every city at the same step, and world news applies once.
-- **Session log:** every PC logs its session in `%APPDATA%\songsofsyx\sosgsgmp\logs`, including every transfer of goods and money, for bug reports.
+- **Session log:** every PC logs its session in `sosgsgmp/logs` in the game's data folder (see [Playing](#playing)), including every transfer of goods and money, for bug reports.
 
 The rules are in [docs/spec.md](docs/spec.md).
 
@@ -41,26 +41,31 @@ The rules are in [docs/spec.md](docs/spec.md).
 - **Spec gaps:** debug mode isn't turned off in multiplayer, the code's lowest speed is 0.25× where spec §4 says 0.5×, and each attacker's own bonuses in an assault aren't built.
 - **Tests:** a 2-hour session, a 30-minute battle with 2,000 units per side, the 10,000-person city at 1x, and 300 ms ping.
 
-**Out of scope for v1:** anti-cheat, a world that runs without players, new players joining a campaign in progress, AI running a disconnected player's city, other mods, later game versions, GOG and itch.io, Linux and macOS (spec §2).
+**Out of scope for v1:** anti-cheat, a world that runs without players, new players joining a campaign in progress, AI running a disconnected player's city, other mods, later game versions, GOG and itch.io (spec §2).
 
 ## Playing
 
-You need Songs of Syx V71, **build 71.44**, on Windows through Steam, and both mods: SOSDET and SOS GSG MP. Every player must have the same build of both. The lobby refuses a different game, SOSDET or mod build and says which one differs. If SOSDET is off, the game says so at start-up.
+You need Songs of Syx V71, **build 71.44**, through Steam on Windows, Linux (the Steam Deck too) or macOS, and both mods: SOSDET and SOS GSG MP. Every player must have the same build of both. The lobby refuses a different game, SOSDET or mod build and says which one differs. If SOSDET is off, the game says so at start-up.
 
 1. Close the game.
-2. Copy the `SOSDET` and `SOSGSGMP` folders into `%APPDATA%\songsofsyx\mods` (create `mods` if it isn't there).
+2. Copy the `SOSDET` and `SOSGSGMP` folders into the `mods` folder in the game's data folder (create `mods` if it isn't there):
+   - Windows: `%APPDATA%\songsofsyx\mods`
+   - Linux: `~/.local/share/songsofsyx/mods`
+   - macOS: `~/Library/Application Support/songsofsyx/mods`
 3. Start the game. In the launcher's mod list, enable SOSDET and SOS GSG MP, with SOSDET above SOS GSG MP.
 4. The main menu now has a Multiplayer button.
 
 - **Over Steam:** the players are Steam friends. The host chooses Multiplayer, Create Lobby, then "create Steam lobby"; the others choose "join through Steam", or accept the host's Steam invite anywhere in the main menu.
 - **By IP:** the host's TCP port 47510 must be reachable (a forwarded port, or a VPN such as Radmin VPN). The host chooses "create (IP)"; the others choose "join by IP" with the host's address.
 
+**On macOS**, Steam connects a Mac only through Valve's relays, never directly. On Apple Silicon the game runs under Rosetta, where Steam's direct connections crash it. Expect a little more delay than between two Windows PCs. A full session between a Mac and another PC over Steam is still to be tested.
+
 With the mods disabled in the launcher, the game is vanilla again; neither mod changes the game folder.
 
 ## Building
 
 You need:
-- Windows, and a JDK 21 or newer (`JAVA_HOME` set);
+- a JDK 21 or newer (`JAVA_HOME` set). The commands below are for Windows, where development happens. On macOS or Linux, `./gradlew compileJava compileTestJava test` works too: first put `systemProp.javax.net.ssl.trustStoreType=PKCS12` in `~/.gradle/gradle.properties`, since the project's `Windows-ROOT` trust store exists only on Windows. `installMod` needs `APPDATA`, so there you copy the mod folder into the `mods` folder (see [Playing](#playing)) by hand;
 - Songs of Syx V71, build 71.44 (the build refuses any other);
 - SOSDET built first: by default the build reads `..\SOSDET\build\mod\SOSDET\V71\script\SOSDET.jar` (set `SOSDET_DIR` to change it). Build it with `gradlew.bat assemble` there ([SOSDET's README](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine#building)).
 
