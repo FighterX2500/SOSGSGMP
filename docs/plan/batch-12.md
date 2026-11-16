@@ -135,3 +135,49 @@ No other in-game runs.
 - Per item: `gradlew.bat compileJava compileTestJava`, then `gradlew.bat test`, then `gradlew.bat build`.
 - No hooks. No protocol version change unless a wire format changes; if one must, stop and report.
 - Spec sections touched: 11 (Removing a player, Joining, Resuming, Disconnects) and 15. Item 1A changes a rule, at the owner's word of 2026-11-16.
+
+## State on 2026-11-17: built and reviewed, not tested in a game
+
+Everything above is built, reviewed and committed locally. Nothing is pushed, no PR is open, nothing is installed, and no game, rig or twopc run has been made. The test cycle is the next step.
+
+### Where it is
+
+- **Mod:** `C:\ClaudeFolder\SOS-wt\b12`, branch `batch-12-1116`, on top of `origin/main` 2ab876a. Unit tests: 310, 0 failures (`gradlew.bat test build` with `SOSDET_DIR=C:\ClaudeFolder\SOSDET-wt\b12`). `LoopbackSetupTest.aPlayerLeavingUnblocksConfirmAndLeavesEveryRoster` is flaky on `main` too: it timed out once in two runs; run again if only it fails.
+  - Item 1: ef552b9 (the rule, spec 0.70), f5356f7 (Steam: a refusal arrives), 5643660 (a removed player's old entry stays listed), 6462126 (refused at 16 campaign entries).
+  - Item 2: e923e09 (buttons centred), a9480cb (no text cut; the adapter `sosgsgmp/game/PromptBox`).
+  - Item 3, mod: 59a63c8 (protocol 32, campaign record format 5, spec 0.71).
+  - Test tooling: d12cf49, cd3548f, ad8a563.
+- **Engine:** `C:\ClaudeFolder\SOSDET-wt\b12`, branch `batch-12-1116`, on top of `origin/main` 9be9c8e: ed88858 (freeze at the start, `SOSDET_FROZEN` format 2, plan `docs/plan/0021-freeze-at-start.md`), 14d57d5 (rig `--freeze-at-start`). Unit tests: 379, 0 failures. Its jar is built; the mod builds against it.
+- `C:\ClaudeFolder\SOS-wt\b12-gui` (branch `batch-12-gui`) holds item 2's commits before they were picked onto the batch branch. Everything in it is on the batch branch; it can go.
+
+### The test cycle, still to run
+
+Before any game: list `java.exe` and wait while a game that isn't this run's is up. Games windowed, a check every minute.
+
+1. **Engine rig**, from `C:\ClaudeFolder\SOSDET-wt\b12` after `gradlew.bat assemble`. The copy steps between the runs are in SOSDET's `docs/plan/0021-freeze-at-start.md` and `rig/README.md`.
+   - FS1, the campaign save: `python rig\rig.py city --tag FS1 --copies 3 --humans 3 --speeds 5,7,8 --save Mogus-72-19f86f1e048-47002c-0-121c.save --world-resync 2400 --resync-savegame --steps 3000`
+   - FS2, the resume with slot 2 frozen at the start: `python rig\rig.py city --tag FS2 --copies 2 --humans 3 --speeds 5,7 --humans-saves fs1-carved-1.save,fs1-carved-2.save --freeze-at-start 2 --world-resync 2400 --resync-savegame --steps 3600`
+   - FS3, the rejoin and thaw: `python rig\rig.py city --tag FS3 --copies 3 --humans 3 --speeds 5,7,8 --humans-saves fs2-carved-1.save,fs2-carved-2.save,fs1-carved-3.save --rejoin "<FS2's rejoin-world.save>|<FS2's rejoin.state>|2" --steps 3000`
+2. **Mod, on this PC**, from `C:\ClaudeFolder\SOS-wt\b12`, every run with `--mods-from C:\ClaudeFolder\SOSDET-wt\b12`:
+   - Item 1: `python tools\twopc.py --here --crash remote:1200 --rejoin 20 --steps 6000 --tag item1-rejoin`. The joiner's game is killed, the host continues without it, the same game (same key) starts again and joins as a new player. The owner's own case was a Leave over Steam; a kill over direct IP is what the tool can do.
+   - Item 3: `python tools\twopc.py --here --local-joiner --save 1200 --steps 3000 --tag fz-save`, then `python tools\twopc.py --here --resume --local-joiner --players 2 --on-missing freeze --rejoin 30 --steps 6000 --tag fz-resume`.
+   - Item 2, each once with `--window 1920x1080` and once with `--window 1280x720`, all with `--here --gui-preview 999999`; copy the shots out of `build\twopc\inst\<k>\songsofsyx\screenshots` after each run:
+     - `--local-joiner --crash local:600 --on-gone return --steps 1800` (the player-left window, three buttons; the end window)
+     - `--corrupt 600 --on-desync exit --steps 1800` (the desync window)
+     - `--quit 600 --steps 1800` (Exit's question)
+     - `--local-joiner --freeze local:600 --steps 1800` (Leave and freeze)
+     - `--hot-join 60 --steps 3600` (the join popup)
+     - `--netem host=on --steps 3600`, then the line `netoutage 20` into the host's `sosgsgmp\autopilot\command.txt` after Go (the lost-host window)
+   - What each shot must show: every line of the text, the last line above the buttons, the row centred (left gap = right gap within 1 px), nothing off the screen. Expected for the three-button window: gaps 543/543 at a 1920 GUI, 223/223 at a 1280 GUI; text box 240 high.
+   - No option shows the player-left window with one or two buttons, the session-closed window (`MpClosed`) or the files-mismatch window without the SOS-159 test mod.
+3. **Only real Steam can show** item 1's refusal arriving (f5356f7): the test Steam now drops undelivered messages at a session's close, as the log of 2026-11-16 shows the real one doing.
+
+### Open, for the owner
+
+1. **SOSDET `requirements.md`** (changes only with the owner's approval): proposed sentence after `freezeHuman`'s: "`Engine.freezeHumanAtStart(slot)` does the same for a resume without that player, from the last report the save holds."
+2. **Old and new builds over Steam** (protocol 31 against 32): the joining game waits 30 seconds and then reads "The host's PC didn't answer over Steam within 30 seconds. Check that both players installed the same build...". The cause is the handshake of PR #121, which drops the host's "other version" answer. A small fix would let that answer through; not built.
+3. **A frozen player coming back** restarts from their own latest save of the campaign. After a resume that froze them: with the resumed save, fine; with an older one, their city rolls back; with a newer one (the host resumed an older save), their city is ahead of the world; with none, their game stops with an error. Unchanged, pre-existing for every freeze.
+4. **Texts to check:** the lobby's question ("Start without <names>?", Freeze them / Remove them / Back, and the older-save line), the status line, `Refusal.REMOVED`, `Refusal.ELIMINATED`. `Refusal.FULL` still says "The lobby is full." for a running game; proposed: "The game is full: the campaign has room for 16 players, those who left included."
+5. **Buttons:** the centred row keeps 16 px between buttons, much closer than vanilla's spacing. The join, view and ally popups still have their buttons on the left.
+6. **By reasoning only:** the engine's fix for a Freeze them right after a battle's end reloaded the world (it threw before).
+7. **At the merge:** `docs/plan/HANDOFF.md` says protocol 31 and names the pack 2026-11-16; saves of this build can't be loaded by an older engine; the pack needs both jars.
