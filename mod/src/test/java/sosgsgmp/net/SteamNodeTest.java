@@ -60,6 +60,66 @@ class SteamNodeTest {
         assertTrue(d.reason().contains("didn't answer"), d.reason());
     }
 
+    /** A host that is only a Steam user: its lobby made, nothing answered. */
+    private FakeSteam.Port bareHost() {
+        FakeSteam.Port hp = steam.port(1);
+        hp.listener(new SteamPort.Listener() {
+            @Override
+            public void lobbyCreated(long lobby, String error) {
+            }
+
+            @Override
+            public void lobbyEntered(long lobby, String error) {
+            }
+
+            @Override
+            public void memberJoined(long lobby, long user) {
+            }
+
+            @Override
+            public void memberLeft(long lobby, long user, boolean lostSteam) {
+            }
+
+            @Override
+            public void lobbyLost(long lobby, boolean lostSteam) {
+            }
+
+            @Override
+            public void joinRequested(long lobby) {
+            }
+
+            @Override
+            public void sessionRequested(long user) {
+            }
+
+            @Override
+            public void sessionFailed(long user, String reason) {
+            }
+        });
+        hp.createLobby(4);
+        hp.runCallbacks();
+        return hp;
+    }
+
+    @Test
+    void aLobbyOfAnotherVersionEndsTheJoinAtOnce() throws InterruptedException {
+        FakeSteam.Port hp = bareHost();
+        hp.lobbyData(1000, SteamNode.LOBBY_KEY, "31");
+        SteamNode j = join(2, 1000);
+        Node.Event.Disconnected d = (Node.Event.Disconnected) next(j, e -> e instanceof Node.Event.Disconnected);
+        assertEquals("The host runs another version of the mod (protocol 31).", d.reason());
+    }
+
+    @Test
+    void anotherVersionsAnswerBeforeTheHandshakeReachesTheSessions() throws InterruptedException {
+        FakeSteam.Port hp = bareHost(); // a lobby without the version: the host's answer is all there is
+        SteamNode j = join(2, 1000);
+        waitFor("the joiner in the lobby", () -> j.lobby() != 0);
+        hp.send(2, new byte[] {0, 31, 0}); // protocol 31's version and a type
+        Node.Event.Received r = (Node.Event.Received) next(j, e -> e instanceof Node.Event.Received);
+        assertEquals(new Message.Unsupported(31), r.message());
+    }
+
     /** The next event from {@code node} that matches, skipping others; fails after 5 s. */
     private static Node.Event next(SteamNode node, Predicate<Node.Event> match) throws InterruptedException {
         long deadline = System.currentTimeMillis() + 5_000;
@@ -114,8 +174,8 @@ class SteamNodeTest {
         assertEquals(bobPeer, r.peer());
         assertEquals(new Message.Hello("Bob", 2, new Builds("0.71.44", 1, 2, new GameFiles(3, List.of()))), r.message());
 
-        h.send(bobPeer, new Message.Start());
-        assertEquals(new Message.Start(), ((Node.Event.Received) next(bob, e -> e instanceof Node.Event.Received)).message());
+        h.send(bobPeer, new Message.Start(false));
+        assertEquals(new Message.Start(false), ((Node.Event.Received) next(bob, e -> e instanceof Node.Event.Received)).message());
 
         SteamNode cid = join(3, h.lobby());
         next(cid, e -> e instanceof Node.Event.Connected);
@@ -160,8 +220,8 @@ class SteamNodeTest {
 
         bobPort[0].loseSteam(h.lobby()); // the host hears Disconnected; Bob hears he was kicked for it
         Thread.sleep(50);
-        h.send(bobPeer, new Message.Start());
-        assertEquals(new Message.Start(), nextMessage(bob).message());
+        h.send(bobPeer, new Message.Start(false));
+        assertEquals(new Message.Start(false), nextMessage(bob).message());
         bob.send(Node.HOST, new Message.Chat(1, "back"));
         assertEquals(new Message.Chat(1, "back"), nextMessage(h).message());
     }
@@ -180,8 +240,8 @@ class SteamNodeTest {
         Thread.sleep(50);
         bob.send(Node.HOST, new Message.Chat(1, "still here"));
         assertEquals(new Message.Chat(1, "still here"), nextMessage(h).message());
-        h.send(bobPeer, new Message.Start());
-        assertEquals(new Message.Start(), nextMessage(bob).message());
+        h.send(bobPeer, new Message.Start(false));
+        assertEquals(new Message.Start(false), nextMessage(bob).message());
     }
 
     /**
@@ -323,6 +383,50 @@ class SteamNodeTest {
         assertEquals(new Message.Chat(0, "for the new game"), nextMessage(bob).message());
         Thread.sleep(SteamNode.RESUME_MS + 500);
         assertNoMessage(bob);
+        assertNoMessage(h);
+    }
+
+    /**
+     * Bob joins the host, which sends him {@code Refused} and drops him in the same update, as the sessions refuse a
+     * PC (batch 12, item 1B).
+     */
+    private void refusedInOneUpdate(SteamNode h, SteamNode bob) throws Exception {
+        next(bob, e -> e instanceof Node.Event.Connected);
+        int bobPeer = ((Node.Event.Connected) next(h, e -> e instanceof Node.Event.Connected)).peer();
+        bob.send(Node.HOST, hello("Bob"));
+        assertEquals(hello("Bob"), nextMessage(h).message());
+        h.send(bobPeer, new Message.Start(false)); // once Bob has it, his line's handshake is done
+        assertEquals(new Message.Start(false), nextMessage(bob).message());
+        h.send(bobPeer, new Message.Refused(Refusal.JOIN_BUSY));
+        h.disconnect(bobPeer);
+        assertEquals(new Message.Refused(Refusal.JOIN_BUSY), nextMessage(bob).message(), "the refusal arrives");
+    }
+
+    /** A dropped peer gets what was sent to it; its Steam session closes once it leaves the lobby. */
+    @Test
+    void aDroppedPeerGetsItsRefusalAndItsSessionClosesWhenItLeaves() throws Exception {
+        FakeSteam.Port[] hostPort = new FakeSteam.Port[1];
+        SteamNode h = SteamNode.host(() -> hostPort[0] = steam.port(1), 4);
+        nodes.add(h);
+        waitFor("the lobby", () -> h.lobby() != 0);
+        SteamNode bob = join(2, h.lobby());
+        refusedInOneUpdate(h, bob);
+        assertTrue(hostPort[0].inSession(2), "the session stays while Bob's game reads");
+        bob.close();
+        waitFor("the session closed", () -> !hostPort[0].inSession(2));
+        assertNoMessage(h);
+    }
+
+    /** A dropped peer that never leaves the lobby: its session closes at the limit. */
+    @Test
+    void aDroppedPeersSessionClosesAtTheLimitIfItStaysInTheLobby() throws Exception {
+        FakeSteam.Port[] hostPort = new FakeSteam.Port[1];
+        SteamNode h = SteamNode.host(() -> hostPort[0] = steam.port(1), 4, 300);
+        nodes.add(h);
+        waitFor("the lobby", () -> h.lobby() != 0);
+        SteamNode bob = join(2, h.lobby());
+        refusedInOneUpdate(h, bob);
+        waitFor("the session closed at the limit", () -> !hostPort[0].inSession(2));
         assertNoMessage(h);
     }
 

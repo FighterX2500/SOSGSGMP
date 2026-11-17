@@ -1,7 +1,6 @@
 package menu;
 
 import snake2d.LOG;
-import snake2d.util.color.COLOR;
 import sosdet.DesyncHold;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.lobby.LobbyPlayer;
@@ -116,11 +115,10 @@ final class MpDesync {
 
 	private void show() {
 		if (!setup.isHost() || resyncChosen) {
-			VIEW.inters().fullScreen.activate(resyncChosen || pending != null ? "Resyncing the world from the host..." : message,
-					COLOR.WHITE100, null);
+			MpPrompt.show(resyncChosen || pending != null ? "Resyncing the world from the host..." : message);
 			return;
 		}
-		VIEW.inters().fullScreen.activate(message, COLOR.WHITE100, null, new GButt.ButtPanel("Resync") {
+		MpPrompt.show(message, new GButt.ButtPanel("Resync") {
 			@Override
 			protected void clickA() {
 				choose(true);

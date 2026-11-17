@@ -18,8 +18,10 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
 
     /**
      * A player of the campaign: the key its PC sends in its hello, its name, its human's slot, whether the host removed
-     * them (spec §11 Removing a player, SOS-65): a removed player stays listed, but never plays again, and whether that
-     * was by elimination (SOS-111): only they may come back, to watch, and no resume waits for them. A frozen player
+     * them (spec §11 Removing a player, SOS-65): a removed player stays listed, with their slot, and never plays in that
+     * slot again (they may join the running game again as a new player: a new entry of the same key,
+     * {@link Campaign#adding}), and whether that was by elimination (SOS-111): only they may come back, to watch, and no
+     * resume waits for them. A frozen player
      * (spec §11 Freezing a player, SOS-194) left with their city kept: no resume waits for them, and they may come back.
      */
     public record Player(long key, String name, int slot, boolean removed, boolean eliminated, boolean frozen) {
@@ -61,19 +63,31 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
         players = List.copyOf(players);
         if (players.size() < 2)
             throw new IllegalArgumentException("SOSGSGMP: campaign " + name + " with " + players.size() + " players");
+        // every human slot is listed once, removed ones too; one key may come back as a new player after removals, so
+        // it has at most one entry that isn't refused
         for (int i = 0; i < players.size(); i++)
-            for (int j = i + 1; j < players.size(); j++)
-                if (players.get(i).key() == players.get(j).key() || players.get(i).slot() == players.get(j).slot())
+            for (int j = i + 1; j < players.size(); j++) {
+                Player a = players.get(i);
+                Player b = players.get(j);
+                if (a.slot() == b.slot() || a.key() == b.key() && !a.refused() && !b.refused())
                     throw new IllegalArgumentException("SOSGSGMP: campaign " + name + " has two players with one key or slot: "
-                            + players.get(i) + ", " + players.get(j));
+                            + a + ", " + b);
+            }
     }
 
-    /** The player whose PC sends {@code key}, or null. */
+    /**
+     * The player whose PC sends {@code key}, or null: the entry of that key that isn't refused, if any; otherwise the
+     * last one, removed. Several entries share a key when a removed player joined again as a new player.
+     */
     public Player player(long key) {
+        Player last = null;
         for (Player p : players)
-            if (p.key() == key)
-                return p;
-        return null;
+            if (p.key() == key) {
+                if (!p.refused())
+                    return p;
+                last = p;
+            }
+        return last;
     }
 
     /** The players neither removed nor frozen: the ones a resume waits for. */
@@ -109,7 +123,11 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
         return new Campaign(id, name, seed, difficulty, now);
     }
 
-    /** This campaign with a player who joined a running game in {@code slot} (hot-join, SOS-190). */
+    /**
+     * This campaign with a player who joined a running game in {@code slot} (hot-join, SOS-190). A removed, not
+     * eliminated player of the same key may join again as a new player (spec §11 Removing a player): their old entry
+     * stays listed with its slot, since the host's world still has that human, and {@link #player} gives the new one.
+     */
     public Campaign adding(long key, String name, int slot) {
         List<Player> now = new ArrayList<>(players);
         now.add(new Player(key, name, slot));

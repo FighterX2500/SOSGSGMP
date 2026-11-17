@@ -3,7 +3,6 @@ package menu;
 import java.util.List;
 import java.util.Locale;
 
-import snake2d.util.color.COLOR;
 import sosdet.LocalBattle;
 import sosdet.View;
 import sosgsgmp.game.EnginePlay;
@@ -385,7 +384,7 @@ final class MpViews {
 		if (loadingShown && VIEW.inters().fullScreen.isActivated())
 			return;
 		loadingShown = true;
-		VIEW.inters().fullScreen.activate("Loading " + subject(v) + "...", COLOR.WHITE100, null);
+		MpPrompt.show("Loading " + subject(v) + "...");
 	}
 
 	private void bar(View v) {

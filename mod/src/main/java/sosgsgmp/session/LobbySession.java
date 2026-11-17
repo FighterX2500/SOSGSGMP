@@ -43,8 +43,16 @@ public interface LobbySession {
     /** Whether Start Lobby is active on this PC: the host's, with 2 or more players, not yet started. */
     boolean canStart();
 
-    /** The host starts the lobby. Check {@link #canStart()} first. */
-    void start();
+    /** The host starts the lobby, removing a resume's missing players. Check {@link #canStart()} first. */
+    default void start() {
+        start(false);
+    }
+
+    /**
+     * The host starts the lobby. {@code freezeMissing}: a resume's missing players are frozen at the start instead of
+     * removed (spec §11 Resuming). Check {@link #canStart()} first.
+     */
+    void start(boolean freezeMissing);
 
     /** The session's chat on this PC (spec §12), for reading. */
     Chat chat();

@@ -71,7 +71,9 @@ import world.WORLD;
  * (host: save the campaign at this step), {@code resume} (host, {@code 1}: host the newest campaign save of this data
  * folder instead of a new game; the joining PC learns it from the lobby), {@code crash} (this PC's game stops dead at
  * this step, as a crash or a pulled cable leaves the others: SOS-65), {@code ongone} (host: {@code continue},
- * {@code freeze} (SOS-194) or {@code return} when a player left), {@code freeze} (join: at this step choose the escape
+ * {@code freeze} (SOS-194) or {@code return} when a player left), {@code onmissing} (host, a resume: {@code remove},
+ * the default, or {@code freeze}: how Start leaves out the campaign's players not in the lobby, as the lobby's question
+ * answers it), {@code freeze} (join: at this step choose the escape
  * menu's Leave and freeze, confirmed: SOS-194), {@code startafter} (host: keep the lobby open this many seconds first),
  * {@code deal} (join: at this step propose trade, up to 100 denari and 5 of a good it has to the host, who accepts every
  * proposal: SOS-72), {@code fulllog} (host, {@code 0}: the lobby's transfer log lists only transfers between players: SOS-81),
@@ -157,6 +159,8 @@ public final class MpAutopilot {
 	private final long startAfterNanos;
 	private long lobbyAt;
 	private final String onGone;
+	/** Host, a resume: Start freezes the missing players instead of removing them (onmissing=freeze). */
+	private final boolean freezeMissing;
 	/** The hold step of the last player-gone hold seen; -1 before the first. */
 	private long seenGone = -1;
 	private long goneSeenAt;
@@ -167,6 +171,8 @@ public final class MpAutopilot {
 	/** When this PC left frozen; when the next chat shot is due (0: none). */
 	private long frozeAt;
 	private long chatShotAt;
+	/** With a GUI preview: when the window this PC's session ended with, Exit's question and the desync window showed. */
+	private long endAt, quitPromptAt, desyncSeenAt;
 	private static final long CHOOSE_AFTER_NANOS = 3_000_000_000L;
 	/** The players this PC saw lost and not back yet (SOS-177). */
 	private final java.util.Set<Integer> lostSeen = new java.util.HashSet<>();
@@ -273,6 +279,10 @@ public final class MpAutopilot {
 		capitalY = Integer.parseInt(capital[1]);
 		startAfterNanos = Long.parseLong(m.getOrDefault("startafter", "0")) * 1_000_000_000L;
 		onGone = m.getOrDefault("ongone", "continue");
+		String onMissing = m.getOrDefault("onmissing", "remove");
+		if (!onMissing.equals("remove") && !onMissing.equals("freeze"))
+			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " onmissing '" + onMissing + "', not remove or freeze");
+		freezeMissing = onMissing.equals("freeze");
 		if (!onGone.equals("continue") && !onGone.equals("freeze") && !onGone.equals("return"))
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " ongone '" + onGone + "', not continue, freeze or return");
 		if (!onDesync.equals("resync") && !onDesync.equals("exit"))
@@ -495,8 +505,8 @@ public final class MpAutopilot {
 			return;
 		if (host && s.canStart() && s.players().size() >= players && System.nanoTime() - lobbyAt >= startAfterNanos
 				&& first("started")) {
-			s.start();
-			event("started", "\"players\":" + s.players().size());
+			s.start(resume && freezeMissing); // the lobby's question for missing players, answered (spec §11 Resuming)
+			event("started", "\"players\":" + s.players().size() + ",\"freezeMissing\":" + (resume && freezeMissing));
 		}
 	}
 
@@ -754,11 +764,54 @@ public final class MpAutopilot {
 
 	/** Another PC's game data ended the session here (SOS-159): the window's text, then quit. */
 	void mismatch(String text) {
-		if (!first("mismatch"))
+		if (first("mismatch")) {
+			first("closed"); // the session closed for this, not for a reason of its own
+			event("mismatch", "\"text\":\"" + clean(text) + "\"");
+		} else if (guiPreview < 0) {
 			return;
-		first("closed"); // the session closed for this, not for a reason of its own
-		event("mismatch", "\"text\":\"" + clean(text) + "\"");
-		CORE.annihilate();
+		}
+		if (!endPreview("mismatch"))
+			CORE.annihilate();
+	}
+
+	/**
+	 * With a GUI preview, the window this PC's session ended with (MpExit's, MpGone's, MpClosed's, MpMismatch's) stays
+	 * three seconds, with a shot at two. True meanwhile; without a preview, false at once.
+	 */
+	private boolean endPreview(String what) {
+		if (guiPreview < 0)
+			return false;
+		long now = System.nanoTime();
+		if (first("endpreview"))
+			endAt = now;
+		if (now - endAt >= 2_000_000_000L && first("endshot"))
+			guiShot(what);
+		return now - endAt < 3_000_000_000L;
+	}
+
+	/**
+	 * With a GUI preview, Exit's question as a player meets it: the escape menu's Exit, shown three seconds with a shot.
+	 * True meanwhile; the autopilot then confirms, as before.
+	 */
+	private boolean quitPreview(MpExit exit) {
+		if (guiPreview < 0)
+			return false;
+		long now = System.nanoTime();
+		if (first("quitprompt")) {
+			exit.quit(true);
+			quitPromptAt = now;
+		}
+		if (now - quitPromptAt >= 2_000_000_000L && first("quitshot"))
+			guiShot("quitprompt");
+		if (now - quitPromptAt < 3_000_000_000L)
+			return true;
+		if (first("quitpromptdone")) { // nobody clicks here: the question goes, as a click would take it
+			if (VIEW.inters().yesNo.isActivated())
+				VIEW.inters().yesNo.deactivate();
+			if (VIEW.inters().fullScreen.isActivated())
+				VIEW.inters().fullScreen.deactivate();
+		}
+		return false;
 	}
 
 	/**
@@ -786,6 +839,8 @@ public final class MpAutopilot {
 			hostSilentSeen = false;
 			event("hostback", "\"step\":" + step);
 		}
+		if (guiPreview >= 0 && hostSilentSeen && silent >= Departures.LOST_MS + 2_000 && first("hostlostshot"))
+			guiShot("hostlost"); // the lost-host window, with its Leave the game
 	}
 
 	private static boolean inHold(Departures d, int id) {
@@ -806,6 +861,9 @@ public final class MpAutopilot {
 	void game(SetupSession setup, EnginePlay engine, MpDesync desync, MpSaves saves, MpGone gone, MpExit exit, MpViews views,
 			MpLoading loading) {
 		loadingShot(setup, engine, engine.active() ? engine.step() : -1, loading);
+		if ((exit.outcome() != null || setup.closed() && saves.frozeHere() == null)
+				&& endPreview(exit.outcome() != null ? "exit" : "closed"))
+			return;
 		if (exit.outcome() != null && first("exit")) {
 			// the engine has ended: a desync's Save and exit, or a player's quit (SOS-79)
 			if (saves.exitedQuitter() == SaveOrder.NO_QUITTER)
@@ -867,7 +925,7 @@ public final class MpAutopilot {
 			exit.freezeConfirmed(); // the escape menu's Leave and freeze, confirmed
 			event("freeze", "\"step\":" + engine.step());
 		}
-		if (quit >= 0 && engine.step() >= quit && first("quit")) {
+		if (quit >= 0 && engine.step() >= quit && !quitPreview(exit) && first("quit")) {
 			exit.quitConfirmed(true); // the escape menu's Exit, confirmed
 			event("quit", "\"step\":" + engine.step());
 		}
@@ -944,8 +1002,15 @@ public final class MpAutopilot {
 		DesyncHold hold = desync.shown();
 		if (hold != null && hold != seenHold) {
 			seenHold = hold;
+			desyncSeenAt = now;
 			event("desynchold", "\"desyncStep\":" + hold.desyncStep + ",\"pc\":" + hold.pc + ",\"holdStep\":" + hold.holdStep + ",\"step\":" + step);
-			if (host)
+			if (host && guiPreview < 0)
+				desync.choose(onDesync.equals("resync"));
+		}
+		if (host && guiPreview >= 0 && hold != null) { // with a GUI preview, the host's window shows three seconds first, with a shot
+			if (now - desyncSeenAt >= 2_000_000_000L && first("desyncshot" + hold.holdStep))
+				guiShot("desync");
+			if (now - desyncSeenAt >= CHOOSE_AFTER_NANOS)
 				desync.choose(onDesync.equals("resync"));
 		}
 		if (desync.resyncedStep() > resyncedAt) {

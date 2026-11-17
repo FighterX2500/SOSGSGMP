@@ -9,16 +9,22 @@ import java.util.Map;
  * One campaign save as this PC holds it (SOS-64): the campaign, the save's number and kind (the same on every PC), and
  * this PC's own part: its slot, its vanilla save's file name and its world hash at the save's step. Stored as
  * {@code key=value} lines, the format version first; a format this mod doesn't know is refused, never guessed.
+ *
+ * @param lastReports the game save holds every playing human's last city report (SOSDET plan 0021), so a resume of it
+ *        can start with a missing player frozen (spec §11 Resuming); false for a record of an older version, whose
+ *        save holds none. Every PC's save of one number was made in one session by the same builds, so the host's
+ *        record answers for every PC
  */
-public record CampaignRecord(Campaign campaign, int number, Kind kind, long time, int slot, String file, long worldHash) {
+public record CampaignRecord(Campaign campaign, int number, Kind kind, long time, int slot, String file, long worldHash,
+        boolean lastReports) {
 
     /**
      * Raise whenever the text's keys or their meaning change; {@link #fromText} reads every version still around. 2: each
      * player's {@code removed} (SOS-65); a format 1 record has no removed player. 3: each player's {@code eliminated}
      * (SOS-111); an older record has no eliminated player. 4: each player's {@code frozen} (SOS-194); an older record has
-     * no frozen player.
+     * no frozen player. 5: {@code lastReports}; an older record's save holds no last reports.
      */
-    public static final int FORMAT = 4;
+    public static final int FORMAT = 5;
 
     /** Save: the host's button, kept until deleted. Auto: an autosave, rotated. */
     public enum Kind {
@@ -68,6 +74,7 @@ public record CampaignRecord(Campaign campaign, int number, Kind kind, long time
         line(b, "slot", slot);
         line(b, "file", file);
         line(b, "worldHash", Long.toHexString(worldHash));
+        line(b, "lastReports", lastReports);
         return b.toString();
     }
 
@@ -106,7 +113,7 @@ public record CampaignRecord(Campaign campaign, int number, Kind kind, long time
             throw new IllegalArgumentException("SOSGSGMP: campaign record of kind '" + v.get("kind") + "'", e);
         }
         return new CampaignRecord(c, integer(v, "number"), kind, longValue(v, "time"), integer(v, "slot"), text(v, "file"),
-                hex(v, "worldHash"));
+                hex(v, "worldHash"), format >= 5 && bool(v, "lastReports"));
     }
 
     private static String text(Map<String, String> v, String key) {

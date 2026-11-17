@@ -124,6 +124,8 @@ public final class HostedSetup implements SetupSession {
     private byte[] rejoinFiles;
     /** Replaced by a hot-join restart's setup: this one reads and sends nothing more (the connection is the new one's). */
     private boolean replaced;
+    /** The host started the resume with its missing players frozen, not removed. */
+    private final boolean freezeMissing;
 
     /** Hot-join: a PC that said hello during play, its player id, name and key, and whether the host has answered. */
     private static final class Candidate {
@@ -147,11 +149,12 @@ public final class HostedSetup implements SetupSession {
     /**
      * Takes over a started lobby's connection, its joined peers (peer to player id), its players (the host first), their
      * keys, its settings, its chat and this PC's builds. A resume starts at the world-loaded step: every player has the campaign's slot, and every
-     * PC loads its own save (SOS-64).
+     * PC loads its own save (SOS-64). {@code freezeMissing}: the host started the resume with its missing players frozen,
+     * not removed.
      */
     HostedSetup(Node node, Map<Integer, Integer> joined, List<LobbyPlayer> players, Map<Integer, Long> keys, MapWorld world,
-            FactionWorld factionWorld, LobbySettings settings, Chat chat, Builds builds) {
-        this(node, joined, players, keys, world, factionWorld, settings, chat, builds, java.util.Set.of());
+            FactionWorld factionWorld, LobbySettings settings, Chat chat, Builds builds, boolean freezeMissing) {
+        this(node, joined, players, keys, world, factionWorld, settings, chat, builds, java.util.Set.of(), freezeMissing);
     }
 
     /**
@@ -160,8 +163,11 @@ public final class HostedSetup implements SetupSession {
      */
     private HostedSetup(Node node, Map<Integer, Integer> joined, List<LobbyPlayer> players, Map<Integer, Long> keys,
             MapWorld world, FactionWorld factionWorld, LobbySettings settings, Chat chat, Builds builds,
-            java.util.Set<Integer> beforeRestarted) {
+            java.util.Set<Integer> beforeRestarted, boolean freezeMissing) {
+        if (freezeMissing && settings.resume() == null)
+            throw new IllegalArgumentException("SOSGSGMP: missing players frozen at the start of a game that resumes nothing");
         this.beforeRestarted.addAll(beforeRestarted);
+        this.freezeMissing = freezeMissing;
         this.node = node;
         this.chat = chat;
         this.builds = builds;
@@ -179,8 +185,10 @@ public final class HostedSetup implements SetupSession {
             Map<Integer, Integer> slots = new HashMap<>();
             for (LobbyPlayer p : players)
                 slots.put(p.id(), campaign.player(keys.get(p.id())).slot());
-            // whoever of the campaign is missing is removed at the start (spec §11 Resuming), and saves say so from now
-            campaign = campaign.removing(Campaign.missingSlots(campaign, slots.values()));
+            // whoever of the campaign is missing is frozen or removed at the start, as the host chose (spec §11
+            // Resuming), and saves say so from now; a missing player's hello in play is then a return from a freeze
+            List<Integer> missing = Campaign.missingSlots(campaign, slots.values());
+            campaign = freezeMissing ? campaign.freezing(missing) : campaign.removing(missing);
             factions = FactionStep.resumed(players.get(0).id(), slots);
             announceLoading(Loading.Kind.WORLD_INITIALIZATION, ++loadingKey, "Loading the campaign. Every PC loads the world.", true);
             sendAll(new Message.SlotMap(factions.transfer(), factions.slotMap()));
@@ -704,6 +712,8 @@ public final class HostedSetup implements SetupSession {
     /**
      * A hello after the start (hot-join, SOS-190): a running game takes it as a candidate, if its builds and files are
      * the host's, there is room and nobody else is joining; the host is then asked. Before the game runs, it is refused.
+     * A removed player's key is taken as a new player's; an eliminated player's is refused. A new player is refused too
+     * once the campaign lists {@link LobbySettings#MAX_PLAYERS} players, the removed ones included.
      */
     private void hello(int peer, Message.Hello h) {
         if (link == null || restartInfo != null && !beforeRestarted.isEmpty()) {
@@ -717,12 +727,17 @@ public final class HostedSetup implements SetupSession {
             return;
         }
         Campaign.Player known = campaign == null ? null : campaign.player(h.playerKey());
+        if (known != null && known.refused()) // removed, not eliminated: they join again as a new player (spec §11)
+            known = null;
         if (refusal == null && known != null && !known.frozen()) // a frozen player comes back here (SOS-195)
-            refusal = known.removed() ? Refusal.REMOVED : Refusal.STARTED; // theirs is the resume
+            refusal = known.eliminated() ? Refusal.ELIMINATED : Refusal.STARTED; // theirs is the resume
         if (refusal == null && present(h.playerKey())) // not a key whose player left: a frozen one comes back (SOS-195)
             refusal = Refusal.ALREADY_JOINED;
         if (refusal == null && players.size() >= LobbySettings.MAX_PLAYERS)
-            refusal = Refusal.FULL;
+            refusal = Refusal.GAME_FULL;
+        // a new player adds an entry, and a campaign carries no more than MAX_PLAYERS, the removed ones included
+        if (refusal == null && known == null && campaign != null && campaign.players().size() >= LobbySettings.MAX_PLAYERS)
+            refusal = Refusal.GAME_FULL;
         if (refusal == null && candidate != null)
             refusal = Refusal.JOIN_BUSY;
         if (refusal != null) {
@@ -799,7 +814,7 @@ public final class HostedSetup implements SetupSession {
             return;
         }
         candidate.accepted = true;
-        node.send(candidate.peer, new Message.Start()); // its lobby hands over to a setup that waits for the snapshot
+        node.send(candidate.peer, new Message.Start(false)); // its lobby hands over to a setup that waits for the snapshot
         notes.add(candidate.name + " may join");
     }
 
@@ -880,7 +895,8 @@ public final class HostedSetup implements SetupSession {
         notes.add(note);
         replaced = true; // not left: the connection stays with the new setup, and this one sends nothing more
         LobbySettings s = LobbySettings.resuming(new LobbySettings.Resume(r.campaign(), r.number())).withFullTransferLog(fullTransferLog);
-        HostedSetup h = new HostedSetup(node, joined2, players2, keys2, world, factionWorld, s, chat, builds, joined2.keySet());
+        // a restart has nobody missing: nothing is frozen or removed at its start
+        HostedSetup h = new HostedSetup(node, joined2, players2, keys2, world, factionWorld, s, chat, builds, joined2.keySet(), false);
         h.restartInfo = r;
         h.newcomerPeer = candidate.peer;
         return h;
@@ -896,6 +912,11 @@ public final class HostedSetup implements SetupSession {
     @Override
     public Message.Restart restartInfo() {
         return restartInfo;
+    }
+
+    @Override
+    public boolean freezesMissing() {
+        return freezeMissing;
     }
 
     private void refuse(int peer, Refusal refusal) {

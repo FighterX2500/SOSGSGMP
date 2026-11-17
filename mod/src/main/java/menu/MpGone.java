@@ -9,7 +9,6 @@ import java.util.Map;
 import game.GAME;
 import snake2d.CORE;
 import snake2d.LOG;
-import snake2d.util.color.COLOR;
 import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.game.EnginePlay;
@@ -334,7 +333,7 @@ final class MpGone {
 	private void show(Departures d, String text) {
 		shownText = text;
 		if (!setup.isHost()) {
-			VIEW.inters().fullScreen.activate(text, COLOR.WHITE100, null);
+			MpPrompt.show(text);
 			return;
 		}
 		GButt.ButtPanel back = new GButt.ButtPanel("Return to the last save") {
@@ -354,10 +353,10 @@ final class MpGone {
 			}
 		};
 		if (freezeRefusal(d) != null) {
-			VIEW.inters().fullScreen.activate(text, COLOR.WHITE100, null, remove, back);
+			MpPrompt.show(text, remove, back);
 			return;
 		}
-		VIEW.inters().fullScreen.activate(text, COLOR.WHITE100, null, remove, new GButt.ButtPanel("Freeze them") {
+		MpPrompt.show(text, remove, new GButt.ButtPanel("Freeze them") {
 			@Override
 			protected void clickA() {
 				choose(Departures.Choice.FREEZE);

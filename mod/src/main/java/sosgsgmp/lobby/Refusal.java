@@ -8,7 +8,7 @@ public enum Refusal {
     NOT_IN_CAMPAIGN("You aren't a player of the campaign this lobby resumes."),
     ALREADY_JOINED("A PC with your player key is already in the lobby. If one PC's profile was copied from the other, delete"
             + " sosgsgmp\\lobby.properties (an older version's: saves\\profile\\SOSGSGMP-lobby.properties) on one of them: it gets a new key."),
-    REMOVED("The host removed you from this campaign, so you can't play in it again."),
+    REMOVED("The host removed you from this campaign. You can join it again as a new player while its game is running."),
     TOO_SLOW("Your PC couldn't keep up with the game, so the host dropped it. You can come back to watch at the next resume."),
     WRONG_GAME("Your Songs of Syx isn't the host's build. Everyone needs the same build of the game."),
     WRONG_ENGINE("Your SOSDET isn't the host's build. Everyone needs the same one: let Steam finish updating, then restart the game."),
@@ -21,7 +21,11 @@ public enum Refusal {
     /** Hot-join: another player is joining now. */
     JOIN_BUSY("Another player is joining the game right now. Try again in a minute."),
     /** Freeze (SOS-194): a frozen player comes back into the running game, not at a resume. */
-    FROZEN("You are frozen in this campaign. Join its game once it is running to come back.");
+    FROZEN("You are frozen in this campaign. Join its game once it is running to come back."),
+    /** A running game: an eliminated player comes back only to watch, at a resume (spec §11 Elimination). */
+    ELIMINATED("You were eliminated in this campaign. You can come back to watch when it is resumed."),
+    /** A running game: no room for another entry in the campaign, the players who left included (owner, 2026-11-17). */
+    GAME_FULL("The game is full: the campaign has room for 16 players, those who left included.");
 
     public final String text;
 

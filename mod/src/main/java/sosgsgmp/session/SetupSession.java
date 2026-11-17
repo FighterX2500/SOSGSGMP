@@ -348,6 +348,12 @@ public interface SetupSession {
         return null;
     }
 
+    /**
+     * A resume: whether its missing players are frozen at the start (true) or removed (false), as the host's Start said,
+     * the same on every PC (spec §11 Resuming). False for a new game and for a hot-join's restart, where nobody is missing.
+     */
+    boolean freezesMissing();
+
     /** This PC asked to join a running game and picks on the host's snapshot (hot-join). */
     default boolean candidate() {
         return false;

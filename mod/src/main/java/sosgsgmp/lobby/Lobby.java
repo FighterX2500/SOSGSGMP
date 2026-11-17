@@ -20,6 +20,8 @@ public final class Lobby {
     private final Map<Integer, Long> keys = new HashMap<>();
     private int nextId;
     private boolean started;
+    /** Started with the missing players frozen, not removed (spec §11 Resuming). */
+    private boolean freezesMissing;
 
     public Lobby(LobbySettings settings, String hostName, long hostKey) {
         this.settings = settings;
@@ -108,9 +110,25 @@ public final class Lobby {
     }
 
     public void start() {
+        start(false);
+    }
+
+    /**
+     * Starts the lobby. {@code freezeMissing}: a resume's {@link #missing} players are frozen at the start instead of
+     * removed (spec §11 Resuming); with nobody missing there is nobody to freeze. A new game has no one to freeze.
+     */
+    public void start(boolean freezeMissing) {
         if (!canStart())
             throw new IllegalStateException("SOSGSGMP: the lobby can't start with " + players.size() + " players (started: " + started + ")");
+        if (freezeMissing && settings.resume() == null)
+            throw new IllegalArgumentException("SOSGSGMP: a new game has no missing players to freeze");
+        freezesMissing = freezeMissing && !missing().isEmpty();
         started = true;
+    }
+
+    /** Whether the lobby started with its missing players frozen. */
+    public boolean freezesMissing() {
+        return freezesMissing;
     }
 
     public boolean started() {

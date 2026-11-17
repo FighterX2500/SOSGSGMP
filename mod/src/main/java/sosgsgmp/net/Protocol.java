@@ -32,7 +32,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 31;
+    public static final int VERSION = 32;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -122,7 +122,10 @@ public final class Protocol {
                     for (String line : f.detail())
                         out.writeUTF(line);
                 }
-                case Message.Start s -> out.writeByte(START);
+                case Message.Start s -> {
+                    out.writeByte(START);
+                    out.writeBoolean(s.freezeMissing());
+                }
                 case Message.Running r -> {
                     out.writeByte(RUNNING);
                     out.writeBoolean(r.returning());
@@ -457,7 +460,7 @@ public final class Protocol {
             case WELCOME -> new Message.Welcome(in.readInt(), settings(in));
             case ROSTER -> roster(in);
             case REFUSED -> new Message.Refused(refusal(in.readUnsignedByte()), refusalDetail(in));
-            case START -> new Message.Start();
+            case START -> new Message.Start(in.readBoolean());
             case RUNNING -> new Message.Running(in.readBoolean());
             case RESTARTED -> new Message.Restarted();
             case JOIN_PICK -> new Message.JoinPick(pick(in));

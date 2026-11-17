@@ -5,7 +5,6 @@ import java.util.List;
 
 import game.GAME;
 import snake2d.CORE;
-import snake2d.util.color.COLOR;
 import snake2d.util.misc.ACTION;
 import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.campaign.SaveOrder;
@@ -87,11 +86,11 @@ final class MpExit implements MpEscapeMenu.Actions {
 			freezeLeavers();
 		}
 		if ((saves.exiting() || quitting) && engine.desyncHold() == null && !VIEW.inters().fullScreen.isActivated())
-			VIEW.inters().fullScreen.activate(saves.exiting() ? "Saving the campaign. The session ends once every player has saved."
-					: "Waiting for the host to save the campaign. The session ends once every player has saved.", COLOR.WHITE100, null);
+			MpPrompt.show(saves.exiting() ? "Saving the campaign. The session ends once every player has saved."
+					: "Waiting for the host to save the campaign. The session ends once every player has saved.");
 		if (freezeAsked && engine.desyncHold() == null && !VIEW.inters().fullScreen.isActivated())
-			VIEW.inters().fullScreen.activate(saves.freezing() ? "Saving the campaign. You leave once every player has saved."
-					: "Waiting for the host to save the campaign. You leave once every player has saved.", COLOR.WHITE100, null);
+			MpPrompt.show(saves.freezing() ? "Saving the campaign. You leave once every player has saved."
+					: "Waiting for the host to save the campaign. You leave once every player has saved.");
 	}
 
 	/**

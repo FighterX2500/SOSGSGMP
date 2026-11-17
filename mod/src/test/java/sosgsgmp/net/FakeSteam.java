@@ -20,6 +20,7 @@ public final class FakeSteam {
     private long nextLobby = 1000;
     private final Map<Long, Set<Long>> lobbies = new HashMap<>();
     private final Map<Long, Port> users = new HashMap<>();
+    private final Map<Long, Map<String, String>> lobbyData = new HashMap<>();
     /** As the newer messages may: an accept before the first packet does nothing, and no session request arrives. */
     private boolean silentSessions;
 
@@ -166,6 +167,16 @@ public final class FakeSteam {
 
         @Override
         public void lobbyData(long lobby, String key, String value) {
+            synchronized (FakeSteam.this) {
+                lobbyData.computeIfAbsent(lobby, k -> new HashMap<>()).put(key, value);
+            }
+        }
+
+        @Override
+        public String lobbyData(long lobby, String key) {
+            synchronized (FakeSteam.this) {
+                return lobbyData.getOrDefault(lobby, Map.of()).getOrDefault(key, "");
+            }
         }
 
         @Override
@@ -205,10 +216,24 @@ public final class FakeSteam {
             }
         }
 
+        /**
+         * As Steam's: what this user sent {@code user} and {@code user} hasn't read yet is lost (the host's log of
+         * 2026-11-16: a refusal sent just before the close never arrived).
+         */
         @Override
         public void closeSession(long user) {
             synchronized (FakeSteam.this) {
                 accepted.remove(user);
+                Port to = users.get(user);
+                if (to != null)
+                    to.dropUnread(self);
+            }
+        }
+
+        /** Test: whether this user has a session with {@code user} that it accepted and hasn't closed. */
+        public boolean inSession(long user) {
+            synchronized (FakeSteam.this) {
+                return accepted.contains(user);
             }
         }
 
@@ -227,6 +252,12 @@ public final class FakeSteam {
         /** The session with {@code user} failed: its unread packets are lost, and it is told. */
         private void failed(long user) {
             accepted.remove(user);
+            dropUnread(user);
+            later(() -> listener.sessionFailed(user, "timed out"));
+        }
+
+        /** What {@code user} sent this one and it hasn't read yet is lost. */
+        private void dropUnread(long user) {
             waiting.remove(user);
             java.util.Iterator<long[]> o = order.iterator();
             java.util.Iterator<byte[]> p = packets.iterator();
@@ -238,7 +269,6 @@ public final class FakeSteam {
                     p.remove();
                 }
             }
-            later(() -> listener.sessionFailed(user, "timed out"));
         }
 
         private void deliver(long from, byte[] bytes) {

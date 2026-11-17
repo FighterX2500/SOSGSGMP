@@ -180,14 +180,14 @@ public final class HostedLobby implements LobbySession {
     }
 
     @Override
-    public void start() {
+    public void start(boolean freezeMissing) {
         if (!canStart())
             throw new IllegalStateException("SOSGSGMP: the lobby can't start now (state " + state + ", " + lobby.players().size() + " players)");
-        lobby.start();
+        lobby.start(freezeMissing);
         state = LobbyState.STARTED;
         changes++;
-        for (int peer : joined.keySet())
-            node.send(peer, new Message.Start());
+        for (int peer : joined.keySet()) // every PC freezes or removes the same slots: the host's choice
+            node.send(peer, new Message.Start(lobby.freezesMissing()));
     }
 
     @Override
@@ -207,7 +207,8 @@ public final class HostedLobby implements LobbySession {
         if (state != LobbyState.STARTED || handedOver)
             throw new IllegalStateException("SOSGSGMP: only a started lobby hands over, once (state " + state + ", handed over " + handedOver + ")");
         handedOver = true;
-        return new HostedSetup(node, joined, lobby.players(), lobby.keys(), world, factions, lobby.settings(), chat, builds);
+        return new HostedSetup(node, joined, lobby.players(), lobby.keys(), world, factions, lobby.settings(), chat, builds,
+                lobby.freezesMissing());
     }
 
     @Override

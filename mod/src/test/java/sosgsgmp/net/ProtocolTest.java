@@ -40,7 +40,8 @@ class ProtocolTest {
             new Message.Hello("Bob", 7L, new Builds("0.71.44", 1, 2, new GameFiles(-5, List.of(
                     new GameFiles.Mod("SOSDET", "1.0-beta", 11), new GameFiles.Mod("Région rework", "0.71.44.17", Long.MIN_VALUE))))),
             new Message.Refused(Refusal.WRONG_FILES, List.of("Mod 'X' 1.2: you have it enabled, the host doesn't.", "")),
-            new Message.Start(),
+            new Message.Start(false),
+            new Message.Start(true),
             new Message.Leave(),
             new Message.MapBuild(1, 512),
             new Message.BuildReady(Integer.MAX_VALUE),
@@ -140,7 +141,7 @@ class ProtocolTest {
 
     @Test
     void everyMessageStartsWithTheVersion() {
-        byte[] b = Protocol.encode(new Message.Start());
+        byte[] b = Protocol.encode(new Message.Start(false));
         assertEquals(Protocol.VERSION, ((b[0] & 0xFF) << 8) | (b[1] & 0xFF));
     }
 
@@ -152,7 +153,7 @@ class ProtocolTest {
 
     @Test
     void aVersionOneMessageIsUnsupported() throws IOException {
-        byte[] start = Protocol.encode(new Message.Start());
+        byte[] start = Protocol.encode(new Message.Start(false));
         start[1] = 1;
         assertEquals(new Message.Unsupported(1), Protocol.decode(start));
     }

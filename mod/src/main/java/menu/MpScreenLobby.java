@@ -70,6 +70,20 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 	private final GuiSection leaveAsk = new GuiSection();
 	private final GText leaveQuestion = new GText(UI.FONT().H2, 64);
 	private boolean askingLeave;
+	/**
+	 * The host's Start of a resume with players missing asks, as Leave does, how they stay out (spec §11 Resuming):
+	 * frozen or removed; with a save of an older version, removed only. The section shown, or null.
+	 */
+	private GuiSection startAsk;
+	private final GuiSection startAskFreeze = new GuiSection();
+	private final GuiSection startAskRemove = new GuiSection();
+	private final GText startQuestion = new GText(UI.FONT().H2, 128);
+	private final GText startInfo = new GText(UI.FONT().M, 512);
+	private static final int START_INFO_WIDTH = 900;
+	private static final String FREEZE_INFO = "Freeze them: their cities wait as this save has them, and they can come back"
+			+ " into the running game. Remove them: their regions become free and their armies disband.";
+	private static final String OLD_SAVE_INFO = "This save is from an older version of the mod, so they can't be frozen."
+			+ " Remove them: their regions become free and their armies disband.";
 
 	MpScreenLobby(MpMenu mp) {
 		this.mp = mp;
@@ -83,7 +97,12 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		start = new MenuScreen.ScreenButton("start lobby") {
 			@Override
 			protected void clickA() {
-				if (session.canStart())
+				if (!session.canStart())
+					return;
+				LobbySettings ls = session.settings();
+				if (ls != null && ls.resume() != null && !missing(ls.resume(), session.players()).isEmpty())
+					askStart(ls.resume());
+				else
 					session.start();
 			}
 
@@ -128,6 +147,13 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 			}
 		});
 		leaveAsk.body().centerIn(C.DIM());
+		startAskFreeze.add(askButton("freeze them", () -> startWithout(true)));
+		startAskFreeze.addRightC(80, askButton("remove them", () -> startWithout(false)));
+		startAskFreeze.addRightC(80, askButton("back", () -> startAsk = null));
+		startAskFreeze.body().centerIn(C.DIM());
+		startAskRemove.add(askButton("remove them", () -> startWithout(false)));
+		startAskRemove.addRightC(80, askButton("back", () -> startAsk = null));
+		startAskRemove.body().centerIn(C.DIM());
 
 		for (int i = 0; i < rows.length; i++)
 			rows[i] = new GText(UI.FONT().H2, 64);
@@ -195,12 +221,39 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		shownChanges = -1;
 		start.visableSet(s.isHost());
 		askingLeave = false;
+		startAsk = null;
 		chat.show(s.chat());
 		refresh();
 	}
 
+	private static CLICKABLE askButton(String name, Runnable action) {
+		return new MenuScreen.ScreenButton(name) {
+			@Override
+			protected void clickA() {
+				action.run();
+			}
+		};
+	}
+
+	/** The host's Start with players of the resume missing: the question, Freeze them only for a save that can freeze. */
+	private void askStart(LobbySettings.Resume r) {
+		boolean canFreeze = resumed != null && resumed.lastReports();
+		startQuestion.clear().add("Start without ").add(missing(r, session.players())).add("?");
+		startQuestion.adjustWidth();
+		startInfo.clear().add(canFreeze ? FREEZE_INFO : OLD_SAVE_INFO);
+		startAsk = canFreeze ? startAskFreeze : startAskRemove;
+	}
+
+	/** The question's answer: the lobby starts, its missing players frozen or removed on every PC. */
+	private void startWithout(boolean freeze) {
+		startAsk = null;
+		if (session != null && session.canStart())
+			session.start(freeze);
+	}
+
 	/** Leave and Escape come here. A lobby already closed has nothing to leave: it goes back at once. */
 	private void askLeave() {
+		startAsk = null;
 		if (session == null || session.state() == LobbyState.CLOSED) {
 			leave();
 			return;
@@ -213,18 +266,26 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 	@Override
 	public void render(SPRITE_RENDERER r, float ds) {
 		super.render(r, ds);
-		if (!askingLeave)
+		if (!askingLeave && startAsk == null)
 			return;
 		OPACITY.O75.bind();
 		COLOR.BLACK.render(r, 0, C.WIDTH(), 0, C.HEIGHT());
 		OPACITY.unbind();
-		leaveQuestion.renderC(r, C.WIDTH() / 2, leaveAsk.body().y1() - 60);
-		leaveAsk.render(r, ds);
+		if (askingLeave) {
+			leaveQuestion.renderC(r, C.WIDTH() / 2, leaveAsk.body().y1() - 60);
+			leaveAsk.render(r, ds);
+			return;
+		}
+		startQuestion.renderC(r, C.WIDTH() / 2, startAsk.body().y1() - 130);
+		COLOR.WHITE100.bind();
+		UI.FONT().M.render(r, startInfo, C.WIDTH() / 2 - START_INFO_WIDTH / 2, startAsk.body().y1() - 90, START_INFO_WIDTH, 1.0);
+		COLOR.unbind();
+		startAsk.render(r, ds);
 	}
 
 	@Override
 	public boolean click() {
-		return askingLeave ? leaveAsk.click() : super.click();
+		return askingLeave ? leaveAsk.click() : startAsk != null ? startAsk.click() : super.click();
 	}
 
 	/** Called every frame by the menu's update; applies network events and refreshes the texts on change. */
@@ -243,7 +304,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 			if (session.state() == LobbyState.STARTED)
 				startSetup();
 		}
-		return askingLeave ? leaveAsk.hover(mCoo) : super.hover(mCoo);
+		return askingLeave ? leaveAsk.hover(mCoo) : startAsk != null ? startAsk.hover(mCoo) : super.hover(mCoo);
 	}
 
 	/** The test autopilot's GUI preview: shows Leave's prompt or takes it away. */
@@ -347,6 +408,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 
 	private void leaveMenu(snake2d.CORE_STATE.Constructor next) {
 		askingLeave = false;
+		startAsk = null;
 		session = null;
 		steam = null;
 		setup = null;
@@ -397,7 +459,9 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 					: !session.isHost() ? "Waiting for the host to start."
 					: ls != null && ls.resume() != null && !missing(ls.resume(), players).isEmpty()
 							? "Still missing: " + missing(ls.resume(), players) + (session.canStart()
-									? ". Wait for them, or start now: they are removed from the campaign and can't play in it again."
+									? resumed != null && resumed.lastReports()
+											? ". Wait for them, or start without them: you choose then whether they are frozen or removed."
+											: ". Wait for them, or start now: they are removed from the campaign, and can join its game again only as a new player."
 									: ". The player in the campaign's first slot has to be in before it can start.")
 							: session.canStart() ? "Start the lobby when everyone is in." : "Waiting for players. Start needs 2 or more.");
 			case STARTED -> status.add(session.running() && session.returning()

@@ -174,6 +174,12 @@ public final class SteamworksPort implements SteamPort {
     }
 
     @Override
+    public String lobbyData(long lobby, String key) {
+        String v = matchmaking.getLobbyData(id(lobby), key);
+        return v == null ? "" : v;
+    }
+
+    @Override
     public List<FriendLobby> friendLobbies() {
         List<FriendLobby> found = new ArrayList<>();
         int n = friends.getFriendCount(SteamFriends.FriendFlags.Immediate);
