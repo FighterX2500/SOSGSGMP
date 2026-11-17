@@ -441,10 +441,12 @@ public final class SteamNode implements Node {
 
     /**
      * A joining node takes nothing from its host before the first {@link Message.Resumed} that fits what it sent: until
-     * then its host's Steam ID may still carry the line of an older game on this PC.
+     * then its host's Steam ID may still carry the line of an older game on this PC. A message of another protocol
+     * version gets through: such a host never answers the handshake, and the session refuses its version.
      */
     private boolean beforeHandshake(int peer, Message m) {
-        return !hosting && !resumedOnce && !(m instanceof Message.Resumed r && r.received() <= resend.sent(peer));
+        return !hosting && !resumedOnce && !(m instanceof Message.Unsupported)
+                && !(m instanceof Message.Resumed r && r.received() <= resend.sent(peer));
     }
 
     /**
@@ -624,6 +626,12 @@ public final class SteamNode implements Node {
                 return;
             }
             lobby = id;
+            String version = port.lobbyData(id, LOBBY_KEY);
+            if (!version.isEmpty() && !version.equals(Integer.toString(Protocol.VERSION))) {
+                // its own refusal can't come back: a host of another version never answers the handshake
+                fail("The host runs another version of the mod (protocol " + version + ").");
+                return;
+            }
             joinDeadline = System.currentTimeMillis() + joinMs;
             owner = port.lobbyOwner(id);
             if (owner == 0 || owner == port.self()) {

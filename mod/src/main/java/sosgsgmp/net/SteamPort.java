@@ -63,6 +63,9 @@ public interface SteamPort {
     /** Marks a lobby as this mod's, with its protocol version, so friends' games can tell it apart. */
     void lobbyData(long lobby, String key, String value);
 
+    /** A lobby's value for {@code key}, once this user is in it; empty if it has none. */
+    String lobbyData(long lobby, String key);
+
     /** Friends playing Songs of Syx in a lobby, as Steam knows them now. */
     java.util.List<FriendLobby> friendLobbies();
 

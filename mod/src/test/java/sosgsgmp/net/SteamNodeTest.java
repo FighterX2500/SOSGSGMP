@@ -60,6 +60,66 @@ class SteamNodeTest {
         assertTrue(d.reason().contains("didn't answer"), d.reason());
     }
 
+    /** A host that is only a Steam user: its lobby made, nothing answered. */
+    private FakeSteam.Port bareHost() {
+        FakeSteam.Port hp = steam.port(1);
+        hp.listener(new SteamPort.Listener() {
+            @Override
+            public void lobbyCreated(long lobby, String error) {
+            }
+
+            @Override
+            public void lobbyEntered(long lobby, String error) {
+            }
+
+            @Override
+            public void memberJoined(long lobby, long user) {
+            }
+
+            @Override
+            public void memberLeft(long lobby, long user, boolean lostSteam) {
+            }
+
+            @Override
+            public void lobbyLost(long lobby, boolean lostSteam) {
+            }
+
+            @Override
+            public void joinRequested(long lobby) {
+            }
+
+            @Override
+            public void sessionRequested(long user) {
+            }
+
+            @Override
+            public void sessionFailed(long user, String reason) {
+            }
+        });
+        hp.createLobby(4);
+        hp.runCallbacks();
+        return hp;
+    }
+
+    @Test
+    void aLobbyOfAnotherVersionEndsTheJoinAtOnce() throws InterruptedException {
+        FakeSteam.Port hp = bareHost();
+        hp.lobbyData(1000, SteamNode.LOBBY_KEY, "31");
+        SteamNode j = join(2, 1000);
+        Node.Event.Disconnected d = (Node.Event.Disconnected) next(j, e -> e instanceof Node.Event.Disconnected);
+        assertEquals("The host runs another version of the mod (protocol 31).", d.reason());
+    }
+
+    @Test
+    void anotherVersionsAnswerBeforeTheHandshakeReachesTheSessions() throws InterruptedException {
+        FakeSteam.Port hp = bareHost(); // a lobby without the version: the host's answer is all there is
+        SteamNode j = join(2, 1000);
+        waitFor("the joiner in the lobby", () -> j.lobby() != 0);
+        hp.send(2, new byte[] {0, 31, 0}); // protocol 31's version and a type
+        Node.Event.Received r = (Node.Event.Received) next(j, e -> e instanceof Node.Event.Received);
+        assertEquals(new Message.Unsupported(31), r.message());
+    }
+
     /** The next event from {@code node} that matches, skipping others; fails after 5 s. */
     private static Node.Event next(SteamNode node, Predicate<Node.Event> match) throws InterruptedException {
         long deadline = System.currentTimeMillis() + 5_000;

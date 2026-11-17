@@ -20,6 +20,7 @@ public final class FakeSteam {
     private long nextLobby = 1000;
     private final Map<Long, Set<Long>> lobbies = new HashMap<>();
     private final Map<Long, Port> users = new HashMap<>();
+    private final Map<Long, Map<String, String>> lobbyData = new HashMap<>();
     /** As the newer messages may: an accept before the first packet does nothing, and no session request arrives. */
     private boolean silentSessions;
 
@@ -166,6 +167,16 @@ public final class FakeSteam {
 
         @Override
         public void lobbyData(long lobby, String key, String value) {
+            synchronized (FakeSteam.this) {
+                lobbyData.computeIfAbsent(lobby, k -> new HashMap<>()).put(key, value);
+            }
+        }
+
+        @Override
+        public String lobbyData(long lobby, String key) {
+            synchronized (FakeSteam.this) {
+                return lobbyData.getOrDefault(lobby, Map.of()).getOrDefault(key, "");
+            }
         }
 
         @Override
