@@ -60,6 +60,16 @@ def remote_ps(script):
     return r.stdout.replace("\r", "")
 
 
+def window_twentieths(size):
+    """The game's window setting: twentieths of the monitor (LSettings WINDOW_WIDTH and WIDOW_HEIGHT, 0 to 20), not
+    pixels. The game raises a window under 1280x768 to that, and scales one over 2500x1080 pixels down."""
+    import ctypes
+    user32 = ctypes.windll.user32
+    user32.SetProcessDPIAware()
+    mw, mh = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+    return (max(1, min(20, round(size[0] * 20 / mw))), max(1, min(20, round(size[1] * 20 / mh))))
+
+
 def data_folder(appdata, size):
     """A data folder like the user's: profile, cache, both mods on, a window of `size`."""
     shutil.rmtree(appdata, ignore_errors=True)
@@ -80,7 +90,8 @@ def data_folder(appdata, size):
             fail("mod %s isn't in %s (gradlew installMod, or gradlew assemble for --mods-from)" % (m, src))
         shutil.copytree(src, data / "mods" / m)
     s = (REAL / "settings" / "LauncherSettings.txt").read_bytes().decode("utf-8")
-    for key, value in (("SCREEN_MODE", "2"), ("WINDOW_WIDTH", str(size[0])), ("WIDOW_HEIGHT", str(size[1])),
+    tw, th = window_twentieths(size)
+    for key, value in (("SCREEN_MODE", "2"), ("WINDOW_WIDTH", str(tw)), ("WIDOW_HEIGHT", str(th)),
                        ("WIN_AUTO_ICONIFY", "0")):
         s, n = re.subn(r"(?m)^" + key + r": [^,\r\n]*,", key + ": " + value + ",", s)
         if n != 1:
