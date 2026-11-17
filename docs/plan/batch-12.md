@@ -138,7 +138,7 @@ No other in-game runs.
 
 ## State on 2026-11-17: built and reviewed, not tested in a game
 
-Everything above is built, reviewed and committed locally. Nothing is pushed, no PR is open, nothing is installed, and no game, rig or twopc run has been made. The test cycle is the next step.
+Everything above is built, reviewed and committed locally, and the test cycle ran on 2026-11-17 (results below). Nothing is pushed, no PR is open, nothing is installed.
 
 ### Where it is
 
@@ -150,23 +150,33 @@ Everything above is built, reviewed and committed locally. Nothing is pushed, no
 - **Engine:** `C:\ClaudeFolder\SOSDET-wt\b12`, branch `batch-12-1116`, on top of `origin/main` 9be9c8e: ed88858 (freeze at the start, `SOSDET_FROZEN` format 2, plan `docs/plan/0021-freeze-at-start.md`), 14d57d5 (rig `--freeze-at-start`). Unit tests: 379, 0 failures. Its jar is built; the mod builds against it.
 - `C:\ClaudeFolder\SOS-wt\b12-gui` (branch `batch-12-gui`) holds item 2's commits before they were picked onto the batch branch. Everything in it is on the batch branch; it can go.
 
-### The test cycle, still to run
+### The test cycle, run on 2026-11-17
 
-Before any game: list `java.exe` and wait while a game that isn't this run's is up. Games windowed, a check every minute.
+Results:
+
+- **Item 3, engine:** FS1 PASS (3 copies identical to step 3000); FS2 PASS (slot 2 frozen at steps 1 to 2 on both copies, identical to 3600, rejoin files written); FS3 PASS (rejoined, thawed, identical to 3000).
+- **Item 1:** `item1-rejoin` PASS: the killed joiner was removed, came back as a new player in a new slot, 10 common hash steps, 0 differ.
+- **Item 3, mod:** `fz-save` PASS (record `format=5`, `lastReports=true`); `fz-resume` PASS (`freezeMissing` on Start, "Local left and is frozen." on both PCs at step 2, the rejoin, hashes equal).
+- **Item 2:** at 1920x1080 the host's three-button player-left window measured gaps 543/543, every text line shown, the last line 69 px above the buttons; the end windows centred too (885/885). The desync, Exit, freeze and join runs passed. Also shot at the full monitor (2560x1440, which the game draws at 2190x1232): every row centred within 1 px. The owner saw the shots and stopped the screenshot runs ("Centering looks fine"); the 1280x768 runs weren't made.
+- `twopc.py --window` wrote pixels into the game's window setting, which is in twentieths of the monitor, so every twopc game until now ran at the full monitor. Fixed in this batch's tooling commit. `--hot-join` needs about 9000 steps: with 3600 the host ends before the late game gets to the lobby.
+- The quitter's game ends without an end event (`end()` → `CORE.annihilate()`), so a `--quit` run never finishes by itself: stop the runner once the host logs `quitexit`.
+- Before any game: list `java.exe` and wait while a game that isn't this run's is up. Games windowed, a check every minute.
+
+The commands (FS2 and FS3 need `--save` as well):
 
 1. **Engine rig**, from `C:\ClaudeFolder\SOSDET-wt\b12` after `gradlew.bat assemble`. The copy steps between the runs are in SOSDET's `docs/plan/0021-freeze-at-start.md` and `rig/README.md`.
    - FS1, the campaign save: `python rig\rig.py city --tag FS1 --copies 3 --humans 3 --speeds 5,7,8 --save Mogus-72-19f86f1e048-47002c-0-121c.save --world-resync 2400 --resync-savegame --steps 3000`
-   - FS2, the resume with slot 2 frozen at the start: `python rig\rig.py city --tag FS2 --copies 2 --humans 3 --speeds 5,7 --humans-saves fs1-carved-1.save,fs1-carved-2.save --freeze-at-start 2 --world-resync 2400 --resync-savegame --steps 3600`
-   - FS3, the rejoin and thaw: `python rig\rig.py city --tag FS3 --copies 3 --humans 3 --speeds 5,7,8 --humans-saves fs2-carved-1.save,fs2-carved-2.save,fs1-carved-3.save --rejoin "<FS2's rejoin-world.save>|<FS2's rejoin.state>|2" --steps 3000`
+   - FS2, the resume with slot 2 frozen at the start: `python rig\rig.py city --tag FS2 --copies 2 --humans 3 --speeds 5,7 --save Mogus-72-19f86f1e048-47002c-0-121c.save --humans-saves fs1-carved-1.save,fs1-carved-2.save --freeze-at-start 2 --world-resync 2400 --resync-savegame --steps 3600`
+   - FS3, the rejoin and thaw: `python rig\rig.py city --tag FS3 --copies 3 --humans 3 --speeds 5,7,8 --save Mogus-72-19f86f1e048-47002c-0-121c.save --humans-saves fs2-carved-1.save,fs2-carved-2.save,fs1-carved-3.save --rejoin "<FS2's rejoin-world.save>|<FS2's rejoin.state>|2" --steps 3000`
 2. **Mod, on this PC**, from `C:\ClaudeFolder\SOS-wt\b12`, every run with `--mods-from C:\ClaudeFolder\SOSDET-wt\b12`:
    - Item 1: `python tools\twopc.py --here --crash remote:1200 --rejoin 20 --steps 6000 --tag item1-rejoin`. The joiner's game is killed, the host continues without it, the same game (same key) starts again and joins as a new player. The owner's own case was a Leave over Steam; a kill over direct IP is what the tool can do.
    - Item 3: `python tools\twopc.py --here --local-joiner --save 1200 --steps 3000 --tag fz-save`, then `python tools\twopc.py --here --resume --local-joiner --players 2 --on-missing freeze --rejoin 30 --steps 6000 --tag fz-resume`.
-   - Item 2, each once with `--window 1920x1080` and once with `--window 1280x720`, all with `--here --gui-preview 999999`; copy the shots out of `build\twopc\inst\<k>\songsofsyx\screenshots` after each run:
+   - Item 2, each once with `--window 1920x1080` and once with `--window 1280x768` (the game's smallest window), all with `--here --gui-preview 999999`; copy the shots out of `build\twopc\inst\<k>\songsofsyx\screenshots` after each run:
      - `--local-joiner --crash local:600 --on-gone return --steps 1800` (the player-left window, three buttons; the end window)
      - `--corrupt 600 --on-desync exit --steps 1800` (the desync window)
      - `--quit 600 --steps 1800` (Exit's question)
      - `--local-joiner --freeze local:600 --steps 1800` (Leave and freeze)
-     - `--hot-join 60 --steps 3600` (the join popup)
+     - `--hot-join 60 --steps 9000` (the join popup)
      - `--netem host=on --steps 3600`, then the line `netoutage 20` into the host's `sosgsgmp\autopilot\command.txt` after Go (the lost-host window)
    - What each shot must show: every line of the text, the last line above the buttons, the row centred (left gap = right gap within 1 px), nothing off the screen. Expected for the three-button window: gaps 543/543 at a 1920 GUI, 223/223 at a 1280 GUI; text box 240 high.
    - No option shows the player-left window with one or two buttons, the session-closed window (`MpClosed`) or the files-mismatch window without the SOS-159 test mod.
