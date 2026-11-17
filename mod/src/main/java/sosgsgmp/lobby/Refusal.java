@@ -23,7 +23,9 @@ public enum Refusal {
     /** Freeze (SOS-194): a frozen player comes back into the running game, not at a resume. */
     FROZEN("You are frozen in this campaign. Join its game once it is running to come back."),
     /** A running game: an eliminated player comes back only to watch, at a resume (spec §11 Elimination). */
-    ELIMINATED("You were eliminated in this campaign. You can come back to watch when it is resumed.");
+    ELIMINATED("You were eliminated in this campaign. You can come back to watch when it is resumed."),
+    /** A running game: no room for another entry in the campaign, the players who left included (owner, 2026-11-17). */
+    GAME_FULL("The game is full: the campaign has room for 16 players, those who left included.");
 
     public final String text;
 

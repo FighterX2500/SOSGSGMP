@@ -734,10 +734,10 @@ public final class HostedSetup implements SetupSession {
         if (refusal == null && present(h.playerKey())) // not a key whose player left: a frozen one comes back (SOS-195)
             refusal = Refusal.ALREADY_JOINED;
         if (refusal == null && players.size() >= LobbySettings.MAX_PLAYERS)
-            refusal = Refusal.FULL;
+            refusal = Refusal.GAME_FULL;
         // a new player adds an entry, and a campaign carries no more than MAX_PLAYERS, the removed ones included
         if (refusal == null && known == null && campaign != null && campaign.players().size() >= LobbySettings.MAX_PLAYERS)
-            refusal = Refusal.FULL;
+            refusal = Refusal.GAME_FULL;
         if (refusal == null && candidate != null)
             refusal = Refusal.JOIN_BUSY;
         if (refusal != null) {

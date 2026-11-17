@@ -1540,7 +1540,7 @@ class LoopbackSetupTest {
             jd.update();
             return jd.closedReason() != null;
         });
-        assertEquals(Refusal.FULL.text, jd.closedReason());
+        assertEquals(Refusal.GAME_FULL.text, jd.closedReason());
         assertNull(host.joinAsk(), "nobody to ask about");
     }
 
