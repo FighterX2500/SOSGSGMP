@@ -679,6 +679,27 @@ final class MpAutopilotCommands {
 			}
 			return b.toString();
 		}
+		case "stationdivs": { // the city's divisions holding a stationed army's soldiers: player, men, mustered, centre tile (SOS-234)
+			StringBuilder b = new StringBuilder("stationdivs:");
+			for (Div d : GAME.ARMIES().player().divisions()) {
+				int owner = PlayerStations.divOwner(d.index());
+				if (owner < 0)
+					continue;
+				long x = 0, y = 0;
+				int n = 0;
+				for (settlement.entity.ENTITY e : settlement.main.SETT.ENTITIES().getAllEnts())
+					if (e instanceof settlement.entity.humanoid.Humanoid h && !e.isRemoved() && h.division() == d) {
+						x += h.tc().x();
+						y += h.tc().y();
+						n++;
+					}
+				b.append(" [div ").append(d.index()).append(" of ").append(owner).append(" men ").append(d.menNrOf())
+						.append(" target ").append(d.info.men()).append(" mustered ").append(d.settings().mustering())
+						.append(" at ").append(n == 0 ? -1 : x / n).append(',').append(n == 0 ? -1 : y / n)
+						.append(" selectable ").append(OwnArmy.selectable(d)).append(']');
+			}
+			return b.toString();
+		}
 		case "armypower": { // an army's power, as vanilla weighs the sides of a world battle (SOS-162)
 			WArmy w = WORLD.ENTITIES().armies.tryGet(Integer.parseInt(a[1]));
 			return w == null ? "refused: no army " + a[1] : "power " + (long) AD.power().get(w);

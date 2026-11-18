@@ -45,6 +45,23 @@ public final class PlayerStations {
     }
 
     /**
+     * Whether an army of the player in {@code owner} stationed at the capital of the player in {@code host} fights an
+     * invasion of it by {@code invader}, as an invasion notice names it (SOS-234): its soldiers then come into the host's
+     * city, and its player commands them from a view of it.
+     */
+    public static boolean fights(int owner, int host, int invader) {
+        return Engine.active() && Engine.stationFights(owner, host, invader);
+    }
+
+    /**
+     * The player whose stationed soldiers division {@code div} of the city on screen holds, or -1 for one of the city's
+     * own (SOS-234).
+     */
+    public static int divOwner(int div) {
+        return Engine.active() ? Engine.stationedDivOwner(div) : -1;
+    }
+
+    /**
      * The {@code k}th army of the player in {@code owner} stationed at the capital of the player in {@code host}, or
      * null; for the window's rows, every frame: no allocation.
      */
