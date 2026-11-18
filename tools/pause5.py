@@ -267,6 +267,8 @@ def part_autosave():
 def resume(name, title, number, seconds):
     """The last run's folders resume their newest campaign save (`number`, when known) and play `seconds`."""
     t0 = time.time() * 1000
+    for w in b3.WHO:  # the kept folders hold the last session's events: a reader counting lines would skip the new ones
+        (b3.Run.home(w) / "autopilot" / "events.jsonl").unlink(missing_ok=True)
     run = b3.Run("p5-" + name.lower(), 1500)
     run.windows, run.unpauses = [], 0
     ok = False
