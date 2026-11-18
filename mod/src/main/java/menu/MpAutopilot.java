@@ -13,6 +13,7 @@ import java.util.function.IntBinaryOperator;
 
 import game.GAME;
 import game.faction.FACTIONS;
+import game.faction.Faction;
 import game.faction.diplomacy.DIP;
 import game.faction.npc.FactionNPC;
 import init.trade.TR;
@@ -1234,7 +1235,9 @@ public final class MpAutopilot {
 	 * see them, with preview numbers: a {@code guipreview} event as each opens, for the screenshot tool (SOS-92).
 	 */
 	private void preview(EnginePlay engine) {
-		if (hoverGoods != null) // the hover shows while the mouse is on a row: each frame, until the next window (SOS-153)
+		if (hoverGoods != null && hoverGoodsTab) // the Goods tab's Buy or Sell hover, as the depot's below (SOS-230)
+			MpPlayerWindow.priceHover(VIEW.hoverBox(), FACTIONS.getByIndex(1), hoverGoods, hoverImporting);
+		else if (hoverGoods != null) // the hover shows while the mouse is on a row: each frame, until the next window (SOS-153)
 			MpPlayers.depotHover(VIEW.hoverBox(), FACTIONS.getByIndex(1), hoverGoods, hoverImporting);
 		if (previewIndex >= 0 && !previewShot && System.nanoTime() - previewNanos >= PREVIEW_SHOT_NANOS) {
 			previewShot = true;
@@ -1247,6 +1250,7 @@ public final class MpAutopilot {
 			previewWindow.close();
 		previewWindow = null;
 		hoverGoods = null;
+		hoverGoodsTab = false;
 		previewIndex++;
 		String me = engine.factionName(0);
 		String them = engine.factionName(1);
@@ -1271,6 +1275,8 @@ public final class MpAutopilot {
 		case 16: name = "import-depot-over"; VIEW.world().panels.clear(); previewOverCap(true); break; // SOS-148
 		case 17: name = "export-depot-hover"; previewHover(false); break; // SOS-153
 		case 18: name = "import-depot-hover"; previewHover(true); break; // SOS-153
+		case 19: name = "player-goods-buy-hover"; previewGoodsHover(true); break; // SOS-230
+		case 20: name = "player-goods-sell-hover"; previewGoodsHover(false); break; // SOS-230
 		default:
 			VIEW.inters().popup.close();
 			if (first("guipreviewdone"))
@@ -1341,9 +1347,30 @@ public final class MpAutopilot {
 		}
 	}
 
+	/**
+	 * The other player's (slot 1) Goods tab with the hover of its Buy ({@code buying}) or Sell figure, for the goods the
+	 * depot hovers of steps 17 and 18 showed, so their figures compare (SOS-230); a {@code goodsprice} event gives it.
+	 */
+	private void previewGoodsHover(boolean buying) {
+		VIEW.world().panels.clear();
+		Faction f = FACTIONS.getByIndex(1);
+		MpPlayers.openGoodsForPreview(f);
+		previewHover(buying);
+		hoverGoodsTab = true;
+		if (hoverGoods == null) {
+			event("goodsprice", "\"buying\":" + buying + ",\"goods\":\"none\"");
+			return;
+		}
+		int figure = buying ? MpPlayers.depotPrice(f, hoverGoods, true) : MpPlayers.depotReceived(f, hoverGoods);
+		event("goodsprice", "\"buying\":" + buying + ",\"goods\":\"" + hoverGoods.key() + "\",\"figure\":" + figure
+				+ ",\"dark\":" + MpPlayers.depotOverCap(f, hoverGoods, buying));
+	}
+
 	/** The goods whose depot hover the preview shows each frame; null for none. */
 	private TRADABLE hoverGoods;
 	private boolean hoverImporting;
+	/** The hover is the Goods tab's Buy or Sell, not the depot row's (SOS-230). */
+	private boolean hoverGoodsTab;
 
 	/** Vanilla's deal panel with the first NPC that has a capital: its Diplomacy, or with Trade drafted (SOS-100). */
 	private static void previewNpc(boolean trade) {
