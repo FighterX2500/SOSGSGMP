@@ -5,6 +5,7 @@ import game.faction.Faction;
 import game.faction.diplomacy.DIP;
 import sosdet.BattleOutcome;
 import sosdet.Notice;
+import sosdet.game.station.StationBook;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.session.SetupSession;
@@ -58,6 +59,20 @@ final class MpNotices {
 		};
 	}
 
+	/** Why a stationing ended ({@code StationBook}'s reasons), as the end of the notice's sentence (SOS-233). */
+	private static String stationEnd(int why) {
+		return switch (why) {
+			case StationBook.SENT_AWAY -> ": sent away.";
+			case StationBook.LEFT -> ": called back.";
+			case StationBook.MOVED -> ": it moved.";
+			case StationBook.ARMY_GONE -> ": the army is gone.";
+			case StationBook.AGREEMENT_ENDED -> ": their agreement ended.";
+			case StationBook.AWAY -> ": a player left.";
+			case StationBook.CAPITAL_LOST -> ": the capital changed hands.";
+			default -> ".";
+		};
+	}
+
 	/** What {@code n} says on this PC; null when it isn't for this player. */
 	private String text(Notice n) {
 		String a = name(n.first());
@@ -78,6 +93,9 @@ final class MpNotices {
 			case Notice.STANCE_PASSED -> n.first() == setup.factions().slotOf(setup.localPlayerId()) ? passedText(b, n) : null;
 			case Notice.SALLY_EMPTY -> n.first() == setup.factions().slotOf(setup.localPlayerId())
 					? "Nobody sallies out: no soldiers stand in your capital or within 4 tiles of it." : null;
+			case Notice.STATIONED -> a + " stationed an army at the capital of " + b + ".";
+			case Notice.STATION_ENDED -> "An army of " + a + " is no longer stationed at the capital of " + b + stationEnd(n.value());
+			case Notice.STATION_SUPPLIED -> a + " supplied the army of " + b + " stationed at its capital.";
 			default -> throw new IllegalArgumentException("SOSGSGMP: a notice of kind " + n.kind());
 		};
 	}

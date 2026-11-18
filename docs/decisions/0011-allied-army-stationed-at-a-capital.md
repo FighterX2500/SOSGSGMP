@@ -1,6 +1,6 @@
 # 0011: An allied player's army stationed at another player's capital
 
-Status: Proposed, for the owner's approval (2026-11-18) · Batch 13, item 10c (SOS-233); item 10b (SOS-234) builds on it · Builds on [ADR 0005](0005-world-lockstep-and-city-world-link.md) (own cities), [ADR 0006](0006-lockstep-city-viewing-and-assaults.md) (views and assaults), [ADR 0009](0009-several-humans-in-a-battle.md) (allies in battles)
+Status: Accepted (owner, 2026-11-18) · Batch 13, item 10c (SOS-233); item 10b (SOS-234) builds on it · Builds on [ADR 0005](0005-world-lockstep-and-city-world-link.md) (own cities), [ADR 0006](0006-lockstep-city-viewing-and-assaults.md) (views and assaults), [ADR 0009](0009-several-humans-in-a-battle.md) (allies in battles)
 
 ## Context
 
@@ -14,19 +14,26 @@ Status: Proposed, for the owner's approval (2026-11-18) · Batch 13, item 10c (S
 
 ## Decision
 
-**Proposed: a stationed army stays a world army (option A).** Stationing is world state, in lockstep on every PC. Nothing of the ally lives in the host's city until a fight there (10b).
+**A stationed army stays a world army (option A; owner, 2026-11-18: "Option A, map").** Stationing is world state, in lockstep on every PC. Nothing of the stationed player lives in the host's city until a fight there (10b). Nobody sees it inside the city in peacetime: no parading in v1.
 
-- **Stationing.** An ally's army fortified within 3 tiles of the host's capital centre (the allied-attacker distance of spec §9) can be ordered to station there. It is a world command, applied at one step on every PC. The engine keeps a record per army: the army, the host, the step. Any move order ends it.
+- **Who may station** (owner: all four). A player's army may be stationed at another player's capital when the two are allies, colleagues (a pact), or one is the other's overlord (an overlord in its vassal's capital, a vassal in its overlord's), and they aren't at war.
+- **Asking** (owner: "Alliance is enough"). No prompt: the agreement that allows stationing is enough. The host can send the army away at any time.
+- **Stationing.** The army must stand still (fortifying or fortified) within 3 tiles of the host's capital centre along either axis, the allied-attacker distance of spec §9. Its player stations it with a world command, applied at one step on every PC (7980). The engine keeps a record per army: the army (index and iteration), its player, the host, the tile it stands on and the step (`StationBook`).
+- **How many** (owner: "Limit by free slots"). Stationing is refused once the stationed divisions plus the host's own would exceed the city's army slots (`Config.battle().DIVISIONS_PER_ARMY`, 120 in V71). The host's own are its capital's garrison divisions and the divisions of its armies, both world state; the stationed ones are those of the armies already stationed there. The limit is checked when an army is stationed: an army that grows afterwards, or a host that recruits, ends nothing. 10b, which puts the divisions into army 0's slots, has to fit what is there at the fight.
 - **Whose PC.** None runs anything new. The army is world state like any other.
-- **Upkeep.** The ally's, as for any army in the field: it eats its own supplies, refilled from the ally's city as today. The host pays nothing and feeds no one.
-- **Orders.** The ally's, on the world map. The host can send a stationed army away; that ends the record, and the army stays where it stands.
-- **In the host's city.** Nothing is simulated. The host sees who is stationed, and how many men, from world state (UI only).
-- **A fight in the host's city (10b).** The stationed divisions enter the city as temporary divisions on the defender's side, built in the world part from the world divisions, as the assault builds its attackers. The survivors go back to the world army as counts, as the assault's do. 10b decides how (see Consequences).
-- **The record ends** at one step on every PC when: the two players' alliance ends, or they go to war; the ally's army moves, is beaten or disbands; the host sends it away; either player is frozen, removed or eliminated; the capital changes hands. The army was never inside the city, so nothing has to leave it.
-  - At war, the army is an ordinary enemy army next to the capital. It must still besiege and wait the full period of spec §9, so stationing gives no shortcut into a city.
-  - A frozen ally's armies already go home (SOSDET `freezeHuman`); a removed ally's disband.
-- **Resume.** The record is world state: saved in the world save (a new versioned SOSDET section), carried by a world resync and in the world hash, as the siege book is (SOSDET plan 0014). A save without the section has no stationed armies. No city save and no campaign record changes.
-- **Determinism.** Only lockstep world state and world commands. The end rules read stances, freezes and removals, which are already the same on every PC.
+- **Orders.** The army's player's, on the world map. Moving it ends the record. Its player can also call it back, and the host can send it away (7981); either way the army stays where it stands.
+- **Upkeep** (owner: "Host may supply it"). As any field army, the stationed army eats its own supplies, and its own city's supply depots refill it as today (vanilla's depot delivers to all of a player's armies, wherever they stand). The host may also supply it from the host's own city:
+  - **The order.** The host presses Supply for that army: a world command (7982), applied at one step on every PC, from the host only, for an army stationed at the host's capital.
+  - **The path.** The two-phase supply path the engine already uses when a division is sent out (`ARMY_SUPPLY_DIV`, scan C1 then B2): the world part queues a transaction to the host's city (`TxnKind.STATION_SUPPLY`); the host's city tail fills each of the army's supplies from its stockpiles, as much as they hold, and its supply counter sends what it took to the world as a `SUPPLY` input in the city's next report, which the world part adds to the army.
+  - **Exactly once.** The transaction has its id from the world's transaction log and the host's city applies it once, as every transaction. The goods leave the stockpiles and enter the report's input in the same city step, and the world applies each report's inputs once, in report order. The city counts what it sent and the world hasn't applied yet as already there (the supply ledger), so a second Supply before the report fills only what is still missing. An army gone in between loses the goods, as vanilla's supply does.
+  - **Limits.** One Supply fills the army; nothing is automatic. The host's supply depots don't deliver to it on their own: that would need a hook in vanilla's depot (`settlement/room/military/supply/Cache.java`), which v1 doesn't add.
+- **In the host's city.** Nothing is simulated. The host sees who is stationed, with their men and supplies, in the Armies tab of that player's window, from world state (UI only).
+- **A fight in the host's city (10b).** The stationed divisions enter the city as temporary divisions on the defender's side, built in the world part from the world divisions, as the assault builds its attackers; the survivors go back to the world army as counts, as the assault's do. A stationed player may view the city and command their divisions in that fight without the host's Allow (owner: "Automatic"). In an assault by a player the stationed army's player isn't at war with, the army stays out (owner: "Stays out").
+- **The record ends** at one step on every PC (the world part's end check, every step outside a battle) when: the two players' agreement ends, or they go to war; the army moves, is beaten or disbands; the host sends it away or its player calls it back; either player is frozen, removed or eliminated; the capital changes hands. The chat says why. The army was never inside the city, so nothing has to leave it.
+  - At war (owner: "Stays where it stands"), the army is an ordinary enemy army next to the capital. It must still besiege and wait the full period of spec §9, so stationing gives no shortcut into a city.
+  - A frozen host (owner: "It ends"): every record at its capital ends, as do the frozen player's own. A frozen player's armies already go home (SOSDET `freezeHuman`); a removed player's disband.
+- **Resume.** The record is world state: saved in the world save (a new versioned SOSDET section, `SOSDET_STATIONS`), carried by a world resync and a world load, and in the world hash, as the siege book is (SOSDET plan 0014). A save without the section has no stationed armies, and a game with none hashes as before. No city save and no campaign record changes.
+- **Determinism.** Only lockstep world state and world commands. The end rules read stances, freezes, removals, army tiles and capital owners, which are already the same on every PC.
 
 ## Options rejected
 
@@ -44,15 +51,15 @@ Status: Proposed, for the owner's approval (2026-11-18) · Batch 13, item 10c (S
 
 ## Consequences
 
-- **Spec.** §9 gets "Allied armies at a capital" (stationing, upkeep, sending away, the end rules), worded for the owner's approval first; §11's freeze and removal lines name the stationed army. §10's watch-only rule changes with 10b, not here.
-- **Engine (SOSDET).** The station and send-away commands (world commands, 7000s), the record with its save section, world-load key and hash part (the world hash format goes up by one), and the end rules. Numbers come from the batch lead.
-- **Mod.** The Station and Send away buttons and the host's list. Each needs a hook approved by the owner and listed in `docs/hooks.md`, in a game file SOSDET doesn't patch (ADR 0010). No new network message: commands travel in the engine's log.
-- **Item 10a.** A stationed army is within 4 tiles of the capital, so it is asked to join the sally like any allied army.
+- **Spec.** §9 gets "Allied armies at a capital" (stationing, upkeep, sending away, the end rules, the fight in the city); §11's freeze and removal lines name the stationed armies. §10's watch-only rule changes with 10b.
+- **Engine (SOSDET).** The station, end and supply commands (world commands 7980 to 7982), the record with its save section, world-load key and hash part, the end rules in the world part, the `STATION_SUPPLY` transaction and three notices. The numbers are provisional, for the batch lead.
+- **Mod.** The Armies tab of another player's window, with Station, Call back, Send away and Supply. It is the mod's own window, so no game hook is needed. No new network message: commands travel in the engine's log.
+- **Item 10a.** A stationed army is within 4 tiles of the capital, so it is asked to join an Attack against an invasion when its player is the defender's ally. A colleague's, overlord's or vassal's stationed army isn't asked: 10a's rule is allies only.
 - **What 10b builds on.**
-  - The record says which divisions take part. At a fight they are generated in the world part, the same on every PC, and handed to the host's city at a step (a transaction, as `INVADE` is). They need free slots in army 0 and a kind of person that isn't a citizen: vanilla's `HTYPES.SOLDIER` has only the battle AI, as the invaders do (`settlement/entity/humanoid/ai/main/AIModules.java:109-117`), and is what the battle map uses for the player's side (`game/battle/state/BattleStateGenArmy.java:159`).
-  - A player's assault already runs on every PC with a commanders table (SOSDET plan 0014): the stationed divisions go to the ally's PC there.
-  - An NPC invasion runs on the host's PC only (spec §9). The ally views it, and the ally's orders go to the host's PC, which applies them at a step and sends them on as its own actions, as an ally's orders in an NPC battle go to the fighter's PC (SOSDET plan 0019). That adds the view's delay to the order delay.
-- **Not in v1 with this option:** soldiers walking or parading in the host's city in peacetime.
+  - The record says which divisions take part. At a fight they are generated in the world part, the same on every PC, and handed to the host's city at a step (a transaction, as `INVADE` is). They need free slots in army 0, which the stationing limit keeps, and a kind of person that isn't a citizen: vanilla's `HTYPES.SOLDIER` has only the battle AI, as the invaders do (`settlement/entity/humanoid/ai/main/AIModules.java:109-117`), and is what the battle map uses for the player's side (`game/battle/state/BattleStateGenArmy.java:159`).
+  - A player's assault already runs on every PC with a commanders table (SOSDET plan 0014): the stationed divisions go to their player's PC there.
+  - An NPC invasion runs on the host's PC only (spec §9). The stationed player views it without asking, and their orders go to the host's PC, which applies them at a step and sends them on as its own actions, as an ally's orders in an NPC battle go to the fighter's PC (SOSDET plan 0019). That adds the view's delay to the order delay.
+- **Not in v1 with this option:** soldiers walking or parading in the host's city in peacetime; the host's supply depots delivering to a stationed army by themselves.
 
 ## Spikes that need no game (reading the source)
 
@@ -67,14 +74,14 @@ Status: Proposed, for the owner's approval (2026-11-18) · Batch 13, item 10c (S
 - A three-player test: station, war, send away, freeze, resume, with every world hash equal.
 - Whether a garrison seen only on the map feels like "stationed" to players.
 
-## Open questions for the owner
+## The owner's answers (2026-11-18)
 
-1. **Seen in the city?** Is a garrison on the map enough for v1 (option A), or must the ally's soldiers be seen in the host's city in peacetime ("parading")? The second is option B, with its cost.
-2. **Who may station:** allies only, or also an overlord in its vassal's capital, a vassal in its overlord's, and colleagues?
-3. **Asking:** does the host allow each stationing, as a view, or is the alliance enough, with Send away?
-4. **At war or when the alliance ends:** the army stays where it stands (proposed), or is moved home or to the nearest region of its own?
-5. **A frozen host:** spec §11 says relations become neutral but treaties stay. Does the stationing end (proposed), or stay while the capital can't be attacked anyway?
-6. **Upkeep:** the ally pays (proposed), or may the host supply a stationed army from its own city?
-7. **Someone else's war:** when the host is besieged or stormed by a player the ally isn't at war with, does the stationed army stay out (proposed), or join the defence anyway?
-8. **How many:** a limit on stationed men or divisions? In 10b they share army 0's slots with the host's own divisions.
-9. **10b's view:** does a stationed ally get the host's Allow for a view of an invasion without asking, so it can command?
+1. **Seen in the city?** "Option A, map": a stationed army stays a world army beside the capital; no parading in v1.
+2. **Who may station:** all four: allies, an overlord in its vassal player's capital, a vassal in its overlord player's capital, and colleagues.
+3. **Asking:** "Alliance is enough": no prompt; the agreement that allows stationing is enough, and the host can send the army away.
+4. **At war or when the agreement ends:** "Stays where it stands".
+5. **A frozen host:** "It ends".
+6. **Upkeep:** "Host may supply it": the army eats its own supplies, refilled from its own city as any field army's, and the host may also supply it from the host's city (see Decision, Upkeep).
+7. **Someone else's war:** "Stays out".
+8. **How many:** "Limit by free slots": stationing is refused once the stationed divisions plus the host's own would exceed the city's army slots.
+9. **10b's view:** "Automatic": a stationed player may view and command their divisions in a fight in that city without the host's prompt.

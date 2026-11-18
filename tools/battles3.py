@@ -1841,6 +1841,112 @@ SCENARIOS.update({
 })
 
 
+def stations(run, w):
+    """The stationed armies game w lists, as its `stations` line."""
+    return run.cmd(w, "stations")
+
+
+def same_stations(run, what):
+    """Every game lists the same stationed armies, once a moment passed for the step to apply; returns H's line."""
+    run.sleep(3)
+    seen = {w: stations(run, w) for w in WHO}
+    run.check(len(set(seen.values())) == 1, "%s: every game lists the same stationed armies: %s" % (what, seen["H"]))
+    return seen["H"]
+
+
+def chat_has(run, text):
+    return all(any(text in e.get("text", "") for e in run.events(w, "chatline")) for w in WHO)
+
+
+def r_station(name, title):
+    """R2: J's army (2-3 tiles from H's capital) is stationed there; L's (7-9 tiles) is refused. H supplies J's army
+    from H's stockpiles. The campaign is saved and resumed with the stationing in it. H sends J's army away; J stations
+    it again and moves it, which ends it. Every game lists the same stationed armies after each change."""
+    def go():
+        run = start("ALLIES", "b3-" + name)
+        run.position = "ALLIES"
+        ok = False
+        try:
+            hx, hy = capital(run, "H")
+            j = near_capital(run, "J", hx, hy, 2, 3)
+            lo = near_capital(run, "L", hx, hy, 7, 9)
+            say("H's capital %d,%d; J's army %s, L's %s" % (hx, hy, j, lo))
+            run.sleep(20)  # an army stands still (fortifying) a moment after its teleport
+            for w in ("J", "L"):
+                run.cmd(w, "target %d" % SLOT["H"])
+            r = run.cmd("L", "station")
+            run.check(r.startswith("refused") and "within 3 tiles" in r, "L's army, 7-9 tiles away, is refused: %s" % r)
+            r = run.wait(lambda: (lambda r: r if r.startswith("army") or "still" not in r else None)(run.cmd("J", "station"))
+                         or run.sleep(5), 120, "J's army standing still to station")
+            run.check(r.startswith("army"), "J stations its army at H's capital: %s" % r)
+            run.wait(lambda: chat_has(run, "stationed an army at the capital of") or run.sleep(1), 60, "the chat's stationing line")
+            line = same_stations(run, "after J stationed")
+            run.check(line.count("[%d at %d army %d " % (SLOT["J"], SLOT["H"], j[0])) == 1,
+                      "J's army %d is stationed at H's capital: %s" % (j[0], line))
+            before = int(re.search(r"supplies (\d+)", line).group(1)) if "supplies" in line else -1
+            run.cmd("H", "target %d" % SLOT["J"])
+            r = run.cmd("H", "stationsupply")
+            run.check(r.startswith("supplies"), "H supplies J's stationed army: %s" % r)
+            run.wait(lambda: chat_has(run, "supplied the army of") or run.sleep(1), 60, "the chat's supply line")
+            run.sleep(15)  # the supplies reach the army with H's next report
+            line = same_stations(run, "after H's Supply")
+            after = int(re.search(r"supplies (\d+)", line).group(1)) if "supplies" in line else -1
+            run.check(after >= before >= 0, "J's army's supplies after H's Supply: %d (were %d; full stays full)" % (after, before))
+            r = run.cmd("H", "save")
+            run.wait(lambda: all(any(e["status"].startswith("Campaign saved") for e in run.events(w, "save")) for w in WHO),
+                     600, "every game's campaign save")
+            ok = run.end(after=5)
+        except Failed as e:
+            run.check(False, str(e))
+            run.stop()
+        finish(name, title, run, ok)
+        if ok:
+            station_resume(name, j[0])
+    return go
+
+
+def station_resume(name, army):
+    """R2's second half: the saved campaign resumes with J's army stationed; H sends it away; J stations it again and
+    moves it off, which ends it."""
+    t0 = time.time() * 1000  # the resume reuses the last run's folders: their old "go" events don't count
+    run = Run("b3-%s-resume" % name)
+    ok = False
+    try:
+        run.wait(lambda: all(any(e.get("t", 0) >= t0 for e in run.events(w, "go")) for w in WHO) or run.sleep(1), 300,
+                 "every game playing after the resume")
+        line = same_stations(run, "after the resume")
+        run.check("[%d at %d army %d " % (SLOT["J"], SLOT["H"], army) in line, "the resume keeps J's army stationed: %s" % line)
+        run.cmd("H", "target %d" % SLOT["J"])
+        r = run.cmd("H", "stationend")
+        run.check(r.startswith("ends"), "H sends J's army away: %s" % r)
+        run.wait(lambda: chat_has(run, ": sent away.") or run.sleep(1), 60, "the chat's sent-away line")
+        line = same_stations(run, "after H sent J's army away")
+        run.check(line == "stations:", "nothing is stationed after H sent it away: %s" % line)
+        mine = armies(run, "J")
+        run.cmd("J", "pick %d" % [a[0] for a in mine].index(army))
+        run.cmd("J", "target %d" % SLOT["H"])
+        r = run.cmd("J", "station")
+        run.check(r.startswith("army"), "J stations its army again: %s" % r)
+        same_stations(run, "after J stationed again")
+        hx, hy = capital(run, "H")
+        place_picked(run, "J", hx + 6, hy)
+        run.wait(lambda: chat_has(run, ": it moved.") or run.sleep(1), 120, "the chat's moved line")
+        line = same_stations(run, "after J's army moved")
+        run.check(line == "stations:", "moving the army ends its stationing: %s" % line)
+        ok = run.end(after=20)
+    except Failed as e:
+        run.check(False, str(e))
+        run.stop()
+    finish(name + "-resume", "R2 resumed: sent away, stationed again, moved", run, ok)
+
+
+SCENARIOS.update({
+    "R2": ("ALLIES", r_station("R2", "J stations an army at H's capital; L is too far; H supplies it; a save and a resume; "
+                                     "H sends it away; J's move ends it"),
+           "SOS-233: stationing at a capital: the 3-tile rule, the host's Supply, a resume, Send away, a move ends it"),
+})
+
+
 def main():
     global REPORTS
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)

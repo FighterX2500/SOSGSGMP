@@ -47,6 +47,7 @@ import sosdet.game.deal.DealBook;
 import sosdet.game.siege.AssaultTerms;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.PlayerDeals;
+import sosgsgmp.game.PlayerStations;
 import sosgsgmp.net.ConditionedNode;
 import sosgsgmp.net.NetConditions;
 import sosgsgmp.session.SetupSession;
@@ -638,6 +639,45 @@ final class MpAutopilotCommands {
 			int raider = sosdet.game.cmd.Events.raiderNearForTest(men);
 			sosdet.game.cmd.Events.raidCapitalForTest(raider);
 			return "raider " + raider + " invades the capital, " + GAME.raiders().ALL().get(raider).army.men + " men";
+		}
+		case "station": { // the picked army stations at the target player's capital (SOS-233)
+			WArmy w = firstArmy();
+			String why = PlayerStations.stationRefusal(w, slot);
+			if (why != null)
+				return "refused: " + why;
+			PlayerStations.station(w, slot);
+			return "army " + w.armyIndex() + " stations at " + other().name + "'s capital";
+		}
+		case "stationend": // the picked army, stationed, comes back (its player), or the target's first one at this capital is sent away (the host)
+		case "stationsupply": { // the target's first army stationed at this capital, supplied from this city (SOS-233)
+			WArmy w = PlayerStations.stationed(firstArmy()) ? firstArmy() : null;
+			for (PlayerStations.Stationed s : PlayerStations.between(slot, FACTIONS.player().index()))
+				if (w == null)
+					w = s.army();
+			boolean end = a[0].equals("stationend");
+			String why = end ? PlayerStations.endRefusal(w) : PlayerStations.supplyRefusal(w);
+			if (why != null)
+				return "refused: " + why;
+			if (end)
+				PlayerStations.end(w);
+			else
+				PlayerStations.supply(w);
+			return (end ? "ends the stationing of army " : "supplies army ") + w.armyIndex();
+		}
+		case "stations": { // every stationed army: its player, host, men, tile and supplies (SOS-233)
+			StringBuilder b = new StringBuilder("stations:");
+			for (PlayerStations.Stationed s : PlayerStations.all()) {
+				b.append(" [").append(s.owner()).append(" at ").append(s.host());
+				if (s.army() != null) {
+					int sup = 0;
+					for (int i = 0; i < AD.supplies().all.size(); i++)
+						sup += AD.supplies().all.get(i).current().get(s.army());
+					b.append(" army ").append(s.army().armyIndex()).append(" men ").append(AD.men(null).get(s.army()))
+							.append(" at ").append(s.army().ctx()).append(',').append(s.army().cty()).append(" supplies ").append(sup);
+				}
+				b.append(']');
+			}
+			return b.toString();
 		}
 		case "armypower": { // an army's power, as vanilla weighs the sides of a world battle (SOS-162)
 			WArmy w = WORLD.ENTITIES().armies.tryGet(Integer.parseInt(a[1]));
