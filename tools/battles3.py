@@ -1763,12 +1763,16 @@ def goods_of(run, w, t=None):
     return out
 
 
-def give(run, a, b, t, n):
-    """a proposes to give b n of good t, for nothing; the proposal's id, once b's game has it."""
+def give(run, a, b, t, n, may_refuse=False):
+    """a proposes to give b n of good t, for nothing; the proposal's id, once b's game has it. With may_refuse, None
+    when a's own check refuses it."""
     before = {e["id"] for e in run.events(b, "dealopen")}
     run.cmd(a, "target %d" % SLOT[b])
     r = run.cmd(a, "give %d %d" % (t, n))
     if not r.startswith("proposed"):
+        if may_refuse:
+            say("%s's deal of %d of good %d to %s: %s" % (a, n, t, b, r))
+            return None
         raise Failed("%s's deal of %d of good %d to %s: %s" % (a, n, t, b, r))
     new = run.wait(lambda: [e["id"] for e in run.events(b, "dealopen") if e["id"] not in before and e["from"] == SLOT[a]],
                    120, "%s's deal on %s's game" % (a, b))
@@ -1799,11 +1803,11 @@ def log_of(run, w, names):
 
 def t1():
     """T1 (SOS-224): goods a deal took are never given again, and a delivery survives a save and resume once. From BASE:
-    the player of H and L with the most of one good in an export depot gives it to J.
+    the player of H and L with the most of one good in an export depot (and 600 of it to spare) gives it to J.
     1. Two deals in a row that together ask for more than the giver can spare: the second is refused on every game,
        and the giver's own check then refuses it too, with the reason.
-    2. A deal, then, while its fetchers stand at the export depot (vanilla's stock counts their goods again there),
-       another that only that count would allow: refused on every game. The game runs at 3x for this step.
+    2. While fetchers stand at the export depot (vanilla's stock counts their goods again there), a deal, then another
+       that only that count would allow: refused on every game. The game runs at 3x for this step.
     3. A deal, Save Campaign before its caravan arrives, the session ends, the campaign resumes: the goods arrive
        once, in the resumed session, and J's stock takes them in once."""
     name, title = "T1", "deals between players: goods are not given twice; a delivery survives a resume once"
@@ -1815,18 +1819,17 @@ def t1():
         best = None
         for w in ("H", "L"):
             for t, g in goods_of(run, w).items():
-                score = min(g["export"], g["spare"])
-                if best is None or score > best[0]:
-                    best = (score, w, t, g)
-        if best is None or best[0] < 200:
-            raise Failed("neither H nor L has 200 of a good in an export depot to give (best %s)" % (best,))
+                if g["spare"] >= 600 and (best is None or g["export"] > best[0]):
+                    best = (g["export"], w, t, g)
+        if best is None:
+            raise Failed("neither H nor L has a good in an export depot with 600 to spare")
         _, a, t, g = best
         b = "J"
         good = g["name"]
         say("the giver %s, good %d %s: %s" % (a, t, good, g))
 
-        # 1: two deals in a row
-        x = min(1000, g["spare"] * 6 // 10)
+        # 1: two deals in a row, each within what A can spare, together more
+        x = g["spare"] * 6 // 10
         p1 = give(run, a, b, t, x)
         p2 = give(run, a, b, t, x)
         say(b, run.cmd(b, "accept"))
@@ -1839,43 +1842,50 @@ def t1():
         run.check(again.startswith("refused:") and "doesn't have %d" % x in again,
                   "1: %s's own check then refuses the same deal with the reason: %s" % (a, again))
 
-        # 2: a deal while the first one's fetchers stand at the export depot
-        try:
-            g2 = run.wait(lambda: (lambda g: g if g["spare"] == g["available"] else None)(goods_of(run, a, t)[t]) or run.sleep(2),
-                          300, "the first deal's goods out of %s's city" % a)
-        except Failed:
-            g2 = goods_of(run, a, t)[t]
-            say("goods still leaving %s's city; step 2 goes on: %s" % (a, g2))
-        y = min(1000, g2["spare"] * 6 // 10)
-        if y == x:
-            y -= 1
-        if y < 50:
-            raise Failed("%s has too little %s left for step 2: %s" % (a, good, g2))
-        p3 = give(run, a, b, t, y)
-        p4 = give(run, a, b, t, y)
+        # 2: the window. While fetchers stand at the export depot, vanilla's stock counts their goods twice: available
+        # is more than spare by w = min(outgoing, export). Deal Y4 asks for nearly all A can spare; deal Y3, accepted
+        # first, takes about w/2 off what A has. Y4 then lies above spare but within available until the fetchers
+        # leave: before the fix it went through, now it must be refused.
         run.cmd("H", "speed 3")  # the fetchers' minutes at the depot outlast the driver's look
+        p4 = None
+        end = time.time() + 600
+        while p4 is None:
+            g2 = goods_of(run, a, t)[t]
+            w0 = g2["available"] - g2["spare"]
+            if g2["outgoing"] > 0 and w0 >= 40 and g2["spare"] >= 150:
+                y4 = g2["spare"] - 2
+                p4 = give(run, a, b, t, y4, may_refuse=True)
+                if p4 is not None:
+                    say("deal %d asks for %d %s in a window of %d: %s" % (p4, y4, good, w0, g2))
+                    break
+            if time.time() > end:
+                raise Failed("no fetchers at %s's export depot for 600 s (a window of 40 %s or more): %s" % (a, good, g2))
+            run.sleep(1)
+        y3 = max(1, w0 * 5 // 9)
+        p3 = give(run, a, b, t, y3)
         say(b, run.cmd(b, "acceptid %d" % p3))
         o3 = answered(run, p3)
-        run.check(set(o3.values()) == {"ACCEPTED"}, "2: deal %d, %d %s, is accepted on every game: %s" % (p3, y, good, o3))
+        run.check(set(o3.values()) == {"ACCEPTED"}, "2: deal %d, %d %s, is accepted on every game: %s" % (p3, y3, good, o3))
         hit = None
         end = time.time() + 240
         while time.time() < end and hit is None:
             g3 = goods_of(run, a, t)[t]
-            if g3["outgoing"] > 0 and g3["spare"] < y <= g3["available"]:
+            if g3["outgoing"] > 0 and g3["spare"] < y4 <= g3["available"]:
                 hit = g3
             else:
                 run.sleep(1)
         say(b, run.cmd(b, "acceptid %d" % p4))
         o4 = answered(run, p4)
+        after = goods_of(run, a, t)[t]
         run.cmd("H", "speed 25")
         run.check(hit is not None, "2: the window was reached: vanilla's stock showed %d %s available, as before the fix, "
-                  "while what could leave was less (%s)" % (y, good, hit))
-        run.check(set(o4.values()) == {"REFUSED"}, "2: deal %d, %d more %s accepted in that window, is refused on every game: %s"
-                  % (p4, y, good, o4))
+                  "while what could leave was less (%s; just after: %s)" % (y4, good, hit, after))
+        run.check(set(o4.values()) == {"REFUSED"}, "2: deal %d, %d %s accepted in that window, is refused on every game: %s"
+                  % (p4, y4, good, o4))
 
         # 3: a deal, Save Campaign, resume
         run.wait(lambda: goods_of(run, b, t)[t]["owed"] == 0 or run.sleep(3), 900, "the earlier deals' goods stored in %s's city" % b)
-        z = 100 if 100 not in (x, y) else 101
+        z = 100 if 100 not in (x, y3, y4) else 101
         p5 = give(run, a, b, t, z)
         say(b, run.cmd(b, "acceptid %d" % p5))
         o5 = answered(run, p5)
