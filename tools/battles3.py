@@ -2042,6 +2042,61 @@ def stationed_men(line, owner, host, army):
     return int(m.group(1)) if m else -1
 
 
+def stationed_command(run, before, when, timeout):
+    """J's divisions come into H's city: H's game and J's view hold the same ones, J's, with men, mustered, no more men
+    than J's army had (`before`), selectable on J's game only. J orders one 4 tiles off and it moves on H's game; H's
+    order for it does nothing."""
+    run.wait(lambda: stationdivs(run, "H")[0] or run.sleep(2), timeout, "J's soldiers in H's city " + when)
+    run.sleep(5)
+    on_h, h_line = stationdivs(run, "H")
+    on_j, j_line = stationdivs(run, "J")
+    say("H:", h_line)
+    say("J:", j_line)
+    run.check([d[:5] for d in on_h] == [d[:5] for d in on_j], "H's game and J's view hold the same stationed divisions")
+    run.check(all(d[1] == SLOT["J"] and d[2] > 0 and d[4] for d in on_h), "each is J's, with men, mustered: %s" % h_line)
+    run.check(sum(d[2] for d in on_h) <= before, "no more men than J's army has: %d of %d"
+              % (sum(d[2] for d in on_h), before))
+    run.check(all(d[7] for d in on_j) and not any(d[7] for d in on_h),
+              "only J can select them (J %s, H %s)" % ([d[7] for d in on_j], [d[7] for d in on_h]))
+    run.shot("J", "J's view of H's city: J's soldiers beside the throne " + when)
+    if not on_j:
+        return
+    div, cx, cy = on_j[0][0], on_j[0][5], on_j[0][6]
+    tx, ty = cx + 4, cy + 4
+    say("J:", run.cmd("J", "order %d %d %d" % (div, tx, ty)))
+
+    def moved():
+        d = [d for d in stationdivs(run, "H")[0] if d[0] == div]
+        return d and abs(d[0][5] - (tx + 6)) <= 8 and abs(d[0][6] - ty) <= 8
+    run.wait(lambda: moved() or run.sleep(2), 180, "J's order moving division %d on H's game" % div)
+    r = run.cmd("H", "order %d %d %d" % (div, cx - 10, cy))
+    run.check(r.startswith("0 divisions"), "H can't order J's division while J views the city: %s" % r)
+
+
+def after_fight(run, j, before):
+    """Once J's soldiers have left H's city: every game lists the same stationed armies, and J's army has lost its dead."""
+    run.sleep(20)  # the dead reach J's army with H's next report
+    line = same_stations(run, "after the fight")
+    after = stationed_men(line, SLOT["J"], SLOT["H"], j[0])
+    run.check(0 <= after <= before, "J's army after the fight: %d men (had %d)" % (after, before))
+    say("H:", run.cmd("H", "pop"))
+
+
+def station_j(run, hx, hy):
+    """J's army stands 2-3 tiles from H's capital and is stationed there; returns (army, its men)."""
+    j = near_capital(run, "J", hx, hy, 2, 3)
+    say("H's capital %d,%d; J's army %s" % (hx, hy, j))
+    run.sleep(20)  # an army stands still (fortifying) a moment after its teleport
+    run.cmd("J", "target %d" % SLOT["H"])
+    r = run.wait(lambda: (lambda r: r if r.startswith("army") or "still" not in r else None)(run.cmd("J", "station"))
+                 or run.sleep(5), 120, "J's army standing still to station")
+    run.check(r.startswith("army"), "J stations its army at H's capital: %s" % r)
+    line = same_stations(run, "after J stationed")
+    before = stationed_men(line, SLOT["J"], SLOT["H"], j[0])
+    run.check(before > 0, "J's stationed army has %d men" % before)
+    return j, before
+
+
 def r_defend(name, title):
     """R4: J's army, stationed at H's capital, fights a raid in H's city. J's game views H's city by itself; as the
     raiders deploy, J's divisions come in beside H's throne, mustered, the same on H's game and J's view, and only J
@@ -2053,16 +2108,7 @@ def r_defend(name, title):
         ok = False
         try:
             hx, hy = capital(run, "H")
-            j = near_capital(run, "J", hx, hy, 2, 3)
-            say("H's capital %d,%d; J's army %s" % (hx, hy, j))
-            run.sleep(20)  # an army stands still (fortifying) a moment after its teleport
-            run.cmd("J", "target %d" % SLOT["H"])
-            r = run.wait(lambda: (lambda r: r if r.startswith("army") or "still" not in r else None)(run.cmd("J", "station"))
-                         or run.sleep(5), 120, "J's army standing still to station")
-            run.check(r.startswith("army"), "J stations its army at H's capital: %s" % r)
-            line = same_stations(run, "after J stationed")
-            before = stationed_men(line, SLOT["J"], SLOT["H"], j[0])
-            run.check(before > 0, "J's stationed army has %d men" % before)
+            j, before = station_j(run, hx, hy)
             n = len([e for e in run.events("H", "chatline") if "invaded by Raiders" in e.get("text", "")])
             say("H:", run.cmd("H", "raidcapital 150"))
             run.wait(lambda: len([e for e in run.events("H", "chatline") if "invaded by Raiders" in e.get("text", "")]) > n
@@ -2070,40 +2116,13 @@ def r_defend(name, title):
             run.wait(lambda: any("fights in their city" in e.get("text", "") for e in run.events("J", "chatline"))
                      or run.sleep(1), 60, "J's chat line: its stationed army fights in H's city")
             run.wait(lambda: "viewing true" in state(run, "J") or run.sleep(2), 300, "J's game viewing H's city by itself")
-            run.wait(lambda: stationdivs(run, "H")[0] or run.sleep(2), 900, "J's soldiers in H's city as the raiders deploy")
-            run.sleep(5)
-            on_h, h_line = stationdivs(run, "H")
-            on_j, j_line = stationdivs(run, "J")
-            say("H:", h_line)
-            say("J:", j_line)
-            run.check([d[:5] for d in on_h] == [d[:5] for d in on_j], "H's game and J's view hold the same stationed divisions")
-            run.check(all(d[1] == SLOT["J"] and d[2] > 0 and d[4] for d in on_h),
-                      "each is J's, with men, mustered: %s" % h_line)
-            run.check(sum(d[2] for d in on_h) <= before, "no more men than J's army has: %d of %d"
-                      % (sum(d[2] for d in on_h), before))
-            run.check(all(d[7] for d in on_j) and not any(d[7] for d in on_h),
-                      "only J can select them (J %s, H %s)" % ([d[7] for d in on_j], [d[7] for d in on_h]))
-            run.shot("J", "J's view of H's city: J's soldiers beside the throne as the raiders deploy")
-            div, cx, cy = on_j[0][0], on_j[0][5], on_j[0][6]
-            tx, ty = cx + 4, cy + 4
-            say("J:", run.cmd("J", "order %d %d %d" % (div, tx, ty)))
-
-            def moved():
-                d = [d for d in stationdivs(run, "H")[0] if d[0] == div]
-                return d and abs(d[0][5] - (tx + 6)) <= 8 and abs(d[0][6] - ty) <= 8
-            run.wait(lambda: moved() or run.sleep(2), 180, "J's order moving division %d on H's game" % div)
-            r = run.cmd("H", "order %d %d %d" % (div, cx - 10, cy))
-            run.check(r.startswith("0 divisions"), "H can't order J's division while J views the city: %s" % r)
+            stationed_command(run, before, "as the raiders deploy", 900)
             for w in ("H", "J"):
                 say(w, run.cmd(w, "charge"))
             run.wait(lambda: not stationdivs(run, "H")[0] or run.sleep(5), 1800, "the invasion's end: J's soldiers leave")
             run.check(not stationdivs(run, "J")[0] or "viewing false" in state(run, "J"),
                       "J's view holds no stationed soldiers either")
-            run.sleep(20)  # the dead reach J's army with H's next report
-            line = same_stations(run, "after the fight")
-            after = stationed_men(line, SLOT["J"], SLOT["H"], j[0])
-            run.check(0 <= after <= before, "J's army after the fight: %d men (had %d)" % (after, before))
-            say("H:", run.cmd("H", "pop"))
+            after_fight(run, j, before)
             ok = run.end(after=10)
         except Failed as e:
             run.check(False, str(e))
@@ -2116,6 +2135,75 @@ SCENARIOS.update({
     "R4": ("ALLIES", r_defend("R4", "J's stationed army defends H's city against a raid, commanded from J's view"),
            "SOS-234: a stationed army's soldiers fight an invasion in the host's city; their player commands them; the dead"
            " come off the world army"),
+})
+
+
+def declare_war(run, w, on):
+    """w cancels its treaties with `on` and declares war on them."""
+    run.cmd(w, "target %d" % SLOT[on])
+    say(w, run.cmd(w, "cancel"))
+    run.sleep(5)
+    r = run.wait(lambda: (lambda r: r if not r.startswith("refused") else None)(run.cmd(w, "war")) or run.sleep(3), 120,
+                 "%s's war on %s" % (w, on))
+    run.check(r.startswith("war declared"), "%s declares war on %s: %s" % (w, on, r))
+
+
+def r_assault(name, title):
+    """R5: J's army is stationed at H's capital. L declares war on H, and J on L. L's army besieges H's capital, the
+    siege's wait is cut short and L storms it. As the assault's invaders deploy, J's divisions come into H's city, the
+    same on H's game and J's view; only J selects them, J's order moves one, H's does nothing; the commanders table stays
+    the same on every game (no desync). Everyone charges a while, then L retreats; J's soldiers leave H's city and J's
+    army has lost its dead."""
+    def go():
+        run = start("ALLIES", "b3-" + name)
+        run.position = "ALLIES"
+        ok = False
+        try:
+            hx, hy = capital(run, "H")
+            j, before = station_j(run, hx, hy)
+            declare_war(run, "L", "H")
+            declare_war(run, "J", "L")
+            say("relations:", run.cmd("H", "diplo"))
+            line = same_stations(run, "after the wars")
+            run.check(stationed_men(line, SLOT["J"], SLOT["H"], j[0]) > 0, "J's army is still stationed: %s" % line)
+            lo = near_capital(run, "L", hx, hy, 4, 6)
+            pick_army(run, "L", lo[0])
+            run.cmd("L", "target %d" % SLOT["H"])
+            r = run.cmd("L", "besiege")
+            run.check("besieging" in r, "L besieges H's capital: %s" % r)
+            run.wait(lambda: "my capital besieged true" in status(run, "H") or run.sleep(2), 300, "H's capital besieged")
+            run.sleep(10)
+            say("L:", run.cmd("L", "siegewait"))
+            run.sleep(5)
+            r = run.wait(lambda: (lambda r: r if not r.startswith("refused") else None)(run.cmd("L", "storm"))
+                         or run.sleep(3), 180, "L's Storm accepted")
+            run.check("Storm" in r, "L storms H's capital: %s" % r)
+            run.wait(lambda: "now " in run.cmd("H", "assault") and "now null" not in run.cmd("H", "assault")
+                     or run.sleep(3), 300, "the assault running")
+            stationed_command(run, before, "with the assault", 600)
+            say("H:", run.cmd("H", "state"))
+            for w in WHO:
+                say(w, run.cmd(w, "charge"))
+            run.sleep(30)
+            for w in WHO:
+                run.shot(w, "%s during the assault with J's soldiers in it" % w)
+            if "now null" not in run.cmd("H", "assault"):
+                say("L:", run.cmd("L", "assaultretreat"))
+            run.wait(lambda: "now null" in run.cmd("H", "assault") or run.sleep(5), 600, "the assault over")
+            run.wait(lambda: not stationdivs(run, "H")[0] or run.sleep(5), 300, "J's soldiers leaving H's city")
+            back_in_cities(run)
+            after_fight(run, j, before)
+            ok = run.end(after=10)
+        except Failed as e:
+            run.check(False, str(e))
+            run.stop()
+        finish(name, title, run, ok)
+    return go
+
+
+SCENARIOS.update({
+    "R5": ("ALLIES", r_assault("R5", "J's stationed army defends H's city in L's assault, commanded by J"),
+           "SOS-234: a stationed army's soldiers in a player's assault on the host's capital, commanded by their player"),
 })
 
 
