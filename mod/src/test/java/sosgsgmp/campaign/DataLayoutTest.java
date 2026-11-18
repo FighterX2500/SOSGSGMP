@@ -164,7 +164,7 @@ public class DataLayoutTest {
         store.write(record(4, CampaignRecord.Kind.AUTO, 4));
         assertEquals(List.of(4, 3, 2, 1), store.all().stream().map(CampaignRecord::number).toList());
         assertEquals(5, store.nextNumber(CampaignStoreTest.CAMPAIGN_FOR_TESTS.id()));
-        assertEquals(List.of(2, 1), store.rotate(CampaignStoreTest.CAMPAIGN_FOR_TESTS.id(), 2).stream()
+        assertEquals(List.of(2, 1), store.rotate(CampaignStoreTest.CAMPAIGN_FOR_TESTS.id(), 2, CampaignStore.NO_SAVE).stream()
                 .map(CampaignRecord::number).toList());
         assertEquals(List.of(4, 3), store.all().stream().map(CampaignRecord::number).toList(), "deleted in the old folder too");
     }

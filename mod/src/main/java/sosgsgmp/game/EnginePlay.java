@@ -55,6 +55,8 @@ public final class EnginePlay implements EnginePort {
     private int battleBytes;
     /** A battle resync's file, until its load has read it. */
     private Path battleResyncFile;
+    /** Whole-game loads in the session, for the shared pause to settle after each (SOS-229). */
+    private int loads;
 
     /**
      * Every PC at {@code Go}: the game unpauses at the agreed speed (spec §5.5, the automatic unpause), the game speed
@@ -127,6 +129,20 @@ public final class EnginePlay implements EnginePort {
     /** The battle against NPCs of the player in {@code slot}, the same on every PC, or null (SOS-158 reads its freeze). */
     public LocalBattle localBattleOf(int slot) {
         return Engine.localBattle(slot);
+    }
+
+    /**
+     * True while this PC's game is a battle against NPCs, whose pause is that battle's own (spec §8): the player in
+     * {@code slot}, this PC's, fights one, or this PC watches one or joined it as an ally (SOS-93, SOS-109, SOS-119).
+     */
+    public boolean localBattleHere(int slot) {
+        View v = Engine.viewing();
+        return Engine.localBattle(slot) != null || v != null && v.battle();
+    }
+
+    /** How many whole-game loads this PC has had in the session ({@link #resumeAfterLoad}): each sets the game speed. */
+    public int loads() {
+        return loads;
     }
 
     /** True during any battle: one on every PC, or one on its player's PC alone. */
@@ -315,6 +331,7 @@ public final class EnginePlay implements EnginePort {
      * its speed.
      */
     public void resumeAfterLoad() {
+        loads++;
         if (battleResyncFile != null) {
             delete(battleResyncFile);
             battleResyncFile = null;

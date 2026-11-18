@@ -59,6 +59,11 @@ final class MpSaves {
 	private long savedBeforeBattle = -1;
 	/** The step of this PC's last save. */
 	private long savedStep = -1;
+	/**
+	 * The newest autosave every PC made in this session, kept past the autosave slots, or CampaignStore.NO_SAVE: saves a
+	 * PC couldn't make never push out the last one a resume can use (SOS-229).
+	 */
+	private int goodAuto = CampaignStore.NO_SAVE;
 	/** Host: real time the world ran unpaused since the last save, as vanilla's autosave counts it (SOS-229). */
 	private final AutosaveClock autoClock = new AutosaveClock();
 
@@ -288,7 +293,7 @@ final class MpSaves {
 				store.write(new CampaignRecord(order.campaign(), order.number(), order.kind(), System.currentTimeMillis(), slot,
 						file, hash, true));
 				if (order.keep() > 0)
-					for (CampaignRecord gone : store.rotate(order.campaign().id(), order.keep()))
+					for (CampaignRecord gone : store.rotate(order.campaign().id(), order.keep(), goodAuto))
 						game.deleteSave(gone.file());
 				log.line(String.format("save %d written at step %d: %s, world hash %016x", order.number(), engine.step(), file, hash));
 				if (rejoinOutNext) { // the host's rejoin files at the founding save's own step, as every PC's save (SOS-195)
@@ -327,6 +332,8 @@ final class MpSaves {
 			engine.release(EnginePlay.Hold.SAVE);
 		if (engine.battleAhead() >= 0)
 			savedBeforeBattle = engine.battleAhead(); // a failed save too: the battle still begins, its outcome shown
+		if (outcome.isEmpty() && order.kind() == CampaignRecord.Kind.AUTO)
+			goodAuto = order.number();
 		status = outcome.isEmpty() ? "Campaign saved (save " + order.number() + ")." : "Save " + order.number() + ": " + outcome;
 		log.line("save " + order.number() + " done on every PC" + (outcome.isEmpty() ? "" : ": " + outcome));
 		if (order.exit()) {

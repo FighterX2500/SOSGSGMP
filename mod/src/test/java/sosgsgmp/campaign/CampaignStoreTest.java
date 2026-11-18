@@ -170,8 +170,37 @@ public class CampaignStoreTest {
         store.write(record(1, CampaignRecord.Kind.SAVE, 100));
         for (int n = 2; n <= 6; n++)
             store.write(record(n, CampaignRecord.Kind.AUTO, 100 + n));
-        List<CampaignRecord> gone = store.rotate(CAMPAIGN_FOR_TESTS.id(), 2);
+        List<CampaignRecord> gone = store.rotate(CAMPAIGN_FOR_TESTS.id(), 2, CampaignStore.NO_SAVE);
         assertEquals(List.of(4, 3, 2), gone.stream().map(CampaignRecord::number).toList());
         assertEquals(List.of(6, 5, 1), store.all().stream().map(CampaignRecord::number).toList());
+    }
+
+    /**
+     * SOS-229: autosaves one PC couldn't make, as many as the slots and more, never rotate out the newest autosave every
+     * PC made; it is the one past the newest slots, and the next good one takes its place.
+     */
+    @Test
+    void failedAutosavesNeverRotateOutTheNewestOneEveryPcMade() {
+        CampaignStore store = new CampaignStore(dir);
+        int good = CampaignStore.NO_SAVE;
+        for (int n = 1; n <= 3; n++) { // three good autosaves, 3 slots
+            store.write(record(n, CampaignRecord.Kind.AUTO, 100 + n));
+            store.rotate(CAMPAIGN_FOR_TESTS.id(), 3, good);
+            good = n;
+        }
+        for (int n = 4; n <= 9; n++) { // six that another PC couldn't make
+            store.write(record(n, CampaignRecord.Kind.AUTO, 100 + n));
+            store.rotate(CAMPAIGN_FOR_TESTS.id(), 3, good);
+        }
+        assertEquals(List.of(9, 8, 7, 3), store.all().stream().map(CampaignRecord::number).toList(),
+                "the slots hold the failed ones, and save 3 stays: one file more");
+        store.write(record(10, CampaignRecord.Kind.AUTO, 110));
+        List<CampaignRecord> gone = store.rotate(CAMPAIGN_FOR_TESTS.id(), 3, good);
+        assertEquals(List.of(7), gone.stream().map(CampaignRecord::number).toList());
+        good = 10;
+        store.write(record(11, CampaignRecord.Kind.AUTO, 111));
+        gone = store.rotate(CAMPAIGN_FOR_TESTS.id(), 3, good);
+        assertEquals(List.of(8, 3), gone.stream().map(CampaignRecord::number).toList(), "a newer good one: the old one goes");
+        assertEquals(List.of(11, 10, 9), store.all().stream().map(CampaignRecord::number).toList());
     }
 }
