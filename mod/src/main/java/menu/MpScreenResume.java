@@ -37,6 +37,8 @@ final class MpScreenResume extends GUI.Shadower implements SC {
 
 	/** The rows shown at once; the list scrolls through the rest (SOS-228). */
 	private static final int ROWS = 12;
+	/** A row's width; its text is cropped to it, clear of the slider. */
+	private static final int ROW_WIDTH = 900;
 	private static final DateTimeFormatter WHEN = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault());
 
 	private final MpMenu mp;
@@ -113,7 +115,7 @@ final class MpScreenResume extends GUI.Shadower implements SC {
 		private int index = -1;
 
 		Row(int height) {
-			super(900, height);
+			super(ROW_WIDTH, height);
 		}
 
 		@Override
@@ -169,6 +171,7 @@ final class MpScreenResume extends GUI.Shadower implements SC {
 			if (!present.get(i))
 				line.add("  (its game save is gone)");
 			line.color(present.get(i) ? COLOR.WHITE100 : COLORS.inactive);
+			line.setMaxWidth(ROW_WIDTH - 24).setMultipleLines(false); // one line, cropped before the list's slider
 		}
 		note.clear();
 		if (records.isEmpty())
