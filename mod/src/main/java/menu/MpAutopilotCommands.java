@@ -265,6 +265,38 @@ final class MpAutopilotCommands {
 		return b.toString();
 	}
 
+	/**
+	 * Test aid (SOS-224): this PC's city's stock of one good as a deal reads it, live: owned and vanilla's available,
+	 * what a deal may give (spare), the export depots' stock, goods promised and leaving, and what a deal brings in:
+	 * diplomacy goods still owed (bought, on the way or being carried in) and those already stored (in, the kept days).
+	 */
+	private static String goods(TRADABLE t) {
+		int export = t instanceof init.trade.TRADABLEO<?> o && o.t instanceof init.resources.RESOURCE r
+				? SETT.ROOMS().EXPORT.tally.amount.get(r) : 0;
+		TRADE_TYPE d = TRADE_TYPE.diplomacy;
+		util.statistics.HISTORY_INT in = FACTIONS.player().res().in(game.faction.FResources.RTYPE.DIPLOMACY).history(t);
+		int stored = 0;
+		for (int k = 0; k < in.historyRecords(); k++)
+			stored += in.get(k);
+		return "good " + t.index() + " " + t.name + ": owned " + t.ps().playerOwned() + " available "
+				+ FACTIONS.player().res().getAvailable(t) + " spare " + PlayerDeals.spare(t.index()) + " export " + export
+				+ " promised " + t.ps().promised().get(null) + " outgoing " + t.ps().attempting(null) + " owed "
+				+ (t.pb().toBeAdded().get(d) + t.pb().toBeStored().get(d) + t.pb().attempting(d)) + " in " + stored;
+	}
+
+	/** Test aid (SOS-224): {@link #goods} of each good this city has in its export depots, the most there first. */
+	private static String goodsInExport() {
+		List<init.trade.TRADABLEO<init.resources.RESOURCE>> held = new ArrayList<>();
+		for (init.trade.TRADABLEO<init.resources.RESOURCE> t : TR.RES())
+			if (SETT.ROOMS().EXPORT.tally.amount.get(t.t) > 0)
+				held.add(t);
+		held.sort((x, y) -> Integer.compare(SETT.ROOMS().EXPORT.tally.amount.get(y.t), SETT.ROOMS().EXPORT.tally.amount.get(x.t)));
+		StringBuilder b = new StringBuilder("goods:");
+		for (TRADABLE t : held)
+			b.append(' ').append(goods(t)).append(';');
+		return b.toString();
+	}
+
 	private Faction other() {
 		return FACTIONS.getByIndex(target >= 0 ? target : Engine.local() == 0 ? 1 : 0);
 	}
@@ -357,6 +389,25 @@ final class MpAutopilotCommands {
 				}
 			return "accepted " + n;
 		}
+		case "give": { // test tooling (SOS-224): a deal giving N of tradable I to the target, nothing in return
+			DealBook.Terms t = new DealBook.Terms(DealBook.NO_TREATY, 0, 0,
+					new int[] {Integer.parseInt(a[1]), Integer.parseInt(a[2])}, new int[0]);
+			String why = PlayerDeals.refusal(slot, t);
+			if (why != null)
+				return "refused: " + why;
+			PlayerDeals.propose(slot, t);
+			return "proposed";
+		}
+		case "acceptid": { // test tooling (SOS-224): accepts the one proposal with this ID
+			int id = Integer.parseInt(a[1]);
+			String why = PlayerDeals.acceptRefusal(id);
+			if (why != null)
+				return "refused: " + why;
+			PlayerDeals.answer(id, true);
+			return "answered " + id;
+		}
+		case "goods": // test tooling (SOS-224): this city's goods as a deal reads them; one tradable with an index
+			return a.length > 1 ? goods(TR.ALL().get(Integer.parseInt(a[1]))) : goodsInExport();
 		case "army": {
 			int[] at = armyTile(); // the engine picks a tile itself only for a player with no army yet
 			if (!World.armyCreate(at[0], at[1]))
