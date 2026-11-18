@@ -406,6 +406,11 @@ final class MpAutopilotCommands {
 			PlayerDeals.answer(id, true);
 			return "answered " + id;
 		}
+		case "declineid": { // test tooling (SOS-224): declines the one proposal with this ID
+			int id = Integer.parseInt(a[1]);
+			PlayerDeals.answer(id, false);
+			return "declined " + id;
+		}
 		case "goods": // test tooling (SOS-224): this city's goods as a deal reads them; one tradable with an index
 			return a.length > 1 ? goods(TR.ALL().get(Integer.parseInt(a[1]))) : goodsInExport();
 		case "army": {
