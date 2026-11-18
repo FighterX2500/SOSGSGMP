@@ -1806,7 +1806,7 @@ def t1():
     the player of H and L with the most of one good in an export depot (and 600 of it to spare) gives it to J.
     1. Two deals in a row that together ask for more than the giver can spare: the second is refused on every game,
        and the giver's own check then refuses it too, with the reason.
-    2. While fetchers stand at the export depot (vanilla's stock counts their goods again there), a deal, then another
+    2. While fetchers are out (vanilla's stock still counts the goods they haven't picked up), a deal, then another
        that only that count would allow: refused on every game. The game runs at 3x for this step.
     3. A deal, Save Campaign before its caravan arrives, the session ends, the campaign resumes: the goods arrive
        once, in the resumed session, and J's stock takes them in once."""
@@ -1845,8 +1845,8 @@ def t1():
         except Failed as e:
             run.check(False, "1: " + str(e))
 
-        # 2: the window. While fetchers stand at the export depot, vanilla's stock counts their goods twice: available
-        # is more than spare by W = min(outgoing, export). Deal Y4 asks for nearly all A can spare. Then top-up deals,
+        # 2: the window. While fetchers are out, vanilla's stock still counts the goods they haven't picked up: available
+        # is more than spare by W = min(available, outgoing). Deal Y4 asks for nearly all A can spare. Then top-up deals,
         # each sized from A's live figures, take spare below Y4 while available stays at or above it (available falls
         # by 0.9 of a deal). Y4 then lies above spare but within available until the fetchers leave: before the fix it
         # went through, now it must be refused. Y4 is accepted only in a window the driver saw; otherwise it is declined.
@@ -1864,7 +1864,8 @@ def t1():
                         say("deal %d asks for %d %s in a window of %d: %s" % (p4, y4, good, w0, g2))
                         break
                 if time.time() > end:
-                    raise Failed("no fetchers at %s's export depot for 600 s (a window of 40 %s or more): %s" % (a, good, g2))
+                    raise Failed("no fetchers out of %s's city with 150 %s to spare for 600 s (a window of 40 or more): %s"
+                                 % (a, good, g2))
                 run.sleep(1)
             hit = None
             end = time.time() + 480
@@ -1904,6 +1905,8 @@ def t1():
         # 3: a deal, Save Campaign, resume
         run.wait(lambda: goods_of(run, b, t)[t]["owed"] == 0 or run.sleep(3), 900, "the earlier deals' goods stored in %s's city" % b)
         z = 100 if 100 not in [x, y4 if p4 else 0] + y3s else 101
+        # the earlier deals' fetchers count against A's spare until their caravans leave (about 10 game minutes)
+        run.wait(lambda: goods_of(run, a, t)[t]["spare"] >= z or run.sleep(3), 900, "%d %s to spare in %s's city" % (z, good, a))
         p5 = give(run, a, b, t, z)
         say(b, run.cmd(b, "acceptid %d" % p5))
         o5 = answered(run, p5)
