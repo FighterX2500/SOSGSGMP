@@ -1,12 +1,13 @@
 """SOSGSGMP batch 13 item 11 + 12 (SOS-222): three games on this PC resume the owner's 2026-11-17 campaign at its save
 of 01:45 (FighterX2500 hosts, Fray2 in slot 1, Adam Smasher in slot 2) and the host views Fray2's city three times.
 
-    python tools\\view11.py [--source DIR] [--mods-from SOSDET_DIR]
+    python tools\\view11.py [--source DIR] [--mods-from SOSDET_DIR] [--first-run S] [--adam-view S]
 
     - each game's data folder holds the campaign's record and save of that number, as its player: the host's from the
       source's campaigns, each joiner's from the host's reports of its files (as twopc.py --campaign takes them);
     - the games resume it at speed 5; after Go every game traces its world draws (autopilot `trace desync`);
-    - 1 minute of play; then three times: the host views Fray2's city for 2 minutes, or until the view loses step, then
+    - 1 minute of play (--first-run: longer, as the playtest's 40 minutes since the last whole load); with --adam-view
+      the host first views Adam Smasher's city that long, as at 01:55, and the world runs 30 s; then three times: the host views Fray2's city for 2 minutes, or until the view loses step, then
       the world runs 5 minutes; the host resyncs every desync (twopc's default), and more than 5 in one stretch end the run;
     - every game ends at one step (`endat`).
 
@@ -34,7 +35,8 @@ SAVE = "MP FighterX2500s campaign-1a1eb424f09-47002c-ce336261-b0b.save"  # 01:45
 FOLDERS = (("1", (1280, 720)), ("2", (1024, 640)), ("3", (1024, 640)))
 NAMES = {"1": "host FighterX2500", "2": "Fray2", "3": "Adam Smasher"}
 VIEWS = 3
-FIRST_RUN_S, VIEW_S, WORLD_S, VIEW_START_S = 60, 120, 300, 180
+VIEW_S, WORLD_S, VIEW_START_S, AFTER_ADAM_S = 120, 300, 180, 30
+OWNERS = {1: "Fray2", 2: "Adam Smasher"}
 MAX_DESYNCS = 5  # resyncs in one stretch of world before the run ends
 STATES = {0: "scheduled", 1: "loading", 2: "running", 3: "cancelled", 4: "ended"}
 WHY = {-1: "open", 0: "closed", 1: "not caught up", 2: "fell behind", 3: "lost step", 4: "ended by the game"}
@@ -103,8 +105,11 @@ def prep(source):
 class Drive:
     """The run's stages from the games' events, until every game has ended."""
 
-    def __init__(self, games):
+    def __init__(self, games, first_run, adam_view):
         self.games = games
+        self.first_run = first_run
+        # the views, in order: (owner slot, seconds held, seconds of world after)
+        self.plan = ([(2, adam_view, AFTER_ADAM_S)] if adam_view > 0 else []) + [(1, VIEW_S, WORLD_S)] * VIEWS
         self.stage, self.at, self.step = "wait-go", time.time(), 0
         self.views = []  # per view: its verdict
         self.desyncs = {}  # desync step: the stage it came in
@@ -120,9 +125,9 @@ class Drive:
             for g, _ in FOLDERS:
                 self.games.send(g, "trace desync")
             self.stage, self.at = "first-run", time.time()
-        elif kind == "viewstate" and k == "1" and e.get("viewer") == 0 and e.get("owner") == 1:
+        elif kind == "viewstate" and k == "1" and e.get("viewer") == 0 and e.get("owner") == self.owner():
             self.view = (e.get("freeze"), e.get("state"), e.get("why"))
-            say("view of Fray2's city: %s at step %s (freeze %s, thaw %s, %s)" % (STATES.get(e.get("state")), e.get("step"),
+            say("view of %s's city: %s at step %s (freeze %s, thaw %s, %s)" % (OWNERS[self.owner()], STATES.get(e.get("state")), e.get("step"),
                 e.get("freeze"), e.get("thaw"), WHY.get(e.get("why"))))
         elif kind == "desynchold" and k == "1":
             d = e.get("desyncStep")
@@ -140,7 +145,7 @@ class Drive:
         if self.stretch > MAX_DESYNCS and self.stage != "ending":
             say("more than %d desyncs in one stretch: the run ends" % MAX_DESYNCS)
             self.end()
-        elif self.stage == "first-run" and now - self.at > FIRST_RUN_S:
+        elif self.stage == "first-run" and now - self.at > self.first_run:
             self.ask()
         elif self.stage in ("asked", "loading", "viewing") and self.view_state() in (3, 4):
             self.over(("cancelled: " if self.view_state() == 3 else "") + WHY.get(self.view[2], str(self.view[2])))
@@ -150,13 +155,13 @@ class Drive:
             self.over("never ran")
         elif self.stage == "loading" and self.view_state() == 2:
             self.stage, self.at = "viewing", now
-        elif self.stage == "viewing" and now - self.at > VIEW_S:
+        elif self.stage == "viewing" and now - self.at > self.plan[len(self.views)][1]:
             self.games.send("1", "closeview")
             self.stage = "closing"
         elif self.stage == "closing" and self.view_state() in (3, 4):
-            self.over("held 2 minutes" if self.view[2] == 0 else WHY.get(self.view[2], str(self.view[2])))
-        elif self.stage == "world" and now - self.at > WORLD_S:
-            if len(self.views) < VIEWS:
+            self.over("held %d s" % self.plan[len(self.views)][1] if self.view[2] == 0 else WHY.get(self.view[2], str(self.view[2])))
+        elif self.stage == "world" and now - self.at > self.plan[len(self.views) - 1][2]:
+            if len(self.views) < len(self.plan):
                 self.ask()
             else:
                 self.end()
@@ -164,13 +169,16 @@ class Drive:
     def view_state(self):
         return self.view[1] if self.view else None
 
+    def owner(self):
+        return self.plan[min(len(self.views), len(self.plan) - 1)][0]
+
     def ask(self):
-        self.games.send("1", "target 1", "view")
+        self.games.send("1", "target %d" % self.owner(), "view")
         self.stage, self.at, self.view, self.stretch = "asked", time.time(), None, 0
 
     def over(self, verdict):
-        self.views.append(verdict)
-        say("VIEW %d: %s" % (len(self.views), verdict))
+        self.views.append("%s's city: %s" % (OWNERS[self.owner()], verdict))
+        say("VIEW %d: %s" % (len(self.views), self.views[-1]))
         self.stage, self.at, self.stretch = "world", time.time(), 0
 
     def end(self):
@@ -183,8 +191,8 @@ class Drive:
 def report(d):
     for i, v in enumerate(d.views, 1):
         say("VIEW %d: %s" % (i, v))
-    if len(d.views) < VIEWS:
-        say("only %d of %d views ran" % (len(d.views), VIEWS))
+    if len(d.views) < len(d.plan):
+        say("only %d of %d views ran" % (len(d.views), len(d.plan)))
     for step in sorted(d.desyncs):
         wrote = sorted(d.traces.get(step, ()))
         say("DESYNC at step %s (%s): trace-%s.txt from %s" % (step, d.desyncs[step], step,
@@ -204,6 +212,9 @@ def main():
     ap.add_argument("--source", default=str(pathlib.Path(os.environ["USERPROFILE"]) / "AppData" / "Roaming" / "songsofsyx"),
                     help="the user's own data folder, which holds the campaign's records and the joiners' reports")
     ap.add_argument("--mods-from", default="", metavar="SOSDET_DIR", help="passed to twopc.py: the branch builds")
+    ap.add_argument("--first-run", type=int, default=60, metavar="S", help="seconds of play before the first view")
+    ap.add_argument("--adam-view", type=int, default=0, metavar="S",
+                    help="first the host views Adam Smasher's city this many seconds, as at 01:55 (0: no)")
     args = ap.parse_args()
     if pathlib.Path(args.source).resolve() == twopc.REAL.resolve():
         sys.exit("view11: set APPDATA to a scratch folder; --source is the real one, read only")
@@ -213,11 +224,12 @@ def main():
     n = prep(pathlib.Path(args.source))
     say("campaign %s, save number %d: the three games resume it" % (CAMPAIGN, n))
     cmd = [sys.executable, str(twopc.ROOT / "tools" / "twopc.py"), "--here", "--local-joiner", "--resume", "--battles",
-           "auto", "--speed", "5", "--steps", "400000", "--tag", "view11", "--timeout", "3600"]
+           "auto", "--speed", "5", "--steps", "2000000", "--tag", "view11", "--timeout",
+           str(3600 + args.first_run + args.adam_view)]
     if args.mods_from:
         cmd += ["--mods-from", args.mods_from]
     games = Games()
-    d = Drive(games)
+    d = Drive(games, args.first_run, args.adam_view)
     p = subprocess.Popen(cmd)
     while p.poll() is None:
         time.sleep(1)
