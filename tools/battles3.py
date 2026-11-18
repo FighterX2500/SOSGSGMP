@@ -736,8 +736,8 @@ def got_spoils(run, w, seconds=60):
 
 
 def captives(run, w):
-    """The captives player w received: what a loser must never get (a destroyed army's own supplies go home as
-    vanilla's spoils shipments too, so goods alone don't tell a winner)."""
+    """The captives player w received: what a player who retreated must never get (goods alone don't tell a winner:
+    an army may send home supplies it doesn't need, as vanilla's spoils shipments)."""
     return [l for l in spoils(run, w) if re.search(r" [1-9]\d* (Human|Captive)", l)]
 
 
@@ -930,8 +930,9 @@ def a_battle(name, title, joiners, watcher=None, outcome="win", retreat=None, sa
                 if left:
                     run.check(not captives(run, left), "%s, who retreated, received no captives" % left)
             elif fight:
+                run.sleep(15)  # a destroyed army is removed, and before SOS-225 shipped its gear home, soon after the result
                 for w in fought:
-                    run.check(not captives(run, w), "%s, beaten, received no captives: %s" % (w, captives(run, w)[:3]))
+                    run.check(not spoils(run, w), "%s, beaten, received no spoils or captives (SOS-225): %s" % (w, spoils(run, w)[:3]))
                 run.check(npc_after, "the NPC army stays: %s (was %s)" % (npc_after, npc_before))
             if not answer:
                 run.check(after[joiners[0]][1] == before[joiners[0]][1], "%s, who never answered, kept its men" % joiners[0])

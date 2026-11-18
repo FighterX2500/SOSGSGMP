@@ -158,6 +158,7 @@ When two players' armies meet, a real-time battle is mandatory. Battles against 
 - **When two players' armies meet**, both players get the prompt with Fight only: no auto-resolve and no retreat. The battle starts when both press Fight, or after 30 seconds. The PC of the player whose army moved into the other builds it (owner, 2026-10-27; SOS-83).
 - **Each side's commanders.** In a battle between players each player commands their own army; the host's AI commands only NPC divisions. Each player deploys in their own area, the second army's mirrored from the first's, and the battle starts when every commander has pressed Start, or after 2 minutes. Every player's divisions fight with that player's own technology, levels and other bonuses, an ally's included (SOS-83).
 - **The result** of a battle between players goes to the winning side, whichever of the two armies won. Each winning player gets the window to choose captives and spoils, with the 30-second default; the losing players get a window with the losses, for information. Captives and spoils are counted from the battle itself, so every PC has the same numbers, a beaten sally included. With allies they are split by the men each player brought, and what doesn't divide evenly goes to the player who brought the most. Each player's losses reach their own city once (SOS-83).
+- **Gear after a battle.** As in vanilla, survivors keep their gear, the dead lose it, and a loser gets nothing back: no caravan of spoils goes to a beaten player's city. This holds for every battle, auto-resolved or fought in real time, against NPCs or players, the same on every PC (owner, 2026-11-18; SOS-225).
 - **Battles against NPC armies** can be fought in real time, as in vanilla (owner, 2026-10-30; SOS-93):
   - Only the fighting player's PC runs the battle, with vanilla's battle AI, battle speeds and pause, on the battle's own clock. The fighting player alone sets the speed and pauses.
   - The world doesn't pause: it runs at 1× for everyone while the battle lasts (section 4).
@@ -608,6 +609,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-16 | **Linux and macOS:** the mod runs on Windows, Linux (the Steam Deck too) and macOS; on macOS, Steam P2P goes through Valve's relays only (spec 0.67; section 3). | SOS-157, PR #118 |
 | 2026-11-16 | **A removed player joins again** as a new player, with a new city-state, while the game runs; an eliminated player still comes back only to watch, at a resume (spec 0.70; sections 11, 15). | Batch 12 |
 | 2026-11-16 | **A resume can freeze its missing players:** starting without them asks the host Freeze them or Remove them; a save of an older version offers Remove them only (spec 0.71; sections 11, 15). | Batch 12 |
+| 2026-11-18 | **Gear after a battle:** survivors keep their gear, the dead lose it, and a loser gets nothing back, no caravan of spoils (section 8). | SOS-225 |
 
 ### Where each v1 feature stands (2026-11-16)
 
