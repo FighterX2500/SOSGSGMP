@@ -1947,6 +1947,85 @@ SCENARIOS.update({
 })
 
 
+def raid_attack(run):
+    """A raider invades H's capital and H presses Attack; returns every game's `allies` line, once one is there."""
+    n = len([e for e in run.events("H", "chatline") if "invaded by Raiders" in e.get("text", "")])
+    say("H:", run.cmd("H", "raidcapital 150"))
+    run.wait(lambda: len([e for e in run.events("H", "chatline") if "invaded by Raiders" in e.get("text", "")]) > n
+             or run.sleep(1), 300, "the raid on H's capital")
+    run.sleep(3)
+    say("H:", run.cmd("H", "invasionattack"))
+    run.sleep(5)
+    seen = {w: run.cmd(w, "allies") for w in WHO}
+    run.check(len(set(seen.values())) == 1, "every game saw the same ally question: %s" % seen["H"])
+    m = re.search(r"asked \[([^\]]*)\]", seen["H"])
+    return [int(v) for v in m.group(1).split(",") if v.strip()] if m else []
+
+
+def win_sally(run, fighters):
+    """The sally runs; `fighters` charge; the raiders' morale is held; H accepts its spoils; every game is home."""
+    wait_state(run, "H", "battle running", 240, "the sally's battle running on H")
+    run.sleep(10)
+    for w in fighters:
+        say(w, run.cmd(w, "charge"))
+    run.sleep(10)
+    r = run.cmd("H", "morale enemy")
+    run.check("held" in r, "the raiders' morale held below zero: %s" % r)
+    closes = len(run.events("H", "battle", what="close"))
+    run.wait(lambda: len(run.events("H", "battle", what="close")) > closes or run.sleep(1), 600, "the sally's end")
+    run.wait(lambda: "MVictory2" in run.cmd("H", "raid") or run.sleep(2), 180, "H's spoils window")
+    say("H:", run.cmd("H", "victoryaccept"))
+    back_in_cities(run)
+    run.sleep(10)
+
+
+def r_colleague(name, title):
+    """R3: L becomes H's colleague (L cancels its treaties with H and proposes a pact; H accepts). L's army 2-3 tiles
+    from H's capital, not stationed, isn't asked to join H's Attack on a raid; once stationed there, it is."""
+    def go():
+        run = start("ALLIES", "b3-" + name)
+        run.position = "ALLIES"
+        ok = False
+        try:
+            run.cmd("L", "target %d" % SLOT["H"])
+            say("L:", run.cmd("L", "cancel"))
+            run.sleep(5)
+            r = run.wait(lambda: (lambda r: r if r.startswith("proposed") else None)(run.cmd("L", "pact")) or run.sleep(3),
+                         120, "L's pact proposal")
+            run.wait(lambda: run.cmd("H", "accept").startswith("accepted 1") or run.sleep(2), 120, "H accepts L's pact")
+            diplo = run.cmd("H", "diplo")
+            say("relations:", diplo)
+            hx, hy = capital(run, "H")
+            lo = near_capital(run, "L", hx, hy, 2, 3)
+            say("L's army", lo)
+            asked = raid_attack(run)
+            run.check(SLOT["L"] not in asked, "L, a colleague whose army isn't stationed, wasn't asked: %s" % asked)
+            win_sally(run, ["H"])
+            r = run.wait(lambda: (lambda r: r if r.startswith("army") or "still" not in r else None)(run.cmd("L", "station"))
+                         or run.sleep(5), 120, "L's army standing still to station")
+            run.check(r.startswith("army"), "L, a colleague, stations its army at H's capital: %s" % r)
+            same_stations(run, "after L stationed")
+            asked = raid_attack(run)
+            run.check(SLOT["L"] in asked, "L's stationed army is asked, though L is only a colleague: %s" % asked)
+            run.wait(lambda: "ally asked true" in state(run, "L") or run.sleep(1), 120, "L's Join prompt")
+            run.shot("L", "L's Join / Stay out prompt as a colleague with a stationed army")
+            run.check("Join" in run.cmd("L", "join"), "L answered Join")
+            win_sally(run, ["H", "L"])
+            say(run.cmd("H", "sallyseen"))
+            ok = run.end()
+        except Failed as e:
+            run.check(False, str(e))
+            run.stop()
+        finish(name, title, run, ok)
+    return go
+
+
+SCENARIOS.update({
+    "R3": ("ALLIES", r_colleague("R3", "a colleague's army near H's capital: not asked to join H's Attack until stationed"),
+           "SOS-233: a stationed army is always asked to join the Attack; a colleague's other army near the capital isn't"),
+})
+
+
 def main():
     global REPORTS
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
