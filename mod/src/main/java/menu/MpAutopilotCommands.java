@@ -633,6 +633,12 @@ final class MpAutopilotCommands {
 			return "allies " + Hooks.worldPromptAlliesSeen();
 		case "sallyseen": // the last sally with allies: its layout, power and each ally's share as shipped (SOS-232)
 			return "sally " + Hooks.sallySeen();
+		case "raidcapital": { // test tooling: the raider nearest <men> (300) invades this player's capital now, at its step on every PC (SOS-232)
+			int men = a.length > 1 ? Integer.parseInt(a[1]) : 300;
+			int raider = sosdet.game.cmd.Events.raiderNearForTest(men);
+			sosdet.game.cmd.Events.raidCapitalForTest(raider);
+			return "raider " + raider + " invades the capital, " + GAME.raiders().ALL().get(raider).army.men + " men";
+		}
 		case "armypower": { // an army's power, as vanilla weighs the sides of a world battle (SOS-162)
 			WArmy w = WORLD.ENTITIES().armies.tryGet(Integer.parseInt(a[1]));
 			return w == null ? "refused: no army " + a[1] : "power " + (long) AD.power().get(w);

@@ -1740,6 +1740,107 @@ SCENARIOS.update({
 })
 
 
+# ------------------------------------------------------------------ R: the Attack against a raid, with allies (SOS-232)
+
+
+def near_capital(run, w, x, y, lo, hi):
+    """w's template army stands lo to hi tiles (the larger of the two axes) from x,y, trying the spots around it."""
+    a = None
+    for dx, dy in ((lo, 0), (-lo, 0), (0, lo), (0, -lo), (lo, lo), (-lo, -lo), (lo, -lo), (-lo, lo), (hi, 0), (0, hi),
+                   (-hi, 0), (0, -hi)):
+        a = place(run, w, x + dx, y + dy)
+        if lo <= max(abs(a[2] - x), abs(a[3] - y)) <= hi:
+            return a
+    raise Failed("%s's army found no tile %d to %d tiles from %d,%d (last %s)" % (w, lo, hi, x, y, a))
+
+
+def r_sally(name, title):
+    """R1: a raider invades H's capital; J's army stands 2-3 tiles from it, L's about 8. H presses Attack: J is asked
+    Join and joins, L isn't asked. H and J win (the raiders' morale held); the spoils are split by power: H keeps its
+    share in vanilla's window, J's goes by caravan; the same on every game."""
+    def go():
+        run = start("ALLIES", "b3-" + name)
+        run.position = "ALLIES"
+        ok = False
+        try:
+            hx, hy = capital(run, "H")
+            j = near_capital(run, "J", hx, hy, 2, 3)
+            lo = near_capital(run, "L", hx, hy, 7, 9)
+            say("H's capital %d,%d; J's army %s, L's %s" % (hx, hy, j, lo))
+            say("H:", run.cmd("H", "raidcapital 150"))
+            run.wait(lambda: any("invaded by Raiders" in e.get("text", "") for e in run.events("H", "chatline")), 300,
+                     "the raid on H's capital")
+            run.sleep(3)
+            say("H:", run.cmd("H", "invasionattack"))
+            l_asked = []
+
+            def j_asked():
+                if "ally asked true" in state(run, "L"):
+                    l_asked.append(True)
+                return "ally asked true" in state(run, "J")
+            run.wait(lambda: j_asked() or run.sleep(1), 120, "J's Join prompt")
+            run.shot("J", "J's Join / Stay out prompt for H's Attack")
+            seen = {w: run.cmd(w, "allies") for w in WHO}
+            for w in WHO:
+                say(w, seen[w])
+            run.check(len(set(seen.values())) == 1, "every game saw the same ally question: %s" % seen["H"])
+            m = re.search(r"asked \[([^\]]*)\]", seen["H"])
+            asked = [int(v) for v in m.group(1).split(",") if v.strip()] if m else []
+            run.check(SLOT["J"] in asked, "J (2-3 tiles from the capital) was asked: %s" % asked)
+            run.check(SLOT["L"] not in asked and not l_asked, "L (about 8 tiles away) wasn't asked: %s" % asked)
+            run.check("Join" in run.cmd("J", "join"), "J answered Join")
+            wait_state(run, "H", "battle running", 240, "the sally's battle running on H")
+            run.sleep(10)
+            run.shot("H", "H's sally with J's divisions")
+            run.shot("J", "J following H's sally")
+            for w in ("H", "J"):
+                say(w, run.cmd(w, "charge"))
+            run.sleep(10)
+            r = run.cmd("H", "morale enemy")
+            run.check("held" in r, "the raiders' morale held below zero: %s" % r)
+            run.wait(lambda: run.events("H", "battle", what="close"), 600, "the sally's end")
+            run.wait(lambda: "MVictory2" in run.cmd("H", "raid") or run.sleep(2), 180, "H's spoils window")
+            run.shot("H", "H's share in vanilla's victory window")
+            say("H:", run.cmd("H", "victoryaccept"))
+            back_in_cities(run)
+            run.sleep(30)
+            sally = {w: run.cmd(w, "sallyseen") for w in WHO}
+            for w in WHO:
+                say(w, sally[w])
+            keeps = re.search(r"; the defender keeps (\d+) of (\d+)", sally["H"])
+            common = {w: re.sub(r"; the defender keeps \d+ of \d+", "", sally[w]) for w in WHO}
+            run.check(len(set(common.values())) == 1, "every game saw the same layout and shares: %s" % common["H"])
+            layout = re.search(r"commanders \[([^\]]*)\], divisions \[[^\]]*\], power \[([^\]]*)\]", common["H"])
+            shares = re.findall(r"human (\d+)'s share from human \d+:([^;]*)", common["H"])
+            run.check(layout and [int(v) for v in layout.group(1).split(",")] == [SLOT["H"], SLOT["J"]],
+                      "the sally's commanders are H and J: %s" % (layout.group(1) if layout else common["H"]))
+            run.check(len(shares) == 1 and int(shares[0][0]) == SLOT["J"], "J's share was shipped once: %s" % shares)
+            if keeps and layout and len(shares) == 1:
+                p = [int(v) for v in layout.group(2).split(",")]
+                total = int(keeps.group(2))
+                got = sum(int(v) for v in re.findall(r"=(\d+)", shares[0][1]))
+                want = total * p[1] / max(sum(p), 1)
+                # each tradable's split rounds, its remainder going to the most power: at most one off per tradable
+                run.check(abs(got - want) < 100 and int(keeps.group(1)) + got == total,
+                          "the split follows the power %s: J got %d of %d (by power %.1f), H keeps %s"
+                          % (p, got, total, want, keeps.group(1)))
+            else:
+                run.check(False, "no split to check on H: %s" % sally["H"])
+            run.check(got_spoils(run, "J", 180), "J's share arrived at J's capital (transfer log)")
+            ok = run.end()
+        except Failed as e:
+            run.check(False, str(e))
+            run.stop()
+        finish(name, title, run, ok)
+    return go
+
+
+SCENARIOS.update({
+    "R1": ("ALLIES", r_sally("R1", "a raid on H's capital: J (2-3 tiles) joins H's Attack, L (8 tiles) isn't asked"),
+           "SOS-232: H attacks a raid on its capital; J near is asked and joins, L far isn't; spoils split by power"),
+})
+
+
 def main():
     global REPORTS
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
