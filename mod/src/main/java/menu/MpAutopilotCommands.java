@@ -98,7 +98,7 @@ import world.map.regions.Region;
  * slot 1's PC); {@code cancel} (every treaty with that player ends at once); {@code pick <n>} (the n-th of this player's
  * armies, from 0, is "the first army" of the army commands); {@code auto on|off} (battles=auto answers this PC's prompts,
  * or leaves them to their time-outs); {@code attacknpc} (the first army intercepts the nearest NPC army at war with this
- * player); {@code diplo} (the relations between the players, their NPC wars and vassals); {@code morale player|enemy|mine|theirs}
+ * player); {@code diplo} (the relations between the players, their NPC wars and vassals, and each one's stance with the others' NPC vassals); {@code morale player|enemy|mine|theirs}
  * (from its step, that side's morale is held below zero until the battle ends, on every PC that runs the battle; it
  * replaces {@code rout} wherever a battle runs on more than one PC, and a view opened after it would desync);
  * {@code recruit <n>} (n of this city's citizens join a new division at once, trained and equipped; then {@code attach});
@@ -1286,7 +1286,10 @@ final class MpAutopilotCommands {
 				+ ", table " + (Hooks.commanders() != null && Hooks.commanders().set());
 	}
 
-	/** Each human's relations with the others, their NPC wars and vassals, for a test's log. */
+	/**
+	 * Each human's relations with the others, their NPC wars and vassals, and their stance with another human's NPC
+	 * vassal ({@code npc-Colleagues}: SOS-140, SOS-226), for a test's log.
+	 */
 	private static String diplo() {
 		StringBuilder b = new StringBuilder();
 		for (int i = 0; i < FACTIONS.MAX(); i++) {
@@ -1300,7 +1303,9 @@ final class MpAutopilotCommands {
 					continue;
 				boolean human = o instanceof game.faction.player.Player;
 				String rel = DIP.WAR().is(h, o) ? "war" : DIP.overlord(o) == h ? "vassal" : DIP.overlord(h) == o ? "overlord"
-						: human && DIP.get(h, o) != null ? DIP.get(h, o).name.toString() : null;
+						: human && DIP.get(h, o) != null ? DIP.get(h, o).name.toString()
+						: DIP.overlord(o) instanceof game.faction.player.Player ? "npc-" + DIP.get(h, o).name.toString().replace(' ', '-')
+						: null;
 				if (rel != null)
 					b.append(' ').append(o.index()).append('=').append(rel);
 			}
