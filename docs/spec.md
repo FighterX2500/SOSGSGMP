@@ -196,6 +196,12 @@ Real-time sieges of player cities are part of v1. A siege runs in three phases:
 
 Vanilla's Attack, which meets the invaders outside the city before their assault, is a real-time battle against NPC armies under section 8: it runs on the defender's PC only, the world runs on at 1×, the defender's city is frozen until it ends, and any other player can watch it. The armies near the capital that join it stand still on the world map until its result applies. If the invaders begin their assault before the battle starts, there is no battle and the defender is told (owner, 2026-11-05; SOS-145).
 
+**Allies in the Attack** (owner, 2026-11-18; SOS-232). When the defender presses Attack, every allied player with an army within 4 tiles of the capital along the map, at war with the invader (raiders count as at war with everyone), is asked with Join and Stay out, as in section 8's "An allied player". No answer in 30 seconds stays out, and a player fighting another battle isn't asked. The defender's armies near the capital and the asked players' armies wait in place until everyone has answered. The battle then runs as a battle against NPC armies with allies (section 8): on the PCs of the defender and of every player who joined, each commanding their own army. The side's division slots are split as in a battle with allies, except that the defender's whole garrison always fits. While another battle prompt is open on the world map, the Attack starts at once and nobody is asked.
+
+- **The raider's stash**, the treasury vanilla pays when a raider is defeated, goes to the defender alone.
+- **Spoils and captives** of a won Attack are split by power: each player's strength at the battle's start, as the game measures it (the power of the armies they brought, and of the garrison for the defender). What doesn't divide evenly goes to the player who brought the most power, and to the defender on a tie. A player whose army left the field before the end gets nothing.
+- The defender chooses their share in vanilla's victory window. Each ally's share goes to their capital by caravan, as a battle's spoils do.
+
 During the siege, the defender can attack the besieging army (sally out) at any time, in every phase before the assault. That creates a real-time field battle under the rules in section 8. When a siege of their capital starts, the defender gets a popup that says the siege has started and that they can sally out at any time. Vanilla's warning when the assault begins, and its offer of one more battle before the city, are left out (owner, 2026-10-29). Allies can lift the siege only by defeating the besieging army.
 
 | City population | Waiting period before assault |
@@ -456,6 +462,7 @@ A v1 feature is accepted when every criterion below passes. **[AT]** marks an au
 - A forced assault desync is detected within 2 seconds, recovered from the host's assault state within 10 seconds, and writes a report. [AT]
 - An NPC invasion of a player's capital doesn't pause the world; every player gets a notification of it, and another player can view the invaded city when its owner allows it. [PT]
 - A player can attack an NPC invasion of their capital before its assault; the world keeps running and stays in sync, and another player can watch the battle. [AT]
+- When a player attacks a raider invasion of their capital, an allied player with an army within 4 tiles of it is asked to join and one further away isn't; a won battle's spoils and captives are split by power, the same on every PC. [AT]
 - The defender can sally out against the besiegers at any time during a siege of their capital, and the popup at the siege's start says so. [PT]
 - An ally's army within 3 tiles of the capital fights in the assault; one further away doesn't. With allied attackers, the player with the most soldiers chooses the outcome, and the spoils are split by soldiers brought. [AT]
 - In an assault each attacker commands only the soldiers they brought, and the defender the city's. A player in the fight can't close the view. [PT]
@@ -608,6 +615,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-16 | **Linux and macOS:** the mod runs on Windows, Linux (the Steam Deck too) and macOS; on macOS, Steam P2P goes through Valve's relays only (spec 0.67; section 3). | SOS-157, PR #118 |
 | 2026-11-16 | **A removed player joins again** as a new player, with a new city-state, while the game runs; an eliminated player still comes back only to watch, at a resume (spec 0.70; sections 11, 15). | Batch 12 |
 | 2026-11-16 | **A resume can freeze its missing players:** starting without them asks the host Freeze them or Remove them; a save of an older version offers Remove them only (spec 0.71; sections 11, 15). | Batch 12 |
+| 2026-11-18 | **Allies in the Attack:** allied players with an army within 4 tiles of a capital are asked to join its Attack against an invasion; the spoils and captives are split by power, and the raider's stash stays the defender's (sections 9, 15). | SOS-232 |
 
 ### Where each v1 feature stands (2026-11-16)
 

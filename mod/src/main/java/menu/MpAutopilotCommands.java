@@ -631,6 +631,8 @@ final class MpAutopilotCommands {
 		}
 		case "allies": // the last battle prompt's ally question as the engine saw it (SOS-162)
 			return "allies " + Hooks.worldPromptAlliesSeen();
+		case "sallyseen": // the last sally with allies: its layout, power and each ally's share as shipped (SOS-232)
+			return "sally " + Hooks.sallySeen();
 		case "armypower": { // an army's power, as vanilla weighs the sides of a world battle (SOS-162)
 			WArmy w = WORLD.ENTITIES().armies.tryGet(Integer.parseInt(a[1]));
 			return w == null ? "refused: no army " + a[1] : "power " + (long) AD.power().get(w);
