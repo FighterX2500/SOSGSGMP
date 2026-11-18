@@ -1962,6 +1962,473 @@ SCENARIOS.update({
 })
 
 
+# ------------------------------------------------------------------ R: the Attack against a raid, with allies (SOS-232)
+
+
+def near_capital(run, w, x, y, lo, hi):
+    """w's template army stands lo to hi tiles (the larger of the two axes) from x,y, trying the spots around it."""
+    a = None
+    for dx, dy in ((lo, 0), (-lo, 0), (0, lo), (0, -lo), (lo, lo), (-lo, -lo), (lo, -lo), (-lo, lo), (hi, 0), (0, hi),
+                   (-hi, 0), (0, -hi)):
+        a = place(run, w, x + dx, y + dy)
+        if lo <= max(abs(a[2] - x), abs(a[3] - y)) <= hi:
+            return a
+    raise Failed("%s's army found no tile %d to %d tiles from %d,%d (last %s)" % (w, lo, hi, x, y, a))
+
+
+def r_sally(name, title):
+    """R1: a raider invades H's capital; J's army stands 2-3 tiles from it, L's about 8. H presses Attack: J is asked
+    Join and joins, L isn't asked. H and J win (the raiders' morale held); the spoils are split by power: H keeps its
+    share in vanilla's window, J's goes by caravan; the same on every game."""
+    def go():
+        run = start("ALLIES", "b3-" + name)
+        run.position = "ALLIES"
+        ok = False
+        try:
+            hx, hy = capital(run, "H")
+            j = near_capital(run, "J", hx, hy, 2, 3)
+            lo = near_capital(run, "L", hx, hy, 7, 9)
+            say("H's capital %d,%d; J's army %s, L's %s" % (hx, hy, j, lo))
+            say("H:", run.cmd("H", "raidcapital 150"))
+            run.wait(lambda: any("invaded by Raiders" in e.get("text", "") for e in run.events("H", "chatline")), 300,
+                     "the raid on H's capital")
+            run.sleep(3)
+            say("H:", run.cmd("H", "invasionattack"))
+            l_asked = []
+
+            def j_asked():
+                if "ally asked true" in state(run, "L"):
+                    l_asked.append(True)
+                return "ally asked true" in state(run, "J")
+            run.wait(lambda: j_asked() or run.sleep(1), 120, "J's Join prompt")
+            run.shot("J", "J's Join / Stay out prompt for H's Attack")
+            seen = {w: run.cmd(w, "allies") for w in WHO}
+            for w in WHO:
+                say(w, seen[w])
+            run.check(len(set(seen.values())) == 1, "every game saw the same ally question: %s" % seen["H"])
+            m = re.search(r"asked \[([^\]]*)\]", seen["H"])
+            asked = [int(v) for v in m.group(1).split(",") if v.strip()] if m else []
+            run.check(SLOT["J"] in asked, "J (2-3 tiles from the capital) was asked: %s" % asked)
+            run.check(SLOT["L"] not in asked and not l_asked, "L (about 8 tiles away) wasn't asked: %s" % asked)
+            run.check("Join" in run.cmd("J", "join"), "J answered Join")
+            wait_state(run, "H", "battle running", 240, "the sally's battle running on H")
+            run.sleep(10)
+            run.shot("H", "H's sally with J's divisions")
+            run.shot("J", "J following H's sally")
+            for w in ("H", "J"):
+                say(w, run.cmd(w, "charge"))
+            run.sleep(10)
+            r = run.cmd("H", "morale enemy")
+            run.check("held" in r, "the raiders' morale held below zero: %s" % r)
+            run.wait(lambda: run.events("H", "battle", what="close"), 600, "the sally's end")
+            run.wait(lambda: "MVictory2" in run.cmd("H", "raid") or run.sleep(2), 180, "H's spoils window")
+            run.shot("H", "H's share in vanilla's victory window")
+            say("H:", run.cmd("H", "victoryaccept"))
+            back_in_cities(run)
+            run.sleep(30)
+            sally = {w: run.cmd(w, "sallyseen") for w in WHO}
+            for w in WHO:
+                say(w, sally[w])
+            keeps = re.search(r"; the defender keeps (\d+) of (\d+)", sally["H"])
+            common = {w: re.sub(r"; the defender keeps \d+ of \d+", "", sally[w]) for w in WHO}
+            run.check(len(set(common.values())) == 1, "every game saw the same layout and shares: %s" % common["H"])
+            layout = re.search(r"commanders \[([^\]]*)\], divisions \[[^\]]*\], power \[([^\]]*)\]", common["H"])
+            shares = re.findall(r"human (\d+)'s share from human \d+:([^;]*)", common["H"])
+            run.check(layout and [int(v) for v in layout.group(1).split(",")] == [SLOT["H"], SLOT["J"]],
+                      "the sally's commanders are H and J: %s" % (layout.group(1) if layout else common["H"]))
+            run.check(len(shares) == 1 and int(shares[0][0]) == SLOT["J"], "J's share was shipped once: %s" % shares)
+            if keeps and layout and len(shares) == 1:
+                p = [int(v) for v in layout.group(2).split(",")]
+                total = int(keeps.group(2))
+                got = sum(int(v) for v in re.findall(r"=(\d+)", shares[0][1]))
+                want = total * p[1] / max(sum(p), 1)
+                # each tradable's split rounds, its remainder going to the most power: at most one off per tradable
+                run.check(abs(got - want) < 100 and int(keeps.group(1)) + got == total,
+                          "the split follows the power %s: J got %d of %d (by power %.1f), H keeps %s"
+                          % (p, got, total, want, keeps.group(1)))
+            else:
+                run.check(False, "no split to check on H: %s" % sally["H"])
+            run.check(got_spoils(run, "J", 180), "J's share arrived at J's capital (transfer log)")
+            ok = run.end()
+        except Failed as e:
+            run.check(False, str(e))
+            run.stop()
+        finish(name, title, run, ok)
+    return go
+
+
+SCENARIOS.update({
+    "R1": ("ALLIES", r_sally("R1", "a raid on H's capital: J (2-3 tiles) joins H's Attack, L (8 tiles) isn't asked"),
+           "SOS-232: H attacks a raid on its capital; J near is asked and joins, L far isn't; spoils split by power"),
+})
+
+
+def stations(run, w):
+    """The stationed armies game w lists, as its `stations` line."""
+    return run.cmd(w, "stations")
+
+
+def same_stations(run, what):
+    """Every game lists the same stationed armies, once a moment passed for the step to apply; returns H's line."""
+    run.sleep(3)
+    seen = {w: stations(run, w) for w in WHO}
+    run.check(len(set(seen.values())) == 1, "%s: every game lists the same stationed armies: %s" % (what, seen["H"]))
+    return seen["H"]
+
+
+def chat_has(run, text):
+    return all(any(text in e.get("text", "") for e in run.events(w, "chatline")) for w in WHO)
+
+
+def r_station(name, title):
+    """R2: J's army (2-3 tiles from H's capital) is stationed there; L's (7-9 tiles) is refused. H supplies J's army
+    from H's stockpiles. The campaign is saved and resumed with the stationing in it. H sends J's army away; J stations
+    it again and moves it, which ends it. Every game lists the same stationed armies after each change."""
+    def go():
+        run = start("ALLIES", "b3-" + name)
+        run.position = "ALLIES"
+        ok = False
+        try:
+            hx, hy = capital(run, "H")
+            j = near_capital(run, "J", hx, hy, 2, 3)
+            lo = near_capital(run, "L", hx, hy, 7, 9)
+            say("H's capital %d,%d; J's army %s, L's %s" % (hx, hy, j, lo))
+            run.sleep(20)  # an army stands still (fortifying) a moment after its teleport
+            for w in ("J", "L"):
+                run.cmd(w, "target %d" % SLOT["H"])
+            r = run.cmd("L", "station")
+            run.check(r.startswith("refused") and "within 3 tiles" in r, "L's army, 7-9 tiles away, is refused: %s" % r)
+            r = run.wait(lambda: (lambda r: r if r.startswith("army") or "still" not in r else None)(run.cmd("J", "station"))
+                         or run.sleep(5), 120, "J's army standing still to station")
+            run.check(r.startswith("army"), "J stations its army at H's capital: %s" % r)
+            run.wait(lambda: chat_has(run, "stationed an army at the capital of") or run.sleep(1), 60, "the chat's stationing line")
+            line = same_stations(run, "after J stationed")
+            run.check(line.count("[%d at %d army %d " % (SLOT["J"], SLOT["H"], j[0])) == 1,
+                      "J's army %d is stationed at H's capital: %s" % (j[0], line))
+            before = int(re.search(r"supplies (\d+)", line).group(1)) if "supplies" in line else -1
+            run.cmd("H", "target %d" % SLOT["J"])
+            r = run.cmd("H", "stationsupply")
+            run.check(r.startswith("supplies"), "H supplies J's stationed army: %s" % r)
+            run.wait(lambda: chat_has(run, "supplied the army of") or run.sleep(1), 60, "the chat's supply line")
+            run.sleep(15)  # the supplies reach the army with H's next report
+            line = same_stations(run, "after H's Supply")
+            after = int(re.search(r"supplies (\d+)", line).group(1)) if "supplies" in line else -1
+            run.check(after >= before >= 0, "J's army's supplies after H's Supply: %d (were %d; full stays full)" % (after, before))
+            r = run.cmd("H", "save")
+            run.wait(lambda: all(any(e["status"].startswith("Campaign saved") for e in run.events(w, "save")) for w in WHO),
+                     600, "every game's campaign save")
+            ok = run.end(after=5)
+        except Failed as e:
+            run.check(False, str(e))
+            run.stop()
+        finish(name, title, run, ok)
+        if ok:
+            station_resume(name, j[0])
+    return go
+
+
+def station_resume(name, army):
+    """R2's second half: the saved campaign resumes with J's army stationed; H sends it away; J stations it again and
+    moves it off, which ends it."""
+    t0 = time.time() * 1000  # the resume reuses the last run's folders: their old "go" events don't count
+    run = Run("b3-%s-resume" % name)
+    ok = False
+    try:
+        run.wait(lambda: all(any(e.get("t", 0) >= t0 for e in run.events(w, "go")) for w in WHO) or run.sleep(1), 300,
+                 "every game playing after the resume")
+        line = same_stations(run, "after the resume")
+        run.check("[%d at %d army %d " % (SLOT["J"], SLOT["H"], army) in line, "the resume keeps J's army stationed: %s" % line)
+        run.cmd("H", "target %d" % SLOT["J"])
+        r = run.cmd("H", "stationend")
+        run.check(r.startswith("ends"), "H sends J's army away: %s" % r)
+        run.wait(lambda: chat_has(run, ": sent away.") or run.sleep(1), 60, "the chat's sent-away line")
+        line = same_stations(run, "after H sent J's army away")
+        run.check(line == "stations:", "nothing is stationed after H sent it away: %s" % line)
+        mine = armies(run, "J")
+        run.cmd("J", "pick %d" % [a[0] for a in mine].index(army))
+        run.cmd("J", "target %d" % SLOT["H"])
+        r = run.cmd("J", "station")
+        run.check(r.startswith("army"), "J stations its army again: %s" % r)
+        same_stations(run, "after J stationed again")
+        hx, hy = capital(run, "H")
+        place_picked(run, "J", hx + 6, hy)
+        run.wait(lambda: chat_has(run, ": it moved.") or run.sleep(1), 120, "the chat's moved line")
+        line = same_stations(run, "after J's army moved")
+        run.check(line == "stations:", "moving the army ends its stationing: %s" % line)
+        ok = run.end(after=20)
+    except Failed as e:
+        run.check(False, str(e))
+        run.stop()
+    finish(name + "-resume", "R2 resumed: sent away, stationed again, moved", run, ok)
+
+
+SCENARIOS.update({
+    "R2": ("ALLIES", r_station("R2", "J stations an army at H's capital; L is too far; H supplies it; a save and a resume; "
+                                     "H sends it away; J's move ends it"),
+           "SOS-233: stationing at a capital: the 3-tile rule, the host's Supply, a resume, Send away, a move ends it"),
+})
+
+
+def raid_attack(run):
+    """A raider invades H's capital and H presses Attack; returns every game's `allies` line, once one is there."""
+    n = len([e for e in run.events("H", "chatline") if "invaded by Raiders" in e.get("text", "")])
+    say("H:", run.cmd("H", "raidcapital 150"))
+    run.wait(lambda: len([e for e in run.events("H", "chatline") if "invaded by Raiders" in e.get("text", "")]) > n
+             or run.sleep(1), 300, "the raid on H's capital")
+    run.sleep(3)
+    say("H:", run.cmd("H", "invasionattack"))
+    run.sleep(5)
+    seen = {w: run.cmd(w, "allies") for w in WHO}
+    run.check(len(set(seen.values())) == 1, "every game saw the same ally question: %s" % seen["H"])
+    m = re.search(r"asked \[([^\]]*)\]", seen["H"])
+    return [int(v) for v in m.group(1).split(",") if v.strip()] if m else []
+
+
+def win_sally(run, fighters):
+    """The sally runs; `fighters` charge; the raiders' morale is held; H accepts its spoils; every game is home."""
+    wait_state(run, "H", "battle running", 240, "the sally's battle running on H")
+    run.sleep(10)
+    for w in fighters:
+        say(w, run.cmd(w, "charge"))
+    run.sleep(10)
+    r = run.cmd("H", "morale enemy")
+    run.check("held" in r, "the raiders' morale held below zero: %s" % r)
+    closes = len(run.events("H", "battle", what="close"))
+    run.wait(lambda: len(run.events("H", "battle", what="close")) > closes or run.sleep(1), 600, "the sally's end")
+    run.wait(lambda: "MVictory2" in run.cmd("H", "raid") or run.sleep(2), 180, "H's spoils window")
+    say("H:", run.cmd("H", "victoryaccept"))
+    back_in_cities(run)
+    run.sleep(10)
+
+
+def r_colleague(name, title):
+    """R3: L becomes H's colleague (L cancels its treaties with H and proposes a pact; H accepts). L's army 2-3 tiles
+    from H's capital, not stationed, isn't asked to join H's Attack on a raid; once stationed there, it is."""
+    def go():
+        run = start("ALLIES", "b3-" + name)
+        run.position = "ALLIES"
+        ok = False
+        try:
+            run.cmd("L", "target %d" % SLOT["H"])
+            say("L:", run.cmd("L", "cancel"))
+            run.sleep(5)
+            r = run.wait(lambda: (lambda r: r if r.startswith("proposed") else None)(run.cmd("L", "pact")) or run.sleep(3),
+                         120, "L's pact proposal")
+            run.wait(lambda: run.cmd("H", "accept").startswith("accepted 1") or run.sleep(2), 120, "H accepts L's pact")
+            diplo = run.cmd("H", "diplo")
+            say("relations:", diplo)
+            hx, hy = capital(run, "H")
+            lo = near_capital(run, "L", hx, hy, 2, 3)
+            say("L's army", lo)
+            asked = raid_attack(run)
+            run.check(SLOT["L"] not in asked, "L, a colleague whose army isn't stationed, wasn't asked: %s" % asked)
+            win_sally(run, ["H"])
+            r = run.wait(lambda: (lambda r: r if r.startswith("army") or "still" not in r else None)(run.cmd("L", "station"))
+                         or run.sleep(5), 120, "L's army standing still to station")
+            run.check(r.startswith("army"), "L, a colleague, stations its army at H's capital: %s" % r)
+            same_stations(run, "after L stationed")
+            asked = raid_attack(run)
+            run.check(SLOT["L"] in asked, "L's stationed army is asked, though L is only a colleague: %s" % asked)
+            run.wait(lambda: "ally asked true" in state(run, "L") or run.sleep(1), 120, "L's Join prompt")
+            run.shot("L", "L's Join / Stay out prompt as a colleague with a stationed army")
+            run.check("Join" in run.cmd("L", "join"), "L answered Join")
+            win_sally(run, ["H", "L"])
+            say(run.cmd("H", "sallyseen"))
+            ok = run.end()
+        except Failed as e:
+            run.check(False, str(e))
+            run.stop()
+        finish(name, title, run, ok)
+    return go
+
+
+SCENARIOS.update({
+    "R3": ("ALLIES", r_colleague("R3", "a colleague's army near H's capital: not asked to join H's Attack until stationed"),
+           "SOS-233: a stationed army is always asked to join the Attack; a colleague's other army near the capital isn't"),
+})
+
+
+STATION_DIV = re.compile(r"\[div (\d+) of (\d+) men (\d+) target (\d+) mustered (\w+) at (-?\d+),(-?\d+) selectable (\w+)\]")
+
+
+def stationdivs(run, w):
+    """The divisions of the city w's game runs that hold a stationed army's soldiers, as (div, owner, men, target,
+    mustered, x, y, selectable) tuples, with the raw line."""
+    line = run.cmd(w, "stationdivs")
+    return [(int(m[0]), int(m[1]), int(m[2]), int(m[3]), m[4] == "true", int(m[5]), int(m[6]), m[7] == "true")
+            for m in STATION_DIV.findall(line)], line
+
+
+def stationed_men(line, owner, host, army):
+    m = re.search(r"\[%d at %d army %d men (\d+)" % (owner, host, army), line)
+    return int(m.group(1)) if m else -1
+
+
+def stationed_command(run, before, when, timeout):
+    """J's divisions come into H's city: H's game and J's view hold the same ones, J's, with men, mustered, no more men
+    than J's army had (`before`), selectable on J's game only. J orders one 4 tiles off and it moves on H's game; H's
+    order for it does nothing."""
+    run.wait(lambda: stationdivs(run, "H")[0] or run.sleep(2), timeout, "J's soldiers in H's city " + when)
+    run.sleep(5)
+    on_h, h_line = stationdivs(run, "H")
+    on_j, j_line = stationdivs(run, "J")
+    say("H:", h_line)
+    say("J:", j_line)
+    run.check([d[:5] for d in on_h] == [d[:5] for d in on_j], "H's game and J's view hold the same stationed divisions")
+    run.check(all(d[1] == SLOT["J"] and d[2] > 0 and d[4] for d in on_h), "each is J's, with men, mustered: %s" % h_line)
+    run.check(sum(d[2] for d in on_h) <= before, "no more men than J's army has: %d of %d"
+              % (sum(d[2] for d in on_h), before))
+    run.check(all(d[7] for d in on_j) and not any(d[7] for d in on_h),
+              "only J can select them (J %s, H %s)" % ([d[7] for d in on_j], [d[7] for d in on_h]))
+    run.shot("J", "J's view of H's city: J's soldiers beside the throne " + when)
+    if not on_j:
+        return
+    div, cx, cy = on_j[0][0], on_j[0][5], on_j[0][6]
+    tx, ty = cx + 4, cy + 4
+    say("J:", run.cmd("J", "order %d %d %d" % (div, tx, ty)))
+
+    def moved():
+        d = [d for d in stationdivs(run, "H")[0] if d[0] == div]
+        return d and abs(d[0][5] - (tx + 6)) <= 8 and abs(d[0][6] - ty) <= 8
+    run.wait(lambda: moved() or run.sleep(2), 180, "J's order moving division %d on H's game" % div)
+    r = run.cmd("H", "order %d %d %d" % (div, cx - 10, cy))
+    run.check(r.startswith("0 divisions"), "H can't order J's division while J views the city: %s" % r)
+
+
+def after_fight(run, j, before):
+    """Once J's soldiers have left H's city: every game lists the same stationed armies, and J's army has lost its dead."""
+    run.sleep(20)  # the dead reach J's army with H's next report
+    line = same_stations(run, "after the fight")
+    after = stationed_men(line, SLOT["J"], SLOT["H"], j[0])
+    run.check(0 <= after <= before, "J's army after the fight: %d men (had %d)" % (after, before))
+    say("H:", run.cmd("H", "pop"))
+
+
+def station_j(run, hx, hy):
+    """J's army stands 2-3 tiles from H's capital and is stationed there; returns (army, its men)."""
+    j = near_capital(run, "J", hx, hy, 2, 3)
+    say("H's capital %d,%d; J's army %s" % (hx, hy, j))
+    run.sleep(20)  # an army stands still (fortifying) a moment after its teleport
+    run.cmd("J", "target %d" % SLOT["H"])
+    r = run.wait(lambda: (lambda r: r if r.startswith("army") or "still" not in r else None)(run.cmd("J", "station"))
+                 or run.sleep(5), 120, "J's army standing still to station")
+    run.check(r.startswith("army"), "J stations its army at H's capital: %s" % r)
+    line = same_stations(run, "after J stationed")
+    before = stationed_men(line, SLOT["J"], SLOT["H"], j[0])
+    run.check(before > 0, "J's stationed army has %d men" % before)
+    return j, before
+
+
+def r_defend(name, title):
+    """R4: J's army, stationed at H's capital, fights a raid in H's city. J's game views H's city by itself; as the
+    raiders deploy, J's divisions come in beside H's throne, mustered, the same on H's game and J's view, and only J
+    can select them. J orders one and it moves on H's game too; H's order for it does nothing. Both charge; as the
+    invasion ends the soldiers leave H's city, and J's army has lost its dead, the same on every game."""
+    def go():
+        run = start("ALLIES", "b3-" + name)
+        run.position = "ALLIES"
+        ok = False
+        try:
+            hx, hy = capital(run, "H")
+            j, before = station_j(run, hx, hy)
+            n = len([e for e in run.events("H", "chatline") if "invaded by Raiders" in e.get("text", "")])
+            say("H:", run.cmd("H", "raidcapital 150"))
+            run.wait(lambda: len([e for e in run.events("H", "chatline") if "invaded by Raiders" in e.get("text", "")]) > n
+                     or run.sleep(1), 300, "the raid on H's capital")
+            run.wait(lambda: any("fights in their city" in e.get("text", "") for e in run.events("J", "chatline"))
+                     or run.sleep(1), 60, "J's chat line: its stationed army fights in H's city")
+            run.wait(lambda: "viewing true" in state(run, "J") or run.sleep(2), 300, "J's game viewing H's city by itself")
+            stationed_command(run, before, "as the raiders deploy", 900)
+            for w in ("H", "J"):
+                say(w, run.cmd(w, "charge"))
+            run.wait(lambda: not stationdivs(run, "H")[0] or run.sleep(5), 1800, "the invasion's end: J's soldiers leave")
+            run.check(not stationdivs(run, "J")[0] or "viewing false" in state(run, "J"),
+                      "J's view holds no stationed soldiers either")
+            after_fight(run, j, before)
+            ok = run.end(after=10)
+        except Failed as e:
+            run.check(False, str(e))
+            run.stop()
+        finish(name, title, run, ok)
+    return go
+
+
+SCENARIOS.update({
+    "R4": ("ALLIES", r_defend("R4", "J's stationed army defends H's city against a raid, commanded from J's view"),
+           "SOS-234: a stationed army's soldiers fight an invasion in the host's city; their player commands them; the dead"
+           " come off the world army"),
+})
+
+
+def declare_war(run, w, on):
+    """w cancels its treaties with `on` and declares war on them."""
+    run.cmd(w, "target %d" % SLOT[on])
+    say(w, run.cmd(w, "cancel"))
+    run.sleep(5)
+    r = run.wait(lambda: (lambda r: r if not r.startswith("refused") else None)(run.cmd(w, "war")) or run.sleep(3), 120,
+                 "%s's war on %s" % (w, on))
+    run.check(r.startswith("war declared"), "%s declares war on %s: %s" % (w, on, r))
+
+
+def r_assault(name, title):
+    """R5: J's army is stationed at H's capital. L declares war on H, and J on L. L's army besieges H's capital, the
+    siege's wait is cut short and L storms it. As the assault's invaders deploy, J's divisions come into H's city, the
+    same on H's game and J's view; only J selects them, J's order moves one, H's does nothing; the commanders table stays
+    the same on every game (no desync). Everyone charges a while, then L retreats; J's soldiers leave H's city and J's
+    army has lost its dead."""
+    def go():
+        run = start("ALLIES", "b3-" + name)
+        run.position = "ALLIES"
+        ok = False
+        try:
+            hx, hy = capital(run, "H")
+            j, before = station_j(run, hx, hy)
+            declare_war(run, "L", "H")
+            declare_war(run, "J", "L")
+            say("relations:", run.cmd("H", "diplo"))
+            line = same_stations(run, "after the wars")
+            run.check(stationed_men(line, SLOT["J"], SLOT["H"], j[0]) > 0, "J's army is still stationed: %s" % line)
+            lo = near_capital(run, "L", hx, hy, 4, 6)
+            pick_army(run, "L", lo[0])
+            run.cmd("L", "target %d" % SLOT["H"])
+            r = run.cmd("L", "besiege")
+            run.check("besieging" in r, "L besieges H's capital: %s" % r)
+            run.wait(lambda: "my capital besieged true" in status(run, "H") or run.sleep(2), 300, "H's capital besieged")
+            run.sleep(10)
+            say("L:", run.cmd("L", "siegewait"))
+            run.sleep(5)
+            r = run.wait(lambda: (lambda r: r if not r.startswith("refused") else None)(run.cmd("L", "storm"))
+                         or run.sleep(3), 180, "L's Storm accepted")
+            run.check("Storm" in r, "L storms H's capital: %s" % r)
+            run.wait(lambda: "now " in run.cmd("H", "assault") and "now null" not in run.cmd("H", "assault")
+                     or run.sleep(3), 300, "the assault running")
+            stationed_command(run, before, "with the assault", 600)
+            say("H:", run.cmd("H", "state"))
+            for w in WHO:
+                say(w, run.cmd(w, "charge"))
+            run.sleep(30)
+            for w in WHO:
+                run.shot(w, "%s during the assault with J's soldiers in it" % w)
+            if "now null" not in run.cmd("H", "assault"):
+                say("L:", run.cmd("L", "assaultretreat"))
+            run.wait(lambda: "now null" in run.cmd("H", "assault") or run.sleep(5), 600, "the assault over")
+            run.wait(lambda: not stationdivs(run, "H")[0] or run.sleep(5), 300, "J's soldiers leaving H's city")
+            back_in_cities(run)
+            after_fight(run, j, before)
+            ok = run.end(after=10)
+        except Failed as e:
+            run.check(False, str(e))
+            run.stop()
+        finish(name, title, run, ok)
+    return go
+
+
+SCENARIOS.update({
+    "R5": ("ALLIES", r_assault("R5", "J's stationed army defends H's city in L's assault, commanded by J"),
+           "SOS-234: a stationed army's soldiers in a player's assault on the host's capital, commanded by their player"),
+})
+
+
 def main():
     global REPORTS
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)

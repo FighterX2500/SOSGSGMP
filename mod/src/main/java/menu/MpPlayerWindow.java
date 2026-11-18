@@ -42,7 +42,7 @@ import world.region.RD;
 /**
  * SOSGSGMP: another player's faction window, beside vanilla's faction list as an NPC's is (spec §6; SOS-76). Vanilla's
  * window works only on an NPC, so this one is built from the same parts for a player: the banner header, which says
- * "Player" where vanilla shows the stance, and the tabs Realm, Goods, Boosts and Diplomacy. There is no Court: a player
+ * "Player" where vanilla shows the stance, and the tabs Realm, Goods, Boosts, Diplomacy and Armies (stationing, SOS-233). There is no Court: a player
  * has no court. A new window is made at each open; vanilla's list clears the old one.
  */
 final class MpPlayerWindow extends ISidePanel {
@@ -96,6 +96,7 @@ final class MpPlayerWindow extends ISidePanel {
 			}
 		}.setDim(TAB_WIDTH, tabH));
 		tabs.addRightC(0, tab(Dic.¤¤Diplomacy, dip));
+		tabs.addRightC(0, tab(Dic.¤¤Armies, new MpStationing(f.index(), WIDTH))); // stationing (SOS-233)
 		section.addRelBody(8, DIR.S, tabs);
 		section.addRelBody(0, DIR.S, new RENDEROBJ.RenderImp(WIDTH - 128, 16) {
 			@Override

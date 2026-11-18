@@ -7,6 +7,7 @@ import sosdet.Assault;
 import sosdet.game.siege.AssaultTerms;
 import sosdet.BattleOutcome;
 import sosgsgmp.game.EnginePlay;
+import sosgsgmp.game.PlayerStations;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
@@ -246,8 +247,11 @@ final class MpPlay implements ACTION {
 			String text = MpAssaultOutcome.invasionText(engine.factionName(slot), engine.factionName((int) n[2]));
 			log.line("invasion at step " + n[0] + ": " + text);
 			String line = MpAssaultOutcome.invasionText(notices.name(slot), engine.factionName((int) n[2]));
-			if (slot == setup.factions().slotOf(setup.localPlayerId()))
+			int me = setup.factions().slotOf(setup.localPlayerId());
+			if (slot == me)
 				setup.chat().notice(line);
+			else if (me >= 0 && PlayerStations.fights(me, slot, (int) n[2]))
+				views.defend(slot, line); // spec §9: a stationed army fights in their city, commanded from a view (SOS-234)
 			else
 				setup.chat().notice(line + " Click here to open their window and View city.", slot);
 		}
