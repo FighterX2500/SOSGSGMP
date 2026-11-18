@@ -38,6 +38,7 @@ import sosdet.Engine;
 import sosdet.Hooks;
 import sosdet.game.AiHooks;
 import sosdet.game.OwnArmy;
+import sosdet.game.cmd.Events;
 import sosdet.game.cmd.MapBattles;
 import sosdet.game.cmd.Sieges;
 import sosdet.game.cmd.StepPrompts;
@@ -88,6 +89,9 @@ import world.map.regions.Region;
  * tooling: this PC's divisions in its battle fight on their own); {@code rout} (test tooling: on this PC, the enemy
  * divisions' morale stays below zero until the battle ends, so they desert; only for a battle nobody watches);
  * {@code raid} (this city's invasion, this player's raid and its state, the raiders, the treasury, the last messages);
+ * {@code raidally} (test tooling: a free raider raids this player through its weakest NPC neighbour that trades with
+ * it, made strong enough to destroy that neighbour, whose Help message then shows; SOS-223); {@code allyhelp} (that
+ * message's Request Assistance, as its button);
  * {@code victoryaccept} (the Accept of the newest won invasion's spoils message, with every lot selected);
  * {@code nextmessage} (the open message closes, as its close button, and the next queued one opens); {@code ui look X Y}
  * (the world map centred on tile X Y, SOS-187).
@@ -689,6 +693,22 @@ final class MpAutopilotCommands {
 			return "the enemy's morale stays below zero on this PC until the battle ends";
 		case "raid":
 			return raid();
+		case "raidally": { // test tooling (SOS-223): a raid through an NPC neighbour, which the raider destroys if asked
+			if (call(call(GAME.raiders(), "current"), "current") != null)
+				return "refused: this player is raided already";
+			int[] spot = Events.raidAllySpotForTest();
+			if (spot == null)
+				return "refused: no NPC neighbour that trades with this player";
+			int raider = Events.raiderFreeForTest();
+			if (raider < 0)
+				return "refused: no free raider";
+			Faction f = FACTIONS.getByIndex(spot[2]);
+			Events.raidAllyForTest(raider, spot[0], spot[1], spot[2]);
+			return "raider " + raider + " raids through " + f.name + " (" + f.index() + ", capital region "
+					+ f.capitolRegion().index() + ") at " + spot[0] + "," + spot[1] + ", at its step on every PC";
+		}
+		case "allyhelp": // test tooling (SOS-223): the ally's Help message's Request Assistance, as its button
+			return Events.allyHelpForTest() ? "help asked, at its step on every PC" : "refused: no raid";
 		case "victoryaccept":
 			return victoryAccept();
 		case "close": // the battle panel's Close while battles answer by their time-outs (B5, SOS-162)
