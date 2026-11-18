@@ -1740,6 +1740,228 @@ SCENARIOS.update({
 })
 
 
+# ------------------------------------------------------------------ RV: a battle's restart by vote (SOS-231)
+
+
+RESULT_WAIT = 30 + 40  # a vote's 30 s, then its result on every PC
+
+
+def chat_since(run, w, t0, text):
+    """w's chat lines since t0 (ms) that hold `text`."""
+    return [e for e in run.events(w, "chatline") if e.get("t", 0) >= t0 and text in e.get("text", "")]
+
+
+def battle_kind(run, w):
+    """The kind of battle w sees ("battle", "local battle", "assault"), from its `restartstate`; None for none."""
+    m = re.match(r"battle (-?\d+)", run.cmd(w, "restartstate"))
+    k = int(m.group(1)) if m else -1
+    return None if k < 0 else ("battle", "local battle", "assault")[(k >> 8) & 3]
+
+
+def men(run, w):
+    """The men on each side of the battle w runs, as (army 0, army 1)."""
+    m = re.search(r"player (\d+), enemy (\d+)", run.cmd(w, "battlemen"))
+    return (int(m.group(1)), int(m.group(2))) if m else (-1, -1)
+
+
+def restart_vote(run, caller, answers, how="panel"):
+    """`caller` calls a vote to restart the battle it sees, with the panel's Restart battle or (how="battle") the
+    battle's own Restart; `answers` gives each other player's yes, no or none. Returns (passed, t0, seconds to the
+    result) once every PC heard the result."""
+    t0 = time.time() * 1000
+    r = run.cmd(caller, "restartcall" + (" battle" if how == "battle" else ""))
+    run.check("called" in r or "pressed" in r, "%s calls a restart vote with the %s's Restart: %s"
+              % (caller, "battle" if how == "battle" else "panel", r))
+    run.wait(lambda: all(chat_since(run, w, t0, "calls a vote to restart") for w in WHO) or run.sleep(1), 30,
+             "the vote's opening on every PC")
+    run.check(True, "every PC heard the vote open: %s" % chat_since(run, "H", t0, "calls a vote")[0]["text"])
+    for w, a in answers.items():
+        r = run.cmd(w, "restartanswer " + a)
+        run.check(r.startswith("vote"), "%s answers %s: %s" % (w, a, r))
+    words = ("The vote passed", "failed:", "was called off")
+    run.wait(lambda: all(any(chat_since(run, w, t0, x) for x in words) for w in WHO) or run.sleep(1), RESULT_WAIT,
+             "the vote's result on every PC")
+    took = time.time() - t0 / 1000
+    passed = all(chat_since(run, w, t0, "The vote passed") for w in WHO)
+    say("restart vote:", {w: [e["text"] for e in run.events(w, "chatline") if e.get("t", 0) >= t0][-3:] for w in WHO})
+    return passed, t0, took
+
+
+def no_restart(run, t0, pcs, what):
+    """PASS criterion: a vote that failed restarts nothing; the battle runs on on every PC in `pcs`."""
+    run.sleep(8)
+    heard = [w for w in WHO if chat_since(run, w, t0, "The vote restarts")]
+    deploying = [w for w in pcs if "battle deploying" in state(run, w)]
+    run.check(not heard and not deploying, "%s: nothing restarted (restart notice on %s, deploying again on %s)"
+              % (what, heard or "no PC", deploying or "no PC"))
+
+
+def restarted(run, t0, what):
+    """PASS criterion: every PC hears that the vote restarted the battle (the engine's notice, at one step)."""
+    run.wait(lambda: all(chat_since(run, w, t0, "The vote restarts") or chat_since(run, w, t0, "couldn't restart")
+                         for w in WHO) or run.sleep(1), 120, "the restart's notice on every PC")
+    run.check(all(chat_since(run, w, t0, "The vote restarts") for w in WHO), "%s: every PC hears it restarted: %s"
+              % (what, {w: [e["text"] for e in chat_since(run, w, t0, "restart")][-1:] for w in WHO}))
+
+
+def rejoins(run, w):
+    """How often w's view loaded the owner's game again for a restart (MpViews' log line)."""
+    return run.log(w).count("as the battle restarts")
+
+
+def with_battle_hook(hook, go):
+    """Runs go() with `hook(run)` called where the scenario's battle_outage runs (once the battle or the assault
+    runs), before the outage itself: a way into npc_battle and assault without changing them."""
+    global battle_outage
+    original = battle_outage
+
+    def at_outage(run):
+        hook(run)
+        original(run)
+    battle_outage = at_outage
+    try:
+        return go()
+    finally:
+        battle_outage = original
+
+
+def rv1():
+    """RV1 (WAR): a battle between players. No, then no answer in 30 s, restart nothing; then a Yes restarts it on every
+    PC, back at deployment with every man back, and it is fought to its end with the same hashes."""
+    name, title = "RV1", "restart votes in a battle between players: No, no answer, then Yes"
+    run = start("WAR", "b3-" + name)
+    run.position = "WAR"
+    ok = False
+
+    def in_battle():
+        first = {w: men(run, w) for w in WHO}
+        run.check(all(battle_kind(run, w) == "battle" for w in WHO), "every PC sees a battle between players")
+        # step 2: No (a tie needs an even number of players: three can't tie; RestartTallyTest covers it)
+        passed, t0, _ = restart_vote(run, "H", {"J": "no", "L": "no"}, how="battle")
+        run.check(not passed and all(chat_since(run, w, t0, "failed:") for w in WHO),
+                  "No: 1 of 3 said Yes, the vote failed on every PC")
+        no_restart(run, t0, WHO, "No")
+        run.notes.append((True, "a tie: three players can't tie; RestartTallyTest.aTieFails covers it"))
+        # step 5: nobody else answers in 30 s
+        passed, t0, took = restart_vote(run, "J", {"H": "none", "L": "none"})
+        run.check(not passed and took >= 28, "no answer: the vote failed after its 30 s (%.0f s)" % took)
+        no_restart(run, t0, WHO, "no answer")
+        # step 1: Yes, once the armies have fought a while (the charge waits until now: the battle must last the votes)
+        for w in WHO:
+            run.cmd(w, "charge")
+        run.sleep(15)
+        before = {w: men(run, w) for w in WHO}
+        passed, t0, _ = restart_vote(run, "L", {"H": "yes", "J": "none"})
+        run.check(passed, "Yes: 2 of 3 said Yes, the vote passed on every PC")
+        restarted(run, t0, "Yes")
+        run.wait(lambda: all("battle deploying" in state(run, w) for w in WHO) or run.sleep(1), 120,
+                 "every PC back at deployment")
+        run.check(True, "Yes: the battle restarted on every PC running it: each is at deployment again")
+        after = {w: men(run, w) for w in WHO}
+        run.check(all(after[w] == first[w] for w in WHO), "Yes: every PC has the battle's men as it started: %s (before"
+                  " the vote %s, at its start %s)" % (after, before, first))
+        for w in WHO:
+            run.shot(w, "%s at deployment after the restart" % w)
+            run.cmd(w, "start")
+        run.wait(lambda: "battle running" in state(run, "H") or run.sleep(1), 240, "the restarted battle running")
+
+    try:
+        pvp_battle(run, ["H"], ["J"], "win", in_battle=in_battle)
+        ok = run.end()
+    except Failed as e:
+        run.check(False, str(e))
+        run.stop()
+    finish(name, title, run, ok)
+
+
+def rv2():
+    """RV2 (ALLIES): a battle against NPCs, H and J fighting, L watching; L calls the vote and it passes: the fighter's
+    PC loads the battle as generated, its ally and its watcher load it again, every PC hears it, same hashes."""
+    name, title = "RV2", "a restart vote in a battle against NPCs, with a watcher"
+    run = start("ALLIES", "b3-" + name)
+    run.position = "ALLIES"
+    ok = False
+
+    def hook(run):
+        lead = next((w for w in ("H", "J") if "battle none" not in state(run, w) and "viewing false" in state(run, w)), "H")
+        ally = "J" if lead == "H" else "H"
+        run.cmd("L", "target %d" % SLOT[lead])
+        r = run.cmd("L", "view")
+        run.check("asked" in r, "L asks to watch %s's battle: %s" % (lead, r))
+        run.wait(lambda: run.events("L", "viewstate", state=2), 180, "L watching")
+        run.sleep(5)
+        run.check(battle_kind(run, "L") == "local battle", "L, the watcher, sees the battle against NPCs")
+        first = men(run, lead)
+        for w in (lead, ally):
+            run.cmd(w, "charge")
+        run.sleep(20)
+        before = men(run, lead)
+        loads = {w: rejoins(run, w) for w in (ally, "L")}
+        passed, t0, _ = restart_vote(run, "L", {"H": "yes", "J": "yes"})
+        run.check(passed, "Yes: the watcher's vote passed on every PC")
+        restarted(run, t0, "the battle against NPCs")
+        run.wait(lambda: "battle deploying" in state(run, lead) or run.sleep(1), 180, "%s's battle at deployment" % lead)
+        run.wait(lambda: all(rejoins(run, w) > loads[w] for w in (ally, "L")) or run.sleep(1), 180,
+                 "the ally's and the watcher's games loaded again")
+        run.check(True, "the battle restarted on every PC running it: %s at deployment, %s (ally) and L (watcher) loaded"
+                  " it again" % (lead, ally))
+        after = men(run, lead)
+        run.check(after == first, "%s's battle has its men as it started: %s (before the vote %s, at the start %s)"
+                  % (lead, after, before, first))
+        for w in WHO:
+            run.shot(w, "%s after the restart" % w)
+        run.cmd(lead, "start")
+        run.wait(lambda: "battle running" in state(run, lead) or run.sleep(1), 180, "the restarted battle running")
+        run.cmd("L", "closeview")
+        run.wait(lambda: [e for e in run.events("L", "viewstate") if e.get("state") in (3, 4)], 180, "L's view over")
+
+    try:
+        with_battle_hook(hook, lambda: npc_battle(run, ["J"]))
+        ok = run.end()
+    except Failed as e:
+        run.check(False, str(e))
+        run.stop()
+    finish(name, title, run, ok)
+
+
+def rv3():
+    """RV3 (WAR): H and J storm L's capital; L, the defender, calls the vote and it passes: L's city goes back to the
+    assault's start, every PC hears it, and the assault goes on to its terms with the same hashes."""
+    name, title = "RV3", "a restart vote in an assault"
+    run = start("WAR", "b3-" + name)
+    run.position = "WAR"
+    ok = False
+
+    def hook(run):
+        run.check(battle_kind(run, "L") == "assault", "L, the defender, sees the assault")
+        before = men(run, "L")
+        passed, t0, _ = restart_vote(run, "L", {"H": "yes", "J": "no"})
+        run.check(passed, "Yes: 2 of 3 said Yes, the vote passed on every PC")
+        restarted(run, t0, "the assault")
+        run.sleep(10)
+        after = men(run, "L")
+        run.check(after[1] >= before[1], "the restarted assault's attackers are back at its start on L's PC: %s (before"
+                  " the vote %s)" % (after, before))
+        for w in WHO:
+            run.shot(w, "%s after the assault's restart" % w)
+
+    try:
+        besiege(run, ["H", "J"])
+        with_battle_hook(hook, lambda: assault(run, "H", "sack 60 40:20:20"))
+        ok = run.end()
+    except Failed as e:
+        run.check(False, str(e))
+        run.stop()
+    finish(name, title, run, ok)
+
+
+SCENARIOS.update({
+    "RV1": ("WAR", rv1, "SOS-231: a battle between players; restart votes: No, no answer in 30 s, then Yes"),
+    "RV2": ("ALLIES", rv2, "SOS-231: a battle against NPCs with L watching; L's restart vote passes"),
+    "RV3": ("WAR", rv3, "SOS-231: H and J storm L's capital; L's restart vote passes"),
+})
+
+
 def main():
     global REPORTS
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)

@@ -95,9 +95,15 @@ class RestartVotesTest {
         RestartVotes votes = new RestartVotes();
         Message.RestartVote a = new Message.RestartVote(1, 0, 99, Message.RestartVote.OPEN, 1, 3, "");
         Message.RestartVote b = new Message.RestartVote(1, 0, 99, Message.RestartVote.FAILED, 1, 3, "");
+        assertEquals(0, votes.heardOpen());
         votes.heard(a);
+        assertEquals(1, votes.heardOpen(), "the vote this PC's player answers");
+        votes.heard(new Message.RestartVote(0, 4, 98, Message.RestartVote.REFUSED, 0, 0, "Another restart vote is open."));
+        assertEquals(1, votes.heardOpen(), "another player's refused call changes nothing");
         votes.heard(b);
+        assertEquals(0, votes.heardOpen(), "over");
         assertEquals(a, votes.take());
+        votes.take();
         assertEquals(b, votes.take());
         assertNull(votes.take());
     }

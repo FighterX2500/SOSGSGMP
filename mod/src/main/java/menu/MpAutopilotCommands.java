@@ -118,6 +118,11 @@ import world.map.regions.Region;
  * for too, as {@code ongone} says, as for players who left);
  * {@code state} (the prompts, battle, view and terms open on this PC); {@code save} (host: the escape menu's Save
  * Campaign, at any time, a battle included).
+ *
+ * <p>A battle's restart by vote (SOS-231): {@code restartcall [battle]} (this player calls a vote on the battle they
+ * see: the multiplayer panel's Restart battle, or with {@code battle} the battle's own Restart); {@code restartanswer
+ * yes|no|none} (this player's answer to the open vote, or none: the window waits out its 30 s); {@code restartstate}
+ * (the battle this PC sees, its key, why it can't restart, and the open vote).
  */
 final class MpAutopilotCommands {
 
@@ -801,11 +806,46 @@ final class MpAutopilotCommands {
 					b.append(d.index()).append(" (men ").append(d.menNrOf()).append(") ");
 			return b.length() == 0 ? "none mustered" : "mustered: " + b;
 		}
+		case "restartcall": // a vote to restart the battle this PC sees: the panel's button, or the battle's own (SOS-231)
+			return restartCall(a.length > 1 && a[1].equals("battle"), engine, setup);
+		case "restartanswer": { // this PC's answer to the open restart vote: yes, no, or none (SOS-231)
+			int vote = setup.restartVotes().heardOpen();
+			if (vote == 0)
+				return "refused: no restart vote open";
+			if (a[1].equals("none"))
+				return "vote " + vote + " left unanswered";
+			setup.answerRestart(vote, a[1].equals("yes"));
+			return "vote " + vote + " answered " + a[1];
+		}
+		case "restartstate": { // the battle this PC sees, whether it can restart, the open vote (SOS-231)
+			long k = engine.battleHere();
+			return "battle " + k + (k == sosdet.BattleKey.NONE ? "" : " " + sosdet.BattleKey.of(k) + ", refusal "
+					+ engine.restartRefusal(k)) + ", open vote " + setup.restartVotes().heardOpen();
+		}
 		case "depotmsg": // the depot's message with player traders counted, beside vanilla's (SOS-210)
 			return depotMessage(a[1].equals("import"));
 		default:
 			return "unknown action";
 		}
+	}
+
+	/**
+	 * Test tooling (SOS-231): this PC's player calls a vote to restart the battle they see, with the multiplayer panel's
+	 * Restart battle, or with {@code battle} the battle's own Restart, which SOSDET turns into the call.
+	 */
+	private static String restartCall(boolean own, EnginePlay engine, SetupSession setup) {
+		long k = engine.battleHere();
+		if (k == sosdet.BattleKey.NONE)
+			return "refused: no battle here";
+		if (!own) {
+			MpRestartVote.call(setup, engine);
+			return "restart vote called for battle " + k;
+		}
+		BattleState b = VIEW.b().state();
+		if (b == null)
+			return "refused: no battle map on this PC";
+		b.reloadBattle();
+		return "battle's Restart pressed for battle " + k;
 	}
 
 	/**

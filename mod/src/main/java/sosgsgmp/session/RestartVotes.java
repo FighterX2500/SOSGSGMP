@@ -18,9 +18,20 @@ public final class RestartVotes {
     private RestartTally open;
     /** Host: the last vote's number. */
     private int last;
+    /** Every PC: the vote open as this PC last heard, or 0. */
+    private int heardOpen;
 
     void heard(Message.RestartVote v) {
         heard.add(v);
+        if (v.state() == Message.RestartVote.OPEN)
+            heardOpen = v.vote();
+        else if (v.vote() == heardOpen)
+            heardOpen = 0;
+    }
+
+    /** The vote open as this PC last heard, the one its player answers; 0 for none. */
+    public int heardOpen() {
+        return heardOpen;
     }
 
     /** The next opening or result in the host's order, or null; each is handed out once. */
