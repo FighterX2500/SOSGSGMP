@@ -15,6 +15,7 @@ import snake2d.util.color.COLOR;
 import snake2d.util.datatypes.DIR;
 import snake2d.util.gui.GUI_BOX;
 import snake2d.util.gui.GuiSection;
+import snake2d.util.gui.Hoverable.HOVERABLE;
 import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
 import snake2d.util.sprite.SPRITE;
@@ -50,7 +51,10 @@ final class MpPlayerWindow extends ISidePanel {
 	/** Beside vanilla's faction list, whose rows are {@code C.SG*264} wide, in the side panels' width. */
 	private static final int WIDTH = C.MIN_WIDTH - C.SG * 264 - 48;
 	private static final int TAB_WIDTH = 140;
-	private static final String PRICE_D = "What one item costs you: their lowest export price, as they last reported it, and the toll.";
+	private static final String BUY_D = "Buy: what you pay for one item from them on the market, their export price and the toll, as your Import depot lists them. Your tariff on them comes back to your treasury.";
+	private static final String SELL_D = "Sell: what reaches you for one item sold to them on the market, your export price less their tariff on you, as your Export depot's hover shows it. They pay the toll.";
+	private static final String NOT_SOLD = "Their Export depot doesn't take it: they don't sell it.";
+	private static final String NOT_BOUGHT = "Their Import depot doesn't take it: they don't buy it.";
 	private static final String EXPORTED = "Exported";
 	private static final String IMPORTED = "Imported";
 	private static final String[] PERIODS = { "This year", "Last year", "All time" }; // TradeTally's periods, in order
@@ -310,31 +314,39 @@ final class MpPlayerWindow extends ISidePanel {
 	}
 
 	/**
-	 * The Goods tab: what the player last reported having of each good, what one costs from them (SOS-77), and what this
-	 * player sold them and bought from them on the market since the start, with each year's figures and average price
-	 * in the hover (SOS-135). Vanilla's Rate, Purchasing Power and traded bar describe an NPC's own market, so they're
-	 * gone.
+	 * The Goods tab: what the player last reported having of each good, the market's price between the two players
+	 * (SOS-230): Buy, what one item from them costs, and Sell, what one item sold to them brings, each as the depots price
+	 * it, with its parts in the figure's hover; and what this player sold them and bought from them on the market since
+	 * the start, with each year's figures and average price in the row's hover (SOS-135). Vanilla's Rate, Purchasing
+	 * Power and traded bar describe an NPC's own market, so they're gone.
 	 */
 	private static CLICKABLE goods(Faction f, int height) {
 		int slot = f.index();
 		int rowW = WIDTH - 64;
+		int stored = rowW * 7 / 20;
+		int buy = rowW / 2;
+		int sell = rowW * 3 / 5;
+		int exp = rowW * 7 / 10;
+		int imp = rowW * 17 / 20;
 		LinkedList<RENDEROBJ> rows = new LinkedList<>();
-		rows.add(new RENDEROBJ.RenderImp(rowW, UI.FONT().H2.height() + 8) {
+		rows.add(new RENDEROBJ.RenderImp(rowW, UI.FONT().H2.height() + UI.FONT().M.height() + 8) {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				GCOLOR.T().H1.bind();
 				UI.FONT().H2.render(r, Dic.¤¤Resource, body.x1() + 40, body.y1());
-				UI.FONT().H2.render(r, Dic.¤¤Stored, body.x1() + rowW * 2 / 5, body.y1());
-				UI.FONT().H2.render(r, Dic.¤¤Price, body.x1() + rowW * 11 / 20, body.y1());
-				UI.FONT().H2.render(r, EXPORTED, body.x1() + rowW * 7 / 10, body.y1());
-				UI.FONT().H2.render(r, IMPORTED, body.x1() + rowW * 17 / 20, body.y1());
+				UI.FONT().H2.render(r, Dic.¤¤Stored, body.x1() + stored, body.y1());
+				UI.FONT().H2.render(r, Dic.¤¤Price, body.x1() + buy, body.y1());
+				UI.FONT().H2.render(r, EXPORTED, body.x1() + exp, body.y1());
+				UI.FONT().H2.render(r, IMPORTED, body.x1() + imp, body.y1());
+				GCOLOR.T().H2.bind();
+				UI.FONT().M.render(r, Dic.¤¤Buy, body.x1() + buy, body.y1() + UI.FONT().H2.height());
+				UI.FONT().M.render(r, Dic.¤¤Sell, body.x1() + sell, body.y1() + UI.FONT().H2.height());
 				COLOR.unbind();
 			}
 		});
 		for (TRADABLE t : TR.ALL()) {
-			rows.add(new GuiSection() {
+			GuiSection row = new GuiSection() {
 				private final GText amount = new GText(UI.FONT().M, 16);
-				private final GText price = new GText(UI.FONT().M, 16);
 				private final GText exported = new GText(UI.FONT().M, 16);
 				private final GText imported = new GText(UI.FONT().M, 16);
 
@@ -348,38 +360,20 @@ final class MpPlayerWindow extends ISidePanel {
 					COLOR.WHITE100.bind();
 					UI.FONT().M.render(r, t.name, body().x1() + 40, body().y1() + 4);
 					GFORMAT.i(amount.clear(), PlayerDeals.stock(slot, t.index()));
-					amount.render(r, body().x1() + rowW * 2 / 5, body().y1() + 4);
-					int sells = PlayerDeals.price(slot, t.index(), true);
-					if (sells > 0) {
-						GFORMAT.i(price.clear(), sells + toll(f));
-						price.render(r, body().x1() + rowW * 11 / 20, body().y1() + 4);
-					}
+					amount.render(r, body().x1() + stored, body().y1() + 4);
 					int me = FACTIONS.player().index();
 					GFORMAT.i(exported.clear(), PlayerDeals.traded(me, slot, t.index(), TradeTally.ALL_TIME, false));
-					exported.render(r, body().x1() + rowW * 7 / 10, body().y1() + 4);
+					exported.render(r, body().x1() + exp, body().y1() + 4);
 					GFORMAT.i(imported.clear(), PlayerDeals.traded(slot, me, t.index(), TradeTally.ALL_TIME, false));
-					imported.render(r, body().x1() + rowW * 17 / 20, body().y1() + 4);
+					imported.render(r, body().x1() + imp, body().y1() + 4);
 					COLOR.unbind();
+					super.render(r, ds); // the Buy and Sell figures
 				}
 
 				@Override
-				public void hoverInfoGet(GUI_BOX text) {
+				protected void hoverInfoSelf(GUI_BOX text) {
 					GBox b = (GBox) text;
 					b.title(t.name);
-					b.textLL(Dic.¤¤buyPrice);
-					b.tab(6);
-					b.add(GFORMAT.i(b.text(), PlayerDeals.price(slot, t.index(), true) + toll(f)));
-					b.NL();
-					b.text(PRICE_D);
-					b.NL(4);
-					b.textLL(Dic.¤¤sellPrice);
-					b.tab(6);
-					b.add(GFORMAT.i(b.text(), PlayerDeals.price(slot, t.index(), false)));
-					b.NL();
-					b.textLL("Their tariff on you");
-					b.tab(6);
-					b.add(b.text().add(PlayerDeals.tariff(slot, FACTIONS.player().index())).add('%'));
-					b.NL(8);
 					int me = FACTIONS.player().index();
 					b.tab(5);
 					b.textLL(EXPORTED);
@@ -395,11 +389,71 @@ final class MpPlayerWindow extends ISidePanel {
 					b.NL(4);
 					b.text(TRADED_D);
 				}
-			});
+			};
+			row.add(new PriceCell(f, t, true, sell - buy), row.body().x1() + buy, row.body().y1());
+			row.add(new PriceCell(f, t, false, exp - sell), row.body().x1() + sell, row.body().y1());
+			rows.add(row);
 		}
 		GuiSection s = new GuiSection();
 		s.add(new GScrollRows(rows, height).view());
 		return s;
+	}
+
+	/**
+	 * A Goods tab row's Buy ({@code buying}) or Sell figure (SOS-230): blank while the depot doesn't list the other
+	 * player for the goods, dark while the price is at or over the buyer's highest import price, as the depot's row is.
+	 */
+	private static final class PriceCell extends HOVERABLE.HoverableAbs {
+
+		private final Faction f;
+		private final TRADABLE t;
+		private final boolean buying;
+		private final GText text = new GText(UI.FONT().M, 16);
+
+		PriceCell(Faction f, TRADABLE t, boolean buying, int width) {
+			super(width, Icon.M + 8);
+			this.f = f;
+			this.t = t;
+			this.buying = buying;
+		}
+
+		@Override
+		protected void render(SPRITE_RENDERER r, float ds, boolean isHovered) {
+			int v = figure(f, t, buying);
+			if (v < 0)
+				return;
+			GFORMAT.i(text.clear(), v);
+			if (MpPlayers.depotOverCap(f, t, buying))
+				text.color(GCOLOR.T().INACTIVE);
+			text.render(r, body.x1(), body.y1() + 4);
+		}
+
+		@Override
+		public void hoverInfoGet(GUI_BOX text) {
+			priceHover((GBox) text, f, t, buying);
+		}
+	}
+
+	/** The Goods tab's Buy ({@code buying}) or Sell for one item of {@code t} between this player and {@code f}; -1 for none. */
+	private static int figure(Faction f, TRADABLE t, boolean buying) {
+		if (!buying)
+			return MpPlayers.depotReceived(f, t);
+		int paid = MpPlayers.depotPrice(f, t, true);
+		return paid > 0 ? paid : -1;
+	}
+
+	/**
+	 * The hover of a Goods tab row's Buy ({@code buying}) or Sell figure (SOS-230): the price in its parts, as the depot's
+	 * row shows it, or why there is none. Also the autopilot's GUI preview.
+	 */
+	static void priceHover(GBox b, Faction f, TRADABLE t, boolean buying) {
+		b.title(t.name);
+		b.text(buying ? BUY_D : SELL_D);
+		b.NL(8);
+		if (figure(f, t, buying) < 0)
+			b.error(buying ? NOT_SOLD : NOT_BOUGHT);
+		else
+			MpPlayers.depotHover(b, f, t, buying);
 	}
 
 	/** In the Goods tab's hover, at {@code tab}: the items {@code seller} sold {@code buyer} in {@code period}, and at what average price. */
@@ -409,9 +463,5 @@ final class MpPlayerWindow extends ISidePanel {
 		b.add(GFORMAT.i(b.text(), items));
 		if (items > 0)
 			b.add(b.text().add(" @ ").add(Math.round((double) PlayerDeals.traded(seller, buyer, t.index(), period, true) / items)));
-	}
-
-	private static int toll(Faction f) {
-		return (int) Math.round(MpPlayers.toll(f));
 	}
 }

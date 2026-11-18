@@ -199,6 +199,17 @@ public final class MpPlayers {
 		return paid > 0 && !DepotPrice.buys(paid, buyerCap(f, t, buying));
 	}
 
+	/**
+	 * The Goods tab's Sell (SOS-230): what reaches this player for one item of {@code t} sold to {@code f} on the market,
+	 * as the Export depot's hover shows it: this player's export price less {@code f}'s tariff on them. -1 while the
+	 * Export depot doesn't list {@code f} ({@link #depotPrice}). No allocation: the tab reads it each frame.
+	 */
+	public static int depotReceived(Faction f, TRADABLE t) {
+		if (depotPrice(f, t, false) <= 0)
+			return -1;
+		return DepotPrice.received(t.ps().priceCapsI.get(), PlayerDeals.tariff(f.index(), FACTIONS.player().index()));
+	}
+
 	/** The buyer's highest import price in a depot's row: this player's own in the Import depot, else {@code f}'s reported one. */
 	private static int buyerCap(Faction f, TRADABLE t, boolean buying) {
 		return buying ? t.pb().priceCapsI.get() : PlayerDeals.price(f.index(), t.index(), false);
