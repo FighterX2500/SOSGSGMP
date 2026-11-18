@@ -54,6 +54,11 @@ final class MpViews {
 	private final int[] watchedStates = new int[LobbySettings.MAX_SLOTS];
 	/** Each slot's battle view as an ally of this PC's battle, not a plain watcher (SOS-165). */
 	private final boolean[] watchedAllies = new boolean[LobbySettings.MAX_SLOTS];
+	/** Each slot's view whose city this PC runs, as owner or viewer, and its last view hash step logged ({@link #divisions}). */
+	private final View[] divisionsOf = new View[LobbySettings.MAX_SLOTS];
+	private final long[] divisionsAt = new long[LobbySettings.MAX_SLOTS];
+	/** The view hashes whose divisions the owner and the viewer log: the first ones after the freeze (SOS-222). */
+	private static final int DIVISIONS_LOGGED = 2;
 	/** A hold this long at the host's freeze step shows the notice. */
 	private static final long HOLD_NOTICE_NANOS = 500_000_000L;
 	/** The viewer's camera before a rejoin's load, put back once it is set: the battle's or the city's (SOS-151). */
@@ -86,6 +91,29 @@ final class MpViews {
 		viewer(r);
 		hostHold();
 		watch();
+		divisions(r.local());
+	}
+
+	/**
+	 * The owner's and the viewer's PC: the city's divisions as this PC hashed them at the view's first hash steps, into
+	 * the playtest log. Both logs then show which division field differs when the viewer's copy loses step (SOS-222).
+	 */
+	private void divisions(int local) {
+		int every = engine.hashInterval();
+		for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++) {
+			View v = engine.view(slot);
+			if (v == null || v.battle() || !v.frozen() || v.viewer != local && v.owner != local)
+				continue;
+			if (v != divisionsOf[slot]) {
+				divisionsOf[slot] = v;
+				divisionsAt[slot] = v.freeze;
+			}
+			for (long at = divisionsAt[slot] + every; at <= v.freeze + (long) DIVISIONS_LOGGED * every && at <= engine.step(); at += every) {
+				divisionsAt[slot] = at;
+				log.line("viewdivs: " + name(v.owner) + "'s city at step " + at + ", as this PC hashed it:\n"
+						+ engine.hashedDivisions(at));
+			}
+		}
 	}
 
 	/** Every view's state as this PC sees it, into the playtest log when it changes: the freeze, the thaw, the reloads. */
@@ -320,8 +348,9 @@ final class MpViews {
 		if (engine.viewDesync()) {
 			if (!desyncLogged) {
 				desyncLogged = true;
+				String report = engine.viewDesyncReport();
 				log.line("viewdesync: this copy of " + name(v.owner) + "'s city differs from theirs at step " + engine.step()
-						+ " (" + engine.viewDesyncParts() + ")");
+						+ " (" + engine.viewDesyncParts() + ")" + (report == null ? "" : ":\n" + report));
 			}
 			close(View.DESYNC);
 			return;
