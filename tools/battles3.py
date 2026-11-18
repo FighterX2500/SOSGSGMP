@@ -57,7 +57,7 @@ class Failed(Exception):
 class Run:
     """One run of the three games from the data folders in place: their events, commands and logs."""
 
-    def __init__(self, tag, timeout=1500):
+    def __init__(self, tag, timeout=1500, steps=400000):
         self.tag = tag
         self.ev = {w: [] for w in WHO}
         self.seen = {w: 0 for w in WHO}
@@ -71,7 +71,7 @@ class Run:
         self.others = game_pids()  # games that were running before: never this run's
         if self.others:
             raise Failed("games from elsewhere are running (%s): wait for them" % sorted(self.others))
-        self.p = subprocess.Popen(TWOPC + ["--steps", "400000", "--tag", tag, "--timeout", str(timeout)])
+        self.p = subprocess.Popen(TWOPC + ["--steps", str(steps), "--tag", tag, "--timeout", str(timeout)])
 
     @staticmethod
     def home(w):
@@ -1788,7 +1788,9 @@ def v1(years=3):
     again: the stances passed between them and each other's vassals follow, and go back at the end."""
     name, title = "V1", "vassals and the players' friends: passed stances locked, an alliance passes Colleagues"
     restore("ALLIES")
-    run = Run("b3-" + name, timeout=1500 + 900 * years)
+    # b13-B's run (2026-11-18): an in-game year at 25x took about 295,000 steps and 22 real minutes; twice that, as the
+    # PC may run slower, plus the start and the H-J steps after the years
+    run = Run("b3-" + name, timeout=1800 + 2700 * years, steps=200000 + 600000 * years)
     run.position = "ALLIES"
     ok = False
     try:
@@ -1808,6 +1810,11 @@ def v1(years=3):
             return (pairs, own) if all(vassal[w] in own.get(SLOT[w], ()) for w in WHO) else None
         pairs, own = run.wait(lambda: passed() or run.sleep(2), 60, "every player's new vassal in diplo")
         say("vassals:", own, "stances:", pairs)
+        # the messages already in the lists: sent before the vassalage (the save's own), never counted. Taken before the
+        # Colleagues wait, so a demand right after the vassalage counts
+        hits, (played0, year) = dipmess_hits(run)
+        before = set(hits)
+        say("game time %.0f s, a year %.0f s; messages at the start (not counted):" % (played0, year), sorted(before))
         # every player with every vassal of the other players, the older ones included
         wanted = {(SLOT[p], v) for p in WHO for q in WHO if p != q for v in own[SLOT[q]]}
 
@@ -1822,16 +1829,15 @@ def v1(years=3):
                       % stances_with_vassals(run.cmd("H", "diplo"))[0])
 
         # the years: diplo and the messages every 30 s
-        hits, (played0, year) = dipmess_hits(run)
-        before = {h for h in hits}  # anything already in the lists at the start
-        say("game time %.0f s, a year %.0f s; messages at the start:" % (played0, year), sorted(before))
         if year <= 0:
             raise Failed("no game time from dipmess")
+        h, (played0, _) = dipmess_hits(run)  # the years count from here
+        hits |= h
         low, samples, played = [], 0, played0
-        deadline = time.time() + 900 * years
+        deadline = time.time() + 2700 * years
         while played - played0 < years * year:
             if time.time() > deadline:
-                raise Failed("%d in-game years took longer than %d minutes (%.2f years passed)" % (years, 15 * years, (played - played0) / year))
+                raise Failed("%d in-game years took longer than %d minutes (%.2f years passed)" % (years, 45 * years, (played - played0) / year))
             run.sleep(30)
             p, _ = stances_with_vassals(run.cmd("H", "diplo"))
             samples += 1
