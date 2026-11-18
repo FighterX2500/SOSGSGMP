@@ -69,7 +69,9 @@ import world.WORLD;
  * {@code Go}, as a player's speed buttons set it), {@code corrupt} (break this PC's world at this step, a test desync, as
  * SOSDET's rig {@code wcorrupt}), {@code ondesync} (host: {@code resync} or {@code exit} at a desync), {@code save}
  * (host: save the campaign at this step), {@code resume} (host, {@code 1}: host the newest campaign save of this data
- * folder instead of a new game; the joining PC learns it from the lobby), {@code crash} (this PC's game stops dead at
+ * folder instead of a new game; the joining PC learns it from the lobby; {@code oldest}, over IP: open Load Saved Lobby,
+ * scroll its list to the end, pick the oldest save and host it with Host (IP), with a shot of the list before and after:
+ * SOS-228), {@code crash} (this PC's game stops dead at
  * this step, as a crash or a pulled cable leaves the others: SOS-65), {@code ongone} (host: {@code continue},
  * {@code freeze} (SOS-194) or {@code return} when a player left), {@code onmissing} (host, a resume: {@code remove},
  * the default, or {@code freeze}: how Start leaves out the campaign's players not in the lobby, as the lobby's question
@@ -179,6 +181,9 @@ public final class MpAutopilot {
 	/** This joining PC saw its host silent and not heard again yet. */
 	private boolean hostSilentSeen;
 	private final boolean resume;
+	/** Host, resume=oldest (SOS-228): through Load Saved Lobby, the oldest save; when that screen first showed. */
+	private final boolean resumeOldest;
+	private long resumeAt;
 	private final Path events;
 	private int shownSaves;
 
@@ -250,7 +255,8 @@ public final class MpAutopilot {
 		corrupt = Long.parseLong(m.getOrDefault("corrupt", "-1"));
 		onDesync = m.getOrDefault("ondesync", "resync");
 		save = Long.parseLong(m.getOrDefault("save", "-1"));
-		resume = m.getOrDefault("resume", "0").equals("1");
+		resumeOldest = m.getOrDefault("resume", "0").equals("oldest");
+		resume = m.getOrDefault("resume", "0").equals("1") || resumeOldest;
 		crash = Long.parseLong(m.getOrDefault("crash", "-1"));
 		deal = Long.parseLong(m.getOrDefault("deal", "-1"));
 		dealCancel = Long.parseLong(m.getOrDefault("dealcancel", "-1"));
@@ -294,6 +300,8 @@ public final class MpAutopilot {
 		events = DataFolders.layout().autopilot().resolve("events.jsonl");
 		if (!host && !steam && address.isEmpty())
 			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " role=join needs address=");
+		if (resumeOldest && (!host || steam))
+			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " resume=oldest is for role=host over IP");
 		commands = new MpAutopilotCommands(events, host, m.getOrDefault("battles", "").equals("auto"), this::event);
 	}
 
@@ -418,6 +426,14 @@ public final class MpAutopilot {
 	void menu(MpMenu mp) {
 		if (lobbyOpened || !due())
 			return;
+		if (resumeOldest) {
+			if (first("resumescreen")) { // as a player sets both on Create Lobby, then opens Load Saved Lobby
+				mp.prefs.name = name;
+				mp.prefs.port = port;
+				mp.openResume();
+			}
+			return;
+		}
 		if (steam) {
 			steamMenu(mp);
 			return;
@@ -466,6 +482,43 @@ public final class MpAutopilot {
 		lobbyOpened = true;
 		mp.openLobby(new JoinedLobby(browsing, name, mp.prefs.playerKey, mp.builds), null);
 		event("lobby", "\"role\":\"join\",\"net\":\"steam\",\"friend\":\"" + clean(f.friend()) + "\"");
+	}
+
+	/**
+	 * Host, resume=oldest (SOS-228): Load Saved Lobby as a player uses it, every frame it shows. The list as it opens, then
+	 * scrolled to its end with the oldest save picked, a shot of each, then Host (IP).
+	 */
+	void resumeScreen(MpScreenResume screen) {
+		if (!resumeOldest || lobbyOpened)
+			return;
+		long now = System.nanoTime();
+		if (first("resumelist")) {
+			resumeAt = now;
+			event("resumelist", "\"saves\":" + screen.saves());
+		}
+		if (now - resumeAt >= 2_000_000_000L && first("resumetopshot"))
+			guiShot("resumetop");
+		if (now - resumeAt >= 3_000_000_000L && first("resumepick"))
+			screen.pickOldest();
+		if (now - resumeAt >= 5_000_000_000L && first("resumeoldestshot"))
+			guiShot("resumeoldest");
+		if (now - resumeAt < 6_000_000_000L || !due())
+			return;
+		CampaignRecord r = screen.picked();
+		if (r == null) {
+			if (first("resumenopick"))
+				event("resumenopick", "\"saves\":" + screen.saves());
+			return;
+		}
+		if (!screen.host(false)) { // the screen shows why; it tries again each second
+			if (first("resumehostrefused"))
+				event("resumehostrefused", "\"number\":" + r.number());
+			return;
+		}
+		lobbyOpened = true;
+		event("resume", "\"campaign\":\"" + Long.toHexString(r.campaign().id()) + "\",\"number\":" + r.number() + ",\"file\":\""
+				+ clean(r.file()) + "\",\"saves\":" + screen.saves());
+		event("lobby", "\"role\":\"host\"");
 	}
 
 	/** A new game's settings, or with {@code resume=1} the newest campaign save's, as Load Saved Lobby hosts it. */

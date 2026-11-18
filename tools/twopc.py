@@ -323,6 +323,10 @@ def main():
                     help="with --here: the host, the joiner and (3 players) the local game resume a copy of this real"
                          " campaign's save NUMBER, each as its player (its record and save from this PC's data folder or"
                          " the host's reports of the joining players' files)")
+    ap.add_argument("--copies", type=int, default=0, metavar="N",
+                    help="with --campaign: the host's data folder also gets N copies of its record, each newer and numbered"
+                         " above it, so its save is the oldest of N+1; the host opens Load Saved Lobby, scrolls the list to"
+                         " its end, picks the oldest and hosts it, with a shot of the list before and after (SOS-228)")
     ap.add_argument("--late-capital", default="", metavar="X:Y",
                     help="with --hot-join: the late game picks this world tile when the carving rule takes it (SOS-216)")
     ap.add_argument("--join-answer", choices=("accept", "refuse"), default="accept",
@@ -371,6 +375,8 @@ def main():
         if len(seeds) not in (2, 3):
             fail("--campaign: %d players; this runner plays 2 or 3" % len(seeds))
         args.local_joiner = len(seeds) == 3
+    if args.copies and not args.campaign:
+        fail("--copies is for --campaign")
     # the late game (--hot-join) is a player of its own, in data folder 4
     who_all = (["host"] + ([] if args.no_joiner else ["join"]) + (["local"] if args.local_joiner else [])
                + (["late"] if args.hot_join >= 0 else []))
@@ -414,6 +420,9 @@ def main():
         local2 = remote_data
         for data, seed in zip((local, local2, local3), seeds):
             seed_campaign(data, seed)
+        if args.copies:
+            copy_records(local, seeds[0], args.copies)
+            log("the host's data folder: %d more records of the campaign save, each newer" % args.copies)
         if seeds:
             log("campaign %s: each game resumes it as its player" % args.campaign)
         if args.joiner_mod:
@@ -445,8 +454,8 @@ def main():
     # Steam finds the App ID here when the game isn't started by Steam
     host_env = dict(os.environ, APPDATA=str(local.parent), SteamAppId=STEAM_APP_ID, SOSGSGMP_STEAM_NET=STEAM_NET[0],
                     SOSGSGMP_NETEM=NETEM["host"],
-                    SOSGSGMP_AUTOPILOT="role=host,name=Host,players=%d,seed=%d,speed=%g,ondesync=%s,save=%d,resume=%d,ongone=%s,startafter=%d,fulllog=%d,%s"
-                    % (players, args.seed, args.speed, args.on_desync, args.save, 1 if args.resume or seeds else 0, args.on_gone, args.start_after,
+                    SOSGSGMP_AUTOPILOT="role=host,name=Host,players=%d,seed=%d,speed=%g,ondesync=%s,save=%d,resume=%s,ongone=%s,startafter=%d,fulllog=%d,%s"
+                    % (players, args.seed, args.speed, args.on_desync, args.save, "oldest" if args.copies else 1 if args.resume or seeds else 0, args.on_gone, args.start_after,
                        1 if args.transfer_log == "full" else 0, common + host_capital + host_view
                        + (",onmissing=freeze" if args.on_missing == "freeze" else "")))
     java = GAME / "jre" / "bin" / "java.exe"
@@ -633,6 +642,15 @@ def main():
             ok = ok and e["active"] > 0
     if args.view or args.host_view:
         ok = ok and view_verdict(args, evs)
+    if args.copies:
+        # SOS-228: the host scrolled Load Saved Lobby to its end and resumed the oldest of every save, the seeded one
+        picked = [e for e in evs["host"] if e["event"] == "resume"]
+        shots = [e["what"] for e in evs["host"] if e["event"] == "guishot"]
+        want = int(args.campaign.partition(":")[2])
+        log("host resumed: %s of %s saves; shots %s" % (picked[0]["number"] if picked else None,
+                                                         picked[0]["saves"] if picked else None, shots))
+        ok = (ok and picked and picked[0]["number"] == want and picked[0]["saves"] == args.copies + 1
+              and "resumetop" in shots and "resumeoldest" in shots)
     if args.save >= 0:
         saved = {w: [e for e in evs[w] if e["event"] == "save" and e["status"].startswith("Campaign saved")] for w in evs}
         log("campaign saved on: %s" % ", ".join(w for w in saved if saved[w]))
@@ -875,6 +893,20 @@ def seed_campaign(data, seed):
     shutil.copy2(save, home / "saves" / save.name)
     signed = key - (1 << 64) if key >= 1 << 63 else key
     (home / "lobby.properties").write_text("format=1\nplayerKey=%d\n" % signed, encoding="utf-8")
+
+
+def copy_records(data, seed, copies):
+    """SOS-228: `copies` more records of the seeded campaign save in a data folder, each newer and numbered above it,
+    every one naming the same game save: the seeded save is the oldest in Load Saved Lobby."""
+    _, rec, _, _ = seed
+    lines = rec.read_text(encoding="utf-8").splitlines()
+    fields = dict(l.split("=", 1) for l in lines if "=" in l)
+    number, at = int(fields["number"]), int(fields["time"])
+    for i in range(1, copies + 1):
+        out = ["number=%d" % (number + i) if l.startswith("number=") else "time=%d" % (at + i * 60000)
+               if l.startswith("time=") else l for l in lines]
+        (data / "sosgsgmp" / "campaigns" / ("%s-%d.txt" % (fields["campaign"], number + i))).write_text(
+            "\n".join(out) + "\n", encoding="utf-8")
 
 
 def refused_join_verdict(evs, done):

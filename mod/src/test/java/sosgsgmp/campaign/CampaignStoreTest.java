@@ -164,6 +164,31 @@ public class CampaignStoreTest {
         assertNull(store.find(CAMPAIGN_FOR_TESTS.id(), 9));
     }
 
+    /**
+     * SOS-228: Load Saved Lobby lists every save, newest at the top, however many there are: 30 saves of two campaigns,
+     * some still in an older version's folder, come back all 30, newest first; two saved in the same millisecond list
+     * the higher number first.
+     */
+    @Test
+    void thirtySavesAllListNewestFirst() {
+        Campaign other = new Campaign(0x1234L, "Bob's campaign", 5, "normal", CAMPAIGN_FOR_TESTS.players());
+        CampaignStore older = new CampaignStore(dir.resolve("old"));
+        CampaignStore store = new CampaignStore(dir.resolve("campaigns"), dir.resolve("old"));
+        for (int n = 15; n >= 1; n--) { // written newest first, so no listing order comes from the writing
+            (n <= 4 ? older : store).write(record(n, n % 3 == 0 ? CampaignRecord.Kind.AUTO : CampaignRecord.Kind.SAVE, 1_000L * n));
+            long bobTime = n == 14 ? 15_000 : 1_000L * n + 500; // Bob's 14 in the millisecond of Ann's 15
+            store.write(new CampaignRecord(other, n, CampaignRecord.Kind.AUTO, bobTime, 1, "b" + n + ".save", 1, true));
+        }
+        List<String> listed = store.all().stream().map(r -> (r.campaign().id() == other.id() ? "Bob " : "Ann ") + r.number()).toList();
+        assertEquals(30, listed.size(), "every save, not the first few");
+        List<String> want = new java.util.ArrayList<>(List.of("Bob 15", "Ann 15", "Bob 14", "Ann 14"));
+        for (int n = 13; n >= 1; n--) {
+            want.add("Bob " + n);
+            want.add("Ann " + n);
+        }
+        assertEquals(want, listed);
+    }
+
     @Test
     void rotationKeepsTheNewestAutosavesAndEverySave() {
         CampaignStore store = new CampaignStore(dir);
