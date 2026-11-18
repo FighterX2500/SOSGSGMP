@@ -172,6 +172,11 @@ public final class PlayerDeals {
         return Engine.reportedStock(slot, tradable);
     }
 
+    /** What this PC's player can give of the tradable with index {@code tradable} in a deal, as its check reads it (SOS-224). */
+    public static int spare(int tradable) {
+        return Engine.dealSpare(tradable);
+    }
+
     /**
      * True when this PC's player's trade reaches the player in {@code slot}, agreement or not: the walk caravans take,
      * across a player's land at peace too (SOS-134). False in single player.
