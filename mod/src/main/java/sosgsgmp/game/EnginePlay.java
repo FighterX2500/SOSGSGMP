@@ -602,6 +602,21 @@ public final class EnginePlay implements EnginePort {
         return d == null ? "none" : d.toString();
     }
 
+    /** The viewer's PC, after {@link #viewDesync}: the engine's whole report of it, divisions included; null with none. */
+    public String viewDesyncReport() {
+        return Engine.viewDesyncReport();
+    }
+
+    /** The divisions this PC hashed at {@code step}, one a line: a view's owner and viewer log them alike (SOS-222). */
+    public String hashedDivisions(long step) {
+        return Engine.hashedDivisions(step);
+    }
+
+    /** The steps between two state hashes, and between two view hashes. */
+    public int hashInterval() {
+        return Engine.hashInterval();
+    }
+
     /** The viewer's PC: the limit it hit ({@code View.NOT_CAUGHT_UP}, {@code View.FELL_BEHIND}), or {@code View.OPEN}. */
     public int viewLimit() {
         return Engine.viewLimit();

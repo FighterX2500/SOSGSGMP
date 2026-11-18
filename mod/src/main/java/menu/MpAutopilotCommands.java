@@ -127,6 +127,11 @@ final class MpAutopilotCommands {
 
 	private final Path file;
 	private long traceAt = -1;
+	/** From {@code trace desync}: each desync this PC finds writes the world draws before it; the last one written. */
+	private boolean traceDesyncs;
+	private long tracedDesync = -1;
+	/** The steps before a desync's step whose draws go with it: back past the resync before it (SOS-222). */
+	private static final int TRACE_BEFORE_DESYNC = 150;
 	private final boolean host;
 	private boolean autoBattles;
 	/** The player the two-player commands act on, from {@code target}; -1 for the default. */
@@ -528,7 +533,12 @@ final class MpAutopilotCommands {
 		}
 		case "trace":
 			if (a.length < 2)
-				return "trace at which step?";
+				return "trace at which step, or desync?";
+			if (a[1].equals("desync")) { // every desync this PC finds, with the world draws before it (SOS-222)
+				traceDesyncs = true;
+				Engine.traceDraws(1400);
+				return "world draws traced, written to trace-<step>.txt at every desync";
+			}
 			traceAt = Long.parseLong(a[1]);
 			if (a.length > 2 && a[2].equals("city")) { // the city's draws too: a viewed city against its viewer's copy
 				Engine.traceAllDraws(1400);
@@ -1347,6 +1357,7 @@ final class MpAutopilotCommands {
 
 	/** A desync hunt: the kept draws go to trace.txt once the step has come, before the desync's hold stops the game. */
 	private void traceDue() {
+		traceDesync();
 		if (traceAt < 0 || Engine.step() < traceAt)
 			return;
 		try {
@@ -1356,6 +1367,24 @@ final class MpAutopilotCommands {
 		}
 		event.accept("trace", "\"step\":" + Engine.step());
 		traceAt = -1;
+	}
+
+	/**
+	 * A clock-only desync hunt (SOS-222): at each desync this PC finds, the world draws of the steps before it go to
+	 * {@code trace-<step>.txt}. The same file from two PCs differs first at the code that drew on one of them only.
+	 */
+	private void traceDesync() {
+		sosdet.hash.Desync d = traceDesyncs ? Engine.desync() : null;
+		if (d == null || d.step == tracedDesync)
+			return;
+		tracedDesync = d.step;
+		try {
+			Files.writeString(file.resolveSibling("trace-" + d.step + ".txt"), Engine.drawTrace(d.step - TRACE_BEFORE_DESYNC, d.step),
+					StandardCharsets.UTF_8);
+		} catch (IOException e) {
+			event.accept("trace", "\"failed\":\"" + clean(e.getMessage()) + "\"");
+		}
+		event.accept("trace", "\"desync\":" + d.step + ",\"step\":" + Engine.step());
 	}
 
 	/** The NPC armies: how many, and the three nearest this PC's capital. */
