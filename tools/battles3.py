@@ -1740,6 +1740,163 @@ SCENARIOS.update({
 })
 
 
+# ------------------------------------------------------------------ V: NPC vassals and the players' friends (SOS-226)
+
+
+def stances_with_vassals(diplo):
+    """From `diplo`: {(player slot, vassal): stance} for each player's stance with another player's NPC vassal (the
+    `npc-<stance>` entries; `war` where they are at war), and {player slot: its own vassals}."""
+    own, pairs = {}, {}
+    for seg in diplo.split("; "):
+        m = re.match(r"\s*(\d+) [^:]*:(.*?) regions", seg)
+        if not m:
+            continue
+        slot = int(m.group(1))
+        rel = dict((int(k), v) for k, v in re.findall(r"(\d+)=(\S+)", m.group(2)))
+        own[slot] = {k for k, v in rel.items() if v == "vassal"}
+        for k, v in rel.items():
+            if v.startswith("npc-"):
+                pairs[(slot, k)] = v[4:]
+    for slot in own:  # a war with another player's vassal shows as `war`, not `npc-`
+        for other, vs in own.items():
+            for v in vs:
+                if other != slot and (slot, v) not in pairs:
+                    pairs[(slot, v)] = "war?"
+    return pairs, own
+
+
+def dipmess_hits(run):
+    """Each game's "Relations Worsen" and "Agreement Cancelled" messages, as {(who, title@second, sender, overlord)},
+    and H's game time: (played seconds, seconds per year)."""
+    hits, played = set(), (0.0, 0.0)
+    for w in WHO:
+        r = run.cmd(w, "dipmess")
+        m = re.match(r"played (\d+) s, year (\d+) s", r)
+        if m and w == "H":
+            played = (float(m.group(1)), float(m.group(2)))
+        for title, frm, over in re.findall(r"hit (.*?) from (-?\d+) overlord (-?\d+)", r):
+            hits.add((w, title, int(frm), int(over)))
+    return hits, played
+
+
+def v1(years=3):
+    """V1 (SOS-226): from ALLIES (H, J and L allied), each player gets an NPC vassal. An alliance passes Colleagues:
+    each player is a colleague of the other players' vassals. Then `years` in-game years at 25x: no such stance drops
+    below Colleagues, and no vassal sends its overlord's friend "Relations Worsen" (money to keep the stance) or
+    "Agreement Cancelled". Then H and J cancel their alliance, make a trade agreement, then Colleagues, and cancel
+    again: the stances passed between them and each other's vassals follow, and go back at the end."""
+    name, title = "V1", "vassals and the players' friends: passed stances locked, an alliance passes Colleagues"
+    restore("ALLIES")
+    run = Run("b3-" + name, timeout=1500 + 900 * years)
+    run.position = "ALLIES"
+    ok = False
+    try:
+        run.wait(lambda: all(run.events(w, "go") for w in WHO), 300, "every game playing")
+        war_npc = meta("ALLIES").get("npc", -1)
+        for w in WHO:  # one at a time: each is applied before the next player's nearest free NPC is chosen
+            r = run.cmd(w, "givevassal %d %d" % (SLOT[w], war_npc))
+            if "becomes" not in r:
+                raise Failed("%s's vassal: %s" % (w, r))
+            run.sleep(5)
+        friends = [p for p in WHO for q in WHO if p != q]
+
+        def passed():
+            pairs, own = stances_with_vassals(run.cmd("H", "diplo"))
+            return (pairs, own) if own and all(len(own.get(SLOT[w], ())) == 1 for w in WHO) else None
+        pairs, own = run.wait(passed, 60, "every player's vassal in diplo")
+        say("vassals:", own, "stances:", pairs)
+        vassal = {w: next(iter(own[SLOT[w]])) for w in WHO}
+
+        def everyone_colleagues():
+            p, _ = stances_with_vassals(run.cmd("H", "diplo"))
+            return p if p and all(v == "Colleagues" for v in p.values()) and len(p) == len(friends) else None
+        try:
+            pairs = run.wait(lambda: everyone_colleagues() or run.sleep(2), 60, "Colleagues passed to every friend's vassal")
+            run.check(True, "at the start every player is a colleague of the other players' vassals (an alliance passes Colleagues): %s" % pairs)
+        except Failed:
+            run.check(False, "at the start every player is a colleague of the other players' vassals (an alliance passes Colleagues): %s"
+                      % stances_with_vassals(run.cmd("H", "diplo"))[0])
+
+        # the years: diplo and the messages every 30 s
+        hits, (played0, year) = dipmess_hits(run)
+        before = {h for h in hits}  # anything already in the lists at the start
+        say("game time %.0f s, a year %.0f s; messages at the start:" % (played0, year), sorted(before))
+        if year <= 0:
+            raise Failed("no game time from dipmess")
+        low, samples, played = [], 0, played0
+        deadline = time.time() + 900 * years
+        while played - played0 < years * year:
+            if time.time() > deadline:
+                raise Failed("%d in-game years took longer than %d minutes (%.2f years passed)" % (years, 15 * years, (played - played0) / year))
+            run.sleep(30)
+            p, _ = stances_with_vassals(run.cmd("H", "diplo"))
+            samples += 1
+            bad = {k: v for k, v in p.items() if v not in ("Colleagues", "Allies")}
+            if bad:
+                low.append(bad)
+                say("BELOW Colleagues:", bad)
+            h, (played, _) = dipmess_hits(run)
+            hits |= h
+            say("%.2f in-game years, %d samples" % ((played - played0) / year, samples))
+        run.check(not low and samples > 0, "for %d in-game years (%d samples, every 30 s) no stance with another player's vassal "
+                  "dropped below Colleagues%s" % (years, samples, (": " + str(low[:5])) if low else ""))
+        friendly = {h for h in hits - before if h[3] >= 0 and h[3] != SLOT[h[0]]}
+        other = hits - before - friendly
+        run.check(not friendly, "no vassal sent its overlord's friend \"Relations Worsen\" or \"Agreement Cancelled\" on any game%s"
+                  % ((": " + str(sorted(friendly)[:6])) if friendly else ""))
+        say("such messages from other NPCs (not checked):", sorted(other)[:10])
+
+        # H and J: cancel, trade, Colleagues, cancel
+        hj = [(SLOT["H"], vassal["J"]), (SLOT["J"], vassal["H"])]
+
+        def hj_stances():
+            p, _ = stances_with_vassals(run.cmd("H", "diplo"))
+            return {k: p.get(k) for k in hj}
+
+        def deal(kind):
+            run.cmd("H", "target %d" % SLOT["J"])
+            r = run.cmd("H", kind)
+            if not r.startswith("proposed"):
+                raise Failed("H's %s with J: %s" % (kind, r))
+            run.wait(lambda: run.cmd("J", "accept").startswith("accepted 1") or run.sleep(2), 120, "J accepts H's %s" % kind)
+
+        def settle(want, what):
+            try:
+                return run.wait(lambda: (lambda s: s if want(s) else None)(hj_stances()) or run.sleep(2), 60, what)
+            except Failed:
+                return None
+
+        run.cmd("H", "target %d" % SLOT["J"])
+        run.cmd("H", "cancel")
+        base = settle(lambda s: all(v not in ("Colleagues", None) for v in s.values()), "H and J's passed Colleagues taken back")
+        run.check(base is not None, "H and J cancel their alliance: the Colleagues passed between them and each other's vassal go "
+                  "back to what they had before (Neutral, unless they traded): %s" % (base or hj_stances()))
+        base = base or hj_stances()
+        deal("trade")
+        s = settle(lambda s: all(v in ("Trade-Partners", "Colleagues", "Allies") for v in s.values()), "trade passed")
+        run.check(s is not None, "H and J trade partners: each is at least a trade partner of the other's vassal: %s" % (s or hj_stances()))
+        deal("pact")
+        s = settle(lambda s: all(v == "Colleagues" for v in s.values()), "Colleagues passed")
+        run.check(s is not None, "H and J colleagues: each is a colleague of the other's vassal: %s" % (s or hj_stances()))
+        run.cmd("H", "target %d" % SLOT["J"])
+        run.cmd("H", "cancel")
+        s = settle(lambda s: s == base, "back to the start")
+        run.check(s is not None, "H and J cancel: the stances go back to %s: %s" % (base, s or hj_stances()))
+        for w in WHO:
+            run.shot(w, "%s at the end: its messages" % w)
+        ok = run.end()
+    except Failed as e:
+        run.check(False, str(e))
+        run.stop()
+    finish(name, title, run, ok)
+
+
+SCENARIOS.update({
+    "V1": ("ALLIES", v1, "each player gets an NPC vassal: Colleagues passed and locked for 3 in-game years, no demands; "
+                         "trade and Colleagues pass and go back (SOS-226)"),
+})
+
+
 def main():
     global REPORTS
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)

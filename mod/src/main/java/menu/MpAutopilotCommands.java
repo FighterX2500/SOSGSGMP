@@ -98,12 +98,14 @@ import world.map.regions.Region;
  * slot 1's PC); {@code cancel} (every treaty with that player ends at once); {@code pick <n>} (the n-th of this player's
  * armies, from 0, is "the first army" of the army commands); {@code auto on|off} (battles=auto answers this PC's prompts,
  * or leaves them to their time-outs); {@code attacknpc} (the first army intercepts the nearest NPC army at war with this
- * player); {@code diplo} (the relations between the players, their NPC wars and vassals, and each one's stance with the others' NPC vassals); {@code morale player|enemy|mine|theirs}
+ * player); {@code diplo} (the relations between the players, their NPC wars and vassals, and each one's stance with the others' NPC vassals); {@code dipmess} (this PC's game time and its "Relations Worsen"
+ * and "Agreement Cancelled" messages, with their senders, SOS-226); {@code morale player|enemy|mine|theirs}
  * (from its step, that side's morale is held below zero until the battle ends, on every PC that runs the battle; it
  * replaces {@code rout} wherever a battle runs on more than one PC, and a view opened after it would desync);
  * {@code recruit <n>} (n of this city's citizens join a new division at once, trained and equipped; then {@code attach});
  * {@code giveregion <slot>} (the NPC region nearest that player's capital, not a capital, becomes theirs: a world command);
- * {@code givevassal <slot>} (the nearest NPC faction with no overlord becomes that player's vassal: a world command);
+ * {@code givevassal <slot> [skip]} (the nearest NPC faction with no overlord, other than faction {@code skip}, becomes that
+ * player's vassal: a world command);
  * {@code teleportnear <x> <y>} and {@code teleportarmy <army> <x> <y>} (the first army, or any army, an NPC's included,
  * stands on the passable tile nearest x, y); {@code besiegeregion <region>} (the first army besieges that region);
  * {@code regionat <region>} (its owner, centre and garrison); {@code townof <faction>} (that NPC faction's region nearest
@@ -383,6 +385,8 @@ final class MpAutopilotCommands {
 		}
 		case "diplo":
 			return diplo();
+		case "dipmess":
+			return dipmess();
 		case "state":
 			return state(engine);
 		case "regions":
@@ -428,7 +432,7 @@ final class MpAutopilotCommands {
 		}
 		case "givevassal": {
 			Faction to = FACTIONS.getByIndex(Integer.parseInt(a[1]));
-			FactionNPC f = nearestFreeNpc(to);
+			FactionNPC f = nearestFreeNpc(to, a.length > 2 ? Integer.parseInt(a[2]) : -1);
 			if (f == null)
 				return "refused: no NPC faction";
 			Sieges.npcVassalForTest(to.index(), f.index());
@@ -1223,14 +1227,18 @@ final class MpAutopilotCommands {
 		return best;
 	}
 
-	/** The active NPC faction nearest {@code f}'s capital with no overlord: what {@code givevassal} makes a vassal. */
-	private static FactionNPC nearestFreeNpc(Faction f) {
+	/**
+	 * The active NPC faction nearest {@code f}'s capital with no overlord, other than faction {@code skip}: what
+	 * {@code givevassal} makes a vassal.
+	 */
+	private static FactionNPC nearestFreeNpc(Faction f, int skip) {
 		FactionNPC best = null;
 		long bestD = Long.MAX_VALUE;
 		Region c = f.capitolRegion();
 		for (int i = 0; i < FACTIONS.MAX(); i++) {
 			Faction n = FACTIONS.getByIndex(i);
-			if (!(n instanceof FactionNPC) || !n.isActive() || n.capitolRegion() == null || DIP.overlord(n) != null || c == null)
+			if (!(n instanceof FactionNPC) || !n.isActive() || n.capitolRegion() == null || DIP.overlord(n) != null || c == null
+					|| i == skip)
 				continue;
 			long dx = n.capitolRegion().cx() - c.cx(), dy = n.capitolRegion().cy() - c.cy();
 			if (dx * dx + dy * dy < bestD) {
@@ -1312,6 +1320,48 @@ final class MpAutopilotCommands {
 			b.append(" regions ").append(h.realm().regions()).append("; ");
 		}
 		return b.toString();
+	}
+
+	/**
+	 * This PC's game time, and each vanilla diplomacy message in its list that lowers a stance: "Relations Worsen"
+	 * (money asked to keep it) or "Agreement(s) Cancelled", with the NPC that sent it and that NPC's overlord (-1 for
+	 * none), as {@code hit <title>@<second> from <npc> overlord <slot>} (SOS-226), for a test's log.
+	 */
+	private static String dipmess() {
+		StringBuilder b = new StringBuilder(String.format(Locale.ROOT, "played %.0f s, year %.0f s, messages",
+				game.time.TIME.playedGame(), game.time.TIME.years().bitSeconds()));
+		LIST<?> all = (LIST<?>) field(VIEW.messages(), "all");
+		b.append(' ').append(all.size());
+		for (int i = 0; i < all.size(); i++) {
+			Object m = all.get(i);
+			String title = String.valueOf(fieldUp(m, "title"));
+			if (!title.contains("Relations Worsen") && !title.contains("Cancelled"))
+				continue;
+			Object intro = fieldUp(m, "intro"); // a diplomacy message's sender; none in a plain text message
+			int npc = intro == null ? -1 : (Integer) fieldUp(intro, "fi");
+			Faction f = npc < 0 ? null : FACTIONS.getByIndex(npc);
+			Faction overlord = f == null ? null : DIP.overlord(f);
+			b.append("; hit ").append(title).append('@').append(String.format(Locale.ROOT, "%.0f", (Double) fieldUp(m, "currentSecond")))
+					.append(" from ").append(npc).append(" overlord ").append(overlord == null ? -1 : overlord.index());
+		}
+		return b.toString();
+	}
+
+	/** A field declared by the object's class or one of its superclasses, or null with none: test tooling only. */
+	private static Object fieldUp(Object target, String name) {
+		for (Class<?> c = target.getClass(); c != null; c = c.getSuperclass()) {
+			for (Field f : c.getDeclaredFields()) {
+				if (!f.getName().equals(name))
+					continue;
+				try {
+					f.setAccessible(true);
+					return f.get(target);
+				} catch (ReflectiveOperationException e) {
+					throw new IllegalStateException("SOSGSGMP: no access to " + c.getSimpleName() + "." + name, e);
+				}
+			}
+		}
+		return null;
 	}
 
 	private static WArmy nearestOf(Faction f, WArmy from) {
