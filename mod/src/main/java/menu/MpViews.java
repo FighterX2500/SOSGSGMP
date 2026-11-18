@@ -263,8 +263,9 @@ final class MpViews {
 	}
 
 	/**
-	 * Another player joined the city or battle this PC views, and its owner reloaded its game there: this PC loads the
-	 * same save once it has it, keeping its player's camera (spec §10, SOS-151).
+	 * Another player joined the city or battle this PC views, or the players voted to restart it (spec §8, SOS-231), and
+	 * its owner reloaded its game there: this PC loads the same save once it has it, keeping its player's camera (spec
+	 * §10, SOS-151).
 	 */
 	private void rejoin(ViewRequests r, View v) {
 		byte[] city = r.takeCity(v.rejoinAt());
@@ -273,12 +274,14 @@ final class MpViews {
 		keepCamera(v.battle());
 		engine.viewRejoin(city);
 		String joined = joined(v);
+		boolean restart = joined.isEmpty(); // no view froze there: a restart the players voted for
 		log.line("viewrejoin: " + name(v.owner) + "'s city again, " + city.length + " bytes, loading at step " + engine.step() + " as "
-				+ joined + " joined");
-		message(joined + " joined " + subject(v) + ". It reloads for a few seconds.");
+				+ (restart ? "the battle restarts" : joined + " joined"));
+		message(restart ? "The battle restarts from its start. It reloads for a few seconds."
+				: joined + " joined " + subject(v) + ". It reloads for a few seconds.");
 	}
 
-	/** The players whose view of the same owner froze at {@code v}'s rejoin step. */
+	/** The players whose view of the same owner froze at {@code v}'s rejoin step; empty for none (a restart). */
 	private String joined(View v) {
 		StringBuilder names = new StringBuilder();
 		for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++) {
@@ -289,7 +292,7 @@ final class MpViews {
 				names.append(name(o.viewer));
 			}
 		}
-		return names.length() == 0 ? "Another player" : names.toString();
+		return names.toString();
 	}
 
 	private void keepCamera(boolean battle) {

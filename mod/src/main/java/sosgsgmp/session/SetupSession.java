@@ -199,6 +199,25 @@ public interface SetupSession {
     /** This PC's player paused or unpaused the game; every PC hears it, this one too, in the host's order. */
     void pause(boolean paused);
 
+    /** The votes to restart a battle (spec §8, SOS-231): every opening and result the host announced, in its order. */
+    RestartVotes restartVotes();
+
+    /**
+     * This PC's player calls a vote to restart {@code battle} (SOSDET's {@code BattleKey} as a long). The host opens it for
+     * every player in the session, or refuses it to this player while another vote is open; a battle that can't restart
+     * cancels it at the host's next {@link #checkRestart}.
+     */
+    void callRestart(long battle);
+
+    /** This PC's player answers the open vote {@code vote}. */
+    void answerRestart(int vote, boolean yes);
+
+    /**
+     * Host, every frame while a vote is open: {@code refusal}, the engine's reason its battle can't restart now, cancels
+     * it; else the vote ends once decided or its time is up. Every PC hears the result.
+     */
+    void checkRestart(String refusal);
+
     /** The session's chat on this PC (spec §12), for reading. */
     Chat chat();
 

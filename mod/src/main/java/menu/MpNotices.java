@@ -3,8 +3,10 @@ package menu;
 import game.faction.FACTIONS;
 import game.faction.Faction;
 import game.faction.diplomacy.DIP;
+import sosdet.BattleKey;
 import sosdet.BattleOutcome;
 import sosdet.Notice;
+import sosdet.OwnBattle;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.session.SetupSession;
@@ -47,6 +49,20 @@ final class MpNotices {
 		return engine.factionName(slot);
 	}
 
+	/** The battle of {@code BattleKey} kind {@code kind} whose human is {@code human}, in words: whose, against whom (SOS-231). */
+	String battle(int kind, int human) {
+		switch (kind) {
+			case BattleKey.BATTLE:
+				OwnBattle b = engine.battle();
+				return b != null && b.human == human && b.other >= 0 ? "the battle between " + name(human) + " and " + name(b.other)
+						: name(human) + "'s battle";
+			case BattleKey.LOCAL:
+				return name(human) + "'s battle against NPCs";
+			default:
+				return "the assault on " + name(human) + "'s capital";
+		}
+	}
+
 	/** This player and another player's NPC vassal {@code vassal} have a stance through its overlord (SOS-140). */
 	private String passedText(String vassal, Notice n) {
 		Faction overlord = DIP.overlord(FACTIONS.getByIndex(n.second()));
@@ -76,6 +92,8 @@ final class MpNotices {
 			case Notice.ALLY_OUT -> a + " stayed out of the battle of " + b + ".";
 			case Notice.ARMY_LEFT -> a + " retreated from the battle.";
 			case Notice.STANCE_PASSED -> n.first() == setup.factions().slotOf(setup.localPlayerId()) ? passedText(b, n) : null;
+			case Notice.RESTART -> n.value() == 1 ? "The vote restarts " + battle(n.second(), n.first()) + " from its start."
+					: battle(n.second(), n.first()) + " couldn't restart: it ended, or a player joined or left it, or a prompt was open.";
 			case Notice.SALLY_EMPTY -> n.first() == setup.factions().slotOf(setup.localPlayerId())
 					? "Nobody sallies out: no soldiers stand in your capital or within 4 tiles of it." : null;
 			default -> throw new IllegalArgumentException("SOSGSGMP: a notice of kind " + n.kind());

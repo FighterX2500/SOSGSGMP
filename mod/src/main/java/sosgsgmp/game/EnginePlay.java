@@ -334,6 +334,29 @@ public final class EnginePlay implements EnginePort {
         return Engine.takeSpeedAsked();
     }
 
+    /**
+     * The battle this PC's player sees, which a vote can restart (spec §8, SOS-231): SOSDET's {@code BattleKey} as a long,
+     * or {@code BattleKey.NONE}. No allocation.
+     */
+    public long battleHere() {
+        return Engine.battleHere();
+    }
+
+    /** True once after this PC's player pressed the battle's own Restart: in a session that calls a vote (SOS-231). */
+    public boolean takeRestartAsked() {
+        return Engine.takeRestartAsked();
+    }
+
+    /** Why the battle {@code key} can't restart now, as the engine sees it on this PC; null when it can (SOS-231). */
+    public String restartRefusal(long key) {
+        return Engine.restartRefusal(key);
+    }
+
+    /** Host: the players voted to restart the battle {@code key}; every PC that runs it restarts it at one step (SOS-231). */
+    public void restartBattle(long key) {
+        Engine.restartBattle(key);
+    }
+
     /** The speed every PC runs at now. Builds the engine's stats: for the panel's refresh, not every frame. */
     public double agreedSpeed() {
         return Engine.stats().agreedSpeed;

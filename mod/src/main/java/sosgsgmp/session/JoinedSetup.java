@@ -51,6 +51,7 @@ public final class JoinedSetup implements SetupSession {
     private final Cursors cursors = new Cursors();
     private final Chat chat;
     private final Pauses pauses = new Pauses();
+    private final RestartVotes restartVotes = new RestartVotes();
     /** The loading window, as the host opens and closes it, and as this PC opens it for a freeze it sees ahead (SOS-158). */
     private final Loading loading = new Loading();
     /** Players whose PC left the running game, as the host tells it, and the hold for them (SOS-65). */
@@ -195,6 +196,28 @@ public final class JoinedSetup implements SetupSession {
         node.send(Node.HOST, new Message.Pause(localPlayerId(), paused));
     }
 
+    @Override
+    public RestartVotes restartVotes() {
+        return restartVotes;
+    }
+
+    @Override
+    public void callRestart(long battle) {
+        if (!closed)
+            node.send(Node.HOST, new Message.RestartCall(battle));
+    }
+
+    @Override
+    public void answerRestart(int vote, boolean yes) {
+        if (!closed)
+            node.send(Node.HOST, new Message.RestartAnswer(vote, yes));
+    }
+
+    /** Nothing: only the host counts the votes. */
+    @Override
+    public void checkRestart(String refusal) {
+    }
+
     private void received(Message m) {
         switch (m) {
             case Message.Loading l -> {
@@ -295,6 +318,7 @@ public final class JoinedSetup implements SetupSession {
                 doneOutcome = d.outcome();
             }
             case Message.Pause p -> pauses.heard(p);
+            case Message.RestartVote v -> restartVotes.heard(v);
             case Message.Chat c -> chat.heard(c.playerId(), players, c.text());
             case Message.Cursor c -> {
                 if (c.playerId() != localPlayerId())

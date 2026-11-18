@@ -96,6 +96,7 @@ public final class HostedSetup implements SetupSession {
     /** Each joining player's reports this session, by player id. */
     private final Map<Integer, ReportStore> reports = new HashMap<>();
     private final Pauses pauses = new Pauses();
+    private final RestartVotes restartVotes = new RestartVotes();
     /** The loading window on every PC (SOS-158). */
     private final Loading loading = new Loading();
     /** The number of the setup's latest loading window: its key. */
@@ -309,6 +310,67 @@ public final class HostedSetup implements SetupSession {
         relay(p);
     }
 
+    @Override
+    public RestartVotes restartVotes() {
+        return restartVotes;
+    }
+
+    @Override
+    public void callRestart(long battle) {
+        restartCall(localPlayerId(), battle);
+    }
+
+    private void restartCall(int caller, long battle) {
+        Message.RestartVote v = restartVotes.call(caller, battle, playerIds(), nowMs());
+        if (v.state() == Message.RestartVote.REFUSED)
+            tellPlayer(caller, v);
+        else
+            announce(v);
+    }
+
+    @Override
+    public void answerRestart(int vote, boolean yes) {
+        restartAnswer(localPlayerId(), vote, yes);
+    }
+
+    private void restartAnswer(int id, int vote, boolean yes) {
+        Message.RestartVote v = restartVotes.answer(id, vote, yes, playerIds(), nowMs());
+        if (v != null)
+            announce(v);
+    }
+
+    @Override
+    public void checkRestart(String refusal) {
+        Message.RestartVote v = refusal != null ? restartVotes.cancel(refusal) : restartVotes.check(playerIds(), nowMs());
+        if (v != null)
+            announce(v);
+    }
+
+    /** A vote's opening or result: every PC hears it, this one too, in the host's order. */
+    private void announce(Message.RestartVote v) {
+        restartVotes.heard(v);
+        relay(v);
+    }
+
+    /** A message for player {@code id} only: heard here when it is the host's own player. */
+    private void tellPlayer(int id, Message.RestartVote v) {
+        if (id == localPlayerId()) {
+            restartVotes.heard(v);
+            return;
+        }
+        for (Map.Entry<Integer, Integer> p : joined.entrySet())
+            if (p.getValue() == id)
+                node.send(p.getKey(), v);
+    }
+
+    /** Every player in the session now, the host first: the voters (spec §8). */
+    private List<Integer> playerIds() {
+        List<Integer> ids = new ArrayList<>(players.size());
+        for (LobbyPlayer p : players)
+            ids.add(p.id());
+        return ids;
+    }
+
     private void received(int peer, Message m) {
         if (beforeRestarted.contains(peer)) { // the old session's messages, still in flight at a hot-join restart
             if (m instanceof Message.Restarted)
@@ -366,6 +428,8 @@ public final class HostedSetup implements SetupSession {
                         node.send(p.getKey(), relayed);
             }
             case Message.Pause p when id != null -> heard(new Message.Pause(id, p.paused()));
+            case Message.RestartCall c when id != null && link != null -> restartCall(id, c.battle());
+            case Message.RestartAnswer a when id != null && link != null -> restartAnswer(id, a.vote(), a.yes());
             case Message.Chat c when id != null -> {
                 chat.heard(id, players, c.text());
                 relay(new Message.Chat(id, Chat.clean(c.text())));
