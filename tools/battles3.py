@@ -1794,23 +1794,26 @@ def v1(years=3):
     try:
         run.wait(lambda: all(run.events(w, "go") for w in WHO), 300, "every game playing")
         war_npc = meta("ALLIES").get("npc", -1)
+        vassal = {}  # the vassal givevassal made for each player; ALLIES's players may have others already (3, 4, 43)
         for w in WHO:  # one at a time: each is applied before the next player's nearest free NPC is chosen
             r = run.cmd(w, "givevassal %d %d" % (SLOT[w], war_npc))
-            if "becomes" not in r:
+            m = re.search(r"\((\d+)\) becomes", r)
+            if not m:
                 raise Failed("%s's vassal: %s" % (w, r))
+            vassal[w] = int(m.group(1))
             run.sleep(5)
-        friends = [p for p in WHO for q in WHO if p != q]
 
         def passed():
             pairs, own = stances_with_vassals(run.cmd("H", "diplo"))
-            return (pairs, own) if own and all(len(own.get(SLOT[w], ())) == 1 for w in WHO) else None
-        pairs, own = run.wait(passed, 60, "every player's vassal in diplo")
+            return (pairs, own) if all(vassal[w] in own.get(SLOT[w], ()) for w in WHO) else None
+        pairs, own = run.wait(lambda: passed() or run.sleep(2), 60, "every player's new vassal in diplo")
         say("vassals:", own, "stances:", pairs)
-        vassal = {w: next(iter(own[SLOT[w]])) for w in WHO}
+        # every player with every vassal of the other players, the older ones included
+        wanted = {(SLOT[p], v) for p in WHO for q in WHO if p != q for v in own[SLOT[q]]}
 
         def everyone_colleagues():
             p, _ = stances_with_vassals(run.cmd("H", "diplo"))
-            return p if p and all(v == "Colleagues" for v in p.values()) and len(p) == len(friends) else None
+            return p if wanted <= set(p) and all(v == "Colleagues" for v in p.values()) else None
         try:
             pairs = run.wait(lambda: everyone_colleagues() or run.sleep(2), 60, "Colleagues passed to every friend's vassal")
             run.check(True, "at the start every player is a colleague of the other players' vassals (an alliance passes Colleagues): %s" % pairs)
