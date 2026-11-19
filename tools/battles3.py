@@ -2401,6 +2401,12 @@ def r_assault(name, title):
             say("relations:", run.cmd("H", "diplo"))
             line = same_stations(run, "after the wars")
             run.check(stationed_men(line, SLOT["J"], SLOT["H"], j[0]) > 0, "J's army is still stationed: %s" % line)
+            # H's own armies on its capital tile would meet L's besieging army in a field battle first: they stand
+            # 5 tiles north meanwhile, out of L's way (it comes from the east)
+            for a in [a for a in armies(run, "H") if (a[2], a[3]) == (hx, hy)]:
+                pick_army(run, "H", a[0])
+                say("H:", run.cmd("H", "teleportnear %d %d" % (hx, hy - 5)))
+            run.sleep(5)
             lo = near_capital(run, "L", hx, hy, 4, 6)
             pick_army(run, "L", lo[0])
             run.cmd("L", "target %d" % SLOT["H"])
