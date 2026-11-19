@@ -6,6 +6,7 @@ import java.util.Locale;
 import sosdet.LocalBattle;
 import sosdet.View;
 import sosgsgmp.game.EnginePlay;
+import sosgsgmp.game.PlayerStations;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.net.Message;
@@ -125,7 +126,10 @@ final class MpViews {
 		while ((p = r.takeCheck()) != null) {
 			String refusal = engine.viewRefusal(p.viewer(), p.owner());
 			boolean battle = refusal == null && engine.localBattle(p.owner());
-			if (battle)
+			// spec §9: a stationed army's player views the invaded city its soldiers defend without asking (SOS-234)
+			boolean defends = refusal == null && !battle && engine.invading(p.owner())
+					&& !PlayerStations.between(p.viewer(), p.owner()).isEmpty();
+			if (battle || defends)
 				r.checkedNoAsk(p); // spec §8: a running NPC battle is watched without asking
 			else
 				r.checked(p, refusal);
@@ -263,8 +267,9 @@ final class MpViews {
 	}
 
 	/**
-	 * Another player joined the city or battle this PC views, and its owner reloaded its game there: this PC loads the
-	 * same save once it has it, keeping its player's camera (spec §10, SOS-151).
+	 * Another player joined the city or battle this PC views, or the players voted to restart it (spec §8, SOS-231), and
+	 * its owner reloaded its game there: this PC loads the same save once it has it, keeping its player's camera (spec
+	 * §10, SOS-151).
 	 */
 	private void rejoin(ViewRequests r, View v) {
 		byte[] city = r.takeCity(v.rejoinAt());
@@ -273,12 +278,14 @@ final class MpViews {
 		keepCamera(v.battle());
 		engine.viewRejoin(city);
 		String joined = joined(v);
+		boolean restart = joined.isEmpty(); // no view froze there: a restart the players voted for
 		log.line("viewrejoin: " + name(v.owner) + "'s city again, " + city.length + " bytes, loading at step " + engine.step() + " as "
-				+ joined + " joined");
-		message(joined + " joined " + subject(v) + ". It reloads for a few seconds.");
+				+ (restart ? "the battle restarts" : joined + " joined"));
+		message(restart ? "The battle restarts from its start. It reloads for a few seconds."
+				: joined + " joined " + subject(v) + ". It reloads for a few seconds.");
 	}
 
-	/** The players whose view of the same owner froze at {@code v}'s rejoin step. */
+	/** The players whose view of the same owner froze at {@code v}'s rejoin step; empty for none (a restart). */
 	private String joined(View v) {
 		StringBuilder names = new StringBuilder();
 		for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++) {
@@ -289,7 +296,7 @@ final class MpViews {
 				names.append(name(o.viewer));
 			}
 		}
-		return names.length() == 0 ? "Another player" : names.toString();
+		return names.toString();
 	}
 
 	private void keepCamera(boolean battle) {
@@ -493,6 +500,22 @@ final class MpViews {
 	boolean asked(int owner) {
 		ViewRequests r = setup.views();
 		return r != null && r.asked() == owner;
+	}
+
+	/**
+	 * An invasion of the capital of the player in {@code owner} that this PC's player's stationed army fights (spec §9,
+	 * SOS-234): the chat says so, and this PC asks at once to view the city, where its player commands those soldiers.
+	 */
+	void defend(int owner, String invasion) {
+		String refusal = askRefusal(owner);
+		if (refusal == null) {
+			setup.chat().notice(invasion + " Your army stationed there fights in their city: you view it to command your"
+					+ " soldiers.", owner);
+			ask(owner);
+		} else {
+			setup.chat().notice(invasion + " Your army stationed there fights in their city; " + name(owner)
+					+ " commands it until you view the city (" + refusal + ")", owner);
+		}
 	}
 
 	/** The button: asks to view the city of the player in {@code owner}. Check {@link #askRefusal} first. */

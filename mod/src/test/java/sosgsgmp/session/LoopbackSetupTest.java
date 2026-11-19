@@ -1168,6 +1168,59 @@ class LoopbackSetupTest {
     }
 
     /**
+     * SOS-231, a battle's restart by vote: Bob's call reaches the host, which opens it for all three players; a second
+     * call while it is open is refused to its caller only; Cid's Yes makes the majority, and every PC hears the opening
+     * and the result once, in the host's order.
+     */
+    @Test
+    void aRestartVoteTravelsThroughTheHostAndEveryPcHearsItsResult() throws Exception {
+        playing(new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort(), new EngineLinkTest.FakePort());
+        int bobId = idOf(host, "Bob");
+        bob.callRestart(1234);
+        Message.RestartVote[] heard = new Message.RestartVote[3];
+        playUntil("the opening on every PC", () -> {
+            List<SetupSession> all = List.of(host, bob, cid);
+            for (int i = 0; i < 3; i++)
+                if (heard[i] == null)
+                    heard[i] = all.get(i).restartVotes().take();
+            return heard[0] != null && heard[1] != null && heard[2] != null;
+        });
+        for (Message.RestartVote v : heard) {
+            assertEquals(Message.RestartVote.OPEN, v.state());
+            assertEquals(bobId, v.callerId());
+            assertEquals(1234, v.battle());
+            assertEquals(3, v.voters());
+        }
+        int vote = heard[0].vote();
+        assertEquals(1234, host.restartVotes().open().battle());
+        host.callRestart(55);
+        Message.RestartVote refused = host.restartVotes().take();
+        assertEquals(Message.RestartVote.REFUSED, refused.state(), "the host's own second call, for it only");
+        cid.answerRestart(vote, true);
+        playUntil("the result on every PC", () -> {
+            List<SetupSession> all = List.of(host, bob, cid);
+            for (int i = 0; i < 3; i++)
+                if (heard[i].state() == Message.RestartVote.OPEN) {
+                    Message.RestartVote v = all.get(i).restartVotes().take();
+                    if (v != null)
+                        heard[i] = v;
+                }
+            return heard[0].state() != Message.RestartVote.OPEN && heard[1].state() != Message.RestartVote.OPEN
+                    && heard[2].state() != Message.RestartVote.OPEN;
+        });
+        for (Message.RestartVote v : heard) {
+            assertEquals(Message.RestartVote.PASSED, v.state());
+            assertEquals(2, v.yes());
+        }
+        assertNull(host.restartVotes().open());
+        host.checkRestart(null);
+        bob.cursor(Cursors.WORLD, 5, 6); // once it is at Cid, so would be anything the host sent before it
+        playUntil("Bob's cursor at Cid", () -> at(cid, bobId, 5, 6));
+        assertNull(bob.restartVotes().take(), "heard once");
+        assertNull(cid.restartVotes().take());
+    }
+
+    /**
      * SOS-194, Leave and freeze: Bob's ask reaches the host once; the host's save names him its quitter and plays on;
      * once every PC saved, the campaign has Bob frozen, the host takes him once to freeze, and his leaving holds nobody:
      * Cid sees him off the roster.
