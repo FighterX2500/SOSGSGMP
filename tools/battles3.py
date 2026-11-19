@@ -793,6 +793,22 @@ def battle_outage(run):
                           % (w, seconds, ", its connection cut," if cut else "", r)))
 
 
+def clear_field(run, small):
+    """Every player army but the small ones of P-ALLIES leaves the field. Vanilla's field battle takes in every army of
+    either side within WArmy.reinforceTiles (4) of the tile it starts from (Util.fill), and a weaker NPC army withdraws
+    at once: L's template army at L's capital, 62,95, joined H's side when the battle started from H's tile (CD
+    2026-11-19, RV2 twice, NPC armies of 3088 and 4121 power)."""
+    for w in WHO:
+        for a in armies(run, w):
+            if a[0] == small.get(w) or a[1] <= 0 or max(abs(a[2] - FIELD[0]), abs(a[3] - FIELD[1])) > 8:
+                continue
+            pick_army(run, w, a[0])
+            moved = place_picked(run, w, FIELD[0], FIELD[1] + 14)
+            say(w, "army", a[0], "leaves the field:", moved)
+            if max(abs(moved[2] - FIELD[0]), abs(moved[3] - FIELD[1])) <= 8:
+                raise Failed("%s's army %d can't leave the field: it stands at %d,%d" % (w, a[0], moved[2], moved[3]))
+
+
 def npc_battle(run, joiners, watcher=None, outcome="win", retreat=None, save=False, answer=True, fight=True):
     """H attacks the position's NPC army; `joiners` are asked Join and answer it (or not, answer=False); `watcher`
     views the battle for 20 s; the side wins (the enemy's morale held) or loses (its own); `retreat` leaves halfway.
@@ -804,6 +820,7 @@ def npc_battle(run, joiners, watcher=None, outcome="win", retreat=None, save=Fal
     # armies keeps them apart); the NPC army comes last, as the world runs fast and it walks off meanwhile
     for w in ["H"] + joiners:
         place_near(run, w, FIELD[0], FIELD[1])
+    clear_field(run, m.get("small", {}))
     for w in WHO:  # the NPC faction may have made peace since the position was saved (its AI offers it)
         run.cmd(w, "npcwar %d" % m["npc"])
     run.sleep(2)
