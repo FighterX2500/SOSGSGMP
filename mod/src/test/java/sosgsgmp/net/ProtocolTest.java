@@ -100,6 +100,13 @@ class ProtocolTest {
             new Message.SaveAt(new SaveOrder(9, 130, CampaignRecord.Kind.SAVE, 0,
                     CampaignStoreTest.CAMPAIGN_FOR_TESTS.freezing(java.util.Set.of(1)), false, 1)),
             new Message.FreezeAsk(),
+            new Message.RestartCall(0),
+            new Message.RestartCall(Long.MAX_VALUE),
+            new Message.RestartVote(1, 0, 123_456_789L, Message.RestartVote.OPEN, 1, 3, ""),
+            new Message.RestartVote(Integer.MAX_VALUE, 7, 0, Message.RestartVote.CANCELLED, 0, 16, "That battle is over."),
+            new Message.RestartVote(0, 3, 5, Message.RestartVote.REFUSED, 0, 0, "Another restart vote is open."),
+            new Message.RestartAnswer(1, true),
+            new Message.RestartAnswer(Integer.MAX_VALUE, false),
             new Message.PlayerLost(2, 530, 5100),
             new Message.PlayerBack(2, 530),
             new Message.Heartbeat(1794149400266L, 0, 0, 0),
@@ -264,6 +271,18 @@ class ProtocolTest {
     }
 
     /** SOS-158: a loading window of an unknown kind, a negative key or too long a text is refused. */
+    @Test
+    void restartVoteMessagesWithBadValuesThrow() {
+        assertRefused(new Message.RestartCall(-1));
+        assertRefused(new Message.RestartVote(-1, 0, 5, Message.RestartVote.OPEN, 1, 2, ""));
+        assertRefused(new Message.RestartVote(1, -1, 5, Message.RestartVote.OPEN, 1, 2, ""));
+        assertRefused(new Message.RestartVote(1, 0, -1, Message.RestartVote.OPEN, 1, 2, ""));
+        assertRefused(new Message.RestartVote(1, 0, 5, Message.RestartVote.REFUSED + 1, 1, 2, ""));
+        assertRefused(new Message.RestartVote(1, 0, 5, Message.RestartVote.PASSED, 3, 2, ""));
+        assertRefused(new Message.RestartVote(1, 0, 5, Message.RestartVote.CANCELLED, 0, 2, "x".repeat(257)));
+        assertRefused(new Message.RestartAnswer(0, true));
+    }
+
     @Test
     void aLoadingWindowWithBadValuesIsRefused() {
         assertRefused(new Message.Loading(sosgsgmp.session.Loading.Kind.values().length, 1, "x", true));

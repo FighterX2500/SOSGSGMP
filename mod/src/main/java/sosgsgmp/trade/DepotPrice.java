@@ -36,7 +36,7 @@ public final class DepotPrice {
 
     /** What reaches the seller: their price less the buyer's tariff. The toll went to the caravan. */
     public int received() {
-        return asked - tariff();
+        return received(asked, tariffPercent);
     }
 
     /** What the buyer is out once their tariff comes back to their treasury. */
@@ -47,6 +47,11 @@ public final class DepotPrice {
     /** {@link #paid()} without a value: for the per-frame list. */
     public static int paid(int asked, int toll) {
         return asked + toll;
+    }
+
+    /** {@link #received()} without a value: for the Goods tab's Sell, read each frame (SOS-230). */
+    public static int received(int asked, int percent) {
+        return asked - tariff(asked, percent);
     }
 
     /** The tariff on a sale at {@code asked}, as the engine's tariff book cuts it: of the asked price, rounded down. */

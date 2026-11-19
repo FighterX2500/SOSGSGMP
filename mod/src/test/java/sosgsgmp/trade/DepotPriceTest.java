@@ -24,6 +24,16 @@ class DepotPriceTest {
     }
 
     @Test
+    void whatASellerGetsIsTheirPriceLessTheBuyersTariffWithoutAValue() {
+        assertEquals(40, DepotPrice.received(50, 20), "the Goods tab's Sell: 50 less their 20% tariff");
+        assertEquals(new DepotPrice(50, 21, 20).received(), DepotPrice.received(50, 20), "the same as the depot's hover");
+        assertEquals(11, DepotPrice.received(13, 20), "the tariff rounds down, so the seller keeps the rest");
+        assertEquals(50, DepotPrice.received(50, 0));
+        assertEquals(10, DepotPrice.received(50, 80), "the highest tariff");
+        assertEquals(0, DepotPrice.received(0, 20), "an export price of 0 earns nothing");
+    }
+
+    @Test
     void theTariffRoundsDownAsTheEnginesBookCutsIt() {
         assertEquals(2, DepotPrice.tariff(13, 20));
         assertEquals(0, DepotPrice.tariff(4, 20));

@@ -1,9 +1,9 @@
 package menu;
 
-import game.GAME;
 import init.settings.S;
 import snake2d.CORE;
 import sosdet.View;
+import sosgsgmp.campaign.AutosaveClock;
 import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.CampaignRecord;
 import sosgsgmp.campaign.CampaignStore;
@@ -12,6 +12,7 @@ import sosgsgmp.game.DataFolders;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbySettings;
+import sosgsgmp.session.Pauses;
 import sosgsgmp.session.SetupSession;
 import sosgsgmp.session.ViewRequests;
 
@@ -37,6 +38,8 @@ final class MpSaves {
 	/** Host: the save that waits for the city views to end; null otherwise. */
 	private CampaignRecord.Kind waiting;
 	private boolean loggedWaiting;
+	/** Host: whether the panel's line says the waiting save waits for the unpause. */
+	private boolean shownUnpause;
 	/** Host: a save that ends the session has the views in its way closed; each view is asked once. */
 	private final View[] closing = new View[LobbySettings.MAX_SLOTS];
 	private boolean closingViews;
@@ -56,9 +59,13 @@ final class MpSaves {
 	private long savedBeforeBattle = -1;
 	/** The step of this PC's last save. */
 	private long savedStep = -1;
-	/** Host: real milliseconds played since the last save, as vanilla's autosave counts them. */
-	private long autoMillis;
-	private long autoLast = -1;
+	/**
+	 * The newest autosave every PC made in this session, kept past the autosave slots, or CampaignStore.NO_SAVE: saves a
+	 * PC couldn't make never push out the last one a resume can use (SOS-229).
+	 */
+	private int goodAuto = CampaignStore.NO_SAVE;
+	/** Host: real time the world ran unpaused since the last save, as vanilla's autosave counts it (SOS-229). */
+	private final AutosaveClock autoClock = new AutosaveClock();
 
 	MpSaves(SetupSession setup, EnginePlay engine, WorldSetupAdapter game, MpLog log, MpReports reports) {
 		this.setup = setup;
@@ -173,13 +180,17 @@ final class MpSaves {
 		startWaiting();
 		if (waiting != null && !loggedWaiting) {
 			loggedWaiting = true;
-			log.line("a campaign save (" + waiting + ") waits for the city views to end");
+			log.line("a campaign save (" + waiting + ") waits for " + (waitsForUnpause() ? "the unpause" : "the city views to end"));
 		}
 	}
 
-	/** Host: the waiting save starts once nothing stands in its way. */
+	/** Host: the waiting save starts once nothing stands in its way; an autosave waits for the session's unpause too (SOS-229). */
 	private void startWaiting() {
-		if (waiting == null || !canSave())
+		if (waitsForUnpause() != shownUnpause) { // the panel's line names what the save waits for
+			shownUnpause = !shownUnpause;
+			changes++;
+		}
+		if (waiting == null || !canSave() || waiting == CampaignRecord.Kind.AUTO && paused())
 			return;
 		CampaignRecord.Kind kind = waiting;
 		waiting = null;
@@ -219,22 +230,35 @@ final class MpSaves {
 		Campaign c = setup.campaign();
 		int keep = kind == CampaignRecord.Kind.AUTO ? Math.max(1, S.get().autoSaveFiles.get()) : 0;
 		setup.orderSave(new SaveOrder(store.nextNumber(c.id()), step, kind, keep, c, exit, quitter));
-		autoMillis = 0;
+		autoClock.restart();
 	}
 
-	/** Host: vanilla's autosave interval (Settings, Auto-Saving), counted while the game runs, starts an autosave. */
+	/**
+	 * Host: vanilla's autosave interval (Settings, Auto-Saving), counted in real time while the world runs and the
+	 * session isn't paused (SOS-229), starts an autosave; one due while the world is still at the last save's step is
+	 * skipped.
+	 */
 	private void autosave() {
-		long now = CORE.getUpdateInfo().getNowMillis();
-		if (S.get().autoSaveInterval.get() == 0 || GAME.SPEED.speed() == 0) {
-			autoLast = -1;
+		autoClock.frame(engine.step(), S.get().autoSaveInterval.get() == 0 || paused(), CORE.getUpdateInfo().getNowMillis());
+		long due = (1 + 2L * (S.get().autoSaveInterval.max() - S.get().autoSaveInterval.get())) * 60_000;
+		if (!autoClock.elapsed(due) || saveRefusal() != null)
+			return;
+		if (!autoClock.movedSince(savedStep)) {
+			autoClock.restart();
+			log.line("an autosave skipped: the world is still at step " + savedStep + " of the last campaign save");
 			return;
 		}
-		if (autoLast >= 0)
-			autoMillis += now - autoLast;
-		autoLast = now;
-		long due = (1 + 2L * (S.get().autoSaveInterval.max() - S.get().autoSaveInterval.get())) * 60_000;
-		if (autoMillis >= due && saveRefusal() == null)
-			saveNow(CampaignRecord.Kind.AUTO);
+		saveNow(CampaignRecord.Kind.AUTO);
+	}
+
+	/** Host: the waiting save is an autosave that waits only for the session's unpause. */
+	private boolean waitsForUnpause() {
+		return waiting == CampaignRecord.Kind.AUTO && paused() && !engine.viewOpen();
+	}
+
+	/** The pause every PC shares is on (spec §4): this PC's own game speed doesn't say, the agreed pause does. */
+	private boolean paused() {
+		return setup.pauses().pausedBy() != Pauses.NOBODY;
 	}
 
 	private void begin(SaveOrder o) {
@@ -269,7 +293,7 @@ final class MpSaves {
 				store.write(new CampaignRecord(order.campaign(), order.number(), order.kind(), System.currentTimeMillis(), slot,
 						file, hash, true));
 				if (order.keep() > 0)
-					for (CampaignRecord gone : store.rotate(order.campaign().id(), order.keep()))
+					for (CampaignRecord gone : store.rotate(order.campaign().id(), order.keep(), goodAuto))
 						game.deleteSave(gone.file());
 				log.line(String.format("save %d written at step %d: %s, world hash %016x", order.number(), engine.step(), file, hash));
 				if (rejoinOutNext) { // the host's rejoin files at the founding save's own step, as every PC's save (SOS-195)
@@ -308,6 +332,8 @@ final class MpSaves {
 			engine.release(EnginePlay.Hold.SAVE);
 		if (engine.battleAhead() >= 0)
 			savedBeforeBattle = engine.battleAhead(); // a failed save too: the battle still begins, its outcome shown
+		if (outcome.isEmpty() && order.kind() == CampaignRecord.Kind.AUTO)
+			goodAuto = order.number();
 		status = outcome.isEmpty() ? "Campaign saved (save " + order.number() + ")." : "Save " + order.number() + ": " + outcome;
 		log.line("save " + order.number() + " done on every PC" + (outcome.isEmpty() ? "" : ": " + outcome));
 		if (order.exit()) {
@@ -376,7 +402,9 @@ final class MpSaves {
 	String status() {
 		if (order != null)
 			return "Saving the campaign (save " + order.number() + ")...";
-		return waiting != null ? "The campaign saves once no player is viewing a city." : status;
+		if (waiting == null)
+			return status;
+		return waitsForUnpause() ? "The campaign saves once the game is unpaused." : "The campaign saves once no player is viewing a city.";
 	}
 
 	/** Counts changes to {@link #status()}, so the panel redraws only when it moves. */

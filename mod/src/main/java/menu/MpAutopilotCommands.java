@@ -48,6 +48,7 @@ import sosdet.game.deal.DealBook;
 import sosdet.game.siege.AssaultTerms;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.PlayerDeals;
+import sosgsgmp.game.PlayerStations;
 import sosgsgmp.net.ConditionedNode;
 import sosgsgmp.net.NetConditions;
 import sosgsgmp.session.SetupSession;
@@ -124,6 +125,11 @@ import world.map.regions.Region;
  * for too, as {@code ongone} says, as for players who left);
  * {@code state} (the prompts, battle, view and terms open on this PC); {@code save} (host: the escape menu's Save
  * Campaign, at any time, a battle included).
+ *
+ * <p>A battle's restart by vote (SOS-231): {@code restartcall [battle]} (this player calls a vote on the battle they
+ * see: the multiplayer panel's Restart battle, or with {@code battle} the battle's own Restart); {@code restartanswer
+ * yes|no|none} (this player's answer to the open vote, or none: the window waits out its 30 s); {@code restartstate}
+ * (the battle this PC sees, its key, why it can't restart, and the open vote).
  */
 final class MpAutopilotCommands {
 
@@ -216,10 +222,15 @@ final class MpAutopilotCommands {
 		rout();
 		if (autoBattles)
 			battles(setup);
-		if (setup.chat().added() != chatSeen) {
-			chatSeen = setup.chat().added();
-			event.accept("chatline", "\"added\":" + chatSeen + ",\"step\":" + engine.step() + ",\"text\":\""
-					+ clean(setup.chat().line(setup.chat().size() - 1).text()) + "\"");
+		int added = setup.chat().added();
+		if (added != chatSeen) {
+			// every line since the last frame that the chat still holds: two lines in one frame lost the first (RV3: J
+			// missed "The vote restarts..." under "The battle restarts...")
+			int size = setup.chat().size();
+			for (int i = Math.max(0, size - (added - chatSeen)); i < size; i++)
+				event.accept("chatline", "\"added\":" + (added - (size - 1 - i)) + ",\"step\":" + engine.step() + ",\"text\":\""
+						+ clean(setup.chat().line(i).text()) + "\"");
+			chatSeen = added;
 		}
 		if (!Files.exists(file))
 			return;
@@ -705,6 +716,74 @@ final class MpAutopilotCommands {
 		}
 		case "allies": // the last battle prompt's ally question as the engine saw it (SOS-162)
 			return "allies " + Hooks.worldPromptAlliesSeen();
+		case "sallyseen": // the last sally with allies: its layout, power and each ally's share as shipped (SOS-232)
+			return "sally " + Hooks.sallySeen();
+		case "raidcapital": { // test tooling: the raider nearest <men> (300) invades this player's capital now, at its step on every PC (SOS-232)
+			int men = a.length > 1 ? Integer.parseInt(a[1]) : 300;
+			int raider = sosdet.game.cmd.Events.raiderNearForTest(men);
+			sosdet.game.cmd.Events.raidCapitalForTest(raider);
+			return "raider " + raider + " invades the capital, " + GAME.raiders().ALL().get(raider).army.men + " men";
+		}
+		case "station": { // the picked army stations at the target player's capital (SOS-233)
+			WArmy w = firstArmy();
+			String why = PlayerStations.stationRefusal(w, slot);
+			if (why != null)
+				return "refused: " + why;
+			PlayerStations.station(w, slot);
+			return "army " + w.armyIndex() + " stations at " + other().name + "'s capital";
+		}
+		case "stationend": // the picked army, stationed, comes back (its player), or the target's first one at this capital is sent away (the host)
+		case "stationsupply": { // the target's first army stationed at this capital, supplied from this city (SOS-233)
+			WArmy w = PlayerStations.stationed(firstArmy()) ? firstArmy() : null;
+			for (PlayerStations.Stationed s : PlayerStations.between(slot, FACTIONS.player().index()))
+				if (w == null)
+					w = s.army();
+			boolean end = a[0].equals("stationend");
+			String why = end ? PlayerStations.endRefusal(w) : PlayerStations.supplyRefusal(w);
+			if (why != null)
+				return "refused: " + why;
+			if (end)
+				PlayerStations.end(w);
+			else
+				PlayerStations.supply(w);
+			return (end ? "ends the stationing of army " : "supplies army ") + w.armyIndex();
+		}
+		case "stations": { // every stationed army: its player, host, men, tile and supplies (SOS-233)
+			StringBuilder b = new StringBuilder("stations:");
+			for (PlayerStations.Stationed s : PlayerStations.all()) {
+				b.append(" [").append(s.owner()).append(" at ").append(s.host());
+				if (s.army() != null) {
+					int sup = 0;
+					for (int i = 0; i < AD.supplies().all.size(); i++)
+						sup += AD.supplies().all.get(i).current().get(s.army());
+					b.append(" army ").append(s.army().armyIndex()).append(" men ").append(AD.men(null).get(s.army()))
+							.append(" at ").append(s.army().ctx()).append(',').append(s.army().cty()).append(" supplies ").append(sup);
+				}
+				b.append(']');
+			}
+			return b.toString();
+		}
+		case "stationdivs": { // the city's divisions holding a stationed army's soldiers: player, men, mustered, centre tile (SOS-234)
+			StringBuilder b = new StringBuilder("stationdivs:");
+			for (Div d : GAME.ARMIES().player().divisions()) {
+				int owner = PlayerStations.divOwner(d.index());
+				if (owner < 0)
+					continue;
+				long x = 0, y = 0;
+				int n = 0;
+				for (settlement.entity.ENTITY e : settlement.main.SETT.ENTITIES().getAllEnts())
+					if (e instanceof settlement.entity.humanoid.Humanoid h && !e.isRemoved() && h.division() == d) {
+						x += h.tc().x();
+						y += h.tc().y();
+						n++;
+					}
+				b.append(" [div ").append(d.index()).append(" of ").append(owner).append(" men ").append(d.menNrOf())
+						.append(" target ").append(d.info.men()).append(" mustered ").append(d.settings().mustering())
+						.append(" at ").append(n == 0 ? -1 : x / n).append(',').append(n == 0 ? -1 : y / n)
+						.append(" selectable ").append(OwnArmy.selectable(d)).append(']');
+			}
+			return b.toString();
+		}
 		case "armypower": { // an army's power, as vanilla weighs the sides of a world battle (SOS-162)
 			WArmy w = WORLD.ENTITIES().armies.tryGet(Integer.parseInt(a[1]));
 			return w == null ? "refused: no army " + a[1] : "power " + (long) AD.power().get(w);
@@ -891,11 +970,46 @@ final class MpAutopilotCommands {
 					b.append(d.index()).append(" (men ").append(d.menNrOf()).append(") ");
 			return b.length() == 0 ? "none mustered" : "mustered: " + b;
 		}
+		case "restartcall": // a vote to restart the battle this PC sees: the panel's button, or the battle's own (SOS-231)
+			return restartCall(a.length > 1 && a[1].equals("battle"), engine, setup);
+		case "restartanswer": { // this PC's answer to the open restart vote: yes, no, or none (SOS-231)
+			int vote = setup.restartVotes().heardOpen();
+			if (vote == 0)
+				return "refused: no restart vote open";
+			if (a[1].equals("none"))
+				return "vote " + vote + " left unanswered";
+			setup.answerRestart(vote, a[1].equals("yes"));
+			return "vote " + vote + " answered " + a[1];
+		}
+		case "restartstate": { // the battle this PC sees, whether it can restart, the open vote (SOS-231)
+			long k = engine.battleHere();
+			return "battle " + k + (k == sosdet.BattleKey.NONE ? "" : " " + sosdet.BattleKey.of(k) + ", refusal "
+					+ engine.restartRefusal(k)) + ", open vote " + setup.restartVotes().heardOpen();
+		}
 		case "depotmsg": // the depot's message with player traders counted, beside vanilla's (SOS-210)
 			return depotMessage(a[1].equals("import"));
 		default:
 			return "unknown action";
 		}
+	}
+
+	/**
+	 * Test tooling (SOS-231): this PC's player calls a vote to restart the battle they see, with the multiplayer panel's
+	 * Restart battle, or with {@code battle} the battle's own Restart, which SOSDET turns into the call.
+	 */
+	private static String restartCall(boolean own, EnginePlay engine, SetupSession setup) {
+		long k = engine.battleHere();
+		if (k == sosdet.BattleKey.NONE)
+			return "refused: no battle here";
+		if (!own) {
+			MpRestartVote.call(setup, engine);
+			return "restart vote called for battle " + k;
+		}
+		BattleState b = VIEW.b().state();
+		if (b == null)
+			return "refused: no battle map on this PC";
+		b.reloadBattle();
+		return "battle's Restart pressed for battle " + k;
 	}
 
 	/**

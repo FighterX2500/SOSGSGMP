@@ -21,6 +21,8 @@ import java.util.stream.Stream;
 public final class CampaignStore {
 
     private static final String ENDING = ".txt";
+    /** No save number: save numbers start at 1. */
+    public static final int NO_SAVE = 0;
 
     private final Path dir;
     /** An older version's folder, read and cleaned but never written; null when there is none. */
@@ -116,9 +118,11 @@ public final class CampaignStore {
 
     /**
      * Removes the records of {@code campaignId}'s autosaves past the newest {@code keep} and returns them, for the
-     * caller to delete their game saves. Saves of kind SAVE are never removed.
+     * caller to delete their game saves. Saves of kind SAVE are never removed, nor the autosave numbered
+     * {@code keepAlso} ({@link #NO_SAVE} for none): the newest one every PC made, so autosaves a PC couldn't make never
+     * push out the last one a resume can use (SOS-229).
      */
-    public List<CampaignRecord> rotate(long campaignId, int keep) {
+    public List<CampaignRecord> rotate(long campaignId, int keep, int keepAlso) {
         List<CampaignRecord> gone = new ArrayList<>();
         int kept = 0;
         for (CampaignRecord r : all()) {
@@ -128,6 +132,8 @@ public final class CampaignStore {
                 kept++;
                 continue;
             }
+            if (r.number() == keepAlso)
+                continue;
             try {
                 Files.deleteIfExists(file(campaignId, r.number()));
                 if (old != null)
