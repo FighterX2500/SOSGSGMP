@@ -2398,25 +2398,17 @@ def r_assault(name, title):
             hx, hy = capital(run, "H")
             j, before = station_j(run, hx, hy)
             declare_war(run, "L", "H")
-            declare_war(run, "J", "L")
-            say("relations:", run.cmd("H", "diplo"))
-            line = same_stations(run, "after the wars")
+            line = same_stations(run, "after L's war on H")
             run.check(stationed_men(line, SLOT["J"], SLOT["H"], j[0]) > 0, "J's army is still stationed: %s" % line)
-            # H's own armies on its capital tile would meet L's besieging army in a field battle first: they stand
-            # 6 tiles east meanwhile, out of L's way (it comes from the north)
+            # Only the east side of H's capital can be reached (north and west are rock and water). H's own armies on
+            # its capital tile would meet L's besieging army in a field battle first: they stand north meanwhile, out of
+            # reach. L comes from the east; J declares war on L only once the siege is on, or L's army meets J's
+            # stationed one on its way in (10.md's warning; batch D run 1)
             for a in [a for a in armies(run, "H") if (a[2], a[3]) == (hx, hy)]:
                 pick_army(run, "H", a[0])
-                say("H:", run.cmd("H", "teleportnear %d %d" % (hx + 6, hy)))
+                say("H:", run.cmd("H", "teleportnear %d %d" % (hx, hy - 5)))
             run.sleep(5)
-            # L comes from the north (the west is rock and water): from the east it passes J's stationed army (at war with L) south-east of the
-            # capital and meets it in the field first (10.md's warning)
-            lo = None
-            for dx, dy in ((0, -2), (-1, -2), (1, -2), (0, -3), (-1, -3), (1, -3)):  # at the walls: from 6 tiles off it walked round for 100,000 steps
-                lo = place(run, "L", hx + dx, hy + dy)
-                if lo[3] < hy and 2 <= max(abs(lo[2] - hx), abs(lo[3] - hy)) <= 3:
-                    break
-            else:
-                raise Failed("L's army found no tile 2 to 3 tiles north of H's capital (last %s)" % (lo,))
+            lo = near_capital(run, "L", hx, hy, 4, 6)
             say("L's army", lo)
             pick_army(run, "L", lo[0])
             run.cmd("H", "fallback")  # H's sally prompt at the siege: H stays in its city for the assault
@@ -2424,6 +2416,10 @@ def r_assault(name, title):
             r = run.cmd("L", "besiege")
             run.check("besieging" in r, "L besieges H's capital: %s" % r)
             run.wait(lambda: "my capital besieged true" in status(run, "H") or run.sleep(2), 300, "H's capital besieged")
+            declare_war(run, "J", "L")
+            say("relations:", run.cmd("H", "diplo"))
+            line = same_stations(run, "after J's war on L")
+            run.check(stationed_men(line, SLOT["J"], SLOT["H"], j[0]) > 0, "J's army is still stationed: %s" % line)
             run.sleep(10)
             say("L:", run.cmd("L", "siegewait"))
             run.sleep(5)
