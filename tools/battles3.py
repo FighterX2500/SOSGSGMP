@@ -310,6 +310,9 @@ def template(run, w, men=200, merc=True):
     hire = [i for i, hired in re.findall(r"(\d+):[^;]* men \d+ cost \d+( hired)?;", mercs) if not hired]
     if hire and merc:
         run.cmd(w, "merc %s" % hire[0])
+    # supplied before its soldiers arrive: a player's army short of supplies loses men to desertion once a game
+    # day (vanilla ADUpdaterDiv.starve), and could fall back to 1 man while they marched in
+    run.cmd(w, "fill")
     run.wait(lambda: any(a[0] == new[0][0] and a[1] >= men * 3 // 4 for a in armies(run, w)) or run.sleep(3), 300,
              "%s's soldiers in the army" % w)
     run.sleep(10)
