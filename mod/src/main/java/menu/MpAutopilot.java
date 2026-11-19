@@ -1305,6 +1305,7 @@ public final class MpAutopilot {
 		hoverGoods = null;
 		hoverGoodsTab = false;
 		previewIndex++;
+		VIEW.messages().hideAll(); // a vanilla message the save brings (an event) would cover the windows the shots are for
 		String me = engine.factionName(0);
 		String them = engine.factionName(1);
 		String name;
