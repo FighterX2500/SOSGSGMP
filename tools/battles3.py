@@ -2082,7 +2082,8 @@ def same_stations(run, what):
     """Every game lists the same stationed armies, once a moment passed for the step to apply; returns H's line."""
     run.sleep(3)
     seen = {w: stations(run, w) for w in WHO}
-    run.check(len(set(seen.values())) == 1, "%s: every game lists the same stationed armies: %s" % (what, seen["H"]))
+    # supplies change from day to day and each game answers at its own step: they are compared without them
+    run.check(len({re.sub(r" supplies \d+", "", v) for v in seen.values()}) == 1, "%s: every game lists the same stationed armies: %s" % (what, seen["H"]))
     return seen["H"]
 
 
