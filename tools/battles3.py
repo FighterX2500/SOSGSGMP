@@ -2222,9 +2222,12 @@ def r_colleague(name, title):
             run.cmd("L", "target %d" % SLOT["H"])
             say("L:", run.cmd("L", "cancel"))
             run.sleep(5)
+            t_pact = time.time() * 1000
             r = run.wait(lambda: (lambda r: r if r.startswith("proposed") else None)(run.cmd("L", "pact")) or run.sleep(3),
                          120, "L's pact proposal")
-            run.wait(lambda: run.cmd("H", "accept").startswith("accepted 1") or run.sleep(2), 120, "H accepts L's pact")
+            # the host's autopilot accepts an incoming deal by itself and may get there before this command
+            run.wait(lambda: chat_since(run, "L", t_pact, "Host accepted your deal")
+                     or run.cmd("H", "accept").startswith("accepted 1") or run.sleep(2), 120, "H accepts L's pact")
             diplo = run.cmd("H", "diplo")
             say("relations:", diplo)
             hx, hy = capital(run, "H")
