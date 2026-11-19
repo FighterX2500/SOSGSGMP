@@ -2540,13 +2540,22 @@ def s_sally(name, title):
             run.check(on_h and all(d[2] for d in on_h), "J left: H selects every division, J's too: %s" % h_line)
             run.shot("H", "H commands J's divisions after J left")
             say("H:", run.cmd("H", "charge"))
+            run.sleep(25)  # a fight first, so J's army loses men
             say("H:", run.cmd("H", "morale enemy"))
             run.wait(lambda: run.events("H", "battle", what="close"), 600, "the sally's end")
             run.wait(lambda: "MVictory2" in run.cmd("H", "raid") or run.sleep(2), 180, "H's spoils window")
+            run.cmd("H", "speed 1")  # the world at 1x: the timed refresh comes only every 2 minutes
             say("H:", run.cmd("H", "victoryaccept"))
             back_in_cities(run)
-            run.sleep(20)
-            same_stations(run, "after the sally")
+            run.sleep(5)
+            line = same_stations(run, "after the sally")
+            men = stationed_men(line, SLOT["J"], SLOT["H"], 48)
+            on_h, h_line = stationdivs(run, "H")
+            say("H:", h_line)
+            run.check(sum(d[2] for d in on_h) == men,
+                      "J's soldiers in H's city have J's army's men at once after the sally: %d of %d (the army had 80)"
+                      % (sum(d[2] for d in on_h), men))
+            run.cmd("H", "speed 25")
             ok = run.end()
         except Failed as e:
             run.check(False, str(e))
