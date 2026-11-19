@@ -803,6 +803,16 @@ final class MpAutopilotCommands {
 			WArmy w = WORLD.ENTITIES().armies.tryGet(Integer.parseInt(a[1]));
 			return w == null ? "refused: no army " + a[1] : "power " + (long) AD.power().get(w);
 		}
+		case "battledivs": { // army 0's divisions with men in the battle this PC runs, and whether this PC selects each (batch 13)
+			StringBuilder b = new StringBuilder("battledivs:");
+			for (Div d : GAME.ARMIES().player().divisions())
+				if (d.menNrOf() > 0)
+					b.append(" [").append(d.index()).append(" men ").append(d.menNrOf()).append(" sel ")
+							.append(OwnArmy.selectable(d)).append(']');
+			return b.toString();
+		}
+		case "deploylabel": // the deploy panel's button text with several commanders: Ready or Waiting (batch 13)
+			return "deploy " + Hooks.deployLabel();
 		case "battlemen": // the men on each side of the battle this PC runs: an NPC ally's count in it (SOS-162, C4)
 			return "player " + GAME.ARMIES().player().men() + ", enemy " + GAME.ARMIES().enemy().men();
 		case "netoutage": { // test tooling (SOS-175): this PC's connections carry nothing for <seconds>, at most 60

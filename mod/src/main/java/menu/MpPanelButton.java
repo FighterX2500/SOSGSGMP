@@ -123,10 +123,15 @@ public final class MpPanelButton {
 		}
 	}
 
-	/** The buttons on a view with no top bar: pinned, so a view's screen changes keep them; they take no other input. */
+	/**
+	 * The buttons on a view with no top bar, and on the battle view (owner, 2026-11-19): pinned, so a view's screen
+	 * changes keep them; they take no other input.
+	 */
 	private static final class NoTopBar extends Interrupter {
 
 		private static final int MARGIN = 8;
+		/** How far right of centre the buttons sit in the battle view, clear of the deploy panel's Ready or Start. */
+		private static final int BATTLE_SHIFT = 260;
 
 		private final GuiSection section = new GuiSection();
 
@@ -144,9 +149,23 @@ public final class MpPanelButton {
 			show(VIEW.inters().manager);
 		}
 
-		/** The generator's screens and the landing have no top bar; every other view has M8's buttons in it. */
+		/**
+		 * The generator's screens and the landing have no top bar, nor does the battle view; every other view has M8's
+		 * buttons in it.
+		 */
 		private static boolean noTopBar() {
-			return VIEW.current() instanceof WorldViewGenerator || VIEW.current() instanceof SettViewStart;
+			return VIEW.current() instanceof WorldViewGenerator || VIEW.current() instanceof SettViewStart || battle();
+		}
+
+		private static boolean battle() {
+			return VIEW.b().isActive();
+		}
+
+		/** In the battle view right of the deploy panel's button, which is top centre; elsewhere top centre. */
+		private void place() {
+			int cx = C.WIDTH() / 2 + (battle() ? BATTLE_SHIFT : 0);
+			if (section.body().cX() != cx)
+				section.body().moveCX(cx);
 		}
 
 		@Override
@@ -167,8 +186,10 @@ public final class MpPanelButton {
 
 		@Override
 		protected boolean render(Renderer r, float ds) {
-			if (noTopBar())
+			if (noTopBar()) {
+				place();
 				section.render(r, ds);
+			}
 			return true;
 		}
 

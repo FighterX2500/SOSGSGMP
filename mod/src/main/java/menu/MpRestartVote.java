@@ -65,7 +65,7 @@ final class MpRestartVote {
 
 			@Override
 			protected void clickA() {
-				call(setup, engine);
+				engine.askRestart(() -> call(setup, engine)); // asks first, as the battle's own Restart (owner, 2026-11-19)
 			}
 		};
 	}

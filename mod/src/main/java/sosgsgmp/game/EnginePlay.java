@@ -364,6 +364,14 @@ public final class EnginePlay implements EnginePort {
         return Engine.takeRestartAsked();
     }
 
+    /**
+     * Asks this PC's player "Ask the players to restart the battle? Majority decides" with Ok and Cancel, as the battle's
+     * own Restart does; Ok runs {@code yes} (owner, 2026-11-19).
+     */
+    public void askRestart(Runnable yes) {
+        sosdet.Hooks.restartPrompt(yes::run);
+    }
+
     /** Why the battle {@code key} can't restart now, as the engine sees it on this PC; null when it can (SOS-231). */
     public String restartRefusal(long key) {
         return Engine.restartRefusal(key);

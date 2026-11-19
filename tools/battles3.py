@@ -2457,6 +2457,111 @@ SCENARIOS.update({
            " invasion window, the send away"),
 })
 
+BATTLE_DIV = re.compile(r"\[(\d+) men (\d+) sel (\w+)\]")
+
+
+def battledivs(run, w):
+    """Army 0's divisions with men in the battle w's game runs: (div, men, selectable here) tuples, and the raw line."""
+    line = run.cmd(w, "battledivs")
+    return [(int(m[0]), int(m[1]), m[2] == "true") for m in BATTLE_DIV.findall(line)], line
+
+
+def s_sally(name, title):
+    """S2 (owner's session, 2026-11-19): J's army is stationed at H's capital, its soldiers in H's city. A raid; H
+    attacks and J joins. In the sally each side's divisions are the layout's, each selectable by its own player only,
+    J's army once (not also as H's garrison). J's Ready doesn't start the battle; H's then does. Both vote 3x; a
+    restart vote passes and the battle deploys again at 1x. J leaves the battle's view: H then commands J's divisions."""
+    def go():
+        run = start("ALLIES", "b3-" + name)
+        run.position = "ALLIES"
+        ok = False
+        try:
+            hx, hy = capital(run, "H")
+            j, before = station_j(run, hx, hy)
+            run.wait(lambda: stationdivs(run, "H")[0] or run.sleep(2), 180, "J's soldiers in H's city")
+            say("H:", run.cmd("H", "raidcapital 150"))
+            run.wait(lambda: any("invaded by Raiders" in e.get("text", "") for e in run.events("H", "chatline")), 300,
+                     "the raid on H's capital")
+            run.sleep(3)
+            say("H:", run.cmd("H", "invasionattack"))
+            run.wait(lambda: "ally asked true" in state(run, "J") or run.sleep(1), 120, "J's Join prompt")
+            run.check("Join" in run.cmd("J", "join"), "J answered Join")
+            wait_state(run, "H", "battle deploying", 240, "the sally deploying on H")
+            wait_state(run, "J", "battle deploying", 240, "J following the sally")
+            run.sleep(5)
+            seen = run.cmd("H", "sallyseen")
+            say("H:", seen)
+            m = re.search(r"commanders \[([^\]]*)\], divisions \[([^\]]*)\]", seen)
+            run.check(m is not None, "the sally's layout: %s" % seen)
+            want = [int(v) for v in m.group(2).split(",")] if m else [0, 0]
+            on_h, h_line = battledivs(run, "H")
+            on_j, j_line = battledivs(run, "J")
+            say("H:", h_line)
+            say("J:", j_line)
+            run.check(len(on_h) == sum(want), "the battle holds the layout's divisions, %s, once each: %d" % (want, len(on_h)))
+            run.check(sum(1 for d in on_h if d[2]) == want[0], "H selects its own %d: %s" % (want[0], h_line))
+            run.check(sum(1 for d in on_j if d[2]) == want[1], "J selects its own %d: %s" % (want[1], j_line))
+            run.check(not any(a[2] and b[2] for a, b in zip(on_h, on_j)), "no division is selectable on both")
+            run.check(sum(d[1] for d in on_j if d[2]) <= before, "J's divisions hold J's army, no more: %d of %d"
+                      % (sum(d[1] for d in on_j if d[2]), before))
+            run.shot("H", "H's sally: H's divisions and J's army once")
+            r = run.cmd("J", "deploylabel")
+            run.check("deploy Ready" in r, "J's deploy button reads Ready: %s" % r)
+            say("J:", run.cmd("J", "start"))  # H's autopilot pressed Start as the battle opened: J's is the last Ready
+            wait_state(run, "H", "battle running", 60, "the battle starting on H once both are ready")
+            wait_state(run, "J", "battle running", 60, "and on J's copy")
+            run.sleep(10)
+            run.check(not run.events("J", "viewdesync") and "viewing true" in state(run, "J"),
+                      "J's copy stays in step with H's battle, J still watching it")
+            for w in ("H", "J"):
+                say(w, run.cmd(w, "speed 3"))
+            run.wait(lambda: "speed 3.0" in state(run, "H") or run.sleep(1), 60, "both voted 3x")
+            passed, t0, took = restart_vote(run, "H", {"J": "yes", "L": "yes"})
+            run.check(passed, "the restart vote passed")
+            wait_state(run, "H", "battle deploying", 240, "the battle deploying again")
+            run.sleep(5)
+            run.check("speed 1.0" in state(run, "H"), "it starts again at 1x: %s" % state(run, "H"))
+            say("J:", run.cmd("J", "start"))
+            run.sleep(8)
+            run.check("battle deploying" in state(run, "H") and "battle deploying" in state(run, "J"),
+                      "J's Ready alone doesn't start the restarted battle")
+            r = run.cmd("J", "deploylabel")
+            run.check("deploy Waiting" in r, "J's button waits: %s" % r)
+            run.shot("J", "J's deploy button: Waiting")
+            say("H:", run.cmd("H", "start"))
+            wait_state(run, "H", "battle running", 120, "the restarted battle running once both are ready")
+            wait_state(run, "J", "battle running", 60, "and on J's copy")
+            run.check(not run.events("J", "viewdesync"), "J's copy still in step")
+            say("J:", run.cmd("J", "closeview"))
+            run.wait(lambda: "viewing false" in state(run, "J") or run.sleep(2), 180, "J back in its own city")
+            run.sleep(5)
+            on_h, h_line = battledivs(run, "H")
+            say("H:", h_line)
+            run.check(on_h and all(d[2] for d in on_h), "J left: H selects every division, J's too: %s" % h_line)
+            run.shot("H", "H commands J's divisions after J left")
+            say("H:", run.cmd("H", "charge"))
+            say("H:", run.cmd("H", "morale enemy"))
+            run.wait(lambda: run.events("H", "battle", what="close"), 600, "the sally's end")
+            run.wait(lambda: "MVictory2" in run.cmd("H", "raid") or run.sleep(2), 180, "H's spoils window")
+            say("H:", run.cmd("H", "victoryaccept"))
+            back_in_cities(run)
+            run.sleep(20)
+            same_stations(run, "after the sally")
+            ok = run.end()
+        except Failed as e:
+            run.check(False, str(e))
+            run.stop()
+        finish(name, title, run, ok)
+    return go
+
+
+SCENARIOS.update({
+    "S2": ("ALLIES", s_sally("S2", "H's sally with J's stationed army: once, own control, Ready, restart at 1x, J leaves"),
+           "Owner's session 2026-11-19: a stationed ally's army in a sally, the deploy Ready, the speed after a restart,"
+           " an ally who leaves the battle"),
+})
+
+
 def declare_war(run, w, on):
     """w cancels its treaties with `on` and declares war on them."""
     run.cmd(w, "target %d" % SLOT[on])

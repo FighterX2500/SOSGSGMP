@@ -166,7 +166,7 @@ final class MpPlayerWindow extends ISidePanel {
 					b.error(refusal);
 				}
 			}
-		}.setDim(TAB_WIDTH);
+		}.setDim(Math.max(TAB_WIDTH, watch.width() + 32)); // alone in its row: as wide as its longest label (owner, 2026-11-19)
 	}
 
 	/** Shows the Diplomacy tab, where another player's proposal is answered. */
