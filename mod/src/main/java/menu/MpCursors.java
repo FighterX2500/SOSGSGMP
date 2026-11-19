@@ -2,6 +2,9 @@ package menu;
 
 import java.util.List;
 
+import game.faction.FACTIONS;
+import game.faction.Faction;
+import game.faction.player.Player;
 import init.constant.C;
 import init.sprite.UI.UI;
 import snake2d.SPRITE_RENDERER;
@@ -22,9 +25,10 @@ import world.WorldMinimap;
 /**
  * SOSGSGMP: the other players' cursors (spec §5 "Other players' cursors", §12): on the setup's location screen, the
  * game's world view and a city, the owner's and its viewers' alike (SOS-58). Each frame it sends this PC's cursor (on
- * its place when the mouse is over that map's window) and draws every other player's on the same place with their
- * name, in the player's colour: the n-th player of the lobby has the n-th
- * colour, the same on every PC. Per frame it allocates nothing; the names are rebuilt when the session changes.
+ * its place when the mouse is over that map's window) and draws every other player's on the same place: an arrow like
+ * the system's, filled with the player's banner foreground, and their name beside it, bold (owner, 2026-11-19). Before
+ * a player has a faction the colour is the lobby's: the n-th player of the lobby has the n-th colour, the same on
+ * every PC. Per frame it allocates nothing; the names and slots are rebuilt when the session changes.
  */
 public final class MpCursors {
 
@@ -33,8 +37,30 @@ public final class MpCursors {
 			new ColorImp(200, 80, 220), new ColorImp(40, 210, 210), new ColorImp(250, 140, 40), new ColorImp(240, 240, 240),
 			new ColorImp(150, 100, 60), new ColorImp(120, 120, 250), new ColorImp(160, 230, 60), new ColorImp(250, 120, 170),
 			new ColorImp(90, 160, 120), new ColorImp(200, 200, 120), new ColorImp(130, 130, 130), new ColorImp(30, 90, 160) };
-	private static final int ARM = 6;
 	private static final int MINIMAP_ARM = 4;
+	/** The arrow, its tip at the top left: 'X' its outline, '.' its fill. */
+	private static final String[] ARROW = {
+			"X",
+			"XX",
+			"X.X",
+			"X..X",
+			"X...X",
+			"X....X",
+			"X.....X",
+			"X......X",
+			"X.......X",
+			"X........X",
+			"X.....XXXXX",
+			"X..X..X",
+			"X.X X..X",
+			"XX  X..X",
+			"X    X..X",
+			"     X..X",
+			"      XX" };
+	/** Screen pixels per pixel of {@link #ARROW}. */
+	private static final int ARROW_SCALE = 2;
+	private static final int NAME_X = 10 * ARROW_SCALE;
+	private static final int NAME_Y = 12 * ARROW_SCALE;
 
 	/** The n-th player's colour, on cursors and in the chat. */
 	static COLOR colour(int n) {
@@ -47,13 +73,15 @@ public final class MpCursors {
 	private final GText[] names = new GText[LobbySettings.MAX_PLAYERS];
 	private final int[] nameIds = new int[LobbySettings.MAX_PLAYERS];
 	private final int[] colorOf = new int[LobbySettings.MAX_PLAYERS];
+	/** Each named player's faction slot, -1 before the world gives them one. */
+	private final int[] slotOf = new int[LobbySettings.MAX_PLAYERS];
 	private int named;
 	private int namedChanges = -1;
 
 	public MpCursors(SetupSession setup) {
 		this.setup = setup;
 		for (int i = 0; i < names.length; i++)
-			names[i] = new GText(UI.FONT().S, 32);
+			names[i] = new GText(UI.FONT().M, 32);
 	}
 
 	/**
@@ -85,14 +113,45 @@ public final class MpCursors {
 			if (!window.view().holdsPoint(x, y))
 				continue;
 			int n = nameIndex(c.playerId(i));
-			COLOR color = n < 0 ? COLOR.WHITE100 : colour(colorOf[n]);
-			cross(r, color, x, y, ARM);
-			if (n >= 0) {
-				color.bind();
-				names[n].render(r, x + ARM + 2, y + 2);
-				COLOR.unbind();
+			COLOR color = n < 0 ? COLOR.WHITE100 : fill(n);
+			arrow(r, color, x, y);
+			if (n >= 0)
+				name(r, names[n], color, x + NAME_X, y + NAME_Y);
+		}
+	}
+
+	/** Player {@code n}'s colour: their banner's foreground once they have a faction, the lobby's before. */
+	private COLOR fill(int n) {
+		int slot = slotOf[n];
+		Faction f = slot < 0 ? null : FACTIONS.getByIndex(slot); // lobby slots are faction slots (spec §5)
+		return f instanceof Player ? f.banner().colorFG() : colour(colorOf[n]);
+	}
+
+	private static void arrow(SPRITE_RENDERER r, COLOR fill, int x, int y) {
+		for (int row = 0; row < ARROW.length; row++) {
+			String line = ARROW[row];
+			for (int col = 0; col < line.length(); col++) {
+				char ch = line.charAt(col);
+				if (ch == ' ')
+					continue;
+				COLOR c = ch == 'X' ? COLOR.BLACK : fill;
+				int px = x + col * ARROW_SCALE;
+				int py = y + row * ARROW_SCALE;
+				c.render(r, px, px + ARROW_SCALE, py, py + ARROW_SCALE);
 			}
 		}
+		COLOR.unbind();
+	}
+
+	/** The name in bold: a dark shadow, then the text twice one pixel apart. */
+	private static void name(SPRITE_RENDERER r, GText name, COLOR color, int x, int y) {
+		COLOR.BLACK.bind();
+		name.render(r, x + 1, y + 1);
+		name.render(r, x + 2, y + 1);
+		color.bind();
+		name.render(r, x, y);
+		name.render(r, x + 1, y);
+		COLOR.unbind();
 	}
 
 	/** Every other player's cursor on the world, on a world minimap (SOS-124); {@code map} is its body. */
@@ -132,7 +191,7 @@ public final class MpCursors {
 
 	private COLOR playerColour(int playerId) {
 		int n = nameIndex(playerId);
-		return n < 0 ? COLOR.WHITE100 : colour(colorOf[n]);
+		return n < 0 ? COLOR.WHITE100 : fill(n);
 	}
 
 	private static void cross(SPRITE_RENDERER r, COLOR color, int x, int y, int arm) {
@@ -149,6 +208,7 @@ public final class MpCursors {
 			LobbyPlayer p = players.get(i);
 			nameIds[i] = p.id();
 			colorOf[i] = i;
+			slotOf[i] = setup.factions() == null ? -1 : setup.factions().slotOf(p.id());
 			names[i].clear().add(p.name());
 		}
 	}

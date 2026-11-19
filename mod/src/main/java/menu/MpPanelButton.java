@@ -130,10 +130,17 @@ public final class MpPanelButton {
 	private static final class NoTopBar extends Interrupter {
 
 		private static final int MARGIN = 8;
-		/** How far right of centre the buttons sit in the battle view, clear of the deploy panel's Ready or Start. */
-		private static final int BATTLE_SHIFT = 260;
+		/**
+		 * The battle view's top bar (owner, 2026-11-19): its Tome of Knowledge and Menu buttons are {@code UIPanelTop.Butt}s
+		 * 18 pixels wider than the plain one, in a row whose right edge is 4 pixels from the screen's, one pixel down.
+		 */
+		private static final int BATTLE_WIDTH = 36 + 18;
+		private static final int BATTLE_RIGHT = 4;
+		private static final int BATTLE_TOP = 1;
 
 		private final GuiSection section = new GuiSection();
+		/** In the battle view: the same size as the Tome and Menu buttons, directly left of the Tome. */
+		private final GuiSection battleSection = new GuiSection();
 
 		NoTopBar() {
 			super(true, true, false);
@@ -143,6 +150,10 @@ public final class MpPanelButton {
 			section.addRightC(0, button(SPRITES.icons().l.flags, HOVER, size, () -> installed(panel)));
 			section.addRightC(0, button(SPRITES.icons().l.event, CHAT_HOVER, size, () -> installed(chat)));
 			section.body().moveCX(C.WIDTH() / 2).moveY1(MARGIN); // the top right is the minimap's, with its zoom buttons
+			RENDEROBJ battleSize = new RENDEROBJ.RenderDummy(BATTLE_WIDTH, UIPanelTop.HEIGHT);
+			battleSection.addRightC(0, button(SPRITES.icons().l.flags, HOVER, battleSize, () -> installed(panel)));
+			battleSection.addRightC(0, button(SPRITES.icons().l.event, CHAT_HOVER, battleSize, () -> installed(chat)));
+			battleSection.body().moveX2(C.WIDTH() - BATTLE_RIGHT - 2 * BATTLE_WIDTH).moveY1(BATTLE_TOP);
 		}
 
 		void open() {
@@ -161,35 +172,31 @@ public final class MpPanelButton {
 			return VIEW.b().isActive();
 		}
 
-		/** In the battle view right of the deploy panel's button, which is top centre; elsewhere top centre. */
-		private void place() {
-			int cx = C.WIDTH() / 2 + (battle() ? BATTLE_SHIFT : 0);
-			if (section.body().cX() != cx)
-				section.body().moveCX(cx);
+		/** The battle view's row, left of its Tome of Knowledge; the top centre elsewhere. */
+		private GuiSection shown() {
+			return battle() ? battleSection : section;
 		}
 
 		@Override
 		protected boolean hover(COORDINATE mCoo, boolean mouseHasMoved) {
-			return noTopBar() && section.hover(mCoo);
+			return noTopBar() && shown().hover(mCoo);
 		}
 
 		@Override
 		protected void mouseClick(MButt button) {
 			if (button == MButt.LEFT)
-				section.click();
+				shown().click();
 		}
 
 		@Override
 		protected void hoverTimer(GBox text) {
-			section.hoverInfoGet(text);
+			shown().hoverInfoGet(text);
 		}
 
 		@Override
 		protected boolean render(Renderer r, float ds) {
-			if (noTopBar()) {
-				place();
-				section.render(r, ds);
-			}
+			if (noTopBar())
+				shown().render(r, ds);
 			return true;
 		}
 

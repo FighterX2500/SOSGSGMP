@@ -288,7 +288,7 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 			if (setup.pauses().pausedBy() != Pauses.NOBODY)
 				status.add(" Paused by ").add(MpPause.name(setup, setup.pauses().pausedBy())).add(".");
 			if (engine.active()) {
-				deals.refresh();
+				deals.refresh(!engine.viewingHere() && engine.battleHere() == BattleKey.NONE);
 				sieges.refresh();
 				sally.visableSet(sieges.besieged() && PlayerSieges.beforeAssault());
 				restart.visableSet(engine.battleHere() != BattleKey.NONE);
