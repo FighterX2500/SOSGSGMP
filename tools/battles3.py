@@ -354,10 +354,9 @@ def power(run, army):
 
 def prep_allies(run):
     """P-ALLIES: BASE, and the three players at war with one NPC faction whose army is stronger than the three
-    template armies together, the nearest to the host's capital that is nobody's vassal. Vanilla lets the weaker side
-    of a world battle withdraw at once when it is the NPC's ("Enemy Retreats", no Fight prompt), so the NPC army must
-    outweigh every player who fights it, A3's three included; the morale command decides who wins."""
-    hx, hy = capital(run, "H")
+    template armies together, the strongest that is nobody's vassal. Vanilla lets the weaker side of a world battle
+    withdraw at once when it is the NPC's ("Enemy Retreats", no Fight prompt), so the NPC army must outweigh every
+    player who fights it, A3's three included; the morale command decides who wins."""
     small = {w: template(run, w, men=80, merc=False)[0] for w in WHO}  # weaker than the strong NPC armies, three together
     ours = sum(power(run, small[w]) for w in WHO)
     diplo = run.cmd("H", "diplo")
@@ -371,7 +370,9 @@ def prep_allies(run):
     strong = [a for a in cands if a[5] > ours * 1.3]
     if not strong:
         raise Failed("no NPC army stronger than 1.3 times our %d" % ours)
-    f, men, x, y, _, pw = min(strong, key=lambda a: (a[2] - hx) ** 2 + (a[3] - hy) ** 2)
+    # the strongest, not the nearest: the scenarios set it beside the players anyway (CD 2026-11-19: the nearest, 3088,
+    # withdrew from RV2's H and J at once; every position before had the strongest, 4600 to 4766, and it never did)
+    f, men, x, y, _, pw = max(strong, key=lambda a: a[5])
     say("the NPC army: faction %d, %d men, power %d at %d,%d" % (f, men, pw, x, y))
     for w in WHO:
         run.cmd(w, "npcwar %d" % f)
