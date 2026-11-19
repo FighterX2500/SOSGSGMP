@@ -1780,7 +1780,8 @@ def restart_vote(run, caller, answers, how="panel"):
     run.check(True, "every PC heard the vote open: %s" % chat_since(run, "H", t0, "calls a vote")[0]["text"])
     for w, a in answers.items():
         r = run.cmd(w, "restartanswer " + a)
-        run.check(r.startswith("vote"), "%s answers %s: %s" % (w, a, r))
+        # no answer to a vote a majority already decided is still no answer
+        run.check(r.startswith("vote") or (a == "none" and "no restart vote open" in r), "%s answers %s: %s" % (w, a, r))
     words = ("The vote passed", "failed:", "was called off")
     run.wait(lambda: all(any(chat_since(run, w, t0, x) for x in words) for w in WHO) or run.sleep(1), RESULT_WAIT,
              "the vote's result on every PC")
