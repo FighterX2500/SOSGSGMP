@@ -748,7 +748,21 @@ final class MpAutopilotCommands {
 				PlayerStations.supply(w);
 			return (end ? "ends the stationing of army " : "supplies army ") + w.armyIndex();
 		}
-		case "stations": { // every stationed army: its player, host, men, tile and supplies (SOS-233)
+		case "stationgrant": { // the picked army, stationed: its host commands its soldiers (on, the default) or no longer (off) (batch 13)
+			WArmy w = firstArmy();
+			boolean on = a.length < 2 || !a[1].equals("off");
+			String why = PlayerStations.grantRefusal(w);
+			if (why != null)
+				return "refused: " + why;
+			PlayerStations.grant(w, on);
+			return "army " + w.armyIndex() + (on ? " gives its host command" : " takes command back");
+		}
+		case "stationmarch": // hook M15's click: the picked army marches beside the target player's capital and stations there (batch 13)
+			if (!MpStationFlow.offers(firstArmy(), other().capitolRegion()))
+				return "refused: the map offers no Station at " + other().name + "'s capital";
+			MpStationFlow.order(firstArmy(), other().capitolRegion());
+			return "army " + firstArmy().armyIndex() + " marches to " + other().name + "'s capital to station";
+		case "stations": { // every stationed army: its player, host, men, tile, supplies and command (SOS-233)
 			StringBuilder b = new StringBuilder("stations:");
 			for (PlayerStations.Stationed s : PlayerStations.all()) {
 				b.append(" [").append(s.owner()).append(" at ").append(s.host());
@@ -757,7 +771,8 @@ final class MpAutopilotCommands {
 					for (int i = 0; i < AD.supplies().all.size(); i++)
 						sup += AD.supplies().all.get(i).current().get(s.army());
 					b.append(" army ").append(s.army().armyIndex()).append(" men ").append(AD.men(null).get(s.army()))
-							.append(" at ").append(s.army().ctx()).append(',').append(s.army().cty()).append(" supplies ").append(sup);
+							.append(" at ").append(s.army().ctx()).append(',').append(s.army().cty()).append(" supplies ").append(sup)
+							.append(" granted ").append(PlayerStations.granted(s.army()));
 				}
 				b.append(']');
 			}

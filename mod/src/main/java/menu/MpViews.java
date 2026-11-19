@@ -34,6 +34,7 @@ final class MpViews {
 	private static MpViews current;
 
 	private final SetupSession setup;
+	private final MpStationFlow stations;
 	private final EnginePlay engine;
 	private final MpLog log;
 	/** This PC's view as the viewer, as last seen, and what of it was logged or shown. */
@@ -70,6 +71,12 @@ final class MpViews {
 		this.setup = setup;
 		this.engine = engine;
 		this.log = log;
+		this.stations = new MpStationFlow(this, setup, log);
+	}
+
+	/** This PC's player's stationing outside the Armies tab: hook M15's march and the invaded capital's window. */
+	MpStationFlow stations() {
+		return stations;
 	}
 
 	/** The running session's views, or null. */
@@ -86,6 +93,7 @@ final class MpViews {
 			return;
 		}
 		current = this;
+		stations.frame();
 		if (setup.isHost())
 			host(r);
 		owner(r);
@@ -533,18 +541,11 @@ final class MpViews {
 
 	/**
 	 * An invasion of the capital of the player in {@code owner} that this PC's player's stationed army fights (spec §9,
-	 * SOS-234): the chat says so, and this PC asks at once to view the city, where its player commands those soldiers.
+	 * SOS-234): they choose to watch the city, where they command those soldiers, or to give the owner command of them
+	 * (owner, 2026-11-19).
 	 */
 	void defend(int owner, String invasion) {
-		String refusal = askRefusal(owner);
-		if (refusal == null) {
-			setup.chat().notice(invasion + " Your army stationed there fights in their city: you view it to command your"
-					+ " soldiers.", owner);
-			ask(owner);
-		} else {
-			setup.chat().notice(invasion + " Your army stationed there fights in their city; " + name(owner)
-					+ " commands it until you view the city (" + refusal + ")", owner);
-		}
+		stations.invaded(owner, invasion);
 	}
 
 	/** The button: asks to view the city of the player in {@code owner}. Check {@link #askRefusal} first. */

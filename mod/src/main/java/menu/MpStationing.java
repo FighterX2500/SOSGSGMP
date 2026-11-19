@@ -15,8 +15,9 @@ import world.entity.army.WArmy;
 
 /**
  * SOSGSGMP: the Armies tab of another player's window (spec §9; SOS-233, ADR 0011). Above, this PC's player's armies
- * near that player's capital, each with Station or Call back; below, that player's armies stationed at this PC's
- * player's capital, each with Send away and Supply. The engine keeps every stationed army as world state; the buttons
+ * near that player's capital, each with Station or Call back, and once stationed Give command or Take command back
+ * (owner, 2026-11-19: the host then commands its soldiers in their city); below, that player's armies stationed at this
+ * PC's player's capital, each with Send away and Supply. The engine keeps every stationed army as world state; the buttons
  * send its commands. Each row looks its army up as it renders, with no allocation.
  */
 final class MpStationing extends GuiSection {
@@ -29,6 +30,10 @@ final class MpStationing extends GuiSection {
 			+ " its own supplies and defends their capital with them. Moving it ends the stationing.";
 	private static final String SUPPLY_D = "Fill this army's supplies from your own stockpiles, as much as they hold.";
 	private static final String SEND_D = "Send this army away: it stays where it stands, stationed no more.";
+	private static final String GIVE_D = "Let them command this army's soldiers in their city. You still command them while"
+			+ " you view the city.";
+	private static final String TAKE_D = "Take back the command of this army's soldiers in their city: only you command them,"
+			+ " while you view the city.";
 
 	private final int slot;
 
@@ -95,7 +100,47 @@ final class MpStationing extends GuiSection {
 				explain(text, "Call back", "End this army's stationing: it stays where it stands.", null);
 			}
 		}, row.getLastX1(), row.getLastY1());
+		row.addRightC(8, new GButt.ButtPanel("Give command") {
+			@Override
+			protected void clickA() {
+				grant(k, true);
+			}
+
+			@Override
+			protected void renAction() {
+				WArmy a = PlayerStations.mineNear(slot, k);
+				visableSet(a != null && PlayerStations.stationed(a) && !PlayerStations.granted(a));
+			}
+
+			@Override
+			public void hoverInfoGet(GUI_BOX text) {
+				explain(text, "Give command", GIVE_D, PlayerStations.grantRefusal(PlayerStations.mineNear(slot, k)));
+			}
+		});
+		row.add(new GButt.ButtPanel("Take command back") { // in Give command's place, while they command it
+			@Override
+			protected void clickA() {
+				grant(k, false);
+			}
+
+			@Override
+			protected void renAction() {
+				WArmy a = PlayerStations.mineNear(slot, k);
+				visableSet(a != null && PlayerStations.granted(a));
+			}
+
+			@Override
+			public void hoverInfoGet(GUI_BOX text) {
+				explain(text, "Take command back", TAKE_D, PlayerStations.grantRefusal(PlayerStations.mineNear(slot, k)));
+			}
+		}, row.getLastX1(), row.getLastY1());
 		return row;
+	}
+
+	private void grant(int k, boolean granted) {
+		WArmy a = PlayerStations.mineNear(slot, k);
+		if (a != null && PlayerStations.grantRefusal(a) == null && PlayerStations.granted(a) != granted)
+			PlayerStations.grant(a, granted);
 	}
 
 	private GuiSection theirs(int k) {
@@ -159,6 +204,8 @@ final class MpStationing extends GuiSection {
 				text.s().add("men,").s();
 				GFORMAT.perc(text, AD.supplies().health(a));
 				text.s().add("supplied");
+				if (PlayerStations.granted(a))
+					text.add(',').s().add(mine ? "they command it" : "you command it");
 			}
 		};
 		GuiSection l = new GuiSection();

@@ -114,6 +114,8 @@ final class MpNotices {
 			case Notice.STATIONED -> a + " stationed an army at the capital of " + b + ".";
 			case Notice.STATION_ENDED -> "An army of " + a + " is no longer stationed at the capital of " + b + stationEnd(n.value());
 			case Notice.STATION_SUPPLIED -> a + " supplied the army of " + b + " stationed at its capital.";
+			case Notice.STATION_GRANT -> n.value() == 1 ? a + " gave " + b + " command of its soldiers stationed in " + b
+					+ "'s city." : a + " took back the command of its soldiers stationed in " + b + "'s city.";
 			default -> throw new IllegalArgumentException("SOSGSGMP: a notice of kind " + n.kind());
 		};
 	}

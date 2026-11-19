@@ -1,0 +1,50 @@
+--- a/view/world/ui/army/ToolMove.java
++++ b/view/world/ui/army/ToolMove.java
+@@ -21,6 +21,7 @@
+ 	private boolean can = false;
+ 	private Region bReg = null;
+ 	private WArmy incept = null;
++	private Region sReg = null; // SOSGSGMP hook M15 (docs/hooks.md)
+ 	
+ 	public ToolMove() {
+ 		super(Dic.¤¤Move, "");
+@@ -33,6 +34,7 @@
+ 		can = false;
+ 		bReg = null;
+ 		incept = null;
++		sReg = null;
+ 		
+ 		if (AD.men(null).get(Army.army) == 0) {
+ 			return Dic.¤¤MoveCant;
+@@ -66,6 +68,13 @@
+ 		
+ 		
+ 		Region reg = WORLD.REGIONS().centre.get(tx, ty);
++		if (reg != null && menu.MpStationFlow.offers(Army.army, reg)) { // SOSGSGMP hook M15: a partner's capital
++			WORLD.OVERLAY().hoverBox(reg);
++			VIEW.hoverBox().text(menu.MpStationFlow.HOVER);
++			sReg = reg;
++			can = true;
++			return null;
++		}
+ 		if (reg != null && WArmyState.canBesiege(Army.army, reg)) {
+ 			WORLD.OVERLAY().hoverBox(reg);
+ 			VIEW.mouse().setReplacement(SPRITES.icons().m.sword);
+@@ -101,7 +110,7 @@
+ 	@Override
+ 	public void renderPlaceHolder(SPRITE_RENDERER r, int tx, int ty, int cx, int cy, boolean isPlacable) {
+ 		
+-		if (bReg != null || incept != null)
++		if (bReg != null || incept != null || sReg != null)
+ 			return;
+ 		
+ 		super.renderPlaceHolder(r, tx, ty, cx, cy, isPlacable);
+@@ -116,6 +125,8 @@
+ 		if (incept != null) {
+ 			Army.army.intercept(incept);
+ 			return;
++		}else if (sReg != null) {
++			menu.MpStationFlow.order(Army.army, sReg); // SOSGSGMP hook M15
+ 		}else if (bReg != null) {
+ 			Army.army.besiege(bReg);
+ 		}else {

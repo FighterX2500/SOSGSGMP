@@ -5,8 +5,12 @@ import java.util.List;
 
 import game.faction.FACTIONS;
 import game.faction.Faction;
+import game.faction.diplomacy.DIP;
+import game.faction.diplomacy.DipStance;
+import snake2d.util.datatypes.COORDINATE;
 import sosdet.Engine;
 import world.entity.army.WArmy;
+import world.entity.army.WArmyState;
 import world.map.regions.Region;
 
 /**
@@ -128,5 +132,71 @@ public final class PlayerStations {
 
     public static void supply(WArmy a) {
         Engine.stationSupply(a);
+    }
+
+    /** Why this PC's player can't give the host command of {@code a}'s soldiers in its city, or take it back, or null. */
+    public static String grantRefusal(WArmy a) {
+        return Engine.active() ? Engine.stationGrantRefusal(a) : "No multiplayer game runs.";
+    }
+
+    /** This PC's player gives the host command of {@code a}'s soldiers, or takes it back (owner, 2026-11-19). */
+    public static void grant(WArmy a, boolean granted) {
+        Engine.stationGrant(a, granted);
+    }
+
+    /** Whether the host commands the soldiers of {@code a}, stationed at its capital; false for an army not stationed. */
+    public static boolean granted(WArmy a) {
+        if (a == null || !Engine.active())
+            return false;
+        for (int i = 0; i < Engine.stationedCount(); i++)
+            if (Engine.stationedArmy(i) == a)
+                return Engine.stationGranted(i);
+        return false;
+    }
+
+    /**
+     * Whether this PC's player and the player in {@code host} have an agreement that lets one station an army at the
+     * other's capital, as the engine's rule reads it: allies, colleagues (a pact), overlord or vassal, not at war.
+     */
+    public static boolean partner(int host) {
+        if (!Engine.active() || host == FACTIONS.player().index() || !PlayerDeals.otherPlayer(FACTIONS.getByIndex(host)))
+            return false;
+        Faction me = FACTIONS.player();
+        Faction h = FACTIONS.getByIndex(host);
+        DipStance s = DIP.get(me, h);
+        return (s == DIP.ALLY() || s == DIP.PACT() || s == DIP.VASSAL() || s == DIP.OVERLORD()) && !DIP.WAR().is(me, h);
+    }
+
+    /** The player whose capital {@code reg} is, or -1. */
+    public static int capitalOf(Region reg) {
+        Faction f = reg == null ? null : reg.faction();
+        return f != null && f.capitolRegion() == reg && PlayerDeals.otherPlayer(f) ? f.index() : -1;
+    }
+
+    /** The tile beside {@code capital} where {@code a} can stand, as vanilla's siege picks it; null when none is reached. */
+    public static COORDINATE tileBeside(WArmy a, Region capital) {
+        return a.besigeTile(capital);
+    }
+
+    /** This PC's player's move order for {@code a}: a world command, as the map's own. */
+    public static void march(WArmy a, int tx, int ty) {
+        a.setDestination(tx, ty);
+    }
+
+    /** Whether {@code a} stands still, as stationing needs. */
+    public static boolean standsStill(WArmy a) {
+        return a.state() == WArmyState.fortified || a.state() == WArmyState.fortifying;
+    }
+
+    /** Whether {@code a} stands within reach of the capital of the player in {@code host}. */
+    public static boolean inReach(WArmy a, int host) {
+        Region cap = FACTIONS.getByIndex(host).capitolRegion();
+        return cap != null && Math.max(Math.abs(a.ctx() - cap.cx()), Math.abs(a.cty() - cap.cy()))
+                <= sosdet.game.station.StationBook.REACH_TILES;
+    }
+
+    /** Whether {@code a} is still this PC's player's army in the world. */
+    public static boolean mine(WArmy a) {
+        return a != null && a.added() && a.faction() == FACTIONS.player();
     }
 }
