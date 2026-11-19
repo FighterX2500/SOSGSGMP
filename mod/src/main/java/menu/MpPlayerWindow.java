@@ -55,6 +55,7 @@ final class MpPlayerWindow extends ISidePanel {
 	private static final String SELL_D = "Sell: what reaches you for one item sold to them on the market, your export price less their tariff on you, as your Export depot's hover shows it. They pay the toll.";
 	private static final String NOT_SOLD = "Their Export depot doesn't take it: they don't sell it.";
 	private static final String NOT_BOUGHT = "Their Import depot doesn't take it: they don't buy it.";
+	private static final String NOT_EXPORTED = "Your Export depot doesn't take it: you don't sell it.";
 	private static final String EXPORTED = "Exported";
 	private static final String IMPORTED = "Imported";
 	private static final String[] PERIODS = { "This year", "Last year", "All time" }; // TradeTally's periods, in order
@@ -336,7 +337,10 @@ final class MpPlayerWindow extends ISidePanel {
 				GCOLOR.T().H1.bind();
 				UI.FONT().H2.render(r, Dic.¤¤Resource, body.x1() + 40, body.y1());
 				UI.FONT().H2.render(r, Dic.¤¤Stored, body.x1() + stored, body.y1());
-				UI.FONT().H2.render(r, Dic.¤¤Price, body.x1() + buy, body.y1());
+				// Price centred over its two subcolumns, from Buy's left edge to Sell's right one (batch 13 item 14)
+				int span = sell + UI.FONT().M.width(Dic.¤¤Sell) - buy;
+				UI.FONT().H2.render(r, Dic.¤¤Price, body.x1() + buy + Math.max(0, (span - UI.FONT().H2.width(Dic.¤¤Price)) / 2),
+						body.y1());
 				UI.FONT().H2.render(r, EXPORTED, body.x1() + exp, body.y1());
 				UI.FONT().H2.render(r, IMPORTED, body.x1() + imp, body.y1());
 				GCOLOR.T().H2.bind();
@@ -452,7 +456,7 @@ final class MpPlayerWindow extends ISidePanel {
 		b.text(buying ? BUY_D : SELL_D);
 		b.NL(8);
 		if (figure(f, t, buying) < 0)
-			b.error(buying ? NOT_SOLD : NOT_BOUGHT);
+			b.error(buying ? NOT_SOLD : !MpPlayers.exports(t) ? NOT_EXPORTED : NOT_BOUGHT);
 		else
 			MpPlayers.depotHover(b, f, t, buying);
 	}
