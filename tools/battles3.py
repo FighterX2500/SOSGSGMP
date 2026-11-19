@@ -2411,12 +2411,12 @@ def r_assault(name, title):
             # L comes from the north (the west is rock and water): from the east it passes J's stationed army (at war with L) south-east of the
             # capital and meets it in the field first (10.md's warning)
             lo = None
-            for dx, dy in ((0, -5), (-1, -5), (1, -5), (0, -4), (0, -6), (-2, -5)):
+            for dx, dy in ((0, -2), (-1, -2), (1, -2), (0, -3), (-1, -3), (1, -3)):  # at the walls: from 6 tiles off it walked round for 100,000 steps
                 lo = place(run, "L", hx + dx, hy + dy)
-                if lo[3] < hy and 4 <= max(abs(lo[2] - hx), abs(lo[3] - hy)) <= 6:
+                if lo[3] < hy and 2 <= max(abs(lo[2] - hx), abs(lo[3] - hy)) <= 3:
                     break
             else:
-                raise Failed("L's army found no tile 4 to 6 tiles north of H's capital (last %s)" % (lo,))
+                raise Failed("L's army found no tile 2 to 3 tiles north of H's capital (last %s)" % (lo,))
             say("L's army", lo)
             pick_army(run, "L", lo[0])
             run.cmd("H", "fallback")  # H's sally prompt at the siege: H stays in its city for the assault
