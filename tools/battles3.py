@@ -2403,20 +2403,20 @@ def r_assault(name, title):
             line = same_stations(run, "after the wars")
             run.check(stationed_men(line, SLOT["J"], SLOT["H"], j[0]) > 0, "J's army is still stationed: %s" % line)
             # H's own armies on its capital tile would meet L's besieging army in a field battle first: they stand
-            # 5 tiles north meanwhile, out of L's way (it comes from the east)
+            # 6 tiles east meanwhile, out of L's way (it comes from the north)
             for a in [a for a in armies(run, "H") if (a[2], a[3]) == (hx, hy)]:
                 pick_army(run, "H", a[0])
-                say("H:", run.cmd("H", "teleportnear %d %d" % (hx, hy - 5)))
+                say("H:", run.cmd("H", "teleportnear %d %d" % (hx + 6, hy)))
             run.sleep(5)
-            # L comes from the west: from the east it passes J's stationed army (at war with L) south-east of the
+            # L comes from the north (the west is rock and water): from the east it passes J's stationed army (at war with L) south-east of the
             # capital and meets it in the field first (10.md's warning)
             lo = None
-            for dx, dy in ((-5, 0), (-4, 0), (-6, 0), (-5, -1), (-5, 1), (-4, -2)):
+            for dx, dy in ((0, -5), (-1, -5), (1, -5), (0, -4), (0, -6), (-2, -5)):
                 lo = place(run, "L", hx + dx, hy + dy)
-                if lo[2] < hx and 4 <= max(abs(lo[2] - hx), abs(lo[3] - hy)) <= 6:
+                if lo[3] < hy and 4 <= max(abs(lo[2] - hx), abs(lo[3] - hy)) <= 6:
                     break
             else:
-                raise Failed("L's army found no tile 4 to 6 tiles west of H's capital (last %s)" % (lo,))
+                raise Failed("L's army found no tile 4 to 6 tiles north of H's capital (last %s)" % (lo,))
             say("L's army", lo)
             pick_army(run, "L", lo[0])
             run.cmd("H", "fallback")  # H's sally prompt at the siege: H stays in its city for the assault
