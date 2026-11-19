@@ -97,7 +97,8 @@ final class MpSaves {
 			begin(o);
 		ViewRequests views = setup.views();
 		if (views != null)
-			views.holdBegins(waiting != null || closingViews || order != null);
+			// a waiting autosave lets new views open and waits on for them too; a player's save holds them (owner, 2026-11-19)
+			views.holdBegins(waiting == CampaignRecord.Kind.SAVE || closingViews || order != null);
 		// every PC holds before a battle's Engage until it has saved the campaign there (spec §11, SOS-67)
 		long ahead = engine.battleAhead();
 		if (order == null) {
