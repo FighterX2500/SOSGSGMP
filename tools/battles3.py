@@ -1944,8 +1944,12 @@ def rv3():
         passed, t0, _ = restart_vote(run, "L", {"H": "yes", "J": "no"})
         run.check(passed, "Yes: 2 of 3 said Yes, the vote passed on every PC")
         restarted(run, t0, "the assault")
-        run.sleep(10)
+        # the attackers enter the city in waves after the reload, as at the first start: wait for them
+        end = time.time() + 60
         after = men(run, "L")
+        while after[1] < before[1] and time.time() < end:
+            run.sleep(3)
+            after = men(run, "L")
         run.check(after[1] >= before[1], "the restarted assault's attackers are back at its start on L's PC: %s (before"
                   " the vote %s)" % (after, before))
         for w in WHO:
