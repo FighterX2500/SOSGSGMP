@@ -57,7 +57,7 @@ class Failed(Exception):
 class Run:
     """One run of the three games from the data folders in place: their events, commands and logs."""
 
-    def __init__(self, tag, timeout=1500):
+    def __init__(self, tag, timeout=1500, steps=400000):
         self.tag = tag
         self.ev = {w: [] for w in WHO}
         self.seen = {w: 0 for w in WHO}
@@ -71,7 +71,7 @@ class Run:
         self.others = game_pids()  # games that were running before: never this run's
         if self.others:
             raise Failed("games from elsewhere are running (%s): wait for them" % sorted(self.others))
-        self.p = subprocess.Popen(TWOPC + ["--steps", "400000", "--tag", tag, "--timeout", str(timeout)])
+        self.p = subprocess.Popen(TWOPC + ["--steps", str(steps), "--tag", tag, "--timeout", str(timeout)])
 
     @staticmethod
     def home(w):
@@ -736,8 +736,8 @@ def got_spoils(run, w, seconds=60):
 
 
 def captives(run, w):
-    """The captives player w received: what a loser must never get (a destroyed army's own supplies go home as
-    vanilla's spoils shipments too, so goods alone don't tell a winner)."""
+    """The captives player w received: what a player who retreated must never get (goods alone don't tell a winner:
+    an army may send home supplies it doesn't need, as vanilla's spoils shipments)."""
     return [l for l in spoils(run, w) if re.search(r" [1-9]\d* (Human|Captive)", l)]
 
 
@@ -930,8 +930,9 @@ def a_battle(name, title, joiners, watcher=None, outcome="win", retreat=None, sa
                 if left:
                     run.check(not captives(run, left), "%s, who retreated, received no captives" % left)
             elif fight:
+                run.sleep(15)  # a destroyed army is removed, and before SOS-225 shipped its gear home, soon after the result
                 for w in fought:
-                    run.check(not captives(run, w), "%s, beaten, received no captives: %s" % (w, captives(run, w)[:3]))
+                    run.check(not spoils(run, w), "%s, beaten, received no spoils or captives (SOS-225): %s" % (w, spoils(run, w)[:3]))
                 run.check(npc_after, "the NPC army stays: %s (was %s)" % (npc_after, npc_before))
             if not answer:
                 run.check(after[joiners[0]][1] == before[joiners[0]][1], "%s, who never answered, kept its men" % joiners[0])
@@ -1737,6 +1738,404 @@ SCENARIOS.update({
            "SOS-176: as N1, then J's connection is cut (netcut; needs --netem join=...)"),
     "N3": ("ALLIES", n_leave("N3", "H's connection breaks for 20 s; J leaves from the lost-host window, L waits"),
            "SOS-179: H cut inside a 20 s outage; J leaves, L comes back, H continues without J (needs --netem host=...)"),
+})
+
+
+# ------------------------------------------------------------------ V: NPC vassals and the players' friends (SOS-226)
+
+
+def stances_with_vassals(diplo):
+    """From `diplo`: {(player slot, vassal): stance} for each player's stance with another player's NPC vassal (the
+    `npc-<stance>` entries; `war` where they are at war), and {player slot: its own vassals}."""
+    own, pairs = {}, {}
+    for seg in diplo.split("; "):
+        m = re.match(r"\s*(\d+) [^:]*:(.*?) regions", seg)
+        if not m:
+            continue
+        slot = int(m.group(1))
+        rel = dict((int(k), v) for k, v in re.findall(r"(\d+)=(\S+)", m.group(2)))
+        own[slot] = {k for k, v in rel.items() if v == "vassal"}
+        for k, v in rel.items():
+            if v.startswith("npc-"):
+                pairs[(slot, k)] = v[4:]
+    for slot in own:  # a war with another player's vassal shows as `war`, not `npc-`
+        for other, vs in own.items():
+            for v in vs:
+                if other != slot and (slot, v) not in pairs:
+                    pairs[(slot, v)] = "war?"
+    return pairs, own
+
+
+def dipmess_hits(run):
+    """Each game's "Relations Worsen" and "Agreement Cancelled" messages, as {(who, title@second, sender, overlord)},
+    and H's game time: (played seconds, seconds per year)."""
+    hits, played = set(), (0.0, 0.0)
+    for w in WHO:
+        r = run.cmd(w, "dipmess")
+        m = re.match(r"played (\d+) s, year (\d+) s", r)
+        if m and w == "H":
+            played = (float(m.group(1)), float(m.group(2)))
+        for title, frm, over in re.findall(r"hit (.*?) from (-?\d+) overlord (-?\d+)", r):
+            hits.add((w, title, int(frm), int(over)))
+    return hits, played
+
+
+def v1(years=3):
+    """V1 (SOS-226): from ALLIES (H, J and L allied), each player gets an NPC vassal. An alliance passes Colleagues:
+    each player is a colleague of the other players' vassals. Then `years` in-game years at 25x: no such stance drops
+    below Colleagues, and no vassal sends its overlord's friend "Relations Worsen" (money to keep the stance) or
+    "Agreement Cancelled". Then H and J cancel their alliance, make a trade agreement, then Colleagues, and cancel
+    again: the stances passed between them and each other's vassals follow, and go back at the end."""
+    name, title = "V1", "vassals and the players' friends: passed stances locked, an alliance passes Colleagues"
+    restore("ALLIES")
+    # b13-B's run (2026-11-18): an in-game year at 25x took about 295,000 steps and 22 real minutes; twice that, as the
+    # PC may run slower, plus the start and the H-J steps after the years
+    run = Run("b3-" + name, timeout=1800 + 2700 * years, steps=200000 + 600000 * years)
+    run.position = "ALLIES"
+    ok = False
+    try:
+        run.wait(lambda: all(run.events(w, "go") for w in WHO), 300, "every game playing")
+        war_npc = meta("ALLIES").get("npc", -1)
+        vassal = {}  # the vassal givevassal made for each player; ALLIES's players may have others already (3, 4, 43)
+        for w in WHO:  # one at a time: each is applied before the next player's nearest free NPC is chosen
+            r = run.cmd(w, "givevassal %d %d" % (SLOT[w], war_npc))
+            m = re.search(r"\((\d+)\) becomes", r)
+            if not m:
+                raise Failed("%s's vassal: %s" % (w, r))
+            vassal[w] = int(m.group(1))
+            run.sleep(5)
+
+        def passed():
+            pairs, own = stances_with_vassals(run.cmd("H", "diplo"))
+            return (pairs, own) if all(vassal[w] in own.get(SLOT[w], ()) for w in WHO) else None
+        pairs, own = run.wait(lambda: passed() or run.sleep(2), 60, "every player's new vassal in diplo")
+        say("vassals:", own, "stances:", pairs)
+        # the messages already in the lists: sent before the vassalage (the save's own), never counted. Taken before the
+        # Colleagues wait, so a demand right after the vassalage counts
+        hits, (played0, year) = dipmess_hits(run)
+        before = set(hits)
+        say("game time %.0f s, a year %.0f s; messages at the start (not counted):" % (played0, year), sorted(before))
+        # every player with every vassal of the other players, the older ones included
+        wanted = {(SLOT[p], v) for p in WHO for q in WHO if p != q for v in own[SLOT[q]]}
+
+        def everyone_colleagues():
+            p, _ = stances_with_vassals(run.cmd("H", "diplo"))
+            return p if wanted <= set(p) and all(v == "Colleagues" for v in p.values()) else None
+        try:
+            pairs = run.wait(lambda: everyone_colleagues() or run.sleep(2), 60, "Colleagues passed to every friend's vassal")
+            run.check(True, "at the start every player is a colleague of the other players' vassals (an alliance passes Colleagues): %s" % pairs)
+        except Failed:
+            run.check(False, "at the start every player is a colleague of the other players' vassals (an alliance passes Colleagues): %s"
+                      % stances_with_vassals(run.cmd("H", "diplo"))[0])
+
+        # the years: diplo and the messages every 30 s
+        if year <= 0:
+            raise Failed("no game time from dipmess")
+        h, (played0, _) = dipmess_hits(run)  # the years count from here
+        hits |= h
+        low, samples, played = [], 0, played0
+        deadline = time.time() + 2700 * years
+        while played - played0 < years * year:
+            if time.time() > deadline:
+                raise Failed("%d in-game years took longer than %d minutes (%.2f years passed)" % (years, 45 * years, (played - played0) / year))
+            run.sleep(30)
+            p, _ = stances_with_vassals(run.cmd("H", "diplo"))
+            samples += 1
+            bad = {k: v for k, v in p.items() if v not in ("Colleagues", "Allies")}
+            if bad:
+                low.append(bad)
+                say("BELOW Colleagues:", bad)
+            h, (played, _) = dipmess_hits(run)
+            hits |= h
+            say("%.2f in-game years, %d samples" % ((played - played0) / year, samples))
+        run.check(not low and samples > 0, "for %d in-game years (%d samples, every 30 s) no stance with another player's vassal "
+                  "dropped below Colleagues%s" % (years, samples, (": " + str(low[:5])) if low else ""))
+        friendly = {h for h in hits - before if h[3] >= 0 and h[3] != SLOT[h[0]]}
+        other = hits - before - friendly
+        run.check(not friendly, "no vassal sent its overlord's friend \"Relations Worsen\" or \"Agreement Cancelled\" on any game%s"
+                  % ((": " + str(sorted(friendly)[:6])) if friendly else ""))
+        say("such messages from other NPCs (not checked):", sorted(other)[:10])
+
+        # H and J: cancel, trade, Colleagues, cancel
+        hj = [(SLOT["H"], vassal["J"]), (SLOT["J"], vassal["H"])]
+
+        def hj_stances():
+            p, _ = stances_with_vassals(run.cmd("H", "diplo"))
+            return {k: p.get(k) for k in hj}
+
+        def deal(kind):
+            run.cmd("H", "target %d" % SLOT["J"])
+            r = run.cmd("H", kind)
+            if not r.startswith("proposed"):
+                raise Failed("H's %s with J: %s" % (kind, r))
+            run.wait(lambda: run.cmd("J", "accept").startswith("accepted 1") or run.sleep(2), 120, "J accepts H's %s" % kind)
+
+        def settle(want, what):
+            try:
+                return run.wait(lambda: (lambda s: s if want(s) else None)(hj_stances()) or run.sleep(2), 60, what)
+            except Failed:
+                return None
+
+        run.cmd("H", "target %d" % SLOT["J"])
+        run.cmd("H", "cancel")
+        base = settle(lambda s: all(v not in ("Colleagues", None) for v in s.values()), "H and J's passed Colleagues taken back")
+        run.check(base is not None, "H and J cancel their alliance: the Colleagues passed between them and each other's vassal go "
+                  "back to what they had before (Neutral, unless they traded): %s" % (base or hj_stances()))
+        base = base or hj_stances()
+        deal("trade")
+        s = settle(lambda s: all(v in ("Trade-Partners", "Colleagues", "Allies") for v in s.values()), "trade passed")
+        run.check(s is not None, "H and J trade partners: each is at least a trade partner of the other's vassal: %s" % (s or hj_stances()))
+        deal("pact")
+        s = settle(lambda s: all(v == "Colleagues" for v in s.values()), "Colleagues passed")
+        run.check(s is not None, "H and J colleagues: each is a colleague of the other's vassal: %s" % (s or hj_stances()))
+        run.cmd("H", "target %d" % SLOT["J"])
+        run.cmd("H", "cancel")
+        s = settle(lambda s: s == base, "back to the start")
+        run.check(s is not None, "H and J cancel: the stances go back to %s: %s" % (base, s or hj_stances()))
+        for w in WHO:
+            run.shot(w, "%s at the end: its messages" % w)
+        ok = run.end()
+    except Failed as e:
+        run.check(False, str(e))
+        run.stop()
+    finish(name, title, run, ok)
+
+
+SCENARIOS.update({
+    "V1": ("ALLIES", v1, "each player gets an NPC vassal: Colleagues passed and locked for 3 in-game years, no demands; "
+                         "trade and Colleagues pass and go back (SOS-226)"),
+})
+
+
+# ------------------------------------------------------------------ T: deals between players (SOS-224, batch 13 item 8)
+
+
+NAME = {"H": "Host", "J": "Joiner", "L": "Local"}  # each player's name in the playtest logs
+
+
+def goods_of(run, w, t=None):
+    """w's goods as a deal reads them, live (the autopilot's goods command): by tradable index, a dict of owned,
+    available (vanilla's), spare (what a deal may give), export, promised, outgoing, owed and in (diplomacy goods still
+    coming and already stored), and the name. With no t, the goods in w's export depots."""
+    r = run.cmd(w, "goods" if t is None else "goods %d" % t)
+    keys = ("owned", "available", "spare", "export", "promised", "outgoing", "owed", "in")
+    out = {}
+    for m in re.finditer(r"good (\d+) ([^:]+): owned (-?\d+) available (-?\d+) spare (-?\d+) export (-?\d+) promised (-?\d+)"
+                         r" outgoing (-?\d+) owed (-?\d+) in (-?\d+)", r):
+        g = dict(zip(keys, (int(v) for v in m.groups()[2:])))
+        g["name"] = m.group(2).strip()
+        out[int(m.group(1))] = g
+    if t is not None and t not in out:
+        raise Failed("%s's goods %d: %s" % (w, t, r))
+    return out
+
+
+def give(run, a, b, t, n, may_refuse=False):
+    """a proposes to give b n of good t, for nothing; the proposal's id, once b's game has it. With may_refuse, None
+    when a's own check refuses it."""
+    before = {e["id"] for e in run.events(b, "dealopen")}
+    run.cmd(a, "target %d" % SLOT[b])
+    r = run.cmd(a, "give %d %d" % (t, n))
+    if not r.startswith("proposed"):
+        if may_refuse:
+            say("%s's deal of %d of good %d to %s: %s" % (a, n, t, b, r))
+            return None
+        raise Failed("%s's deal of %d of good %d to %s: %s" % (a, n, t, b, r))
+    new = run.wait(lambda: [e["id"] for e in run.events(b, "dealopen") if e["id"] not in before and e["from"] == SLOT[a]],
+                   120, "%s's deal on %s's game" % (a, b))
+    say("deal %d: %s gives %s %d of good %d" % (new[0], a, b, n, t))
+    return new[0]
+
+
+def answered(run, pid, timeout=120):
+    """The deal's outcome on each game, once every game has it: ACCEPTED, REFUSED, ..."""
+    def got():
+        out = {w: [e["outcome"] for e in run.events(w, "dealanswered", id=pid)] for w in WHO}
+        return {w: o[0] for w, o in out.items()} if all(out.values()) else None
+    return run.wait(got, timeout, "deal %d answered on every game" % pid)
+
+
+def received(text, b, n, good):
+    """The lines of a playtest log where player b received n of the good by a deal."""
+    return re.findall(r"transfer step \d+: %s received %d %s \(Diplomacy" % (NAME[b], n, re.escape(good)), text)
+
+
+def log_files(run, w):
+    return {p.name for p in (run.home(w) / "logs").glob("*.log")}
+
+
+def log_of(run, w, names):
+    return "".join((run.home(w) / "logs" / n).read_text(encoding="utf-8", errors="replace") for n in sorted(names))
+
+
+def t1():
+    """T1 (SOS-224): goods a deal took are never given again, and a delivery survives a save and resume once. From BASE:
+    the player of H and L with the most of one good in an export depot (and 600 of it to spare) gives it to J.
+    1. Two deals in a row that together ask for more than the giver can spare: the second is refused on every game,
+       and the giver's own check then refuses it too, with the reason.
+    2. While fetchers are out (vanilla's stock still counts the goods they haven't picked up), a deal, then another
+       that only that count would allow: refused on every game. The game runs at 3x for this step.
+    3. A deal, Save Campaign before its caravan arrives, the session ends, the campaign resumes: the goods arrive
+       once, in the resumed session, and J's stock takes them in once."""
+    name, title = "T1", "deals between players: goods are not given twice; a delivery survives a resume once"
+    run = start("BASE", "b3-" + name)
+    run.position = "BASE"
+    ok = False
+    resume = None
+    try:
+        best = None
+        for w in ("H", "L"):
+            for t, g in goods_of(run, w).items():
+                if g["spare"] >= 600 and (best is None or g["export"] > best[0]):
+                    best = (g["export"], w, t, g)
+        if best is None:
+            raise Failed("neither H nor L has a good in an export depot with 600 to spare")
+        _, a, t, g = best
+        b = "J"
+        good = g["name"]
+        say("the giver %s, good %d %s: %s" % (a, t, good, g))
+
+        # 1: two deals in a row, each within what A can spare, together more
+        x = g["spare"] * 6 // 10
+        try:
+            p1 = give(run, a, b, t, x)
+            p2 = give(run, a, b, t, x)
+            say(b, run.cmd(b, "accept"))
+            o1, o2 = answered(run, p1), answered(run, p2)
+            run.check(set(o1.values()) == {"ACCEPTED"}, "1: the first deal, %d %s, is accepted on every game: %s" % (x, good, o1))
+            run.check(set(o2.values()) == {"REFUSED"}, "1: the second, %d more of the %d %s could spare, is refused on every game: %s"
+                      % (x, g["spare"], a, o2))
+            run.cmd(a, "target %d" % SLOT[b])
+            again = run.cmd(a, "give %d %d" % (t, x))
+            run.check(again.startswith("refused:") and "doesn't have %d" % x in again,
+                      "1: %s's own check then refuses the same deal with the reason: %s" % (a, again))
+        except Failed as e:
+            run.check(False, "1: " + str(e))
+
+        # 2: the window. While fetchers are out, vanilla's stock still counts the goods they haven't picked up: available
+        # is more than spare by W = min(available, outgoing). Deal Y4 asks for nearly all A can spare. Then top-up deals,
+        # each sized from A's live figures, take spare below Y4 while available stays at or above it (available falls
+        # by 0.9 of a deal). Y4 then lies above spare but within available until the fetchers leave: before the fix it
+        # went through, now it must be refused. Y4 is accepted only in a window the driver saw; otherwise it is declined.
+        run.cmd("H", "speed 3")  # the fetchers' minutes at the depot outlast the driver's look
+        p4, y3s = None, []
+        try:
+            end = time.time() + 600
+            while p4 is None:
+                g2 = goods_of(run, a, t)[t]
+                w0 = g2["available"] - g2["spare"]
+                if g2["outgoing"] > 0 and w0 >= 40 and g2["spare"] >= 150:
+                    y4 = g2["spare"] - 2
+                    p4 = give(run, a, b, t, y4, may_refuse=True)
+                    if p4 is not None:
+                        say("deal %d asks for %d %s in a window of %d: %s" % (p4, y4, good, w0, g2))
+                        break
+                if time.time() > end:
+                    raise Failed("no fetchers out of %s's city with 150 %s to spare for 600 s (a window of 40 or more): %s"
+                                 % (a, good, g2))
+                run.sleep(1)
+            hit = None
+            end = time.time() + 480
+            while hit is None:
+                g3 = goods_of(run, a, t)[t]
+                w = g3["available"] - g3["spare"]
+                if g3["outgoing"] > 0 and g3["spare"] < y4 <= g3["available"]:
+                    hit = g3
+                    break
+                if time.time() > end:
+                    raise Failed("no window for deal %d's %d %s in 480 s, after top-up deals %s: %s" % (p4, y4, good, y3s, g3))
+                # under Y4, vanilla's check would refuse it too: wait for the city to make more
+                y3 = int((g3["available"] - y4 - w // 2) / 0.9)
+                if g3["outgoing"] > 0 and w >= 40 and 1 <= y3 <= g3["spare"] and len(y3s) < 4 and g3["available"] >= y4:
+                    p3 = give(run, a, b, t, y3, may_refuse=True)
+                    if p3 is not None:
+                        say(b, run.cmd(b, "acceptid %d" % p3))
+                        o3 = answered(run, p3)
+                        run.check(set(o3.values()) == {"ACCEPTED"}, "2: top-up deal %d, %d %s (from %s), is accepted on every "
+                                  "game: %s" % (p3, y3, good, g3, o3))
+                        y3s.append(y3)
+                        continue
+                run.sleep(1)
+            say(b, run.cmd(b, "acceptid %d" % p4))
+            o4 = answered(run, p4)
+            after = goods_of(run, a, t)[t]
+            run.check(True, "2: the window was reached after top-ups %s: vanilla's stock showed %d %s available, as before "
+                      "the fix, while what could leave was less (%s; just after: %s)" % (y3s, y4, good, hit, after))
+            run.check(set(o4.values()) == {"REFUSED"}, "2: deal %d, %d %s accepted in that window, is refused on every game: %s"
+                      % (p4, y4, good, o4))
+        except Failed as e:
+            run.check(False, "2: " + str(e))
+            if p4 is not None and not run.events(b, "dealanswered", id=p4):
+                say(b, run.cmd(b, "declineid %d" % p4))  # never accepted outside a window the driver saw
+        run.cmd("H", "speed 25")
+
+        # 3: a deal, Save Campaign, resume
+        run.wait(lambda: goods_of(run, b, t)[t]["owed"] == 0 or run.sleep(3), 900, "the earlier deals' goods stored in %s's city" % b)
+        z = 100 if 100 not in [x, y4 if p4 else 0] + y3s else 101
+        # the earlier deals' fetchers count against A's spare until their caravans leave (about 10 game minutes)
+        run.wait(lambda: goods_of(run, a, t)[t]["spare"] >= z or run.sleep(3), 900, "%d %s to spare in %s's city" % (z, good, a))
+        p5 = give(run, a, b, t, z)
+        say(b, run.cmd(b, "acceptid %d" % p5))
+        o5 = answered(run, p5)
+        run.check(set(o5.values()) == {"ACCEPTED"}, "3: deal %d, %d %s, is accepted on every game: %s" % (p5, z, good, o5))
+        owed = run.wait(lambda: (lambda g: g if g["owed"] == z else None)(goods_of(run, b, t)[t]) or run.sleep(1), 60,
+                        "the deal's goods owed to %s" % b)
+        say("before the save, %s: %s" % (b, owed))
+        say("save:", run.cmd("H", "save"))
+        run.wait(lambda: all(any(e["status"].startswith("Campaign saved") for e in run.events(w, "save")) for w in WHO), 600,
+                 "every game's campaign save")
+        ok = run.end(after=1)
+        first = {w: log_files(run, w) for w in WHO}
+        early = {w: len(received(log_of(run, w, first[w]), b, z, good)) for w in WHO}
+        run.check(not any(early.values()), "3: the goods hadn't arrived when the first session ended (received lines %s)" % early)
+        resume = (b, t, z, good, first)
+    except Failed as e:
+        run.check(False, str(e))
+        run.stop()
+        ok = False
+    finish(name, title, run, ok)
+    if resume:  # step 3's save went through: its exactly-once check runs whatever failed before
+        t1_resume(name, *resume)
+    else:
+        say("T1-resume doesn't run: step 3 didn't reach its campaign save")
+
+
+def t1_resume(name, b, t, z, good, first):
+    """T1 step 3, resumed: the deal's goods arrive once and J's stock takes them in once."""
+    t0 = time.time() * 1000  # the resume reuses the last run's folders: their old "go" events don't count
+    run = Run("b3-%s-resume" % name)
+    ok = False
+    try:
+        run.wait(lambda: all(any(e.get("t", 0) >= t0 for e in run.events(w, "go")) for w in WHO) or run.sleep(1), 300,
+                 "every game playing after the resume")
+        g0 = goods_of(run, b, t)[t]
+        run.check(g0["owed"] == z, "3: after the resume %s is owed the deal's %d %s once: %s" % (b, z, good, g0))
+
+        def arrived():
+            new = {w: log_files(run, w) - first[w] for w in WHO}
+            got = {w: len(received(log_of(run, w, new[w]), b, z, good)) for w in WHO}
+            return got if all(got.values()) else None
+        run.wait(lambda: arrived() or run.sleep(2), 900, "the goods' arrival in %s's city" % b)
+        run.wait(lambda: goods_of(run, b, t)[t]["owed"] == 0 or run.sleep(3), 900, "the goods stored in %s's city" % b)
+        run.sleep(30)  # a second delivery would show by now
+        got = arrived()
+        g1 = goods_of(run, b, t)[t]
+        run.check(got is not None and set(got.values()) == {1},
+                  "3: exactly one 'received %d %s' line in the resumed session, on every game: %s" % (z, good, got))
+        run.check(g1["in"] - g0["in"] == z and g1["owed"] == 0,
+                  "3: %s's stock took in the %d %s once: stored by deals %d before the arrival, %d after; still owed %d"
+                  % (b, z, good, g0["in"], g1["in"], g1["owed"]))
+        ok = run.end(after=5)
+    except Failed as e:
+        run.check(False, str(e))
+        run.stop()
+        ok = False
+    finish(name + "-resume", "T1's save resumed: the deal's goods arrive once", run, ok)
+
+
+SCENARIOS.update({
+    "T1": ("BASE", t1, "SOS-224: deals giving more than the giver can spare are refused (in a row, and while fetchers stand"
+                       " at the depot); a deal's goods arrive once across Save Campaign and resume"),
 })
 
 
