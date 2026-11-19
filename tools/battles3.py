@@ -2375,6 +2375,88 @@ SCENARIOS.update({
 })
 
 
+def h_selects(run):
+    """Whether H's game can select J's stationed divisions in H's city: one bool per division."""
+    return [d[7] for d in stationdivs(run, "H")[0]]
+
+
+def s_always(name, title):
+    """S1 (batch 13, 10b second version): J's army marches in through the map's Station (hook M15's path) and its
+    soldiers stand in H's city at once, J's, mustered, not selectable on H's game. J gives H command and takes it back.
+    A refresh (120 game seconds) changes nothing. A raid: J's chat says its army fights there; J's window goes unanswered,
+    so after 30 seconds H commands them. H sends the army away and its soldiers leave H's city. Every game lists the same
+    stationed armies throughout."""
+    def go():
+        run = start("ALLIES", "b3-" + name)
+        run.position = "ALLIES"
+        ok = False
+        try:
+            hx, hy = capital(run, "H")
+            j = near_capital(run, "J", hx, hy, 2, 3)
+            say("H's capital %d,%d; J's army %s" % (hx, hy, j))
+            run.sleep(20)  # an army stands still (fortifying) a moment after its teleport
+            run.cmd("J", "target %d" % SLOT["H"])
+            r = run.cmd("J", "stationmarch")
+            run.check(r.startswith("army"), "J's army takes the map's Station at H's capital: %s" % r)
+            run.wait(lambda: chat_has(run, "stationed an army at the capital of") or run.sleep(1), 120, "the chat's stationing line")
+            line = same_stations(run, "after J stationed")
+            before = stationed_men(line, SLOT["J"], SLOT["H"], j[0])
+            run.check(before > 0 and "granted false" in line, "J's stationed army has %d men, H doesn't command it: %s" % (before, line))
+            run.wait(lambda: stationdivs(run, "H")[0] or run.sleep(2), 180, "J's soldiers in H's city with no invasion")
+            run.sleep(5)
+            on_h, h_line = stationdivs(run, "H")
+            say("H:", h_line)
+            men = sum(d[2] for d in on_h)
+            run.check(all(d[1] == SLOT["J"] and d[2] > 0 and d[4] for d in on_h), "each is J's, with men, mustered: %s" % h_line)
+            run.check(0 < men <= before, "no more men than J's army has: %d of %d" % (men, before))
+            run.check(not any(h_selects(run)), "H can't select them")
+            run.shot("H", "H's city: J's stationed soldiers beside the throne")
+            say("J:", run.cmd("J", "stationgrant"))
+            run.wait(lambda: (h_selects(run) and all(h_selects(run))) or run.sleep(2), 60, "H commanding J's soldiers")
+            run.check("granted true" in same_stations(run, "after J's grant"), "every game: H commands J's army")
+            say("J:", run.cmd("J", "stationgrant off"))
+            run.wait(lambda: not any(h_selects(run)) or run.sleep(2), 60, "J taking command back")
+            say("H:", state(run, "H"))
+            run.sleep(30)  # several refreshes at 25x
+            on_h, h_line = stationdivs(run, "H")
+            say("H after a refresh:", h_line)
+            run.check(sum(d[2] for d in on_h) == men and all(d[1] == SLOT["J"] for d in on_h),
+                      "a refresh with nobody dead keeps the same soldiers: %d (were %d)" % (sum(d[2] for d in on_h), men))
+            same_stations(run, "after a refresh")
+            n = len([e for e in run.events("J", "chatline") if "fights in their city" in e.get("text", "")])
+            say("H:", run.cmd("H", "raidcapital 150"))
+            run.wait(lambda: len([e for e in run.events("J", "chatline") if "fights in their city" in e.get("text", "")]) > n
+                     or run.sleep(1), 300, "J's chat line: its stationed army fights in H's city")
+            run.shot("J", "J's window: H's city is invaded and J has troops there")
+            run.check("viewing false" in state(run, "J"), "J's game doesn't view H's city by itself")
+            run.wait(lambda: "granted true" in stations(run, "J") or run.sleep(2), 90, "no answer: H commands J's soldiers after 30 s")
+            run.check(h_selects(run) and all(h_selects(run)), "H selects J's soldiers in the raid")
+            for w in ("H",):
+                say(w, run.cmd(w, "charge"))
+            run.sleep(90)
+            line = same_stations(run, "during the raid")
+            run.check(0 <= stationed_men(line, SLOT["J"], SLOT["H"], j[0]) <= before, "J's army: no more men than before: %s" % line)
+            run.cmd("H", "target %d" % SLOT["J"])
+            r = run.cmd("H", "stationend")
+            run.check(r.startswith("ends"), "H sends J's army away: %s" % r)
+            run.wait(lambda: not stationdivs(run, "H")[0] or run.sleep(2), 120, "J's soldiers leaving H's city")
+            line = same_stations(run, "after the send away")
+            run.check("[%d at %d" % (SLOT["J"], SLOT["H"]) not in line, "J's army is no longer stationed: %s" % line)
+            say("H:", run.cmd("H", "pop"))
+            ok = run.end(after=10)
+        except Failed as e:
+            run.check(False, str(e))
+            run.stop()
+        finish(name, title, run, ok)
+    return go
+
+
+SCENARIOS.update({
+    "S1": ("ALLIES", s_always("S1", "J's stationed soldiers stand in H's city; command, refresh, raid, send away"),
+           "Batch 13, 10b second version: stationed soldiers always in the host's city, the grant, the refresh, the"
+           " invasion window, the send away"),
+})
+
 def declare_war(run, w, on):
     """w cancels its treaties with `on` and declares war on them."""
     run.cmd(w, "target %d" % SLOT[on])

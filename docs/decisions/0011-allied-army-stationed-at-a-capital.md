@@ -85,3 +85,16 @@ Status: Accepted (owner, 2026-11-18) · Batch 13, item 10c (SOS-233); item 10b (
 7. **Someone else's war:** "Stays out".
 8. **How many:** "Limit by free slots": stationing is refused once the stationed divisions plus the host's own would exceed the city's army slots.
 9. **10b's view:** "Automatic": a stationed player may view and command their divisions in a fight in that city without the host's prompt.
+
+## The owner's second version (2026-11-19, batch 13)
+
+After playing the first version (save 94), the owner changed answers 1 and 9 and added the rest. The plan is [batch-13/10.md](../plan/batch-13/10.md), "10b second version".
+
+1. **Seen in the city:** a stationed army's soldiers stand in the host's city for as long as it is stationed, not only in a fight; the army stays a world army beside the capital too. The engine's world part sends the army's divisions as it is stationed and every 120 game seconds after (the refresh), and the city brings its stationed divisions in line: men, equipment and training as the world army has them, so the army's own supplies keep them up. The city's dead come off the world army in its next report. The soldiers leave when the stationing ends.
+2. **Command:** their player commands them while viewing the city, asked as any view. The host commands them only while their player gives command (Give command / Take command back in the Armies tab; engine command 7983, a flag in the stationing's record). No demuster.
+3. **Population (point A):** the soldiers don't count in the host's population (engine hook `99-stationed`).
+4. **Invasion (point B):** the stationed player gets a window, "the city is being invaded and you have troops stationed there": Watch asks the view; Decline gives the host command; no answer in 30 seconds declines (point C).
+5. **Stationing from the map (item 17):** the world map's move tool says Station over a partner's capital (mod hook M15); a click marches the army beside it and stations it once it stands still there.
+6. **The end:** as before (frozen, disconnected through the existing pause and the host's choice, removed or eliminated, war or agreement end), and the soldiers leave the city.
+
+Rejected: picking the soldiers in the world part from the city's last report (the registry in the city, as in the first version, keeps the hosts' own divisions out); a refresh on the step clock (it runs on game time, so a speed change doesn't change how often).
