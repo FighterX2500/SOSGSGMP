@@ -2407,8 +2407,18 @@ def r_assault(name, title):
                 pick_army(run, "H", a[0])
                 say("H:", run.cmd("H", "teleportnear %d %d" % (hx, hy - 5)))
             run.sleep(5)
-            lo = near_capital(run, "L", hx, hy, 4, 6)
+            # L comes from the west: from the east it passes J's stationed army (at war with L) south-east of the
+            # capital and meets it in the field first (10.md's warning)
+            lo = None
+            for dx, dy in ((-5, 0), (-4, 0), (-6, 0), (-5, -1), (-5, 1), (-4, -2)):
+                lo = place(run, "L", hx + dx, hy + dy)
+                if lo[2] < hx and 4 <= max(abs(lo[2] - hx), abs(lo[3] - hy)) <= 6:
+                    break
+            else:
+                raise Failed("L's army found no tile 4 to 6 tiles west of H's capital (last %s)" % (lo,))
+            say("L's army", lo)
             pick_army(run, "L", lo[0])
+            run.cmd("H", "fallback")  # H's sally prompt at the siege: H stays in its city for the assault
             run.cmd("L", "target %d" % SLOT["H"])
             r = run.cmd("L", "besiege")
             run.check("besieging" in r, "L besieges H's capital: %s" % r)
@@ -2416,6 +2426,7 @@ def r_assault(name, title):
             run.sleep(10)
             say("L:", run.cmd("L", "siegewait"))
             run.sleep(5)
+            run.cmd("H", "fallback")  # and at the Storm
             r = run.wait(lambda: (lambda r: r if not r.startswith("refused") else None)(run.cmd("L", "storm"))
                          or run.sleep(3), 180, "L's Storm accepted")
             run.check("Storm" in r, "L storms H's capital: %s" % r)
