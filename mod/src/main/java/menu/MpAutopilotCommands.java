@@ -38,6 +38,7 @@ import sosdet.Engine;
 import sosdet.Hooks;
 import sosdet.game.AiHooks;
 import sosdet.game.OwnArmy;
+import sosdet.game.cmd.Events;
 import sosdet.game.cmd.MapBattles;
 import sosdet.game.cmd.Sieges;
 import sosdet.game.cmd.StepPrompts;
@@ -47,6 +48,7 @@ import sosdet.game.deal.DealBook;
 import sosdet.game.siege.AssaultTerms;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.PlayerDeals;
+import sosgsgmp.game.PlayerStations;
 import sosgsgmp.net.ConditionedNode;
 import sosgsgmp.net.NetConditions;
 import sosgsgmp.session.SetupSession;
@@ -88,6 +90,9 @@ import world.map.regions.Region;
  * tooling: this PC's divisions in its battle fight on their own); {@code rout} (test tooling: on this PC, the enemy
  * divisions' morale stays below zero until the battle ends, so they desert; only for a battle nobody watches);
  * {@code raid} (this city's invasion, this player's raid and its state, the raiders, the treasury, the last messages);
+ * {@code raidally} (test tooling: a free raider raids this player through its weakest NPC neighbour that trades with
+ * it, made strong enough to destroy that neighbour, whose Help message then shows; SOS-223); {@code allyhelp} (that
+ * message's Request Assistance, as its button);
  * {@code victoryaccept} (the Accept of the newest won invasion's spoils message, with every lot selected);
  * {@code nextmessage} (the open message closes, as its close button, and the next queued one opens); {@code ui look X Y}
  * (the world map centred on tile X Y, SOS-187).
@@ -98,12 +103,14 @@ import world.map.regions.Region;
  * slot 1's PC); {@code cancel} (every treaty with that player ends at once); {@code pick <n>} (the n-th of this player's
  * armies, from 0, is "the first army" of the army commands); {@code auto on|off} (battles=auto answers this PC's prompts,
  * or leaves them to their time-outs); {@code attacknpc} (the first army intercepts the nearest NPC army at war with this
- * player); {@code diplo} (the relations between the players, their NPC wars and vassals); {@code morale player|enemy|mine|theirs}
+ * player); {@code diplo} (the relations between the players, their NPC wars and vassals, and each one's stance with the others' NPC vassals); {@code dipmess} (this PC's game time and its "Relations Worsen"
+ * and "Agreement Cancelled" messages, with their senders, SOS-226); {@code morale player|enemy|mine|theirs}
  * (from its step, that side's morale is held below zero until the battle ends, on every PC that runs the battle; it
  * replaces {@code rout} wherever a battle runs on more than one PC, and a view opened after it would desync);
  * {@code recruit <n>} (n of this city's citizens join a new division at once, trained and equipped; then {@code attach});
  * {@code giveregion <slot>} (the NPC region nearest that player's capital, not a capital, becomes theirs: a world command);
- * {@code givevassal <slot>} (the nearest NPC faction with no overlord becomes that player's vassal: a world command);
+ * {@code givevassal <slot> [skip]} (the nearest NPC faction with no overlord, other than faction {@code skip}, becomes that
+ * player's vassal: a world command);
  * {@code teleportnear <x> <y>} and {@code teleportarmy <army> <x> <y>} (the first army, or any army, an NPC's included,
  * stands on the passable tile nearest x, y); {@code besiegeregion <region>} (the first army besieges that region);
  * {@code regionat <region>} (its owner, centre and garrison); {@code townof <faction>} (that NPC faction's region nearest
@@ -118,11 +125,21 @@ import world.map.regions.Region;
  * for too, as {@code ongone} says, as for players who left);
  * {@code state} (the prompts, battle, view and terms open on this PC); {@code save} (host: the escape menu's Save
  * Campaign, at any time, a battle included).
+ *
+ * <p>A battle's restart by vote (SOS-231): {@code restartcall [battle]} (this player calls a vote on the battle they
+ * see: the multiplayer panel's Restart battle, or with {@code battle} the battle's own Restart); {@code restartanswer
+ * yes|no|none} (this player's answer to the open vote, or none: the window waits out its 30 s); {@code restartstate}
+ * (the battle this PC sees, its key, why it can't restart, and the open vote).
  */
 final class MpAutopilotCommands {
 
 	private final Path file;
 	private long traceAt = -1;
+	/** From {@code trace desync}: each desync this PC finds writes the world draws before it; the last one written. */
+	private boolean traceDesyncs;
+	private long tracedDesync = -1;
+	/** The steps before a desync's step whose draws go with it: back past the resync before it (SOS-222). */
+	private static final int TRACE_BEFORE_DESYNC = 150;
 	private final boolean host;
 	private boolean autoBattles;
 	/** The player the two-player commands act on, from {@code target}; -1 for the default. */
@@ -205,10 +222,15 @@ final class MpAutopilotCommands {
 		rout();
 		if (autoBattles)
 			battles(setup);
-		if (setup.chat().added() != chatSeen) {
-			chatSeen = setup.chat().added();
-			event.accept("chatline", "\"added\":" + chatSeen + ",\"step\":" + engine.step() + ",\"text\":\""
-					+ clean(setup.chat().line(setup.chat().size() - 1).text()) + "\"");
+		int added = setup.chat().added();
+		if (added != chatSeen) {
+			// every line since the last frame that the chat still holds: two lines in one frame lost the first (RV3: J
+			// missed "The vote restarts..." under "The battle restarts...")
+			int size = setup.chat().size();
+			for (int i = Math.max(0, size - (added - chatSeen)); i < size; i++)
+				event.accept("chatline", "\"added\":" + (added - (size - 1 - i)) + ",\"step\":" + engine.step() + ",\"text\":\""
+						+ clean(setup.chat().line(i).text()) + "\"");
+			chatSeen = added;
 		}
 		if (!Files.exists(file))
 			return;
@@ -262,6 +284,38 @@ final class MpAutopilotCommands {
 					.append(world.region.RD.DIST().reachable(f) ? " reach" : "")
 					.append(f != FACTIONS.player() && Engine.tradeReaches(h) ? " trade" : "");
 		}
+		return b.toString();
+	}
+
+	/**
+	 * Test aid (SOS-224): this PC's city's stock of one good as a deal reads it, live: owned and vanilla's available,
+	 * what a deal may give (spare), the export depots' stock, goods promised and leaving, and what a deal brings in:
+	 * diplomacy goods still owed (bought, on the way or being carried in) and those already stored (in, the kept days).
+	 */
+	private static String goods(TRADABLE t) {
+		int export = t instanceof init.trade.TRADABLEO<?> o && o.t instanceof init.resources.RESOURCE r
+				? SETT.ROOMS().EXPORT.tally.amount.get(r) : 0;
+		TRADE_TYPE d = TRADE_TYPE.diplomacy;
+		util.statistics.HISTORY_INT in = FACTIONS.player().res().in(game.faction.FResources.RTYPE.DIPLOMACY).history(t);
+		int stored = 0;
+		for (int k = 0; k < in.historyRecords(); k++)
+			stored += in.get(k);
+		return "good " + t.index() + " " + t.name + ": owned " + t.ps().playerOwned() + " available "
+				+ FACTIONS.player().res().getAvailable(t) + " spare " + PlayerDeals.spare(t.index()) + " export " + export
+				+ " promised " + t.ps().promised().get(null) + " outgoing " + t.ps().attempting(null) + " owed "
+				+ (t.pb().toBeAdded().get(d) + t.pb().toBeStored().get(d) + t.pb().attempting(d)) + " in " + stored;
+	}
+
+	/** Test aid (SOS-224): {@link #goods} of each good this city has in its export depots, the most there first. */
+	private static String goodsInExport() {
+		List<init.trade.TRADABLEO<init.resources.RESOURCE>> held = new ArrayList<>();
+		for (init.trade.TRADABLEO<init.resources.RESOURCE> t : TR.RES())
+			if (SETT.ROOMS().EXPORT.tally.amount.get(t.t) > 0)
+				held.add(t);
+		held.sort((x, y) -> Integer.compare(SETT.ROOMS().EXPORT.tally.amount.get(y.t), SETT.ROOMS().EXPORT.tally.amount.get(x.t)));
+		StringBuilder b = new StringBuilder("goods:");
+		for (TRADABLE t : held)
+			b.append(' ').append(goods(t)).append(';');
 		return b.toString();
 	}
 
@@ -357,6 +411,30 @@ final class MpAutopilotCommands {
 				}
 			return "accepted " + n;
 		}
+		case "give": { // test tooling (SOS-224): a deal giving N of tradable I to the target, nothing in return
+			DealBook.Terms t = new DealBook.Terms(DealBook.NO_TREATY, 0, 0,
+					new int[] {Integer.parseInt(a[1]), Integer.parseInt(a[2])}, new int[0]);
+			String why = PlayerDeals.refusal(slot, t);
+			if (why != null)
+				return "refused: " + why;
+			PlayerDeals.propose(slot, t);
+			return "proposed";
+		}
+		case "acceptid": { // test tooling (SOS-224): accepts the one proposal with this ID
+			int id = Integer.parseInt(a[1]);
+			String why = PlayerDeals.acceptRefusal(id);
+			if (why != null)
+				return "refused: " + why;
+			PlayerDeals.answer(id, true);
+			return "answered " + id;
+		}
+		case "declineid": { // test tooling (SOS-224): declines the one proposal with this ID
+			int id = Integer.parseInt(a[1]);
+			PlayerDeals.answer(id, false);
+			return "declined " + id;
+		}
+		case "goods": // test tooling (SOS-224): this city's goods as a deal reads them; one tradable with an index
+			return a.length > 1 ? goods(TR.ALL().get(Integer.parseInt(a[1]))) : goodsInExport();
 		case "army": {
 			int[] at = armyTile(); // the engine picks a tile itself only for a player with no army yet
 			if (!World.armyCreate(at[0], at[1]))
@@ -383,6 +461,8 @@ final class MpAutopilotCommands {
 		}
 		case "diplo":
 			return diplo();
+		case "dipmess":
+			return dipmess();
 		case "state":
 			return state(engine);
 		case "regions":
@@ -428,7 +508,7 @@ final class MpAutopilotCommands {
 		}
 		case "givevassal": {
 			Faction to = FACTIONS.getByIndex(Integer.parseInt(a[1]));
-			FactionNPC f = nearestFreeNpc(to);
+			FactionNPC f = nearestFreeNpc(to, a.length > 2 ? Integer.parseInt(a[2]) : -1);
 			if (f == null)
 				return "refused: no NPC faction";
 			Sieges.npcVassalForTest(to.index(), f.index());
@@ -524,7 +604,12 @@ final class MpAutopilotCommands {
 		}
 		case "trace":
 			if (a.length < 2)
-				return "trace at which step?";
+				return "trace at which step, or desync?";
+			if (a[1].equals("desync")) { // every desync this PC finds, with the world draws before it (SOS-222)
+				traceDesyncs = true;
+				Engine.traceDraws(1400);
+				return "world draws traced, written to trace-<step>.txt at every desync";
+			}
 			traceAt = Long.parseLong(a[1]);
 			if (a.length > 2 && a[2].equals("city")) { // the city's draws too: a viewed city against its viewer's copy
 				Engine.traceAllDraws(1400);
@@ -631,10 +716,143 @@ final class MpAutopilotCommands {
 		}
 		case "allies": // the last battle prompt's ally question as the engine saw it (SOS-162)
 			return "allies " + Hooks.worldPromptAlliesSeen();
+		case "sallyseen": // the last sally with allies: its layout, power and each ally's share as shipped (SOS-232)
+			return "sally " + Hooks.sallySeen();
+		case "raidcapital": { // test tooling: the raider nearest <men> (300) invades this player's capital now, at its step on every PC (SOS-232)
+			int men = a.length > 1 ? Integer.parseInt(a[1]) : 300;
+			int raider = sosdet.game.cmd.Events.raiderNearForTest(men);
+			sosdet.game.cmd.Events.raidCapitalForTest(raider);
+			return "raider " + raider + " invades the capital, " + GAME.raiders().ALL().get(raider).army.men + " men";
+		}
+		case "station": { // the picked army stations at the target player's capital (SOS-233)
+			WArmy w = firstArmy();
+			String why = PlayerStations.stationRefusal(w, slot);
+			if (why != null)
+				return "refused: " + why;
+			PlayerStations.station(w, slot);
+			return "army " + w.armyIndex() + " stations at " + other().name + "'s capital";
+		}
+		case "stationend": // the picked army, stationed, comes back (its player), or the target's first one at this capital is sent away (the host)
+		case "stationsupply": { // the target's first army stationed at this capital, supplied from this city (SOS-233)
+			WArmy w = PlayerStations.stationed(firstArmy()) ? firstArmy() : null;
+			for (PlayerStations.Stationed s : PlayerStations.between(slot, FACTIONS.player().index()))
+				if (w == null)
+					w = s.army();
+			boolean end = a[0].equals("stationend");
+			String why = end ? PlayerStations.endRefusal(w) : PlayerStations.supplyRefusal(w);
+			if (why != null)
+				return "refused: " + why;
+			if (end)
+				PlayerStations.end(w);
+			else
+				PlayerStations.supply(w);
+			return (end ? "ends the stationing of army " : "supplies army ") + w.armyIndex();
+		}
+		case "stationgrant": { // the picked army, stationed: its host commands its soldiers (on, the default) or no longer (off) (batch 13)
+			WArmy w = firstArmy();
+			boolean on = a.length < 2 || !a[1].equals("off");
+			String why = PlayerStations.grantRefusal(w);
+			if (why != null)
+				return "refused: " + why;
+			PlayerStations.grant(w, on);
+			return "army " + w.armyIndex() + (on ? " gives its host command" : " takes command back");
+		}
+		case "stationmarch": // hook M15's click: the picked army marches beside the target player's capital and stations there (batch 13)
+			if (!MpStationFlow.offers(firstArmy(), other().capitolRegion()))
+				return "refused: the map offers no Station at " + other().name + "'s capital";
+			MpStationFlow.order(firstArmy(), other().capitolRegion());
+			return "army " + firstArmy().armyIndex() + " marches to " + other().name + "'s capital to station";
+		case "stations": { // every stationed army: its player, host, men, tile, supplies and command (SOS-233)
+			StringBuilder b = new StringBuilder("stations:");
+			for (PlayerStations.Stationed s : PlayerStations.all()) {
+				b.append(" [").append(s.owner()).append(" at ").append(s.host());
+				if (s.army() != null) {
+					int sup = 0;
+					for (int i = 0; i < AD.supplies().all.size(); i++)
+						sup += AD.supplies().all.get(i).current().get(s.army());
+					b.append(" army ").append(s.army().armyIndex()).append(" men ").append(AD.men(null).get(s.army()))
+							.append(" at ").append(s.army().ctx()).append(',').append(s.army().cty()).append(" supplies ").append(sup)
+							.append(" granted ").append(PlayerStations.granted(s.army()))
+							.append(" city ").append(PlayerStations.inCity(s.army())).append(" camp ").append(PlayerStations.inCamp(s.army()));
+				}
+				b.append(']');
+			}
+			return b.toString();
+		}
+		case "entries": { // the city's active entry points' tiles (owner, 2026-11-19: stationed soldiers come and go by them)
+			StringBuilder b = new StringBuilder("entries: size ").append(settlement.main.SETT.TWIDTH).append(' ').append(settlement.main.SETT.THEIGHT);
+			for (settlement.entry.EntryPoints.EntryPoint p : settlement.main.SETT.ENTRY().points.active())
+				b.append(" [").append(p.coo().x()).append(',').append(p.coo().y()).append(']');
+			return b.toString();
+		}
+		case "campstate": { // the division popup's Leave for the camp for division D: hidden, ready, or why not (owner, 2026-11-19)
+			String st = PlayerStations.campState(Integer.parseInt(a[1]));
+			return "camp " + (st == null ? "hidden" : st.isEmpty() ? "ready" : "refused: " + st);
+		}
+		case "camp": { // Leave for the camp pressed for division D (owner, 2026-11-19)
+			int d = Integer.parseInt(a[1]);
+			String st = PlayerStations.campState(d);
+			if (!"".equals(st))
+				return "refused: " + (st == null ? "no Leave for the camp for division " + d : st);
+			PlayerStations.camp(d);
+			return "division " + d + " leaves for the camp";
+		}
+		case "moverefusal": // why the picked army can't move, as the move tool says (owner, 2026-11-19)
+			return "move " + (PlayerStations.moveRefusal(firstArmy()) == null ? "allowed" : "refused: " + PlayerStations.moveRefusal(firstArmy()));
+		case "moveto": { // the picked army walks to X Y, as the move tool's click orders (a command, applied at its step)
+			WArmy w = firstArmy();
+			if (w == null)
+				return "refused: no army";
+			int[] at = passableNear(Integer.parseInt(a[1]), Integer.parseInt(a[2]));
+			if (at == null)
+				return "refused: no passable tile near " + a[1] + "," + a[2];
+			w.setDestination(at[0], at[1]);
+			return "army " + w.armyIndex() + " ordered to " + at[0] + "," + at[1];
+		}
+		case "recallall": { // the conscripts window's Recall for every city division out with an army (owner, 2026-11-19)
+			int n = 0;
+			for (Div d : GAME.ARMIES().player().divisions())
+				if (AD.cityDivs().attachedArmy(d) != null) {
+					AD.cityDivs().attach(null, d);
+					n++;
+				}
+			return n + " divisions recalled, each a command";
+		}
+		case "stationdivs": { // the city's divisions holding a stationed army's soldiers: player, men, mustered, centre tile (SOS-234)
+			StringBuilder b = new StringBuilder("stationdivs:");
+			for (Div d : GAME.ARMIES().player().divisions()) {
+				int owner = PlayerStations.divOwner(d.index());
+				if (owner < 0)
+					continue;
+				long x = 0, y = 0;
+				int n = 0;
+				for (settlement.entity.ENTITY e : settlement.main.SETT.ENTITIES().getAllEnts())
+					if (e instanceof settlement.entity.humanoid.Humanoid h && !e.isRemoved() && h.division() == d) {
+						x += h.tc().x();
+						y += h.tc().y();
+						n++;
+					}
+				b.append(" [div ").append(d.index()).append(" of ").append(owner).append(" men ").append(d.menNrOf())
+						.append(" target ").append(d.info.men()).append(" mustered ").append(d.settings().mustering())
+						.append(" at ").append(n == 0 ? -1 : x / n).append(',').append(n == 0 ? -1 : y / n)
+						.append(" selectable ").append(OwnArmy.selectable(d)).append(']');
+			}
+			return b.toString();
+		}
 		case "armypower": { // an army's power, as vanilla weighs the sides of a world battle (SOS-162)
 			WArmy w = WORLD.ENTITIES().armies.tryGet(Integer.parseInt(a[1]));
 			return w == null ? "refused: no army " + a[1] : "power " + (long) AD.power().get(w);
 		}
+		case "battledivs": { // army 0's divisions with men in the battle this PC runs, and whether this PC selects each (batch 13)
+			StringBuilder b = new StringBuilder("battledivs:");
+			for (Div d : GAME.ARMIES().player().divisions())
+				if (d.menNrOf() > 0)
+					b.append(" [").append(d.index()).append(" men ").append(d.menNrOf()).append(" sel ")
+							.append(OwnArmy.selectable(d)).append(']');
+			return b.toString();
+		}
+		case "deploylabel": // the deploy panel's button text with several commanders: Ready or Waiting (batch 13)
+			return "deploy " + Hooks.deployLabel();
 		case "battlemen": // the men on each side of the battle this PC runs: an NPC ally's count in it (SOS-162, C4)
 			return "player " + GAME.ARMIES().player().men() + ", enemy " + GAME.ARMIES().enemy().men();
 		case "netoutage": { // test tooling (SOS-175): this PC's connections carry nothing for <seconds>, at most 60
@@ -689,6 +907,22 @@ final class MpAutopilotCommands {
 			return "the enemy's morale stays below zero on this PC until the battle ends";
 		case "raid":
 			return raid();
+		case "raidally": { // test tooling (SOS-223): a raid through an NPC neighbour, which the raider destroys if asked
+			if (call(call(GAME.raiders(), "current"), "current") != null)
+				return "refused: this player is raided already";
+			int[] spot = Events.raidAllySpotForTest();
+			if (spot == null)
+				return "refused: no NPC neighbour that trades with this player";
+			int raider = Events.raiderFreeForTest();
+			if (raider < 0)
+				return "refused: no free raider";
+			Faction f = FACTIONS.getByIndex(spot[2]);
+			Events.raidAllyForTest(raider, spot[0], spot[1], spot[2]);
+			return "raider " + raider + " raids through " + f.name + " (" + f.index() + ", capital region "
+					+ f.capitolRegion().index() + ") at " + spot[0] + "," + spot[1] + ", at its step on every PC";
+		}
+		case "allyhelp": // test tooling (SOS-223): the ally's Help message's Request Assistance, as its button
+			return Events.allyHelpForTest() ? "help asked, at its step on every PC" : "refused: no raid";
 		case "victoryaccept":
 			return victoryAccept();
 		case "close": // the battle panel's Close while battles answer by their time-outs (B5, SOS-162)
@@ -801,11 +1035,46 @@ final class MpAutopilotCommands {
 					b.append(d.index()).append(" (men ").append(d.menNrOf()).append(") ");
 			return b.length() == 0 ? "none mustered" : "mustered: " + b;
 		}
+		case "restartcall": // a vote to restart the battle this PC sees: the panel's button, or the battle's own (SOS-231)
+			return restartCall(a.length > 1 && a[1].equals("battle"), engine, setup);
+		case "restartanswer": { // this PC's answer to the open restart vote: yes, no, or none (SOS-231)
+			int vote = setup.restartVotes().heardOpen();
+			if (vote == 0)
+				return "refused: no restart vote open";
+			if (a[1].equals("none"))
+				return "vote " + vote + " left unanswered";
+			setup.answerRestart(vote, a[1].equals("yes"));
+			return "vote " + vote + " answered " + a[1];
+		}
+		case "restartstate": { // the battle this PC sees, whether it can restart, the open vote (SOS-231)
+			long k = engine.battleHere();
+			return "battle " + k + (k == sosdet.BattleKey.NONE ? "" : " " + sosdet.BattleKey.of(k) + ", refusal "
+					+ engine.restartRefusal(k)) + ", open vote " + setup.restartVotes().heardOpen();
+		}
 		case "depotmsg": // the depot's message with player traders counted, beside vanilla's (SOS-210)
 			return depotMessage(a[1].equals("import"));
 		default:
 			return "unknown action";
 		}
+	}
+
+	/**
+	 * Test tooling (SOS-231): this PC's player calls a vote to restart the battle they see, with the multiplayer panel's
+	 * Restart battle, or with {@code battle} the battle's own Restart, which SOSDET turns into the call.
+	 */
+	private static String restartCall(boolean own, EnginePlay engine, SetupSession setup) {
+		long k = engine.battleHere();
+		if (k == sosdet.BattleKey.NONE)
+			return "refused: no battle here";
+		if (!own) {
+			MpRestartVote.call(setup, engine);
+			return "restart vote called for battle " + k;
+		}
+		BattleState b = VIEW.b().state();
+		if (b == null)
+			return "refused: no battle map on this PC";
+		b.reloadBattle();
+		return "battle's Restart pressed for battle " + k;
 	}
 
 	/**
@@ -1223,14 +1492,18 @@ final class MpAutopilotCommands {
 		return best;
 	}
 
-	/** The active NPC faction nearest {@code f}'s capital with no overlord: what {@code givevassal} makes a vassal. */
-	private static FactionNPC nearestFreeNpc(Faction f) {
+	/**
+	 * The active NPC faction nearest {@code f}'s capital with no overlord, other than faction {@code skip}: what
+	 * {@code givevassal} makes a vassal.
+	 */
+	private static FactionNPC nearestFreeNpc(Faction f, int skip) {
 		FactionNPC best = null;
 		long bestD = Long.MAX_VALUE;
 		Region c = f.capitolRegion();
 		for (int i = 0; i < FACTIONS.MAX(); i++) {
 			Faction n = FACTIONS.getByIndex(i);
-			if (!(n instanceof FactionNPC) || !n.isActive() || n.capitolRegion() == null || DIP.overlord(n) != null || c == null)
+			if (!(n instanceof FactionNPC) || !n.isActive() || n.capitolRegion() == null || DIP.overlord(n) != null || c == null
+					|| i == skip)
 				continue;
 			long dx = n.capitolRegion().cx() - c.cx(), dy = n.capitolRegion().cy() - c.cy();
 			if (dx * dx + dy * dy < bestD) {
@@ -1286,7 +1559,10 @@ final class MpAutopilotCommands {
 				+ ", table " + (Hooks.commanders() != null && Hooks.commanders().set());
 	}
 
-	/** Each human's relations with the others, their NPC wars and vassals, for a test's log. */
+	/**
+	 * Each human's relations with the others, their NPC wars and vassals, and their stance with another human's NPC
+	 * vassal ({@code npc-Colleagues}: SOS-140, SOS-226), for a test's log.
+	 */
 	private static String diplo() {
 		StringBuilder b = new StringBuilder();
 		for (int i = 0; i < FACTIONS.MAX(); i++) {
@@ -1300,13 +1576,57 @@ final class MpAutopilotCommands {
 					continue;
 				boolean human = o instanceof game.faction.player.Player;
 				String rel = DIP.WAR().is(h, o) ? "war" : DIP.overlord(o) == h ? "vassal" : DIP.overlord(h) == o ? "overlord"
-						: human && DIP.get(h, o) != null ? DIP.get(h, o).name.toString() : null;
+						: human && DIP.get(h, o) != null ? DIP.get(h, o).name.toString()
+						: DIP.overlord(o) instanceof game.faction.player.Player ? "npc-" + DIP.get(h, o).name.toString().replace(' ', '-')
+						: null;
 				if (rel != null)
 					b.append(' ').append(o.index()).append('=').append(rel);
 			}
 			b.append(" regions ").append(h.realm().regions()).append("; ");
 		}
 		return b.toString();
+	}
+
+	/**
+	 * This PC's game time, and each vanilla diplomacy message in its list that lowers a stance: "Relations Worsen"
+	 * (money asked to keep it) or "Agreement(s) Cancelled", with the NPC that sent it and that NPC's overlord (-1 for
+	 * none), as {@code hit <title>@<second> from <npc> overlord <slot>} (SOS-226), for a test's log.
+	 */
+	private static String dipmess() {
+		StringBuilder b = new StringBuilder(String.format(Locale.ROOT, "played %.0f s, year %.0f s, messages",
+				game.time.TIME.playedGame(), game.time.TIME.years().bitSeconds()));
+		LIST<?> all = (LIST<?>) field(VIEW.messages(), "all");
+		b.append(' ').append(all.size());
+		for (int i = 0; i < all.size(); i++) {
+			Object m = all.get(i);
+			String title = String.valueOf(fieldUp(m, "title"));
+			if (!title.contains("Relations Worsen") && !title.contains("Cancelled"))
+				continue;
+			Object intro = fieldUp(m, "intro"); // a diplomacy message's sender; none in a plain text message
+			int npc = intro == null ? -1 : (Integer) fieldUp(intro, "fi");
+			Faction f = npc < 0 ? null : FACTIONS.getByIndex(npc);
+			Faction overlord = f == null ? null : DIP.overlord(f);
+			b.append("; hit ").append(title).append('@').append(String.format(Locale.ROOT, "%.0f", (Double) fieldUp(m, "currentSecond")))
+					.append(" from ").append(npc).append(" overlord ").append(overlord == null ? -1 : overlord.index());
+		}
+		return b.toString();
+	}
+
+	/** A field declared by the object's class or one of its superclasses, or null with none: test tooling only. */
+	private static Object fieldUp(Object target, String name) {
+		for (Class<?> c = target.getClass(); c != null; c = c.getSuperclass()) {
+			for (Field f : c.getDeclaredFields()) {
+				if (!f.getName().equals(name))
+					continue;
+				try {
+					f.setAccessible(true);
+					return f.get(target);
+				} catch (ReflectiveOperationException e) {
+					throw new IllegalStateException("SOSGSGMP: no access to " + c.getSimpleName() + "." + name, e);
+				}
+			}
+		}
+		return null;
 	}
 
 	private static WArmy nearestOf(Faction f, WArmy from) {
@@ -1327,6 +1647,7 @@ final class MpAutopilotCommands {
 
 	/** A desync hunt: the kept draws go to trace.txt once the step has come, before the desync's hold stops the game. */
 	private void traceDue() {
+		traceDesync();
 		if (traceAt < 0 || Engine.step() < traceAt)
 			return;
 		try {
@@ -1336,6 +1657,24 @@ final class MpAutopilotCommands {
 		}
 		event.accept("trace", "\"step\":" + Engine.step());
 		traceAt = -1;
+	}
+
+	/**
+	 * A clock-only desync hunt (SOS-222): at each desync this PC finds, the world draws of the steps before it go to
+	 * {@code trace-<step>.txt}. The same file from two PCs differs first at the code that drew on one of them only.
+	 */
+	private void traceDesync() {
+		sosdet.hash.Desync d = traceDesyncs ? Engine.desync() : null;
+		if (d == null || d.step == tracedDesync)
+			return;
+		tracedDesync = d.step;
+		try {
+			Files.writeString(file.resolveSibling("trace-" + d.step + ".txt"), Engine.drawTrace(d.step - TRACE_BEFORE_DESYNC, d.step),
+					StandardCharsets.UTF_8);
+		} catch (IOException e) {
+			event.accept("trace", "\"failed\":\"" + clean(e.getMessage()) + "\"");
+		}
+		event.accept("trace", "\"desync\":" + d.step + ",\"step\":" + Engine.step());
 	}
 
 	/** The NPC armies: how many, and the three nearest this PC's capital. */

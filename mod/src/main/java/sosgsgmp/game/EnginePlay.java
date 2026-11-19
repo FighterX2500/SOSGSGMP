@@ -55,6 +55,8 @@ public final class EnginePlay implements EnginePort {
     private int battleBytes;
     /** A battle resync's file, until its load has read it. */
     private Path battleResyncFile;
+    /** Whole-game loads in the session, for the shared pause to settle after each (SOS-229). */
+    private int loads;
 
     /**
      * Every PC at {@code Go}: the game unpauses at the agreed speed (spec §5.5, the automatic unpause), the game speed
@@ -127,6 +129,20 @@ public final class EnginePlay implements EnginePort {
     /** The battle against NPCs of the player in {@code slot}, the same on every PC, or null (SOS-158 reads its freeze). */
     public LocalBattle localBattleOf(int slot) {
         return Engine.localBattle(slot);
+    }
+
+    /**
+     * True while this PC's game is a battle against NPCs, whose pause is that battle's own (spec §8): the player in
+     * {@code slot}, this PC's, fights one, or this PC watches one or joined it as an ally (SOS-93, SOS-109, SOS-119).
+     */
+    public boolean localBattleHere(int slot) {
+        View v = Engine.viewing();
+        return Engine.localBattle(slot) != null || v != null && v.battle();
+    }
+
+    /** How many whole-game loads this PC has had in the session ({@link #resumeAfterLoad}): each sets the game speed. */
+    public int loads() {
+        return loads;
     }
 
     /** True during any battle: one on every PC, or one on its player's PC alone. */
@@ -315,6 +331,7 @@ public final class EnginePlay implements EnginePort {
      * its speed.
      */
     public void resumeAfterLoad() {
+        loads++;
         if (battleResyncFile != null) {
             delete(battleResyncFile);
             battleResyncFile = null;
@@ -332,6 +349,37 @@ public final class EnginePlay implements EnginePort {
      */
     public double takeSpeedAsked() {
         return Engine.takeSpeedAsked();
+    }
+
+    /**
+     * The battle this PC's player sees, which a vote can restart (spec §8, SOS-231): SOSDET's {@code BattleKey} as a long,
+     * or {@code BattleKey.NONE}. No allocation.
+     */
+    public long battleHere() {
+        return Engine.battleHere();
+    }
+
+    /** True once after this PC's player pressed the battle's own Restart: in a session that calls a vote (SOS-231). */
+    public boolean takeRestartAsked() {
+        return Engine.takeRestartAsked();
+    }
+
+    /**
+     * Asks this PC's player "Ask the players to restart the battle? Majority decides" with Ok and Cancel, as the battle's
+     * own Restart does; Ok runs {@code yes} (owner, 2026-11-19).
+     */
+    public void askRestart(Runnable yes) {
+        sosdet.Hooks.restartPrompt(yes::run);
+    }
+
+    /** Why the battle {@code key} can't restart now, as the engine sees it on this PC; null when it can (SOS-231). */
+    public String restartRefusal(long key) {
+        return Engine.restartRefusal(key);
+    }
+
+    /** Host: the players voted to restart the battle {@code key}; every PC that runs it restarts it at one step (SOS-231). */
+    public void restartBattle(long key) {
+        Engine.restartBattle(key);
     }
 
     /** The speed every PC runs at now. Builds the engine's stats: for the panel's refresh, not every frame. */
@@ -600,6 +648,21 @@ public final class EnginePlay implements EnginePort {
     public String viewDesyncParts() {
         sosdet.hash.Desync d = Engine.viewDesync();
         return d == null ? "none" : d.toString();
+    }
+
+    /** The viewer's PC, after {@link #viewDesync}: the engine's whole report of it, divisions included; null with none. */
+    public String viewDesyncReport() {
+        return Engine.viewDesyncReport();
+    }
+
+    /** The divisions this PC hashed at {@code step}, one a line: a view's owner and viewer log them alike (SOS-222). */
+    public String hashedDivisions(long step) {
+        return Engine.hashedDivisions(step);
+    }
+
+    /** The steps between two state hashes, and between two view hashes. */
+    public int hashInterval() {
+        return Engine.hashInterval();
     }
 
     /** The viewer's PC: the limit it hit ({@code View.NOT_CAUGHT_UP}, {@code View.FELL_BEHIND}), or {@code View.OPEN}. */

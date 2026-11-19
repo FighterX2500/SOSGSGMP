@@ -7,6 +7,7 @@ import sosdet.Assault;
 import sosdet.game.siege.AssaultTerms;
 import sosdet.BattleOutcome;
 import sosgsgmp.game.EnginePlay;
+import sosgsgmp.game.PlayerStations;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
@@ -49,6 +50,8 @@ final class MpPlay implements ACTION {
 	/** The engine's events as chat lines (SOS-110). */
 	private final MpNotices notices;
 	private MpAllyJoin ally;
+	/** Votes to restart a battle: the call, every player's window, the host's count (spec §8, SOS-231). */
+	private final MpRestartVote restartVote;
 	/** The pause every PC shares, and who set it (spec §4, SOS-110). */
 	private final MpPause pause;
 	/** A joining PC's logs and saves on their way to the host (SOS-133). */
@@ -72,6 +75,7 @@ final class MpPlay implements ACTION {
 		this.exit = exit;
 		this.views = new MpViews(setup, engine, log);
 		this.notices = new MpNotices(setup, engine);
+		this.restartVote = new MpRestartVote(setup, engine, notices, log);
 		this.pause = new MpPause(setup, engine);
 		this.reports = reports;
 		this.loading = new MpLoading(setup, engine);
@@ -114,6 +118,7 @@ final class MpPlay implements ACTION {
 				invasions();
 				battles();
 				notices.frame();
+				restartVote.frame();
 				allyPrompt();
 				reports.frame();
 			}
@@ -242,8 +247,11 @@ final class MpPlay implements ACTION {
 			String text = MpAssaultOutcome.invasionText(engine.factionName(slot), engine.factionName((int) n[2]));
 			log.line("invasion at step " + n[0] + ": " + text);
 			String line = MpAssaultOutcome.invasionText(notices.name(slot), engine.factionName((int) n[2]));
-			if (slot == setup.factions().slotOf(setup.localPlayerId()))
+			int me = setup.factions().slotOf(setup.localPlayerId());
+			if (slot == me)
 				setup.chat().notice(line);
+			else if (me >= 0 && PlayerStations.fights(me, slot, (int) n[2]))
+				views.defend(slot, line); // spec §9: a stationed army fights in their city, commanded from a view (SOS-234)
 			else
 				setup.chat().notice(line + " Click here to open their window and View city.", slot);
 		}

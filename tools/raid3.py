@@ -11,6 +11,13 @@ owner's 2026-11-04 campaign from just before the raiders invade the host's capit
         - 30 s after the battle's end window closed on every game, every game ends at one step.
       It prints each game's loading windows and freezes from its playtest log, and passes when the three games kept the
       same hashes and every game opened and closed the battle start, view start, view end and battle end windows.
+    python tools\\raid3.py ally      SOS-223, from the same copy: an NPC's help against raiders. The host's own raid runs
+                                     as it will, unanswered. Game 2's player (a joiner) is raided through its weakest NPC
+                                     neighbour that trades with it (the nearest free NPC becomes that player's vassal
+                                     first when there is none), asks that neighbour's help, and the raider destroys it,
+                                     its land going to rebels; the run ends 5 minutes after every game shows the
+                                     neighbour's capital held by nobody. It passes when the three games kept the same
+                                     hashes (no desync) and every game showed the capital held by nobody.
 
 Set APPDATA to a folder holding both mods (gradlew installMod in each repository) and the user's profile, as for
 twopc.py; the campaign's records come from the user's own data folder (--source). Test tooling only: nothing here is
@@ -219,24 +226,100 @@ def report(games):
     return ok
 
 
-def run():
+def drive_ally(games, run):
+    """SOS-223: game 2's player asks an NPC neighbour's help against a raider, which destroys it; true when every game
+    then showed the neighbour's capital held by nobody. The run ends 5 minutes after that, or at once on a failure."""
+    stage, at, step, cap, vassal, desyncs, polled = "start", time.time(), 0, None, False, 0, 0.0
+    nobody = set()
+
+    def end(why):
+        say(why)
+        for k, *_ in PLAYERS:
+            games.send(k, "endat %d" % (step + 300))
+        return "ending"
+
+    while run.poll() is None:
+        time.sleep(1)
+        now = time.time()
+        for k, *_ in PLAYERS:
+            for e in games.events(k):
+                kind = e.get("event")
+                if k == "1":
+                    step = max(step, e.get("step", 0))
+                if kind in ("cmd", "desync", "desynchold"):
+                    say("game", k, json.dumps(e)[:260])
+                if kind == "desync":
+                    desyncs += 1
+                if kind != "cmd":
+                    continue
+                action, result = e.get("action", ""), e.get("result", "")
+                if k == "2" and action == "raidally" and stage == "asked":
+                    m = re.search(r"capital region (\d+)", result)
+                    if m:
+                        cap, stage, at = m.group(1), "raiding", now
+                    elif "no NPC neighbour" in result and not vassal:
+                        games.send("1", "givevassal 1")  # a vassal trades with its overlord, so the raid can pass
+                        vassal, stage, at = True, "start", now
+                    else:
+                        stage = end("no raid through a neighbour: " + result)
+                if k == "2" and action == "raid" and stage == "checking":
+                    if "state ALLY_HELP" in result:
+                        games.send("2", "allyhelp")
+                        stage, at = "helped", now
+                    else:
+                        stage = end("the raid through the neighbour didn't start: " + result)
+                if cap and action == "regionat " + cap and "of nobody" in result:
+                    nobody.add(k)
+        if stage == "start" and step > 0 and now - at > 10:
+            games.send("2", "raidally")
+            stage, at = "asked", now
+        elif stage == "asked" and now - at > 60:
+            stage = end("no answer to raidally")
+        elif stage == "raiding" and now - at > 5:
+            games.send("2", "raid")  # its state: ALLY_HELP, the neighbour's Help message shown
+            stage, at = "checking", now
+        elif stage == "checking" and now - at > 60:
+            stage = end("no answer to raid")
+        elif stage == "helped" and len(nobody) == len(PLAYERS):
+            say("every game shows region %s held by nobody: the run ends in 5 minutes" % cap)
+            games.send("2", "raid")  # its last messages: MessDestroy
+            stage, at = "destroyed", now
+        elif stage == "helped" and now - at > 240:
+            stage = end("the neighbour still stands on games %s" % sorted({k for k, *_ in PLAYERS} - nobody))
+        elif stage == "helped" and now - polled > 10:
+            polled = now
+            for k, *_ in PLAYERS:
+                if k not in nobody:
+                    games.send(k, "regionat " + cap)
+        elif stage == "destroyed" and now - at > 300:
+            stage = end("5 minutes after the neighbour fell")
+    say("desyncs seen: %d" % desyncs)
+    return len(nobody) == len(PLAYERS) and desyncs == 0
+
+
+def run(ally):
     if not SNAPSHOT.is_dir():
         sys.exit("raid3: no saved start in %s: run `raid3.py prep` first" % SNAPSHOT)
     for folder, *_ in PLAYERS:
         shutil.rmtree(twopc.INST / folder, ignore_errors=True)
         shutil.copytree(SNAPSHOT / folder, twopc.INST / folder)
     games = Games()
-    p = subprocess.Popen(TWOPC + ["--steps", "200000", "--tag", "raid3", "--timeout", "1500"])
-    drive(games, p)
-    ok = p.wait() == 0
-    ok = report(games) and ok
+    p = subprocess.Popen(TWOPC + ["--steps", "400000" if ally else "200000", "--tag", "raid3ally" if ally else "raid3",
+                                  "--timeout", "1500"])
+    if ally:
+        ok = drive_ally(games, p)
+        ok = p.wait() == 0 and ok
+    else:
+        drive(games, p)
+        ok = p.wait() == 0
+        ok = report(games) and ok
     say("RESULT:", "PASS" if ok else "FAIL")
     sys.exit(0 if ok else 1)
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("what", choices=("prep", "run"))
+    ap.add_argument("what", choices=("prep", "run", "ally"))
     ap.add_argument("--source", default=str(pathlib.Path(os.environ["USERPROFILE"]) / "AppData" / "Roaming" / "songsofsyx"),
                     help="the user's own data folder, which holds the campaign's records")
     ap.add_argument("--netem", action="append", default=[], metavar="WHO=SPEC",
@@ -246,4 +329,4 @@ if __name__ == "__main__":
     if args.what == "prep":
         prep(pathlib.Path(args.source))
     else:
-        run()
+        run(args.what == "ally")

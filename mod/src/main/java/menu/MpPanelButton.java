@@ -123,12 +123,24 @@ public final class MpPanelButton {
 		}
 	}
 
-	/** The buttons on a view with no top bar: pinned, so a view's screen changes keep them; they take no other input. */
+	/**
+	 * The buttons on a view with no top bar, and on the battle view (owner, 2026-11-19): pinned, so a view's screen
+	 * changes keep them; they take no other input.
+	 */
 	private static final class NoTopBar extends Interrupter {
 
 		private static final int MARGIN = 8;
+		/**
+		 * The battle view's top bar (owner, 2026-11-19): its Tome of Knowledge and Menu buttons are {@code UIPanelTop.Butt}s
+		 * 18 pixels wider than the plain one, in a row whose right edge is 4 pixels from the screen's, one pixel down.
+		 */
+		private static final int BATTLE_WIDTH = 36 + 18;
+		private static final int BATTLE_RIGHT = 4;
+		private static final int BATTLE_TOP = 1;
 
 		private final GuiSection section = new GuiSection();
+		/** In the battle view: the same size as the Tome and Menu buttons, directly left of the Tome. */
+		private final GuiSection battleSection = new GuiSection();
 
 		NoTopBar() {
 			super(true, true, false);
@@ -138,37 +150,53 @@ public final class MpPanelButton {
 			section.addRightC(0, button(SPRITES.icons().l.flags, HOVER, size, () -> installed(panel)));
 			section.addRightC(0, button(SPRITES.icons().l.event, CHAT_HOVER, size, () -> installed(chat)));
 			section.body().moveCX(C.WIDTH() / 2).moveY1(MARGIN); // the top right is the minimap's, with its zoom buttons
+			RENDEROBJ battleSize = new RENDEROBJ.RenderDummy(BATTLE_WIDTH, UIPanelTop.HEIGHT);
+			battleSection.addRightC(0, button(SPRITES.icons().l.flags, HOVER, battleSize, () -> installed(panel)));
+			battleSection.addRightC(0, button(SPRITES.icons().l.event, CHAT_HOVER, battleSize, () -> installed(chat)));
+			battleSection.body().moveX2(C.WIDTH() - BATTLE_RIGHT - 2 * BATTLE_WIDTH).moveY1(BATTLE_TOP);
 		}
 
 		void open() {
 			show(VIEW.inters().manager);
 		}
 
-		/** The generator's screens and the landing have no top bar; every other view has M8's buttons in it. */
+		/**
+		 * The generator's screens and the landing have no top bar, nor does the battle view; every other view has M8's
+		 * buttons in it.
+		 */
 		private static boolean noTopBar() {
-			return VIEW.current() instanceof WorldViewGenerator || VIEW.current() instanceof SettViewStart;
+			return VIEW.current() instanceof WorldViewGenerator || VIEW.current() instanceof SettViewStart || battle();
+		}
+
+		private static boolean battle() {
+			return VIEW.b().isActive();
+		}
+
+		/** The battle view's row, left of its Tome of Knowledge; the top centre elsewhere. */
+		private GuiSection shown() {
+			return battle() ? battleSection : section;
 		}
 
 		@Override
 		protected boolean hover(COORDINATE mCoo, boolean mouseHasMoved) {
-			return noTopBar() && section.hover(mCoo);
+			return noTopBar() && shown().hover(mCoo);
 		}
 
 		@Override
 		protected void mouseClick(MButt button) {
 			if (button == MButt.LEFT)
-				section.click();
+				shown().click();
 		}
 
 		@Override
 		protected void hoverTimer(GBox text) {
-			section.hoverInfoGet(text);
+			shown().hoverInfoGet(text);
 		}
 
 		@Override
 		protected boolean render(Renderer r, float ds) {
 			if (noTopBar())
-				section.render(r, ds);
+				shown().render(r, ds);
 			return true;
 		}
 

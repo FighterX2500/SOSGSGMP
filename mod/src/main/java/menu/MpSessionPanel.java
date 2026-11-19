@@ -12,6 +12,7 @@ import snake2d.util.color.COLOR;
 import snake2d.util.datatypes.COORDINATE;
 import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.renderable.RENDEROBJ;
+import sosdet.BattleKey;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.MinimapAdapter;
 import sosgsgmp.game.PlayerSieges;
@@ -64,6 +65,8 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 	private final MpSieges sieges = new MpSieges();
 	private final GButt.ButtPanel sally = MpSiegeNotice.sallyButton(() -> {
 	});
+	/** Restart battle beside Leave, while this PC's player sees a battle (spec §8, SOS-231). */
+	private final GButt.ButtPanel restart;
 	private final GText[] rows = new GText[LobbySettings.MAX_PLAYERS];
 	private int shownRows;
 	private final GText status = new GText(UI.FONT().M, 512);
@@ -95,6 +98,7 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 		this.saves = saves;
 		this.cursors = new MpCursors(setup);
 		this.deals = new MpDeals(setup);
+		this.restart = MpRestartVote.button(setup, engine);
 		for (int i = 0; i < rows.length; i++)
 			rows[i] = new GText(UI.FONT().M, 96);
 		int rowH = UI.FONT().M.height() + 2;
@@ -120,6 +124,8 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 		}));
 		inner.addRightC(8, sally);
 		sally.visableSet(false);
+		inner.addRightC(8, restart);
+		restart.visableSet(false);
 		panel = new GPanel(inner.body().width(), inner.body().height());
 		panel.setTitle("Multiplayer setup");
 		panel.setCloseAction(this::toggle); // the X in the corner, as vanilla's windows have (SOS-201)
@@ -282,9 +288,10 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 			if (setup.pauses().pausedBy() != Pauses.NOBODY)
 				status.add(" Paused by ").add(MpPause.name(setup, setup.pauses().pausedBy())).add(".");
 			if (engine.active()) {
-				deals.refresh();
+				deals.refresh(!engine.viewingHere() && engine.battleHere() == BattleKey.NONE);
 				sieges.refresh();
 				sally.visableSet(sieges.besieged() && PlayerSieges.beforeAssault());
+				restart.visableSet(engine.battleHere() != BattleKey.NONE);
 				if (!deals.lastAnswer().isEmpty())
 					status.add(" ").add(deals.lastAnswer());
 				int days = PlayerSieges.assaultInDays();

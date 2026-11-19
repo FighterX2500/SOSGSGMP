@@ -496,6 +496,26 @@ public sealed interface Message {
     record FreezeAsk() implements Message {}
 
     /**
+     * A battle's restart by vote (spec §8, SOS-231), a player's PC to the host: its player calls a vote to restart
+     * {@code battle}, the battle it sees (SOSDET's {@code BattleKey} as a long). The host opens it for every player, or
+     * refuses it to the caller while another vote is open or the battle can't restart.
+     */
+    record RestartCall(long battle) implements Message {}
+
+    /**
+     * Host to every PC, the caller too (spec §8, SOS-231): vote {@code vote}, called by player {@code callerId} to restart
+     * {@code battle}, opens ({@link #OPEN}) or ends ({@link #PASSED}, {@link #FAILED}, {@link #CANCELLED}) with {@code yes}
+     * of {@code voters} players for it; or to the caller only, {@link #REFUSED}. {@code reason}: why it was cancelled or
+     * refused, else empty. Only shown: the restart itself goes through the engine's log, at the step the host stamps.
+     */
+    record RestartVote(int vote, int callerId, long battle, int state, int yes, int voters, String reason) implements Message {
+        public static final int OPEN = 0, PASSED = 1, FAILED = 2, CANCELLED = 3, REFUSED = 4;
+    }
+
+    /** A player's PC to the host (spec §8, SOS-231): its player answers vote {@code vote}, Yes or No. */
+    record RestartAnswer(int vote, boolean yes) implements Message {}
+
+    /**
      * City viewing (spec §10, SOS-82), the viewer's PC to the host: its player, in slot {@code viewer}, asks to view the
      * city of the player in slot {@code owner}. The host refuses at once when the view couldn't begin, or passes the
      * ask to the owner's PC. Slots are the PCs' numbers.

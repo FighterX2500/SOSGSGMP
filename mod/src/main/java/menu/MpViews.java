@@ -6,6 +6,7 @@ import java.util.Locale;
 import sosdet.LocalBattle;
 import sosdet.View;
 import sosgsgmp.game.EnginePlay;
+import sosgsgmp.game.PlayerStations;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.net.Message;
@@ -33,6 +34,7 @@ final class MpViews {
 	private static MpViews current;
 
 	private final SetupSession setup;
+	private final MpStationFlow stations;
 	private final EnginePlay engine;
 	private final MpLog log;
 	/** This PC's view as the viewer, as last seen, and what of it was logged or shown. */
@@ -54,6 +56,11 @@ final class MpViews {
 	private final int[] watchedStates = new int[LobbySettings.MAX_SLOTS];
 	/** Each slot's battle view as an ally of this PC's battle, not a plain watcher (SOS-165). */
 	private final boolean[] watchedAllies = new boolean[LobbySettings.MAX_SLOTS];
+	/** Each slot's view whose city this PC runs, as owner or viewer, and its last view hash step logged ({@link #divisions}). */
+	private final View[] divisionsOf = new View[LobbySettings.MAX_SLOTS];
+	private final long[] divisionsAt = new long[LobbySettings.MAX_SLOTS];
+	/** The view hashes whose divisions the owner and the viewer log: the first ones after the freeze (SOS-222). */
+	private static final int DIVISIONS_LOGGED = 2;
 	/** A hold this long at the host's freeze step shows the notice. */
 	private static final long HOLD_NOTICE_NANOS = 500_000_000L;
 	/** The viewer's camera before a rejoin's load, put back once it is set: the battle's or the city's (SOS-151). */
@@ -64,6 +71,12 @@ final class MpViews {
 		this.setup = setup;
 		this.engine = engine;
 		this.log = log;
+		this.stations = new MpStationFlow(this, setup, log);
+	}
+
+	/** This PC's player's stationing outside the Armies tab: hook M15's march and the invaded capital's window. */
+	MpStationFlow stations() {
+		return stations;
 	}
 
 	/** The running session's views, or null. */
@@ -80,12 +93,36 @@ final class MpViews {
 			return;
 		}
 		current = this;
+		stations.frame();
 		if (setup.isHost())
 			host(r);
 		owner(r);
 		viewer(r);
 		hostHold();
 		watch();
+		divisions(r.local());
+	}
+
+	/**
+	 * The owner's and the viewer's PC: the city's divisions as this PC hashed them at the view's first hash steps, into
+	 * the playtest log. Both logs then show which division field differs when the viewer's copy loses step (SOS-222).
+	 */
+	private void divisions(int local) {
+		int every = engine.hashInterval();
+		for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++) {
+			View v = engine.view(slot);
+			if (v == null || v.battle() || !v.frozen() || v.viewer != local && v.owner != local)
+				continue;
+			if (v != divisionsOf[slot]) {
+				divisionsOf[slot] = v;
+				divisionsAt[slot] = v.freeze;
+			}
+			for (long at = divisionsAt[slot] + every; at <= v.freeze + (long) DIVISIONS_LOGGED * every && at <= engine.step(); at += every) {
+				divisionsAt[slot] = at;
+				log.line("viewdivs: " + name(v.owner) + "'s city at step " + at + ", as this PC hashed it:\n"
+						+ engine.hashedDivisions(at));
+			}
+		}
 	}
 
 	/** Every view's state as this PC sees it, into the playtest log when it changes: the freeze, the thaw, the reloads. */
@@ -125,7 +162,10 @@ final class MpViews {
 		while ((p = r.takeCheck()) != null) {
 			String refusal = engine.viewRefusal(p.viewer(), p.owner());
 			boolean battle = refusal == null && engine.localBattle(p.owner());
-			if (battle)
+			// spec §9: a stationed army's player views the invaded city its soldiers defend without asking (SOS-234)
+			boolean defends = refusal == null && !battle && engine.invading(p.owner())
+					&& !PlayerStations.between(p.viewer(), p.owner()).isEmpty();
+			if (battle || defends)
 				r.checkedNoAsk(p); // spec §8: a running NPC battle is watched without asking
 			else
 				r.checked(p, refusal);
@@ -263,8 +303,9 @@ final class MpViews {
 	}
 
 	/**
-	 * Another player joined the city or battle this PC views, and its owner reloaded its game there: this PC loads the
-	 * same save once it has it, keeping its player's camera (spec §10, SOS-151).
+	 * Another player joined the city or battle this PC views, or the players voted to restart it (spec §8, SOS-231), and
+	 * its owner reloaded its game there: this PC loads the same save once it has it, keeping its player's camera (spec
+	 * §10, SOS-151).
 	 */
 	private void rejoin(ViewRequests r, View v) {
 		byte[] city = r.takeCity(v.rejoinAt());
@@ -273,12 +314,14 @@ final class MpViews {
 		keepCamera(v.battle());
 		engine.viewRejoin(city);
 		String joined = joined(v);
+		boolean restart = joined.isEmpty(); // no view froze there: a restart the players voted for
 		log.line("viewrejoin: " + name(v.owner) + "'s city again, " + city.length + " bytes, loading at step " + engine.step() + " as "
-				+ joined + " joined");
-		message(joined + " joined " + subject(v) + ". It reloads for a few seconds.");
+				+ (restart ? "the battle restarts" : joined + " joined"));
+		message(restart ? "The battle restarts from its start. It reloads for a few seconds."
+				: joined + " joined " + subject(v) + ". It reloads for a few seconds.");
 	}
 
-	/** The players whose view of the same owner froze at {@code v}'s rejoin step. */
+	/** The players whose view of the same owner froze at {@code v}'s rejoin step; empty for none (a restart). */
 	private String joined(View v) {
 		StringBuilder names = new StringBuilder();
 		for (int slot = 0; slot < LobbySettings.MAX_PLAYERS; slot++) {
@@ -289,7 +332,7 @@ final class MpViews {
 				names.append(name(o.viewer));
 			}
 		}
-		return names.length() == 0 ? "Another player" : names.toString();
+		return names.toString();
 	}
 
 	private void keepCamera(boolean battle) {
@@ -320,8 +363,9 @@ final class MpViews {
 		if (engine.viewDesync()) {
 			if (!desyncLogged) {
 				desyncLogged = true;
+				String report = engine.viewDesyncReport();
 				log.line("viewdesync: this copy of " + name(v.owner) + "'s city differs from theirs at step " + engine.step()
-						+ " (" + engine.viewDesyncParts() + ")");
+						+ " (" + engine.viewDesyncParts() + ")" + (report == null ? "" : ":\n" + report));
 			}
 			close(View.DESYNC);
 			return;
@@ -493,6 +537,15 @@ final class MpViews {
 	boolean asked(int owner) {
 		ViewRequests r = setup.views();
 		return r != null && r.asked() == owner;
+	}
+
+	/**
+	 * An invasion of the capital of the player in {@code owner} that this PC's player's stationed army fights (spec §9,
+	 * SOS-234): they choose to watch the city, where they command those soldiers, or to give the owner command of them
+	 * (owner, 2026-11-19).
+	 */
+	void defend(int owner, String invasion) {
+		stations.invaded(owner, invasion);
 	}
 
 	/** The button: asks to view the city of the player in {@code owner}. Check {@link #askRefusal} first. */

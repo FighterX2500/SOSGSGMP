@@ -104,7 +104,8 @@ public final class MpLoading {
 						+ "'s battle." : " is opening " + name(v.owner) + "'s city.") + WAIT);
 			long rejoin = v.rejoinAt(); // another viewer joins: the owner and this view's viewer load again (SOS-151)
 			if (rejoin >= 0 && step <= rejoin + LATE && isNew(Loading.Kind.VIEW_START, rejoin))
-				open(Loading.Kind.VIEW_START, rejoin, "Another player joins " + name(v.owner) + (battle(v) ? "'s battle." : "'s city.") + WAIT);
+				open(Loading.Kind.VIEW_START, rejoin, (joinsAt(v.owner, rejoin) ? "Another player joins " + name(v.owner)
+						+ (battle(v) ? "'s battle." : "'s city.") : "The battle restarts from its start.") + WAIT); // or a vote restarts it (SOS-231)
 			long thaw = v.thaw();
 			if (thaw >= 0 && step <= thaw + LATE && isNew(Loading.Kind.VIEW_END, thaw))
 				open(Loading.Kind.VIEW_END, thaw, name(v.viewer) + " is returning from " + name(v.owner)
@@ -123,6 +124,16 @@ public final class MpLoading {
 			}
 		}
 		return n == 0 ? name(v.viewer) : b.toString();
+	}
+
+	/** True when a view of {@code owner} loads at {@code step}: a player joins, rather than a vote restarting the battle. */
+	private boolean joinsAt(int owner, long step) {
+		for (int slot = 0; slot < sosgsgmp.lobby.LobbySettings.MAX_PLAYERS; slot++) {
+			View o = engine.view(slot);
+			if (o != null && o.owner == owner && o.freeze == step && o.state() != View.CANCELLED && o.state() != View.ENDED)
+				return true;
+		}
+		return false;
 	}
 
 	private boolean joiningMany(View v) {

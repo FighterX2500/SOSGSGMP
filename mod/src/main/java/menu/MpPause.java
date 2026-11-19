@@ -4,24 +4,24 @@ import game.GAME;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.net.Message;
+import sosgsgmp.session.Pauses;
+import sosgsgmp.session.PauseSync;
 import sosgsgmp.session.SetupSession;
 
 /**
  * SOSGSGMP: the pause every PC shares (spec §4, SOS-110). Any player's pause or unpause goes through the host and sets
  * every PC's game speed, so any player can unpause, and the chat says who it was. Once per frame from {@link MpPlay},
- * between steps. Battles keep their own pause: this never touches one, and the watch waits for the loads around them to
- * settle. A joining player's press of another speed changes nothing but asks the host in the chat (playtest 2026-11-14).
+ * between steps. In a battle every PC runs, the shared pause pauses the battle; a battle against NPCs keeps its own
+ * pause, and while one runs a pause of the world waits for its end; after a battle or a load, every PC comes back to
+ * the shared pause ({@link PauseSync}, SOS-229). A joining player's press of another speed changes nothing but asks the
+ * host in the chat (playtest 2026-11-14).
  */
 final class MpPause {
 
-	/** After a battle, the game speed settles for this long before a change of it counts as a player's. */
-	private static final long SETTLE_NANOS = 2_000_000_000L;
-
 	private final SetupSession setup;
 	private final EnginePlay engine;
-	/** This PC's pause as last seen: a change this class didn't make is the player's. */
-	private boolean seen;
 	private long settledAt = System.nanoTime();
+	private final PauseSync sync = new PauseSync(System.nanoTime());
 
 	MpPause(SetupSession setup, EnginePlay engine) {
 		this.setup = setup;
@@ -29,23 +29,34 @@ final class MpPause {
 	}
 
 	void frame() {
+		boolean heard = false;
 		Message.Pause p;
-		while ((p = setup.pauses().take()) != null)
+		while ((p = setup.pauses().take()) != null) {
 			heard(p);
+			heard = true;
+		}
 		long now = System.nanoTime();
 		if (engine.anyBattle())
-			settledAt = now + SETTLE_NANOS;
+			settledAt = now + PauseSync.SETTLE_NANOS; // a joining player's speed press after a battle is no request yet
 		double asked = engine.takeSpeedAsked();
 		if (asked >= 1 && now - settledAt >= 0 && !engine.spectating())
 			setup.say(speedRequest(asked));
-		boolean paused = paused();
-		if (paused != seen && engine.spectating()) { // a spectator can't pause or unpause (SOS-111)
+		int act = sync.frame(mode(), engine.loads(), engine.localBattle(), engine.spectating(), paused(),
+				setup.pauses().pausedBy() != Pauses.NOBODY, heard, now);
+		if ((act & PauseSync.SEND_PAUSE) != 0)
+			setup.pause(true);
+		if ((act & PauseSync.SEND_UNPAUSE) != 0)
+			setup.pause(false);
+		if ((act & (PauseSync.PAUSE_HERE | PauseSync.UNPAUSE_HERE)) != 0)
 			GAME.SPEED.togglePause();
-			return;
-		}
-		if (now - settledAt >= 0 && paused != seen)
-			setup.pause(paused);
-		seen = paused;
+	}
+
+	/** What this PC's game pause is: the world's, a battle's every PC runs, or a battle's against NPCs here. */
+	private PauseSync.Mode mode() {
+		if (engine.battle() != null)
+			return engine.battle().awaiting() ? PauseSync.Mode.BATTLE_LOADING : PauseSync.Mode.BATTLE;
+		return engine.localBattleHere(setup.factions().slotOf(setup.localPlayerId())) ? PauseSync.Mode.LOCAL_BATTLE
+				: PauseSync.Mode.WORLD;
 	}
 
 	/** The chat line of a joining player's press of another speed: only the host sets it (spec §4). */
@@ -54,10 +65,8 @@ final class MpPause {
 	}
 
 	private void heard(Message.Pause p) {
-		setup.chat().notice(name(setup, p.playerId()) + (p.paused() ? " paused the game." : " unpaused the game."));
-		if (!engine.anyBattle() && paused() != p.paused())
-			GAME.SPEED.togglePause();
-		seen = paused();
+		setup.chat().notice(name(setup, p.playerId()) + (!p.paused() ? " unpaused the game."
+				: engine.localBattle() ? " paused the game. The game pauses once the battles against NPCs end." : " paused the game."));
 	}
 
 	private static boolean paused() {

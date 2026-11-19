@@ -32,7 +32,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 32;
+    public static final int VERSION = 33;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -53,6 +53,7 @@ public final class Protocol {
     private static final int RUNNING = 50, JOIN_PICK = 51, JOIN_PICKED = 52, RESTART = 53, RESTARTED = 54; // hot-join (SOS-190)
     private static final int FREEZE_ASK = 55; // freeze (SOS-194)
     private static final int REJOIN_PART = 56; // rejoin (SOS-195)
+    private static final int RESTART_CALL = 57, RESTART_VOTE = 58, RESTART_ANSWER = 59; // a battle's restart by vote (SOS-231)
     /** The bytes {@link Message.Sequenced} adds in front of its message: version, type and sequence number. */
     private static final int SEQUENCED_HEADER = 2 + 1 + 8;
     /** Largest frame on a connection: a message, or one wrapped in {@link Message.Sequenced} (SOS-178). */
@@ -153,6 +154,25 @@ public final class Protocol {
                 case Message.Leave l -> out.writeByte(LEAVE);
                 case Message.QuitAsk q -> out.writeByte(QUIT_ASK);
                 case Message.FreezeAsk q -> out.writeByte(FREEZE_ASK);
+                case Message.RestartCall c -> {
+                    out.writeByte(RESTART_CALL);
+                    out.writeLong(c.battle());
+                }
+                case Message.RestartVote v -> {
+                    out.writeByte(RESTART_VOTE);
+                    out.writeInt(v.vote());
+                    out.writeInt(v.callerId());
+                    out.writeLong(v.battle());
+                    out.writeByte(v.state());
+                    out.writeShort(v.yes());
+                    out.writeShort(v.voters());
+                    out.writeUTF(v.reason());
+                }
+                case Message.RestartAnswer a -> {
+                    out.writeByte(RESTART_ANSWER);
+                    out.writeInt(a.vote());
+                    out.writeBoolean(a.yes());
+                }
                 case Message.MapBuild b -> {
                     out.writeByte(MAP_BUILD);
                     out.writeInt(b.buildId());
@@ -537,6 +557,9 @@ public final class Protocol {
             }
             case QUIT_ASK -> new Message.QuitAsk();
             case FREEZE_ASK -> new Message.FreezeAsk();
+            case RESTART_CALL -> new Message.RestartCall(battle(in));
+            case RESTART_VOTE -> restartVote(in);
+            case RESTART_ANSWER -> new Message.RestartAnswer(number(in, "restart vote"), in.readBoolean());
             case VIEW_ASK -> new Message.ViewAsk(slot(in), slot(in));
             case VIEW_ANSWER -> new Message.ViewAnswer(slot(in), slot(in), in.readBoolean(), text(in, MAX_REASON, "view answer"));
             case VIEW_CLOSE -> {
@@ -913,6 +936,30 @@ public final class Protocol {
         if (place < sosgsgmp.session.Cursors.OFF || place > sosgsgmp.session.Cursors.BATTLE)
             throw new IOException("SOSGSGMP: cursor place " + place);
         return place;
+    }
+
+    /** A battle's key ({@code BattleKey}), never negative (SOS-231). */
+    private static long battle(DataInputStream in) throws IOException {
+        long battle = in.readLong();
+        if (battle < 0)
+            throw new IOException("SOSGSGMP: a restart vote for battle " + battle);
+        return battle;
+    }
+
+    private static Message.RestartVote restartVote(DataInputStream in) throws IOException {
+        int vote = in.readInt();
+        if (vote < 0)
+            throw new IOException("SOSGSGMP: restart vote " + vote);
+        int caller = playerId(in);
+        long battle = battle(in);
+        int state = in.readUnsignedByte();
+        if (state > Message.RestartVote.REFUSED)
+            throw new IOException("SOSGSGMP: a restart vote in state " + state);
+        int yes = in.readUnsignedShort();
+        int voters = in.readUnsignedShort();
+        if (yes > voters)
+            throw new IOException("SOSGSGMP: a restart vote with " + yes + " of " + voters + " players for it");
+        return new Message.RestartVote(vote, caller, battle, state, yes, voters, text(in, MAX_REASON, "restart vote reason"));
     }
 
     private static int playerId(DataInputStream in) throws IOException {
