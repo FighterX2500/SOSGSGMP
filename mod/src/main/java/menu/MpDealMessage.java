@@ -47,13 +47,17 @@ final class MpDealMessage extends MessageSection {
 	private final String playerName;
 	private final String[] theyGive;
 	private final String[] youGive;
+	/** Each line's icon, as {@link MpDeals#icon} reads it; null in a message from before the icons. */
+	private final int[] theyIcons;
+	private final int[] youIcons;
 	private byte answer = OPEN;
 	private transient boolean checked;
 	private transient long checkedAt;
 	private transient CharSequence over;
 	private transient String refusal;
 
-	MpDealMessage(int id, int from, String factionName, String playerName, String[] theyGive, String[] youGive) {
+	MpDealMessage(int id, int from, String factionName, String playerName, String[] theyGive, int[] theyIcons, String[] youGive,
+			int[] youIcons) {
 		super("Deal from " + factionName);
 		this.id = id;
 		this.from = from;
@@ -61,6 +65,8 @@ final class MpDealMessage extends MessageSection {
 		this.playerName = playerName;
 		this.theyGive = theyGive.clone();
 		this.youGive = youGive.clone();
+		this.theyIcons = theyIcons.clone();
+		this.youIcons = youIcons.clone();
 	}
 
 	@Override
@@ -128,12 +134,22 @@ final class MpDealMessage extends MessageSection {
 	private RENDEROBJ list() {
 		LinkedList<RENDEROBJ> rows = new LinkedList<>();
 		rows.add(row(new GHeader("We give you")));
-		for (String s : theyGive)
-			rows.add(row(new RENDEROBJ.Sprite(new GText(UI.FONT().M, s))));
+		for (int i = 0; i < theyGive.length; i++)
+			rows.add(row(line(theyGive[i], theyIcons == null ? 0 : theyIcons[i])));
 		rows.add(row(new GHeader("You give us")));
-		for (String s : youGive)
-			rows.add(row(new RENDEROBJ.Sprite(new GText(UI.FONT().M, s))));
+		for (int i = 0; i < youGive.length; i++)
+			rows.add(row(line(youGive[i], youIcons == null ? 0 : youIcons[i])));
 		return new GScrollRows(rows, LIST_HEIGHT).view();
+	}
+
+	/** A line of the list: its icon, as vanilla's deal list has, then its words. */
+	private static RENDEROBJ line(String words, int icon) {
+		GuiSection s = new GuiSection();
+		snake2d.util.sprite.SPRITE sprite = MpDeals.icon(icon);
+		if (sprite != null)
+			s.add(sprite, 0, 0);
+		s.addRightC(sprite == null ? 0 : 8, new GText(UI.FONT().M, words));
+		return s;
 	}
 
 	private static RENDEROBJ row(RENDEROBJ o) {

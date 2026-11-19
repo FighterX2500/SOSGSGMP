@@ -15,7 +15,7 @@ import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.session.Cursors;
 import sosgsgmp.session.SetupSession;
-import util.gui.misc.GText;
+import snake2d.util.sprite.text.Font;
 import util.gui.panel.GFrame;
 import view.main.VIEW;
 import view.subview.GameWindow;
@@ -61,6 +61,8 @@ public final class MpCursors {
 	private static final int ARROW_SCALE = 2;
 	private static final int NAME_X = 10 * ARROW_SCALE;
 	private static final int NAME_Y = 12 * ARROW_SCALE;
+	/** Pixels between the letters of a cursor's name (owner, 2026-11-19). */
+	private static final int LETTER_GAP = 3;
 
 	/** The n-th player's colour, on cursors and in the chat. */
 	static COLOR colour(int n) {
@@ -70,7 +72,7 @@ public final class MpCursors {
 	private final SetupSession setup;
 	/** A GUI preview has no mouse to move: the cursor stays at the window's centre, for the screenshots. */
 	private final boolean pinned = MpAutopilot.previewing();
-	private final GText[] names = new GText[LobbySettings.MAX_PLAYERS];
+	private final String[] names = new String[LobbySettings.MAX_PLAYERS];
 	private final int[] nameIds = new int[LobbySettings.MAX_PLAYERS];
 	private final int[] colorOf = new int[LobbySettings.MAX_PLAYERS];
 	/** Each named player's faction slot, -1 before the world gives them one. */
@@ -80,8 +82,6 @@ public final class MpCursors {
 
 	public MpCursors(SetupSession setup) {
 		this.setup = setup;
-		for (int i = 0; i < names.length; i++)
-			names[i] = new GText(UI.FONT().M, 32);
 	}
 
 	/**
@@ -143,15 +143,23 @@ public final class MpCursors {
 		COLOR.unbind();
 	}
 
-	/** The name in bold: a dark shadow, then the text twice one pixel apart. */
-	private static void name(SPRITE_RENDERER r, GText name, COLOR color, int x, int y) {
+	/** The name in bold, its letters {@link #LETTER_GAP} apart: a dark shadow, then each letter twice one pixel apart. */
+	private static void name(SPRITE_RENDERER r, String name, COLOR color, int x, int y) {
 		COLOR.BLACK.bind();
-		name.render(r, x + 1, y + 1);
-		name.render(r, x + 2, y + 1);
+		letters(r, name, x + 1, y + 1);
 		color.bind();
-		name.render(r, x, y);
-		name.render(r, x + 1, y);
+		letters(r, name, x, y);
 		COLOR.unbind();
+	}
+
+	private static void letters(SPRITE_RENDERER r, String name, int x, int y) {
+		Font f = UI.FONT().M;
+		for (int i = 0; i < name.length(); i++) {
+			char ch = name.charAt(i);
+			f.renderChar(r, ch, x, y, 1.0);
+			f.renderChar(r, ch, x + 1, y, 1.0);
+			x += f.width(ch, 1.0) + 1 + LETTER_GAP;
+		}
 	}
 
 	/** Every other player's cursor on the world, on a world minimap (SOS-124); {@code map} is its body. */
@@ -209,7 +217,7 @@ public final class MpCursors {
 			nameIds[i] = p.id();
 			colorOf[i] = i;
 			slotOf[i] = setup.factions() == null ? -1 : setup.factions().slotOf(p.id());
-			names[i].clear().add(p.name());
+			names[i] = p.name();
 		}
 	}
 

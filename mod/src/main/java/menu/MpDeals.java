@@ -5,6 +5,9 @@ import java.util.List;
 
 import game.faction.FACTIONS;
 import game.faction.Faction;
+import game.faction.diplomacy.DIP;
+import init.sprite.UI.UI;
+import snake2d.util.sprite.SPRITE;
 import init.trade.TR;
 import snake2d.LOG;
 import sosdet.game.deal.DealBook;
@@ -59,24 +62,78 @@ final class MpDeals {
 		inbox.shown(next.id());
 		Faction from = FACTIONS.getByIndex(next.from());
 		DealBook.Terms t = p.terms();
-		new MpDealMessage(p.id(), next.from(), from.name.toString(), name(next.from()),
-				lines(t, t.fromCredits, t.fromGoods(), t.fromRegions()), lines(t, t.toCredits, t.toGoods(), t.toRegions())).send();
+		List<String> theyGive = new ArrayList<>();
+		List<Integer> theyIcons = new ArrayList<>();
+		List<String> youGive = new ArrayList<>();
+		List<Integer> youIcons = new ArrayList<>();
+		lines(t, t.fromCredits, t.fromGoods(), t.fromRegions(), theyGive, theyIcons);
+		lines(t, t.toCredits, t.toGoods(), t.toRegions(), youGive, youIcons);
+		new MpDealMessage(p.id(), next.from(), from.name.toString(), name(next.from()), theyGive.toArray(new String[0]),
+				ints(theyIcons), youGive.toArray(new String[0]), ints(youIcons)).send();
 	}
 
-	/** One side's part of a deal, a line each, as vanilla's deal list: the treaty, the money, each good, each region. */
-	private static String[] lines(DealBook.Terms t, int credits, int[] goods, int[] regions) {
-		List<String> l = new ArrayList<>();
-		if (t.treaty != DealBook.NO_TREATY)
-			l.add(treatyLine(t));
-		if (credits > 0)
-			l.add(credits + " denari");
-		for (int i = 0; i < goods.length; i += 2)
-			l.add(goods[i + 1] + " " + TR.ALL().get(goods[i]).name);
-		for (int r : regions)
-			l.add("Region " + regions(new int[] { r }));
-		if (l.isEmpty())
-			l.add("Nothing");
-		return l.toArray(new String[0]);
+	private static int[] ints(List<Integer> l) {
+		int[] a = new int[l.size()];
+		for (int i = 0; i < a.length; i++)
+			a[i] = l.get(i);
+		return a;
+	}
+
+	/** A deal line's icon, packed as a kind and a value: plain ints, so a saved message keeps it (owner, 2026-11-19). */
+	private static final int ICON_NONE = 0, ICON_TREATY = 1, ICON_MONEY = 2, ICON_GOOD = 3, ICON_REGION = 4;
+	private static final int ICON_KIND = 1 << 16;
+
+	/**
+	 * One side's part of a deal, a line each with its icon, as vanilla's deal list: the treaty, the money, each good,
+	 * each region.
+	 */
+	private static void lines(DealBook.Terms t, int credits, int[] goods, int[] regions, List<String> words, List<Integer> icons) {
+		if (t.treaty != DealBook.NO_TREATY) {
+			words.add(treatyLine(t));
+			icons.add(ICON_TREATY * ICON_KIND + t.treaty);
+		}
+		if (credits > 0) {
+			words.add(credits + " denari");
+			icons.add(ICON_MONEY * ICON_KIND);
+		}
+		for (int i = 0; i < goods.length; i += 2) {
+			words.add(goods[i + 1] + " " + TR.ALL().get(goods[i]).name);
+			icons.add(ICON_GOOD * ICON_KIND + goods[i]);
+		}
+		for (int r : regions) {
+			words.add("Region " + regions(new int[] { r }));
+			icons.add(ICON_REGION * ICON_KIND + r);
+		}
+		if (words.isEmpty()) {
+			words.add("Nothing");
+			icons.add(ICON_NONE);
+		}
+	}
+
+	/** The sprite of a packed deal line icon, as vanilla's deal list draws it; null for none or an unknown one. */
+	static SPRITE icon(int packed) {
+		int value = packed % ICON_KIND;
+		switch (packed / ICON_KIND) {
+			case ICON_TREATY:
+				return switch (value) {
+					case DealBook.PEACE -> DIP.TMP().bools.PEACE.icon;
+					case DealBook.TRADE -> DIP.TRADE().icon;
+					case DealBook.PACT -> DIP.PACT().icon;
+					case DealBook.ALLY -> DIP.ALLY().icon;
+					case DealBook.CANCEL_ALL -> DIP.TMP().bools.CANCEL_ALL.icon;
+					case DealBook.PROTECTOR -> DIP.OVERLORD().icon;
+					case DealBook.VASSAL -> DIP.VASSAL().icon;
+					default -> null;
+				};
+			case ICON_MONEY:
+				return UI.icons().s.money;
+			case ICON_GOOD:
+				return value < TR.ALL().size() ? TR.ALL().get(value).icon() : null;
+			case ICON_REGION:
+				return UI.icons().s.world;
+			default:
+				return null;
+		}
 	}
 
 	/** The treaty, as the receiver reads it. */
