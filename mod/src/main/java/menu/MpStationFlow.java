@@ -32,6 +32,7 @@ public final class MpStationFlow {
 	private final MpLog log;
 	private final List<March> marching = new ArrayList<>();
 	private MpStationDefend defend;
+	private MpMessage message;
 
 	/** An army marching to a capital to be stationed there. */
 	private static final class March {
@@ -68,9 +69,19 @@ public final class MpStationFlow {
 		return MpViews.current() == null ? null : PlayerStations.attackRefusal(a);
 	}
 
-	/** Hook M15: a move the tool refused; the click opens a popup saying why, as the owner asked (2026-11-19). */
+	/** Hook M15: a move the tool refused; the click opens a window saying why, with no buttons (owner, 2026-11-19). */
 	public static void blocked(CharSequence why) {
-		view.main.VIEW.inters().yesNo.activate(why, snake2d.util.misc.ACTION.NOP, snake2d.util.misc.ACTION.NOP, true);
+		MpViews v = MpViews.current();
+		if (v != null)
+			v.stations().message("Troops stationed", why);
+	}
+
+	/** A message window with no buttons; one at a time. */
+	private void message(String title, CharSequence text) {
+		if (message != null)
+			message.close();
+		message = new MpMessage(title, text);
+		message.open();
 	}
 
 	/** Hook M15, the move tool's click on such a capital: the army marches beside it and is stationed when it stands still. */

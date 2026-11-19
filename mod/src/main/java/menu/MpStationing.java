@@ -202,24 +202,43 @@ final class MpStationing extends GuiSection {
 	}
 
 	/** The army's name, men and supplies, in a row's left part; empty when the row has no army. */
+	/**
+	 * An army's line, in three short lines so it fits beside its buttons (owner, 2026-11-19): its name, its men and
+	 * supplies, and who commands its soldiers in the city when the host does.
+	 */
 	private GuiSection label(boolean mine, int k) {
-		GStat s = new GStat() {
+		GStat name = new GStat() {
+			@Override
+			public void update(GText text) {
+				WArmy a = mine ? PlayerStations.mineNear(slot, k) : theirArmy(k);
+				if (a != null)
+					text.add(a.name);
+			}
+		};
+		GStat men = new GStat() {
 			@Override
 			public void update(GText text) {
 				WArmy a = mine ? PlayerStations.mineNear(slot, k) : theirArmy(k);
 				if (a == null)
 					return;
-				text.add(a.name).add(':').s();
 				GFORMAT.i(text, AD.men(null).get(a));
 				text.s().add("men,").s();
 				GFORMAT.perc(text, AD.supplies().health(a));
 				text.s().add("supplied");
-				if (PlayerStations.granted(a))
-					text.add(',').s().add(mine ? "they command it" : "you command it");
+			}
+		};
+		GStat command = new GStat() {
+			@Override
+			public void update(GText text) {
+				WArmy a = mine ? PlayerStations.mineNear(slot, k) : theirArmy(k);
+				if (a != null && PlayerStations.granted(a))
+					text.add(mine ? "they command it" : "you command it");
 			}
 		};
 		GuiSection l = new GuiSection();
-		l.add(s.r(DIR.W));
+		l.add(name.r(DIR.W));
+		l.addDown(0, men.r(DIR.W));
+		l.addDown(0, command.r(DIR.W));
 		l.body().setWidth(LABEL_WIDTH);
 		return l;
 	}
