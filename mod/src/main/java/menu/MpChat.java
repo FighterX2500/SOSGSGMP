@@ -55,6 +55,7 @@ public final class MpChat extends Interrupter implements MpPanelButton.Panel {
 			section.body().moveX1Y1(chat.boxX(), chat.boxY());
 		else
 			section.body().moveX1(MARGIN).moveY2(C.HEIGHT() - MARGIN);
+		MpDrag.frame(panel, box);
 	}
 
 	@Override
@@ -93,8 +94,10 @@ public final class MpChat extends Interrupter implements MpPanelButton.Panel {
 	protected boolean render(Renderer r, float ds) {
 		if (chat.boxHidden())
 			return true;
-		if (drag.follow(section, VIEW.mouse().x(), VIEW.mouse().y()))
+		if (drag.follow(section, VIEW.mouse().x(), VIEW.mouse().y())) {
+			MpDrag.frame(panel, box);
 			chat.boxAt(section.body().x1(), section.body().y1());
+		}
 		section.render(r, ds);
 		return true;
 	}

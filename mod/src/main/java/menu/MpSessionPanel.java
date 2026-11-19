@@ -133,6 +133,7 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 		section.add(panel);
 		section.add(inner);
 		section.body().moveX2(C.WIDTH() - 16).moveY1(96);
+		MpDrag.frame(panel, inner);
 	}
 
 	@Override
@@ -176,7 +177,8 @@ final class MpSessionPanel extends Interrupter implements MpPanelButton.Panel {
 		}
 		if (hidden)
 			return true;
-		drag.follow(section, VIEW.mouse().x(), VIEW.mouse().y());
+		if (drag.follow(section, VIEW.mouse().x(), VIEW.mouse().y()))
+			MpDrag.frame(panel, inner);
 		section.render(r, ds);
 		return true;
 	}
