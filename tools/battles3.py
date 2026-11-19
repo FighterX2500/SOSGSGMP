@@ -2451,10 +2451,139 @@ def s_always(name, title):
     return go
 
 
+def entries(run, w):
+    """The city w's game runs: its size and its active entry points' tiles."""
+    line = run.cmd(w, "entries")
+    m = re.search(r"size (\d+) (\d+)", line)
+    return (int(m.group(1)), int(m.group(2))), [(int(x), int(y)) for x, y in re.findall(r"\[(\d+),(\d+)\]", line)]
+
+
+def city_camp(line, owner, host):
+    """A stationed army's divisions in the host's city and in the camp, from a `stations` line."""
+    m = re.search(r"\[%d at %d army \d+ [^\]]*? city (\d+) camp (\d+)\]" % (owner, host), line)
+    return (int(m.group(1)), int(m.group(2))) if m else (-1, -1)
+
+
+def stationed_tile(line, owner, host):
+    m = re.search(r"\[%d at %d army \d+ men \d+ at (\d+),(\d+)" % (owner, host), line)
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+
+def near_entry(points, x, y, tiles):
+    return any(abs(x - ex) <= tiles and abs(y - ey) <= tiles for ex, ey in points)
+
+
+def camp_all(run, on_h, when):
+    """H sends each of J's divisions in its city to the camp once it stands at the entry point."""
+    for d in on_h:
+        run.wait(lambda: run.cmd("H", "campstate %d" % d[0]) == "camp ready" or run.sleep(2), 180,
+                 "division %d within 3 tiles of an entry point %s" % (d[0], when))
+        say("H:", run.cmd("H", "camp %d" % d[0]))
+    run.wait(lambda: not stationdivs(run, "H")[0] or run.sleep(2), 120, "J's soldiers leaving H's city " + when)
+
+
+def s_camp(name, title):
+    """S3 (stationing's third version, owner 2026-11-19): J's soldiers come into H's city at an entry point. While they
+    are there, J's army can't move, J can't call it back and J's Recall leaves the division with it. J gives H command;
+    H's Leave for the camp is refused away from an entry point and works within 3 tiles of one: the soldiers leave the
+    city and the army may move. J's Station again brings them back in by the entry point. An NPC army at war with J,
+    set beside J's stationed army, starts no battle with it. Out again, J's army walks off and the stationing ends."""
+    def go():
+        run = start("ALLIES", "b3-" + name)
+        run.position = "ALLIES"
+        ok = False
+        try:
+            hx, hy = capital(run, "H")
+            j = station_j(run, hx, hy)
+            run.wait(lambda: stationdivs(run, "H")[0] or run.sleep(2), 180, "J's soldiers in H's city")
+            run.sleep(5)
+            size, points = entries(run, "H")
+            on_h, h_line = stationdivs(run, "H")
+            say("H:", h_line, "entries", points, "size", size)
+            run.check(points and all(near_entry(points, d[5], d[6], 12) for d in on_h),
+                      "J's soldiers come in at an entry point: %s, entries %s" % (h_line, points))
+            run.shot("H", "H's city: J's soldiers at an entry point")
+            line = same_stations(run, "after J stationed")
+            city, camp = city_camp(line, SLOT["J"], SLOT["H"])
+            run.check(city == len(on_h) and camp == 0, "every division of J's army is in the city: %s" % line)
+            r = run.cmd("J", "moverefusal")
+            run.check(r.startswith("move refused"), "J's army can't move while its soldiers are in the city: %s" % r)
+            r = run.cmd("J", "stationend")
+            run.check(r.startswith("refused"), "nor can J call it back: %s" % r)
+            say("J:", run.cmd("J", "recallall"))
+            run.sleep(10)
+            line = same_stations(run, "after J's Recall")
+            run.check(city_camp(line, SLOT["J"], SLOT["H"]) == (city, 0)
+                      and stationed_men(line, SLOT["J"], SLOT["H"], j[0][0]) == j[1],
+                      "J's Recall leaves the division with its stationed army: %s" % line)
+            say("J:", run.cmd("J", "stationgrant"))
+            run.wait(lambda: "granted true" in stations(run, "H") or run.sleep(2), 60, "H commanding J's soldiers")
+            div, cx, cy = on_h[0][0], on_h[0][5], on_h[0][6]
+            ex, ey = min(points, key=lambda p: abs(p[0] - cx) + abs(p[1] - cy))
+            if min(ex, size[0] - ex) < min(ey, size[1] - ey):
+                ix, iy = ex + (15 if ex < size[0] // 2 else -15), ey
+            else:
+                ix, iy = ex, ey + (15 if ey < size[1] // 2 else -15)
+            say("H:", run.cmd("H", "order %d %d %d" % (div, ix, iy)))
+            run.wait(lambda: run.cmd("H", "campstate %d" % div).startswith("camp refused") or run.sleep(2), 180,
+                     "division %d walking away from the entry point" % div)
+            r = run.cmd("H", "camp %d" % div)
+            run.check(r.startswith("refused"), "Leave for the camp is refused away from an entry point: %s" % r)
+            say("H:", run.cmd("H", "order %d %d %d" % (div, ex, ey)))
+            camp_all(run, on_h, "the first time")
+            line = same_stations(run, "after the camp")
+            now = city_camp(line, SLOT["J"], SLOT["H"])
+            run.check(now[0] == 0 and now[1] >= 1, "J's army: none in the city, in the camp: %s" % line)
+            r = run.cmd("J", "moverefusal")
+            run.check(r == "move allowed", "J's army may move once every division is in the camp: %s" % r)
+            r = run.cmd("J", "station")
+            run.check(r.startswith("army"), "J's Station again: %s" % r)
+            run.wait(lambda: stationdivs(run, "H")[0] or run.sleep(2), 120, "J's soldiers back in H's city")
+            run.sleep(5)
+            on_h, h_line = stationdivs(run, "H")
+            run.check(all(near_entry(points, d[5], d[6], 12) for d in on_h), "they come back in at an entry point: %s" % h_line)
+            line = same_stations(run, "after Station again")
+            run.check(city_camp(line, SLOT["J"], SLOT["H"])[1] == 0, "none in the camp: %s" % line)
+            diplo = run.cmd("H", "diplo")
+            taken = set().union(*(vassals_of(diplo, SLOT[w]) for w in WHO))
+            cands = [a for a in npc_armies(run) if a[1] >= 50 and a[0] not in taken]
+            if cands:
+                f, men, x, y, idx = max(cands, key=lambda a: a[1])
+                run.cmd("J", "npcwar %d" % f)
+                run.sleep(5)
+                jx, jy = stationed_tile(same_stations(run, "before the NPC army"), SLOT["J"], SLOT["H"])
+                say(run.cmd("H", "teleportarmy %d %d %d" % (idx, jx - 1, jy)))
+                run.sleep(40)
+                jl = same_stations(run, "with the NPC army beside it")
+                run.check(stationed_men(jl, SLOT["J"], SLOT["H"], j[0][0]) == j[1] and "battle none" in state(run, "J")
+                          and not run.events("J", "battle"),
+                          "an NPC army at war with J beside J's stationed army starts no battle: %s" % jl)
+                say(run.cmd("H", "teleportarmy %d %d %d" % (idx, x, y)))
+            else:
+                say("no NPC army to set beside J's: the attack check skipped")
+            camp_all(run, stationdivs(run, "H")[0], "the second time")
+            jx, jy = stationed_tile(same_stations(run, "before J walks off"), SLOT["J"], SLOT["H"])
+            r = run.cmd("J", "moveto %d %d" % (hx + 6, hy))
+            run.check(r.startswith("army"), "J orders its army off: %s" % r)
+            run.wait(lambda: "[%d at %d" % (SLOT["J"], SLOT["H"]) not in stations(run, "H") or run.sleep(2), 180,
+                     "J's army walking off: the stationing ends")
+            same_stations(run, "after J walked off")
+            run.check(not stationdivs(run, "H")[0], "no soldier of J's in H's city")
+            ok = run.end(after=10)
+        except Failed as e:
+            run.check(False, str(e))
+            run.stop()
+        finish(name, title, run, ok)
+    return go
+
+
 SCENARIOS.update({
     "S1": ("ALLIES", s_always("S1", "J's stationed soldiers stand in H's city; command, refresh, raid, send away"),
            "Batch 13, 10b second version: stationed soldiers always in the host's city, the grant, the refresh, the"
            " invasion window, the send away"),
+    "S3": ("ALLIES", s_camp("S3", "Stationed soldiers come and go by an entry point; the camp; no direct attack"),
+           "Stationing's third version: arrival at an entry point, Leave for the camp, the move and recall rules, Station"
+           " again, no battle with a stationed army"),
 })
 
 BATTLE_DIV = re.compile(r"\[(\d+) men (\d+) sel (\w+)\]")

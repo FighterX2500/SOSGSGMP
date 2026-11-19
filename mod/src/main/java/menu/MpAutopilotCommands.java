@@ -772,11 +772,51 @@ final class MpAutopilotCommands {
 						sup += AD.supplies().all.get(i).current().get(s.army());
 					b.append(" army ").append(s.army().armyIndex()).append(" men ").append(AD.men(null).get(s.army()))
 							.append(" at ").append(s.army().ctx()).append(',').append(s.army().cty()).append(" supplies ").append(sup)
-							.append(" granted ").append(PlayerStations.granted(s.army()));
+							.append(" granted ").append(PlayerStations.granted(s.army()))
+							.append(" city ").append(PlayerStations.inCity(s.army())).append(" camp ").append(PlayerStations.inCamp(s.army()));
 				}
 				b.append(']');
 			}
 			return b.toString();
+		}
+		case "entries": { // the city's active entry points' tiles (owner, 2026-11-19: stationed soldiers come and go by them)
+			StringBuilder b = new StringBuilder("entries: size ").append(settlement.main.SETT.TWIDTH).append(' ').append(settlement.main.SETT.THEIGHT);
+			for (settlement.entry.EntryPoints.EntryPoint p : settlement.main.SETT.ENTRY().points.active())
+				b.append(" [").append(p.coo().x()).append(',').append(p.coo().y()).append(']');
+			return b.toString();
+		}
+		case "campstate": { // the division popup's Leave for the camp for division D: hidden, ready, or why not (owner, 2026-11-19)
+			String st = PlayerStations.campState(Integer.parseInt(a[1]));
+			return "camp " + (st == null ? "hidden" : st.isEmpty() ? "ready" : "refused: " + st);
+		}
+		case "camp": { // Leave for the camp pressed for division D (owner, 2026-11-19)
+			int d = Integer.parseInt(a[1]);
+			String st = PlayerStations.campState(d);
+			if (!"".equals(st))
+				return "refused: " + (st == null ? "no Leave for the camp for division " + d : st);
+			PlayerStations.camp(d);
+			return "division " + d + " leaves for the camp";
+		}
+		case "moverefusal": // why the picked army can't move, as the move tool says (owner, 2026-11-19)
+			return "move " + (PlayerStations.moveRefusal(firstArmy()) == null ? "allowed" : "refused: " + PlayerStations.moveRefusal(firstArmy()));
+		case "moveto": { // the picked army walks to X Y, as the move tool's click orders (a command, applied at its step)
+			WArmy w = firstArmy();
+			if (w == null)
+				return "refused: no army";
+			int[] at = passableNear(Integer.parseInt(a[1]), Integer.parseInt(a[2]));
+			if (at == null)
+				return "refused: no passable tile near " + a[1] + "," + a[2];
+			w.setDestination(at[0], at[1]);
+			return "army " + w.armyIndex() + " ordered to " + at[0] + "," + at[1];
+		}
+		case "recallall": { // the conscripts window's Recall for every city division out with an army (owner, 2026-11-19)
+			int n = 0;
+			for (Div d : GAME.ARMIES().player().divisions())
+				if (AD.cityDivs().attachedArmy(d) != null) {
+					AD.cityDivs().attach(null, d);
+					n++;
+				}
+			return n + " divisions recalled, each a command";
 		}
 		case "stationdivs": { // the city's divisions holding a stationed army's soldiers: player, men, mustered, centre tile (SOS-234)
 			StringBuilder b = new StringBuilder("stationdivs:");

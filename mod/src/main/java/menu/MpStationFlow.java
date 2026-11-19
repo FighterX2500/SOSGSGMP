@@ -58,6 +58,21 @@ public final class MpStationFlow {
 		return host >= 0 && MpViews.current() != null && PlayerStations.mine(a) && PlayerStations.partner(host);
 	}
 
+	/** Hook M15 (owner, 2026-11-19): why the move tool can't move {@code a}, stationed with divisions in the host's city, or null. */
+	public static CharSequence moveRefusal(WArmy a) {
+		return MpViews.current() == null ? null : PlayerStations.moveRefusal(a);
+	}
+
+	/** Hook M15 (owner, 2026-11-19): why the move tool can't attack or intercept {@code a}, a stationed army, or null. */
+	public static CharSequence attackRefusal(WArmy a) {
+		return MpViews.current() == null ? null : PlayerStations.attackRefusal(a);
+	}
+
+	/** Hook M15: a move the tool refused; the click opens a popup saying why, as the owner asked (2026-11-19). */
+	public static void blocked(CharSequence why) {
+		view.main.VIEW.inters().yesNo.activate(why, snake2d.util.misc.ACTION.NOP, snake2d.util.misc.ACTION.NOP, true);
+	}
+
 	/** Hook M15, the move tool's click on such a capital: the army marches beside it and is stationed when it stands still. */
 	public static void order(WArmy a, Region reg) {
 		MpViews v = MpViews.current();

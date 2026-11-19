@@ -98,3 +98,17 @@ After playing the first version (save 94), the owner changed answers 1 and 9 and
 6. **The end:** as before (frozen, disconnected through the existing pause and the host's choice, removed or eliminated, war or agreement end), and the soldiers leave the city.
 
 Rejected: picking the soldiers in the world part from the city's last report (the registry in the city, as in the first version, keeps the hosts' own divisions out); a refresh on the step clock (it runs on game time, so a speed change doesn't change how often).
+
+## The owner's third version (2026-11-19 evening, batch 13): the camp
+
+After the second save 94 session the owner added the camp. The plan is [batch-13.md](../plan/batch-13.md) section 8, approved with its hooks and the four proposed answers.
+
+1. **In the city or in the camp:** the station book (world, saved, hashed; version 4) keeps, per stationed army, the keys of its divisions in the host's city. A key is the world division's type and index (`ADDiv.index`), never its place in the army, which a recall shifts; the city's registry keys its divisions the same way (version 2). At the stationing every division is in the city; one that joins later starts in the camp. Books before version 4 load with every division in the city.
+2. **Arrival:** soldiers come in at the city's reachable entry point nearest the army on the world map (`EntryPoints.reachable(wx, wy)`); reinforcements too. The throne for a city with none.
+3. **Leave for the camp:** a button above the "?" of the division popup (engine patch `95-player-orders`), active when a soldier of the division stands within 3 tiles of any active entry point. Its player presses it, or the host while given command. It is a world command (7984): the world takes the division off the city list and the host's city lets its soldiers go (transaction `STATION_CAMP`), the dead reported as at any leave. The 3 tiles are the button's check, on the presser's copy of the city, which every PC that runs it shares.
+4. **Moving:** while any division is in the city, the army's move, intercept, siege and disband commands are refused, its player can't call it back, and the mod's move tool (hook M15) answers a click with a popup saying why. Once every division is in the camp the army moves and the stationing ends, as before. The host's send away, and every other end, still empties the city at once.
+5. **Recall:** the conscripts window's Recall, the army window's disband and reassign leave a division in the city where it is, refused when the command applies; a division in the camp is recalled as in vanilla. The army window darkens the divisions in the city with a left arrow (engine patch `96-cmd-world`).
+6. **Station again** on a stationed army sends every division with men in the camp back into the city.
+7. **Not a target:** a stationed army is never the target of a field battle (`PFieldBattle.enemy`) nor starts one (`create`), never a garrison's target (`PRegAttack.create`, and the garrison tool says why), never an NPC's threat (`Defender`), and the player's move tool and the intercept command refuse it. It still helps through `Util.fill`, which stays vanilla.
+
+Rejected: soldiers walking out by vanilla's leave plan (`PlanJoinArmy` walks to any map edge, and the owner asked for an easy exit); a division keyed by its place in the army (a recall from the camp would move the others'); checking the 3 tiles again when the command applies (the city isn't the world part's to read, and the button's check is enough for an easy exit).

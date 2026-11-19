@@ -1,22 +1,41 @@
 --- a/view/world/ui/army/ToolMove.java
 +++ b/view/world/ui/army/ToolMove.java
-@@ -21,6 +21,7 @@
+@@ -21,6 +21,8 @@
  	private boolean can = false;
  	private Region bReg = null;
  	private WArmy incept = null;
 +	private Region sReg = null; // SOSGSGMP hook M15 (docs/hooks.md)
++	private CharSequence sBlocked = null; // SOSGSGMP hook M15: a stationed army with divisions in the host's city stays (owner, 2026-11-19)
  	
  	public ToolMove() {
  		super(Dic.¤¤Move, "");
-@@ -33,6 +34,7 @@
+@@ -33,6 +35,8 @@
  		can = false;
  		bReg = null;
  		incept = null;
 +		sReg = null;
++		sBlocked = null;
  		
  		if (AD.men(null).get(Army.army) == 0) {
  			return Dic.¤¤MoveCant;
-@@ -66,6 +68,13 @@
+@@ -40,11 +44,16 @@
+ 		
+ 		if (Army.army.ctx() == tx && Army.army.cty() == ty)
+ 			return E;
++		CharSequence sMove = menu.MpStationFlow.moveRefusal(Army.army); // SOSGSGMP hook M15
+ 		
+ 		
+ 		if (!WORLD.FOW().is(tx, ty)) {
+ 			for (WEntity e : WORLD.ENTITIES().fill(tx*C.TILE_SIZE+C.TILE_SIZEH, ty*C.TILE_SIZE+C.TILE_SIZEH)) {
+ 				if (e instanceof WArmy && e != Army.army) {
++					if (menu.MpStationFlow.attackRefusal((WArmy) e) != null) // SOSGSGMP hook M15: a stationed army can't be attacked (owner, 2026-11-19)
++						return menu.MpStationFlow.attackRefusal((WArmy) e);
++					if (sMove != null)
++						return blocked(sMove);
+ 					incept = (WArmy) e;
+ 					if (WORLD.PATH().path(Army.army.ctx(), Army.army.cty(), tx, ty, Army.army.path().treaty()) == null) {
+ 						return Dic.¤¤Unreachable;
+@@ -66,6 +75,15 @@
  		
  		
  		Region reg = WORLD.REGIONS().centre.get(tx, ty);
@@ -27,19 +46,42 @@
 +			can = true;
 +			return null;
 +		}
++		if (sMove != null)
++			return blocked(sMove);
  		if (reg != null && WArmyState.canBesiege(Army.army, reg)) {
  			WORLD.OVERLAY().hoverBox(reg);
  			VIEW.mouse().setReplacement(SPRITES.icons().m.sword);
-@@ -101,7 +110,7 @@
+@@ -91,6 +109,13 @@
+ 	}
+ 
+ 
++	private CharSequence blocked(CharSequence why) { // SOSGSGMP hook M15: the click opens a popup saying why
++		sBlocked = why;
++		can = true;
++		VIEW.hoverBox().text(why);
++		return null;
++	}
++
+ 	@Override
+ 	public void renderOverlay(GameWindow window) {
+ 		
+@@ -101,7 +126,7 @@
  	@Override
  	public void renderPlaceHolder(SPRITE_RENDERER r, int tx, int ty, int cx, int cy, boolean isPlacable) {
  		
 -		if (bReg != null || incept != null)
-+		if (bReg != null || incept != null || sReg != null)
++		if (bReg != null || incept != null || sReg != null || sBlocked != null)
  			return;
  		
  		super.renderPlaceHolder(r, tx, ty, cx, cy, isPlacable);
-@@ -116,6 +125,8 @@
+@@ -113,9 +138,15 @@
+ 		if (!can)
+ 			return;
+ 		
++		if (sBlocked != null) {
++			menu.MpStationFlow.blocked(sBlocked); // SOSGSGMP hook M15
++			return;
++		}
  		if (incept != null) {
  			Army.army.intercept(incept);
  			return;

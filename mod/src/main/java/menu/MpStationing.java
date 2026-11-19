@@ -58,6 +58,14 @@ final class MpStationing extends GuiSection {
 		}.r(DIR.W);
 	}
 
+	/**
+	 * A stationed army with divisions both in the host's city and in the camp (owner, 2026-11-19): Station takes Call
+	 * back's place, to bring the camp's divisions back in; Call back waits until every division is out.
+	 */
+	private static boolean mixed(WArmy a) {
+		return PlayerStations.stationed(a) && PlayerStations.inCity(a) > 0 && PlayerStations.inCamp(a) > 0;
+	}
+
 	private GuiSection mine(int k) {
 		GuiSection row = new GuiSection();
 		row.addRightC(0, label(true, k));
@@ -72,7 +80,7 @@ final class MpStationing extends GuiSection {
 			@Override
 			protected void renAction() {
 				WArmy a = PlayerStations.mineNear(slot, k);
-				visableSet(a != null && !PlayerStations.stationed(a));
+				visableSet(a != null && (!PlayerStations.stationed(a) || mixed(a)));
 				activeSet(a != null && PlayerStations.stationRefusal(a, slot) == null);
 			}
 
@@ -92,12 +100,14 @@ final class MpStationing extends GuiSection {
 			@Override
 			protected void renAction() {
 				WArmy a = PlayerStations.mineNear(slot, k);
-				visableSet(a != null && PlayerStations.stationed(a));
+				visableSet(a != null && PlayerStations.stationed(a) && !mixed(a));
+				activeSet(a != null && PlayerStations.endRefusal(a) == null);
 			}
 
 			@Override
 			public void hoverInfoGet(GUI_BOX text) {
-				explain(text, "Call back", "End this army's stationing: it stays where it stands.", null);
+				explain(text, "Call back", "End this army's stationing: it stays where it stands.",
+						PlayerStations.endRefusal(PlayerStations.mineNear(slot, k)));
 			}
 		}, row.getLastX1(), row.getLastY1());
 		row.addRightC(8, new GButt.ButtPanel("Give command") {

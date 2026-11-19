@@ -116,6 +116,42 @@ public final class PlayerStations {
         Engine.station(a, host);
     }
 
+    /**
+     * Why this PC's player can't move {@code a} now, or null (owner, 2026-11-19): a stationed army moves once every
+     * division is out of the host's city, in the camp.
+     */
+    public static String moveRefusal(WArmy a) {
+        return a == null || !Engine.active() ? null : Engine.stationMoveRefusal(a);
+    }
+
+    /** Why {@code a} can't be attacked directly, or null (owner, 2026-11-19): a stationed army can't. */
+    public static String attackRefusal(WArmy a) {
+        return a == null || !Engine.active() ? null : Engine.stationAttackRefusal(a);
+    }
+
+    /** How many divisions with men of the stationed army {@code a} are in the host's city; 0 for one not stationed. */
+    public static int inCity(WArmy a) {
+        return Engine.active() ? Engine.stationDivisions(a, true) : 0;
+    }
+
+    /** How many divisions with men of the stationed army {@code a} are in the camp beside the city; 0 for one not stationed. */
+    public static int inCamp(WArmy a) {
+        return Engine.active() ? Engine.stationDivisions(a, false) : 0;
+    }
+
+    /**
+     * The division popup's Leave for the camp for the city's division {@code div}: null when it isn't a stationed
+     * division this PC's player commands, "" when it may leave now, or why not.
+     */
+    public static String campState(int div) {
+        return Engine.active() ? Engine.stationCampState(div) : null;
+    }
+
+    /** The city's division {@code div} leaves for the camp. Check {@link #campState} first. */
+    public static void camp(int div) {
+        Engine.stationCamp(div);
+    }
+
     /** Why this PC's player can't send {@code a} away (the host) or call it back (its player), or null. */
     public static String endRefusal(WArmy a) {
         return Engine.active() ? Engine.stationEndRefusal(a) : "No multiplayer game runs.";
