@@ -3,6 +3,7 @@ package menu;
 import init.constant.C;
 import snake2d.MButt;
 import snake2d.util.gui.GuiSection;
+import util.gui.panel.GPanel;
 
 /** SOSGSGMP: dragging a window in the running game by its title bar, keeping the whole of it on the screen. */
 final class MpDrag {
@@ -36,5 +37,14 @@ final class MpDrag {
 
 	void drop() {
 		dragging = false;
+	}
+
+	/**
+	 * Puts {@code panel}'s frame back around {@code content} after its window moved (owner, 2026-11-19). Vanilla's
+	 * {@code GPanel} with a close button reports its top 8 pixels higher than it moves it, so each step a window takes
+	 * moved the frame 8 pixels up, away from the content: a drag moves the window every frame.
+	 */
+	static void frame(GPanel panel, GuiSection content) {
+		panel.inner().set(content.body());
 	}
 }
