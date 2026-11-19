@@ -1894,7 +1894,7 @@ def rv2():
         run.cmd("L", "target %d" % SLOT[lead])
         r = run.cmd("L", "view")
         run.check("asked" in r, "L asks to watch %s's battle: %s" % (lead, r))
-        run.wait(lambda: run.events("L", "viewstate", state=2), 180, "L watching")
+        run.wait(lambda: run.events("L", "viewstate", state=2, viewer=SLOT["L"]), 180, "L watching")  # every game logs every viewer's view
         run.sleep(5)
         run.check(battle_kind(run, "L") == "local battle", "L, the watcher, sees the battle against NPCs")
         first = men(run, lead)
