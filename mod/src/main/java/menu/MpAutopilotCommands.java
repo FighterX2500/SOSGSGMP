@@ -211,10 +211,15 @@ final class MpAutopilotCommands {
 		rout();
 		if (autoBattles)
 			battles(setup);
-		if (setup.chat().added() != chatSeen) {
-			chatSeen = setup.chat().added();
-			event.accept("chatline", "\"added\":" + chatSeen + ",\"step\":" + engine.step() + ",\"text\":\""
-					+ clean(setup.chat().line(setup.chat().size() - 1).text()) + "\"");
+		int added = setup.chat().added();
+		if (added != chatSeen) {
+			// every line since the last frame that the chat still holds: two lines in one frame lost the first (RV3: J
+			// missed "The vote restarts..." under "The battle restarts...")
+			int size = setup.chat().size();
+			for (int i = Math.max(0, size - (added - chatSeen)); i < size; i++)
+				event.accept("chatline", "\"added\":" + (added - (size - 1 - i)) + ",\"step\":" + engine.step() + ",\"text\":\""
+						+ clean(setup.chat().line(i).text()) + "\"");
+			chatSeen = added;
 		}
 		if (!Files.exists(file))
 			return;
