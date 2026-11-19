@@ -1,0 +1,11 @@
+--- a/util/gui/common/UIPickerRegion.java
++++ b/util/gui/common/UIPickerRegion.java
+@@ -96,7 +96,7 @@
+ 			b.renderCY(r, body().x1()+8, body().cY());
+ 			
+ 			GCOLOR.T().H1.bind();
+-			UI.FONT().H2.render(r, reg.info.name(), body().x1()+40, body().cY()-UI.FONT().H2.height()/2);
++			menu.MpLongNames.regionName(r, reg.info.name(), body().x1()+40, body().cY(), body().x2()-8-(body().x1()+40)); // SOSGSGMP hook M16: a long name on two lines (owner, 2026-11-19)
+ 			
+ 			if (!active(reg)) {
+ 				OPACITY.O35.bind();

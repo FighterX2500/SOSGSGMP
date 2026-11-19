@@ -1,8 +1,6 @@
-diff --git a/view/world/ui/faction/UIFactionList.java b/view/world/ui/faction/UIFactionList.java
-index 4b2a1ab..cb6d543 100644
 --- a/view/world/ui/faction/UIFactionList.java
 +++ b/view/world/ui/faction/UIFactionList.java
-@@ -43,7 +43,7 @@ import world.region.RD;
+@@ -43,19 +43,21 @@
  
  final class UIFactionList extends ISidePanel{
  
@@ -10,8 +8,11 @@ index 4b2a1ab..cb6d543 100644
 +	private final ArrayList<Faction> sorted = new ArrayList<>(FACTIONS.MAX()); // SOSGSGMP hook M4 (docs/hooks.md): players too
  	
  	public static int ROW_HEIGHT = 30;
++	/** SOSGSGMP hook M4: the name's width, the meters' and the stance icon's beside them (owner, 2026-11-19). */
++	private static final int LONG_NAME_WIDTH = 100 + 8 + Icon.S*2;
  	private final int width = C.SG*264;
-@@ -52,10 +52,10 @@ final class UIFactionList extends ISidePanel{
+ 	
+ 	private final StringInputSprite filter = new StringInputSprite(20, UI.FONT().S);
  	private final GTableBuilder builder;
  	private Faction hovered;
  
@@ -24,7 +25,7 @@ index 4b2a1ab..cb6d543 100644
  			return value(current) > value(cmp);
  		}
  		
-@@ -65,7 +65,7 @@ final class UIFactionList extends ISidePanel{
+@@ -65,7 +67,7 @@
  				return 0+d;
  			if (DIP.get(FACTIONS.player(), f).trades)
  				return FACTIONS.MAX()+d;
@@ -33,7 +34,7 @@ index 4b2a1ab..cb6d543 100644
  				return FACTIONS.MAX()*2+d;
  			if (RD.DIST().factionHasRegionBorderingPlayer(f))
  				return FACTIONS.MAX()*3+d;
-@@ -83,8 +83,9 @@ final class UIFactionList extends ISidePanel{
+@@ -83,8 +85,9 @@
  				sorted.clear();
  				for (FactionNPC f : FACTIONS.NPCs())
  					sorter.add(f);
@@ -44,7 +45,7 @@ index 4b2a1ab..cb6d543 100644
  					if (filter.text().length() > 0) {
  						if (f.name.containsText(filter.text()))
  							sorted.add(f);
-@@ -142,11 +143,13 @@ final class UIFactionList extends ISidePanel{
+@@ -142,11 +145,13 @@
  				
  				@Override
  				public void render(SPRITE_RENDERER r, float ds) {
@@ -60,16 +61,29 @@ index 4b2a1ab..cb6d543 100644
  					int x1 = body().x1()+Icon.L+Icon.L/2;
  					int y1 = body().y1()+8;
  					STATS.APPEARANCE().portraitRender(r, ro.induvidual, x1, y1, 1);
-@@ -160,7 +163,7 @@ final class UIFactionList extends ISidePanel{
- 				
+@@ -156,15 +161,15 @@
+ 
+ 			add(o);
+ 			
+-			o = new GStat() {
+-				
++			o = new RENDEROBJ.RenderImp(LONG_NAME_WIDTH, menu.MpLongNames.listHeight()) { // SOSGSGMP hook M4: a player's long name on two lines (owner, 2026-11-19)
++
  				@Override
- 				public void update(GText text) {
+-				public void update(GText text) {
 -					FactionNPC f = g();
-+					Faction f = g(); // SOSGSGMP hook M4 (docs/hooks.md)
++				public void render(SPRITE_RENDERER r, float ds) {
++					Faction f = g();
  					if (f != null)
- 						text.lablifySub().add(f.name);
+-						text.lablifySub().add(f.name);
++						menu.MpLongNames.listName(r, f.name, body().x1(), body().y1(), body().width());
  				}
-@@ -172,7 +175,7 @@ final class UIFactionList extends ISidePanel{
+-			}.r(DIR.NW);
++			};
+ 			add(o, getLastX2()+12, 4);
+ 			
+ 			GuiSection pp = new GuiSection();
+@@ -172,7 +177,7 @@
  
  				@Override
  				public double getD() {
@@ -78,7 +92,7 @@ index 4b2a1ab..cb6d543 100644
  					if (f == null)
  						return 0;
  					return RD.RACES().population.faction().get(f)/(10*RD.RACES().maxPopReg());
-@@ -185,7 +188,7 @@ final class UIFactionList extends ISidePanel{
+@@ -185,7 +190,7 @@
  				@Override
  				public void update(GText text) {
  					text.darkBG();
@@ -87,7 +101,7 @@ index 4b2a1ab..cb6d543 100644
  					if (f == null)
  						return;
  					
-@@ -198,16 +201,16 @@ final class UIFactionList extends ISidePanel{
+@@ -198,16 +203,16 @@
  				
  				@Override
  				public void render(SPRITE_RENDERER r, int X1, int X2, int Y1, int Y2) {
@@ -109,7 +123,7 @@ index 4b2a1ab..cb6d543 100644
  					GCOLOR.UI().border().render(r, x1-2, x1+2, Y1, Y2);
  					
  					
-@@ -218,9 +221,9 @@ final class UIFactionList extends ISidePanel{
+@@ -218,9 +223,9 @@
  				
  				@Override
  				public void render(SPRITE_RENDERER r, int X1, int X2, int Y1, int Y2) {
@@ -122,7 +136,7 @@ index 4b2a1ab..cb6d543 100644
  				}
  			});
  			
-@@ -241,7 +244,7 @@ final class UIFactionList extends ISidePanel{
+@@ -241,7 +246,7 @@
  		public void render(SPRITE_RENDERER r, float ds) {
  			
  			boolean hovered = hoveredIs();
@@ -131,7 +145,7 @@ index 4b2a1ab..cb6d543 100644
  			boolean selected = VIEW.world().UI.factions.openIs(f);
  			boolean active = f.capitolRegion() != null;
  			
-@@ -265,7 +268,7 @@ final class UIFactionList extends ISidePanel{
+@@ -265,7 +270,7 @@
  			super.render(r, ds);
  			
  			
@@ -140,7 +154,7 @@ index 4b2a1ab..cb6d543 100644
  				OPACITY.O50.bind();
  				COLOR.BLACK.render(r, body(),-4);
  				OPACITY.unbind();
-@@ -282,9 +285,9 @@ final class UIFactionList extends ISidePanel{
+@@ -282,9 +287,9 @@
  		private COLOR cGood = COLOR.NYAN100.makeSaturated(0.75).shade(0.75);
  		
  		private void bg(SPRITE_RENDERER r) {
@@ -152,7 +166,7 @@ index 4b2a1ab..cb6d543 100644
  			
  			COLOR c = cbad;
  			if (v < 1)
-@@ -309,7 +312,7 @@ final class UIFactionList extends ISidePanel{
+@@ -309,7 +314,7 @@
  			return super.click();
  		}
  		
@@ -161,7 +175,7 @@ index 4b2a1ab..cb6d543 100644
  			return sorted.get(ier.get());
  		}
  		
-@@ -323,12 +326,15 @@ final class UIFactionList extends ISidePanel{
+@@ -323,12 +328,15 @@
  		
  	}
  	
