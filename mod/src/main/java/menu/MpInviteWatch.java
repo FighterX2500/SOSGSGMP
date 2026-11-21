@@ -6,9 +6,10 @@ import sosgsgmp.net.SteamNode;
 /**
  * SOSGSGMP: a friend's Steam invite accepted while the main menu shows (SOS-103). Before, Steam started only on the
  * Join through Steam screen, so an invite accepted in Steam's overlay or friends list from the main menu went unheard
- * and was lost. While the main menu draws, this keeps a browsing Steam node open; an accepted invite joins that lobby,
- * as the Join through Steam screen does. Steam runs once in the process, so the node is handed to that screen when it
- * opens, and stopped before a Steam host starts. Once the menu stops drawing (a game started), the node closes itself.
+ * and was lost. While the main menu or a multiplayer screen draws (SOS-238: Create Lobby, Load Saved Lobby, Join by
+ * IP, the Multiplayer screen itself), this keeps a browsing Steam node open; an accepted invite joins that lobby, as the
+ * Join through Steam screen does. One node holds Steam at a time (SOS-237), so the node is handed to that screen when
+ * it opens, and stopped before a Steam host starts. Once the menu stops drawing (a game started), the node closes itself.
  * If Steam isn't available the menu works as before, without it. Game thread only.
  */
 final class MpInviteWatch {
