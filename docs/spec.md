@@ -1,6 +1,6 @@
 # SoS GSG MP Specification
 
-Version 0.71 · 2026-11-16
+Version 0.72 · 2026-11-22
 
 This file is the source of truth for **what** the mod does. It does not say how to build it; that belongs in `docs/plan/` and `docs/decisions/`. When a rule here changes, update this file in the same PR.
 
@@ -289,7 +289,7 @@ Any player can view any other player's city, enemies included. This is intended.
   - Every other region they held becomes free land with no owner, and their vassals become independent.
   - Their armies go home to their capital and stay as they are. Their armies stationed at another capital, and every army stationed at theirs, are stationed no more (section 9).
   - No NPC faction makes war on them or raids them.
-  - Their treaties and trade routes stay. Goods and people sent to their city wait until they return.
+  - Their treaties and trade routes stay, but their city neither buys nor sells, and nobody trades with it (owner, 2026-11-22; SOS-240). Goods and people sent to their city wait until they return.
   - Nobody can propose a deal to them.
   - The chat says who is frozen. Their city appears to everyone as it was when they left.
 - **Coming back.** A frozen player joins the running game as a new player does (see Joining). The host Accepts, every game saves and reloads with them back in, which holds every player for up to half a minute, and their city goes on where it stopped. This works too when other players joined the campaign after they froze (owner, 2026-11-12; SOS-204).
@@ -648,6 +648,7 @@ What was built and when, from the merged pull requests of both repositories, and
 | 2026-11-19 | **Owner's save 94 session:** a viewer's profile window can't change the viewed player's name or banner (it desynced the viewer's world); a view allowed while an autosave waits opens at once; another player's divisions show their player's banner on their cards (sections 5, 10, 15). | batch 13 |
 | 2026-11-19 | **The camp (stationing, third version):** stationed soldiers come and go by an entry point; Leave for the camp in the division popup near one; the army moves only once every division is in the camp, its divisions in the city are darkened in its window and stay through Recall; Station again brings them back; a stationed army can't be attacked directly but still helps (sections 9, 15). | batch 13 |
 | 2026-11-19 | **Stationed soldiers in the host's city:** a stationed army's soldiers stand in the host's city all the time, matched to the world army every 120 game seconds, outside its population, with no demuster; their player commands them, and gives the host command with a button; an invasion asks them Watch or Decline. The map's move tool says Station over a partner's capital. Battle Restart asks first; Sell is blank for goods this player doesn't export; every PC draws every player's capital alike (sections 7, 8, 9). | batch 13 |
+| 2026-11-22 | **A frozen city doesn't trade:** it neither buys nor sells while its player is frozen, and nobody trades with it; its treaties and trade routes stay (spec 0.72; section 11). | SOS-240 |
 
 ### Where each v1 feature stands (2026-11-16)
 
