@@ -22,6 +22,8 @@ import com.codedisaster.steamworks.SteamNetworkingCallback;
 import com.codedisaster.steamworks.SteamResult;
 import com.codedisaster.steamworks.SteamUser;
 import com.codedisaster.steamworks.SteamUserCallback;
+import com.codedisaster.steamworks.SteamUtils;
+import com.codedisaster.steamworks.SteamUtilsCallback;
 import com.codedisaster.steamworks.SteamAuth;
 import com.codedisaster.steamworks.SteamAuthTicket;
 
@@ -34,14 +36,13 @@ import sosgsgmp.net.SteamPort;
  * {@link SteamPort} over the steamworks4j 1.9.0 the game jar ships (SOS-60). The game process never starts Steam
  * itself (its achievements run in a separate JVM), so the port loads the libraries and initializes the Steam API when
  * it is created and shuts it down when closed. Steam finds the App ID (1162750) in the {@code SteamAppId} environment
- * variable, which Steam sets for a game it launched; a game started outside Steam needs it set too.
+ * variable, which Steam sets for a game it launched; a game started outside Steam needs it set too. A test may set
+ * Valve's Spacewar (480) instead, so a second account that doesn't own the game can join; the port works under the
+ * App ID Steam started with.
  *
  * <p>Everything here runs on the {@link sosgsgmp.net.SteamNode}'s I/O thread, callbacks included.
  */
 public final class SteamworksPort implements SteamPort {
-
-    /** Songs of Syx on Steam (spec §13). */
-    public static final int APP_ID = 1162750;
 
     private static final int CHANNEL = 0;
 
@@ -56,6 +57,9 @@ public final class SteamworksPort implements SteamPort {
     private final SteamMatchmaking matchmaking;
     private final SteamNetworking networking;
     private final SteamFriends friends;
+    private final SteamUtils utils;
+    /** The App ID Steam started with: Songs of Syx's (spec §13), or a test's. */
+    private final int appId;
     private final ByteBuffer out = ByteBuffer.allocateDirect(Protocol.MAX_MESSAGE + 4);
     private ByteBuffer in = ByteBuffer.allocateDirect(64 * 1024);
     private final int[] size = new int[1];
@@ -83,6 +87,8 @@ public final class SteamworksPort implements SteamPort {
         matchmaking = new SteamMatchmaking(new MatchmakingCallbacks());
         networking = new SteamNetworking(new NetworkingCallbacks());
         friends = new SteamFriends(new FriendsCallbacks());
+        utils = new SteamUtils(new UtilsCallbacks());
+        appId = utils.getAppID();
         networking.allowP2PPacketRelay(true);
         messages = P2P.equals(System.getenv(NET_VARIABLE)) ? null : new SteamMessages(() -> listener, this::trace);
         LOG.ln("SOSGSGMP: Steam transport: " + (messages != null ? "ISteamNetworkingMessages (SOS-105)" : "ISteamNetworking P2P packets"));
@@ -103,7 +109,7 @@ public final class SteamworksPort implements SteamPort {
     private void traceLobby(String text) {
         if (trace == null) {
             trace = PlayLog.open(DataFolders.layout().logs(), "steam", Clock.systemDefaultZone());
-            trace("Steam connection, protocol " + Protocol.VERSION + ", this user " + self() + ", transport "
+            trace("Steam connection, protocol " + Protocol.VERSION + ", app " + appId + ", this user " + self() + ", transport "
                     + (messages != null ? "messages" : "P2P packets"));
         }
         trace(text);
@@ -186,7 +192,7 @@ public final class SteamworksPort implements SteamPort {
         for (int i = 0; i < n; i++) {
             SteamID friend = friends.getFriendByIndex(i, SteamFriends.FriendFlags.Immediate);
             // a game ID's low 24 bits are the App ID
-            if (!friends.getFriendGamePlayed(friend, game) || (game.getGameID() & 0xFFFFFF) != APP_ID)
+            if (!friends.getFriendGamePlayed(friend, game) || (game.getGameID() & 0xFFFFFF) != appId)
                 continue;
             SteamID lobby = game.getSteamIDLobby();
             if (lobby != null && lobby.isValid())
@@ -283,6 +289,7 @@ public final class SteamworksPort implements SteamPort {
         networking.dispose();
         matchmaking.dispose();
         friends.dispose();
+        utils.dispose();
         user.dispose();
         SteamAPI.shutdown();
     }
@@ -360,6 +367,12 @@ public final class SteamworksPort implements SteamPort {
         @Override
         public void onP2PSessionConnectFail(SteamID remote, SteamNetworking.P2PSessionError error) {
             listener.sessionFailed(handle(remote), error.name());
+        }
+    }
+
+    private static final class UtilsCallbacks implements SteamUtilsCallback {
+        @Override
+        public void onSteamShutdown() {
         }
     }
 
