@@ -36,4 +36,16 @@ Not run: the engine's scenario suite (`rig\suite.py --short`, ask the owner firs
 
 ## State on 2026-11-22
 
-All seven items committed on both branches; mod build against the batch engine and docs (architecture, ADR 0012, spec 0.72, engine hooks and requirements) done. Next: the owner's manual session above, then rebase on main and open the PRs, engine first.
+All seven items committed on both branches; mod build against the batch engine and docs (architecture, ADR 0012, spec 0.72, engine hooks and requirements) done.
+
+Owner's manual session, 02:49 to 03:03 (two games, 480, game 2 in the `Steam2` box, the batch builds):
+
+- SOS-237 PASS: a joiner's Quit to menu, End for everyone: save 117 on both PCs (hash 8f84e10f4bdd650b), both games stayed up, the host made a new lobby 23 s later. No shutdown dump (`PostConnectionStateMsg`, `Invalid pipe handle`); at game exit Steam prints "Trying to close low level socket support, but we still have sockets open!" with no dump.
+- SOS-238: game 2 joined the lobby through Steam four times with no "already running" popup; which screen it was on isn't in the logs (asked the owner).
+- SOS-239 PASS: save 94, Remove them: slots 1 and 2 removed at the start, play went on.
+- SOS-240 PASS: save 94, Freeze them, run past step 48000: no sale or purchase by Fray2 or Adam (before: six sales at step 15267); only deliveries already on the road arrived (steps 166 and 6350).
+- SOS-241 PASS: "FighterX2500 may not join: DECLINED" in the host's log; frozen players named in transfer lines.
+- Hot-join over Steam again end to end: slot 8 at 165,57, world hash ede886a021f66a46 on both PCs.
+- Seen, not from this batch: one `Assert( !IsLocked() )` Steam dump on the host as a PC joined (17 older ones since 11-16); the host's log repeats the previous session's chat notices after a hot-join restart (`MpLog.chatCount` counts from 0 while the chat carries over): log only.
+
+Next: the owner's answer on SOS-238's screen, then rebase on main and open the PRs, engine first.
