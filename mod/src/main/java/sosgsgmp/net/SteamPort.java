@@ -2,9 +2,10 @@ package sosgsgmp.net;
 
 /**
  * The Steam calls a {@link SteamNode} needs, over plain longs (Steam IDs): lobbies, P2P sessions and packets. The game
- * adapter implements it with the steamworks4j the game jar ships; tests use an in-memory Steam. One thread only: the
- * node's I/O thread creates the port, calls it and closes it, and the listener is called back inside
- * {@link #runCallbacks()} on that thread.
+ * adapter implements it with the steamworks4j the game jar ships; tests use an in-memory Steam. One thread at a time:
+ * the node's I/O thread gets the port, calls it and closes it, and the listener is called back inside
+ * {@link #runCallbacks()} on that thread. The game's port is the process's one Steam, lent to one node at a time
+ * (SOS-237, {@link SteamLease}).
  */
 public interface SteamPort {
 
@@ -88,6 +89,6 @@ public interface SteamPort {
     default void note(String text) {
     }
 
-    /** Leaves nothing open: the port's Steam interfaces are released. */
+    /** The node is done with Steam: the game's port goes back to the process, which keeps Steam initialized (SOS-237). */
     void close();
 }

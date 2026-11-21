@@ -33,7 +33,7 @@ final class MpInviteWatch {
         if (failed)
             return 0;
         if (node == null) {
-            node = SteamNode.browse(SteamworksPort::new);
+            node = SteamNode.browse(SteamworksPort::lease);
             node.closeWhenUnwanted(() -> System.nanoTime() - seen < AWAY_NANOS);
             return 0;
         }

@@ -94,7 +94,7 @@ final class MpScreenSteamJoin extends GUI.Shadower implements SC {
 	/** Opens the screen with the main menu's browsing node when there is one (SOS-103), or starts Steam. */
 	void open(SteamNode browsing) {
 		close();
-		node = browsing != null ? browsing : SteamNode.browse(SteamworksPort::new);
+		node = browsing != null ? browsing : SteamNode.browse(SteamworksPort::lease);
 		shown = List.of();
 		shownFailure = null;
 		steamNamed = false;
