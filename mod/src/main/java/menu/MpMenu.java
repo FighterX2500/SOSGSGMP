@@ -85,7 +85,7 @@ final class MpMenu {
 					return;
 				if (mp[0] == null)
 					mp[0] = new MpMenu(menu, invites);
-				mp[0].steamJoin.joinInvite(invites.take(), lobby);
+				mp[0].joinInvite(lobby);
 			}
 		};
 	}
@@ -126,6 +126,29 @@ final class MpMenu {
 		steamJoin = new MpScreenSteamJoin(this);
 		resume = new MpScreenResume(this);
 		lobby = new MpScreenLobby(this);
+		// SOS-238: these screens hear invites too; Join through Steam hears them itself, and a lobby has its own Steam
+		for (GuiSection screen : new GuiSection[] { main, create, join, resume })
+			screen.add(inviteEar(), screen.body().x1(), screen.body().y1());
+	}
+
+	/**
+	 * Draws nothing: while its screen draws, the main menu's Steam invite watch goes on (SOS-238), and an invite or Join
+	 * Game accepted in Steam joins that lobby, as on the main menu (SOS-103).
+	 */
+	private RENDEROBJ inviteEar() {
+		return new RENDEROBJ.RenderImp(0, 0) {
+			@Override
+			public void render(SPRITE_RENDERER r, float ds) {
+				long lobby = invites.frame();
+				if (lobby != 0)
+					joinInvite(lobby);
+			}
+		};
+	}
+
+	/** An invite accepted in Steam: Join through Steam joins its lobby with the watch's node and opens the lobby screen. */
+	private void joinInvite(long lobby) {
+		steamJoin.joinInvite(invites.take(), lobby);
 	}
 
 	private static LobbyPrefs loadPrefs(Path file) {

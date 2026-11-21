@@ -31,7 +31,7 @@ import java.util.function.Supplier;
  * {@link Message.Resumed}, so nothing of an older game's stream reaches it. A host that hears another token on a line
  * ends that line and makes the Steam ID a new peer.
  *
- * <p>One I/O thread (AGENTS.md, approved exception) creates the {@link SteamPort}, makes every Steam call, runs Steam's
+ * <p>One I/O thread (AGENTS.md, approved exception) gets the {@link SteamPort}, makes every Steam call, runs Steam's
  * callbacks and reads packets; it only decodes messages and queues {@link Event}s. Each message is one reliable packet
  * of {@link Protocol#encode}'s bytes ({@link Protocol#MAX_MESSAGE} is well under Steam's 1 MB reliable limit).
  */

@@ -36,6 +36,8 @@ public final class TcpNode implements Node {
 
     private static final long CONNECT_TIMEOUT_MS = 10_000;
     private static final long CLOSE_FLUSH_MS = 1_000;
+    /** At close, after the flush: how long each socket reads what still comes before it closes (SOS-243). */
+    private static final long CLOSE_DRAIN_MS = 500;
     /** How long a new connection has to say who it is, and a joining PC's host to answer it (SOS-178). */
     private static final long HANDSHAKE_MS = 10_000;
     /** How often a joining PC tries its host again while its line is broken (SOS-178). */
@@ -174,7 +176,7 @@ public final class TcpNode implements Node {
         closing = true;
         selector.wakeup();
         try {
-            thread.join(CLOSE_FLUSH_MS + 1_000);
+            thread.join(CLOSE_FLUSH_MS + CLOSE_DRAIN_MS + 1_000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -244,6 +246,7 @@ public final class TcpNode implements Node {
             }
             runCommands();
             flush();
+            drain();
         } catch (IOException | RuntimeException e) {
             for (Line l : new ArrayList<>(lines.values()))
                 endLine(l, "SOSGSGMP: network thread failed: " + e);
@@ -652,6 +655,45 @@ public final class TcpNode implements Node {
                 return;
             selector.select(10);
             selector.selectedKeys().clear();
+        }
+    }
+
+    /**
+     * At close, after the flush (SOS-243): each socket tells the other side it is done, and reads and drops what still
+     * comes until that side closes it too or {@link #CLOSE_DRAIN_MS} pass. A socket closed with unread data is reset on
+     * Windows, and a reset can make the other side drop what it received but hadn't read yet, such as the Leave just
+     * sent; the host then took a player who left for one whose line broke, and kept them in the game.
+     */
+    private void drain() throws IOException {
+        List<Conn> open = new ArrayList<>();
+        for (Conn c : conns) {
+            if (!c.connected)
+                continue;
+            try {
+                c.channel.shutdownOutput();
+            } catch (IOException e) {
+                continue; // broken already: it closes as it is
+            }
+            open.add(c);
+        }
+        ByteBuffer sink = ByteBuffer.allocate(4096);
+        long deadline = System.currentTimeMillis() + CLOSE_DRAIN_MS;
+        while (!open.isEmpty() && System.currentTimeMillis() < deadline) {
+            for (int i = open.size() - 1; i >= 0; i--) {
+                int n;
+                try {
+                    sink.clear();
+                    n = open.get(i).channel.read(sink);
+                } catch (IOException e) {
+                    n = -1; // the other side is gone: nothing more to wait for
+                }
+                if (n < 0)
+                    open.remove(i);
+            }
+            if (!open.isEmpty()) {
+                selector.select(10);
+                selector.selectedKeys().clear();
+            }
         }
     }
 

@@ -5,6 +5,7 @@ import java.util.Locale;
 
 import sosdet.LocalBattle;
 import sosdet.View;
+import sosgsgmp.campaign.Campaign;
 import sosgsgmp.game.EnginePlay;
 import sosgsgmp.game.PlayerStations;
 import sosgsgmp.lobby.LobbyPlayer;
@@ -626,11 +627,15 @@ final class MpViews {
 		setup.chat().notice(text);
 	}
 
-	/** The name of the player in {@code slot}. */
+	/** The name of the player in {@code slot}: one in the game, else the campaign's (a frozen player, SOS-241). */
 	String name(int slot) {
 		for (LobbyPlayer p : setup.players())
 			if (slot(p) == slot)
 				return p.name();
+		if (setup.campaign() != null)
+			for (Campaign.Player p : setup.campaign().players())
+				if (p.slot() == slot)
+					return p.name();
 		return "Slot " + slot;
 	}
 

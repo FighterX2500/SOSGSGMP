@@ -8,6 +8,7 @@ import game.faction.FCredits.CTYPE;
 import init.trade.TR;
 import init.trade.TRADE_TYPE;
 import sosdet.txn.TransferLog;
+import sosgsgmp.campaign.Campaign;
 import sosgsgmp.game.PlayerDeals;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.session.SetupSession;
@@ -114,6 +115,10 @@ final class MpTransferLog {
 		for (LobbyPlayer p : setup.players())
 			if (setup.factions().slotOf(p.id()) == slot)
 				return p.name();
+		if (setup.campaign() != null) // a frozen player: their name, not their faction's (SOS-241)
+			for (Campaign.Player p : setup.campaign().players())
+				if (p.slot() == slot)
+					return p.name();
 		return FACTIONS.getByIndex(slot).name.toString();
 	}
 }

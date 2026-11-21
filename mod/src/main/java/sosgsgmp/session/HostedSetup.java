@@ -454,7 +454,10 @@ public final class HostedSetup implements SetupSession {
                 removeJoined(peer);
             }
             case Message.Hello h when id == null -> hello(peer, h);
-            case Message.Unsupported u when id == null -> refuse(peer, Refusal.WRONG_VERSION);
+            case Message.Unsupported u when id == null -> {
+                notes.add("peer " + peer + " runs protocol " + u.version() + ": refused (" + Refusal.WRONG_VERSION + ")");
+                refuse(peer, Refusal.WRONG_VERSION);
+            }
             default -> {
                 // Anything else breaks the protocol: drop the PC.
                 notes.add(peerName(peer) + " sent " + m.getClass().getSimpleName() + ", which doesn't belong here: dropped");
@@ -781,11 +784,12 @@ public final class HostedSetup implements SetupSession {
      */
     private void hello(int peer, Message.Hello h) {
         if (link == null || restartInfo != null && !beforeRestarted.isEmpty()) {
-            refuse(peer, Refusal.STARTED);
+            refuseHello(peer, h, Refusal.STARTED);
             return;
         }
         Refusal refusal = builds.mismatch(h.builds());
         if (refusal == Refusal.WRONG_FILES) {
+            notes.add(h.name() + " (peer " + peer + ") may not join: " + refusal);
             node.send(peer, new Message.Refused(refusal, builds.files().differences(h.builds().files())));
             node.disconnect(peer);
             return;
@@ -805,7 +809,7 @@ public final class HostedSetup implements SetupSession {
         if (refusal == null && candidate != null)
             refusal = Refusal.JOIN_BUSY;
         if (refusal != null) {
-            refuse(peer, refusal);
+            refuseHello(peer, h, refusal);
             return;
         }
         // a player coming back keeps the campaign's name, whatever their game calls them now (SOS-196 G2)
@@ -981,6 +985,12 @@ public final class HostedSetup implements SetupSession {
     @Override
     public boolean freezesMissing() {
         return freezeMissing;
+    }
+
+    /** A hello during play refused: the host's playtest log says who and why (SOS-241), the PC is told and dropped. */
+    private void refuseHello(int peer, Message.Hello h, Refusal refusal) {
+        notes.add(h.name() + " (peer " + peer + ") may not join: " + refusal);
+        refuse(peer, refusal);
     }
 
     private void refuse(int peer, Refusal refusal) {

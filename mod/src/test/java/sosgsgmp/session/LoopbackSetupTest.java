@@ -691,6 +691,11 @@ class LoopbackSetupTest {
             return je.closedReason() != null;
         });
         assertTrue(je.closedReason().contains(Refusal.JOIN_BUSY.text), je.closedReason());
+        List<String> hostNotes = new ArrayList<>();
+        for (String n; (n = host.takeNote()) != null;)
+            hostNotes.add(n);
+        assertTrue(hostNotes.stream().anyMatch(n -> n.startsWith("Eve (peer ") && n.endsWith("may not join: JOIN_BUSY")),
+                "the host's playtest log says who was turned away and why (SOS-241): " + hostNotes);
 
         host.answerJoin(null);
         assertNull(host.joinAsk());

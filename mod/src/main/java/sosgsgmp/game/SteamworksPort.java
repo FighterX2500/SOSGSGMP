@@ -22,26 +22,72 @@ import com.codedisaster.steamworks.SteamNetworkingCallback;
 import com.codedisaster.steamworks.SteamResult;
 import com.codedisaster.steamworks.SteamUser;
 import com.codedisaster.steamworks.SteamUserCallback;
+import com.codedisaster.steamworks.SteamUtils;
+import com.codedisaster.steamworks.SteamUtilsCallback;
 import com.codedisaster.steamworks.SteamAuth;
 import com.codedisaster.steamworks.SteamAuthTicket;
 
 import snake2d.LOG;
 import sosgsgmp.log.PlayLog;
 import sosgsgmp.net.Protocol;
+import sosgsgmp.net.SteamLease;
 import sosgsgmp.net.SteamPort;
 
 /**
  * {@link SteamPort} over the steamworks4j 1.9.0 the game jar ships (SOS-60). The game process never starts Steam
- * itself (its achievements run in a separate JVM), so the port loads the libraries and initializes the Steam API when
- * it is created and shuts it down when closed. Steam finds the App ID (1162750) in the {@code SteamAppId} environment
- * variable, which Steam sets for a game it launched; a game started outside Steam needs it set too.
+ * itself (its achievements run in a separate JVM), so the port loads the libraries and initializes the Steam API the
+ * first time a node needs it, and never shuts it down (SOS-237, ADR 0012): shutting it down while it still delivered a
+ * closed session's news crashed the game. The process has one port, which {@link #lease()} lends to one node at a
+ * time; {@link #close()} gives it back. Steam finds the App ID (1162750) in the {@code SteamAppId} environment
+ * variable, which Steam sets for a game it launched; a game started outside Steam needs it set too. A test may set
+ * Valve's Spacewar (480) instead, so a second account that doesn't own the game can join; the port works under the
+ * App ID Steam started with.
  *
- * <p>Everything here runs on the {@link sosgsgmp.net.SteamNode}'s I/O thread, callbacks included.
+ * <p>Everything here runs on the I/O thread of the {@link sosgsgmp.net.SteamNode} holding the port, callbacks included.
  */
-public final class SteamworksPort implements SteamPort {
+public final class SteamworksPort implements SteamPort, SteamLease.Steam {
 
-    /** Songs of Syx on Steam (spec §13). */
-    public static final int APP_ID = 1162750;
+    /**
+     * The process's one Steam (ADR 0012): mutable static state by design, since the Steam API itself is one per
+     * process; a game session started again in the same JVM borrows the same port.
+     */
+    private static final SteamLease<SteamworksPort> LEASE = new SteamLease<>(SteamworksPort::new, 5_000, 2_000,
+            System::currentTimeMillis);
+
+    /** What Steam reports while no node listens: dropped. */
+    private static final Listener NONE = new Listener() {
+        @Override
+        public void lobbyCreated(long lobby, String error) {
+        }
+
+        @Override
+        public void lobbyEntered(long lobby, String error) {
+        }
+
+        @Override
+        public void memberJoined(long lobby, long user) {
+        }
+
+        @Override
+        public void memberLeft(long lobby, long user, boolean lostSteam) {
+        }
+
+        @Override
+        public void lobbyLost(long lobby, boolean lostSteam) {
+        }
+
+        @Override
+        public void joinRequested(long lobby) {
+        }
+
+        @Override
+        public void sessionRequested(long user) {
+        }
+
+        @Override
+        public void sessionFailed(long user, String reason) {
+        }
+    };
 
     private static final int CHANNEL = 0;
 
@@ -49,13 +95,16 @@ public final class SteamworksPort implements SteamPort {
     private static final String NET_VARIABLE = "SOSGSGMP_STEAM_NET", P2P = "p2p";
     private static final long STATUS_MS = 1_000;
 
-    private Listener listener;
+    private Listener listener = NONE;
     /** Steam's newer messages; null when the old P2P packets are chosen. */
     private final SteamMessages messages;
     private final SteamUser user;
     private final SteamMatchmaking matchmaking;
     private final SteamNetworking networking;
     private final SteamFriends friends;
+    private final SteamUtils utils;
+    /** The App ID Steam started with: Songs of Syx's (spec §13), or a test's. */
+    private final int appId;
     private final ByteBuffer out = ByteBuffer.allocateDirect(Protocol.MAX_MESSAGE + 4);
     private ByteBuffer in = ByteBuffer.allocateDirect(64 * 1024);
     private final int[] size = new int[1];
@@ -68,8 +117,16 @@ public final class SteamworksPort implements SteamPort {
     private final Set<Long> sentTo = new HashSet<>(), readFrom = new HashSet<>(), acceptedFrom = new HashSet<>();
     private long statusAt;
 
-    /** Starts the Steam API; throws (with the reason for the screen) if Steam isn't running or won't start. */
-    public SteamworksPort() {
+    /**
+     * On a node's I/O thread: the process's Steam port, started the first time; throws (with the reason for the screen)
+     * if Steam isn't running or won't start, or the last node still holds it. {@link #close()} gives it back.
+     */
+    public static SteamPort lease() {
+        return LEASE.acquire();
+    }
+
+    /** Starts the Steam API, once per process ({@link #LEASE}). */
+    private SteamworksPort() {
         try {
             SteamAPI.loadLibraries();
             if (!SteamAPI.init())
@@ -83,6 +140,8 @@ public final class SteamworksPort implements SteamPort {
         matchmaking = new SteamMatchmaking(new MatchmakingCallbacks());
         networking = new SteamNetworking(new NetworkingCallbacks());
         friends = new SteamFriends(new FriendsCallbacks());
+        utils = new SteamUtils(new UtilsCallbacks());
+        appId = utils.getAppID();
         networking.allowP2PPacketRelay(true);
         messages = P2P.equals(System.getenv(NET_VARIABLE)) ? null : new SteamMessages(() -> listener, this::trace);
         LOG.ln("SOSGSGMP: Steam transport: " + (messages != null ? "ISteamNetworkingMessages (SOS-105)" : "ISteamNetworking P2P packets"));
@@ -99,11 +158,11 @@ public final class SteamworksPort implements SteamPort {
         trace(text);
     }
 
-    /** Opens the trace, once: the main menu's invite watch runs a port on every start and has no lobby to trace. */
+    /** Opens the trace, once per node: the main menu's invite watch has no lobby to trace. */
     private void traceLobby(String text) {
         if (trace == null) {
             trace = PlayLog.open(DataFolders.layout().logs(), "steam", Clock.systemDefaultZone());
-            trace("Steam connection, protocol " + Protocol.VERSION + ", this user " + self() + ", transport "
+            trace("Steam connection, protocol " + Protocol.VERSION + ", app " + appId + ", this user " + self() + ", transport "
                     + (messages != null ? "messages" : "P2P packets"));
         }
         trace(text);
@@ -186,7 +245,7 @@ public final class SteamworksPort implements SteamPort {
         for (int i = 0; i < n; i++) {
             SteamID friend = friends.getFriendByIndex(i, SteamFriends.FriendFlags.Immediate);
             // a game ID's low 24 bits are the App ID
-            if (!friends.getFriendGamePlayed(friend, game) || (game.getGameID() & 0xFFFFFF) != APP_ID)
+            if (!friends.getFriendGamePlayed(friend, game) || (game.getGameID() & 0xFFFFFF) != appId)
                 continue;
             SteamID lobby = game.getSteamIDLobby();
             if (lobby != null && lobby.isValid())
@@ -276,15 +335,35 @@ public final class SteamworksPort implements SteamPort {
         traceSessions();
     }
 
+    /** The node is done: the port goes back to the process, and Steam stays initialized (SOS-237). */
     @Override
     public void close() {
+        LEASE.release(this);
+    }
+
+    @Override
+    public void begin(boolean dropStale) {
+        listener = NONE;
+        if (!dropStale)
+            return;
+        SteamAPI.runCallbacks(); // to no listener: an invite accepted long ago joins nothing now
+        long[] from = new long[1];
+        while (read(from) != null) {
+            // a closed session's messages
+        }
+    }
+
+    @Override
+    public void end() {
+        listener = NONE;
         if (trace != null)
             trace.close();
-        networking.dispose();
-        matchmaking.dispose();
-        friends.dispose();
-        user.dispose();
-        SteamAPI.shutdown();
+        trace = null;
+        sessions.clear();
+        sentTo.clear();
+        readFrom.clear();
+        acceptedFrom.clear();
+        statusAt = 0;
     }
 
     // ------------------------------------------------------------ callbacks
@@ -360,6 +439,12 @@ public final class SteamworksPort implements SteamPort {
         @Override
         public void onP2PSessionConnectFail(SteamID remote, SteamNetworking.P2PSessionError error) {
             listener.sessionFailed(handle(remote), error.name());
+        }
+    }
+
+    private static final class UtilsCallbacks implements SteamUtilsCallback {
+        @Override
+        public void onSteamShutdown() {
         }
     }
 
