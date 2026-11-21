@@ -48,4 +48,6 @@ Owner's manual session, 02:49 to 03:03 (two games, 480, game 2 in the `Steam2` b
 - Hot-join over Steam again end to end: slot 8 at 165,57, world hash ede886a021f66a46 on both PCs.
 - Seen, not from this batch: one `Assert( !IsLocked() )` Steam dump on the host as a PC joined (17 older ones since 11-16); the host's log repeats the previous session's chat notices after a hot-join restart (`MpLog.chatCount` counts from 0 while the chat carries over): log only.
 
-Next: the owner's answer on SOS-238's screen, then rebase on main and open the PRs, engine first.
+Owner, 2026-11-22: "All works as intended". Main has nothing new since the branches were cut, so no rebase. Pack SOSGSGMP-playtest-2026-11-22 made from the tested jars of these branches. Follow-up cards: SOS-244 (the host's log repeats the chat after a hot-join restart), SOS-245 (`+connect_lobby`).
+
+Next: push both branches and open the PRs, engine first.
