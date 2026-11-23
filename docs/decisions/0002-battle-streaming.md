@@ -4,7 +4,7 @@ Status: Superseded for field battles by [ADR 0003](0003-battle-lockstep.md) (202
 
 ## Context
 
-`docs/architecture.md` proposed deterministic lockstep for field battles: every PC simulates the battle, and only orders cross the network. The hook surface map ([hook-surface.md](../plan/hook-surface.md), Q1) found that the vanilla battle engine is not deterministic:
+`docs/architecture.md` proposed deterministic lockstep for field battles: every PC simulates the battle, and only orders cross the network. The hook surface map ([hook-surface.md](../archive/hook-surface.md), Q1) found that the vanilla battle engine is not deterministic:
 
 - **Wall-clock worker threads.** Five worker threads (`game/battle/thread/BattleThreads.java`) tick on wall-clock intervals, alongside the update thread.
 - **Clock-based AI general.** It reads `System.currentTimeMillis()` (`Strategos2000UpdaterOffense.java:67`).
@@ -56,7 +56,7 @@ The owner chose this because it's easier to change later than lockstep.
 - **Set the seed after the pre-battle save.** `BattleState.setGenerate` saves the whole game before generating, and saving draws from `RND`, by an amount that depends on the game state. The host's seed must therefore be set **after** that save and before generation.
 - **Measured:** set that way, the battlefield, soldier placement and RNG state were identical in 6 of 6 runs across two game launches; the vanilla order alternated between two battlefields.
 - **Route:** a one-line hook in `setGenerate` (hook point B2). Repeating `setGenerate` by reflection also worked in the spike, but needs four private members.
-- **Snapshot size:** about 22 KB per snapshot (compressed, full state, 4,000 soldiers), so about 1.8 Mbit/s at 10 per second; capturing costs the host about 1.1 ms. See [the spike report](../plan/spikes/battle-streaming.md).
+- **Snapshot size:** about 22 KB per snapshot (compressed, full state, 4,000 soldiers), so about 1.8 Mbit/s at 10 per second; capturing costs the host about 1.1 ms. See [the spike report](../archive/spikes/battle-streaming.md).
 
 ## Amendment (2026-10-21, spike SOS-11)
 

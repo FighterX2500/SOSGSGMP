@@ -13,7 +13,7 @@ import sosgsgmp.session.SetupSession;
 import sosgsgmp.setup.FactionPick;
 
 /**
- * SOSGSGMP: hot-join in the game (SOS-190, docs/plan/hot-join-restart.md), once per frame.
+ * SOSGSGMP: hot-join in the game (SOS-190, docs/archive/hot-join-restart.md), once per frame.
  *
  * <p>On the host, a PC that asks to join is answered in a popup; on Accept, a campaign save is made and sent to it as
  * the snapshot it picks its spot on; its pick is checked on the live world; then the founding save is made and every

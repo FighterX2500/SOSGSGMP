@@ -1,6 +1,6 @@
 # Handoff: SOS-82, city viewing
 
-Written 2026-10-28 by the session that worked SOS-82, for the session that carries it on. The general handoff is [HANDOFF.md](HANDOFF.md); this file covers only SOS-82. Fold it into HANDOFF.md once the card's PRs are open. *Since merged* (SOSGSGMP #59, SOSDET #54, 2026-10-29); kept as the card's record.
+Written 2026-10-28 by the session that worked SOS-82, for the session that carries it on. The general handoff is [HANDOFF.md](../plan/HANDOFF.md); this file covers only SOS-82. Fold it into HANDOFF.md once the card's PRs are open. *Since merged* (SOSGSGMP #59, SOSDET #54, 2026-10-29); kept as the card's record.
 
 ## 1. Where the work is
 
@@ -13,7 +13,7 @@ Written 2026-10-28 by the session that worked SOS-82, for the session that carri
 
 Neither branch is pushed and no PR is open. Jira SOS-82 has not moved yet. The main checkouts (`C:\ClaudeFolder\SOS`, `C:\ClaudeFolder\SOSDET`) hold SOS-81's work; don't do SOS-82 work there.
 
-Read first: the card, spec §10 (0.26) and §15's view rows, [ADR 0006](../decisions/0006-lockstep-city-viewing-and-assaults.md) (the bullets dated 2026-10-27 and 2026-10-28), [city-viewing.md](city-viewing.md) (the mod's plan, M3 and M4), and SOSDET's `docs/plan/0013-city-viewing.md` (the engine's plan, M1 and M2).
+Read first: the card, spec §10 (0.26) and §15's view rows, [ADR 0006](../decisions/0006-lockstep-city-viewing-and-assaults.md) (the bullets dated 2026-10-27 and 2026-10-28), [city-viewing.md](city-viewing.md) (the mod's plan, M3 and M4), and SOSDET's `docs/archive/0013-city-viewing.md` (the engine's plan, M1 and M2).
 
 ## 2. The owner's decisions
 

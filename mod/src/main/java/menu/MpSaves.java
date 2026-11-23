@@ -17,7 +17,7 @@ import sosgsgmp.session.SetupSession;
 import sosgsgmp.session.ViewRequests;
 
 /**
- * SOSGSGMP: campaign saves in the running game (spec §11 Saving, SOS-64; docs/plan/campaign-saves.md). The host orders a
+ * SOSGSGMP: campaign saves in the running game (spec §11 Saving, SOS-64; docs/archive/campaign-saves.md). The host orders a
  * save from the panel's button or on its autosave interval; every PC, the host too, holds at the order's step, saves
  * its own game and the campaign record there, and plays on once every PC has reported. A PC viewing a city has its own
  * city unloaded and can't save, so a save waits until nobody views one; only the save before a battle can't, since the

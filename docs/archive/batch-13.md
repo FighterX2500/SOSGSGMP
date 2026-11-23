@@ -164,7 +164,7 @@ Still open, for the lead to ask: whether the player's logs and saves from item 5
 
 ## 6. State on 2026-11-18 (end of the first orchestration session)
 
-Cards SOS-222..234 (222 items 11+12, 223 item 7, 224 item 8, 225 item 1, 226 item 2, 227 item 9, 228 item 4, 229 item 5, 230 item 6, 231 item 3, 232 10a, 233 10c, 234 10b). Worktrees `SOS-wt/b13-<item>` and `SOSDET-wt/b13-<item>`; each item's findings, owner answers and test request are in `docs/plan/batch-13/<item>.md` on its mod branch. Agent brief: `C:/ClaudeFolder/SOS-wt/b13-brief.md`. Test logs: `C:/ClaudeFolder/SOS-wt/b13-results/`. Scratch data folders: `C:/ClaudeFolder/b13-appdata` (A), `-B`, `-C`.
+Cards SOS-222..234 (222 items 11+12, 223 item 7, 224 item 8, 225 item 1, 226 item 2, 227 item 9, 228 item 4, 229 item 5, 230 item 6, 231 item 3, 232 10a, 233 10c, 234 10b). Worktrees `SOS-wt/b13-<item>` and `SOSDET-wt/b13-<item>`; each item's findings, owner answers and test request are in `docs/archive/batch-13/<item>.md` on its mod branch. Agent brief: `C:/ClaudeFolder/SOS-wt/b13-brief.md`. Test logs: `C:/ClaudeFolder/SOS-wt/b13-results/`. Scratch data folders: `C:/ClaudeFolder/b13-appdata` (A), `-B`, `-C`.
 
 Shared numbers: protocol 33 (item 3 only), campaign record format unchanged (5). Mod message types 57-59 (item 3). Engine: AiEntry 22 and Notice 13 RESTART (item 3) clash with item 10's Notices 13-15: **renumber at the D merge**. Engine commands 8006 (item 9, test), 9005 (item 7, test), 7980-7982 (10c); sections SOSDET_BREAKS (9), SOSDET_STATIONS (10c), SOSDET_STATIONED_DIVS (10b, city only); TxnKind STATION_SUPPLY, STATION_DIVS; InputKind 11 SALLY_SPOILS, 12 STATION_RESOLVE.
 
@@ -180,7 +180,7 @@ Then stages 2-4 of section 2: AB and CD together, ABCD plus the owner's manual s
 
 ## 7. State on 2026-11-19: stage E (10b second version, items 13-17, R3)
 
-The owner held the batch after a manual session on save 94 and asked for 10b's second version (stationed soldiers always in the host's city) and items 13-17 (screenshots in `C:\ClaudeFolder\Batch 13 New Updates`); all approved with their hooks. Plans: `docs/plan/batch-13/10.md` ("10b second version") and `docs/plan/batch-13/13-17.md` on mod branch b13-E.
+The owner held the batch after a manual session on save 94 and asked for 10b's second version (stationed soldiers always in the host's city) and items 13-17 (screenshots in `C:\ClaudeFolder\Batch 13 New Updates`); all approved with their hooks. Plans: `docs/archive/batch-13/10.md` ("10b second version") and `docs/archive/batch-13/13-17.md` on mod branch b13-E.
 
 Worktrees `SOS-wt/b13-E` and `SOSDET-wt/b13-E`, both from b13-ABCD. Build the mod with `SOSDET_DIR=C:\ClaudeFolder\SOSDET-wt13-E`. Scratch data folder `C:\ClaudeFolder13-appdata-E` (both mods installed).
 

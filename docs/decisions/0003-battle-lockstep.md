@@ -6,9 +6,9 @@ Status: Accepted (owner decision, 2026-10-21); amended 2026-10-21 for the AI gen
 
 ADR 0002 chose host-authoritative streaming because the vanilla battle engine is not deterministic: worker threads on wall-clock timers, one shared random generator, and variable time steps. After SOS-10 the owner asked to rework the battle engine for lockstep instead, if it can be made deterministic.
 
-Spike SOS-11 ([report](../plan/spikes/determinism.md)) did that with nine patches on our own rebuild of the game. A 2,000 vs 2,000 battle ran identically in 4 game processes at different game speeds for 10 minutes (36,000 steps). On the way it found nine causes of divergence. Four of them would also differ between two PCs in ways a single PC can't show: the tile order shuffled per process, sound picks skipped at zero volume, night light flicker tied to a player setting, and AI state drawn at battle start outside the simulation.
+Spike SOS-11 ([report](../archive/spikes/determinism.md)) did that with nine patches on our own rebuild of the game. A 2,000 vs 2,000 battle ran identically in 4 game processes at different game speeds for 10 minutes (36,000 steps). On the way it found nine causes of divergence. Four of them would also differ between two PCs in ways a single PC can't show: the tile order shuffled per process, sound picks skipped at zero volume, night light flicker tied to a player setting, and AI state drawn at battle start outside the simulation.
 
-Spike SOS-23 ([report](../plan/spikes/city-determinism.md)) measured the timing against vanilla. With the AI general inside the step, its planning froze the game for 1–4 s dozens of times in 10 minutes. The owner then decided to run the general on the host only, with its changes applied at a stamped step by every PC. With that change, both the field battle and a city assault stayed identical in 4 processes for 10 minutes, and they met the owner's timing rule.
+Spike SOS-23 ([report](../archive/spikes/city-determinism.md)) measured the timing against vanilla. With the AI general inside the step, its planning froze the game for 1–4 s dozens of times in 10 minutes. The owner then decided to run the general on the host only, with its changes applied at a stamped step by every PC. With that change, both the field battle and a city assault stayed identical in 4 processes for 10 minutes, and they met the owner's timing rule.
 
 ## Decision
 
@@ -41,7 +41,7 @@ Field battles run in **deterministic lockstep**: every PC in the game simulates 
 
 ## Consequences
 
-- **Hooks.** Lockstep needs engine changes. They are listed as candidates B7–B15 in [hook-surface.md](../plan/hook-surface.md):
+- **Hooks.** Lockstep needs engine changes. They are listed as candidates B7–B15 in [hook-surface.md](../archive/hook-surface.md):
   - the fixed step;
   - battle jobs and path finding inside the step;
   - the split random stream, plus the cosmetic call sites (trees, audio, light);

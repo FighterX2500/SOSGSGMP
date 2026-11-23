@@ -130,7 +130,7 @@ public final class WorldSetupAdapter implements FactionWorld {
         return new int[] { p.capitolRegion().cx(), p.capitolRegion().cy() };
     }
 
-    // ------------------------------------------------------------------ hot-join (SOS-190, docs/plan/hot-join-restart.md)
+    // ------------------------------------------------------------------ hot-join (SOS-190, docs/archive/hot-join-restart.md)
 
     /** The slot a player joining this game would take, or -1 when the map has no room (SOSDET Engine.joinSlot). */
     public int joinSlot() {
@@ -157,7 +157,7 @@ public final class WorldSetupAdapter implements FactionWorld {
 
     /**
      * Hot-join: the newcomer's credits before its landing. A late joiner starts as every player did (owner's decision 8,
-     * docs/plan/hot-join.md): vanilla's new game starts at 0 and the landing adds its bonus, which the newcomer's landing
+     * docs/archive/hot-join.md): vanilla's new game starts at 0 and the landing adds its bonus, which the newcomer's landing
      * does too.
      */
     public double joinCredits() {

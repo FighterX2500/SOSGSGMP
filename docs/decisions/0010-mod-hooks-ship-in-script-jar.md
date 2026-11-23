@@ -1,6 +1,6 @@
 # 0010: The mod's hooks ship as patched classes in its own script jar
 
-Status: Accepted (owner, 2026-11-16). Records the route every hook has shipped by since M1 (2026-10-25); each hook was approved on its own with its card · Builds on: SOSDET [ADR 0001](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine/blob/main/docs/decisions/0001-build-and-packaging.md) (the engine's build and packaging), its [SOS-25 spike](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine/blob/main/docs/plan/spikes/distribution.md) (how changed game classes reach players), [ADR 0001](0001-game-compiler-ecj.md) (ECJ), [ADR 0004](0004-engine-split.md) (the split)
+Status: Accepted (owner, 2026-11-16). Records the route every hook has shipped by since M1 (2026-10-25); each hook was approved on its own with its card · Builds on: SOSDET [ADR 0001](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine/blob/main/docs/decisions/0001-build-and-packaging.md) (the engine's build and packaging), its [SOS-25 spike](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine/blob/main/docs/archive/spikes/distribution.md) (how changed game classes reach players), [ADR 0001](0001-game-compiler-ecj.md) (ECJ), [ADR 0004](0004-engine-split.md) (the split)
 
 ## Context
 

@@ -258,7 +258,7 @@ The ADR also gained:
 
 The same approval updated:
 - `.claude/rules/determinism.md`: one exception to "no multithreaded updates", for the host's general, whose writes go only through the log;
-- `docs/plan/hook-surface.md`: B7, B8 and the new capture point B15 (now 55 points, 22 of them hooks);
+- `docs/archive/hook-surface.md`: B7, B8 and the new capture point B15 (now 55 points, 22 of them hooks);
 - `docs/architecture.md`: the AI general bullet under field battles;
 - spec §8 (version 0.9): orders and the host's AI orders cross the network.
 

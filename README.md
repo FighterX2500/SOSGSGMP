@@ -4,7 +4,7 @@ Multiplayer for Songs of Syx V71 (build 71.44). Each player runs their own city-
 
 The simulation runs in lockstep on every PC through the deterministic engine [SOSDET](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine), a separate mod that this one needs. The mod's name in the game's launcher is SOS GSG MP.
 
-**Status:** V1 Beta. All of v1's main features are built and play over Steam or direct IP; three players have played it together. Long tests and the performance targets are still open. What works and what's next: [Status](#status) below, and spec §17.
+**Status:** V1 Beta. All of v1's main features are built and play over Steam or direct IP; three players have played it together. Long tests and the performance targets are still open. What works and what's next: [Status](#status) below, and in more detail [docs/plan/HANDOFF.md](docs/plan/HANDOFF.md).
 
 ## What it does
 
@@ -43,7 +43,7 @@ The rules are in [docs/spec.md](docs/spec.md).
 
 **Still open:**
 - **Spec gaps:** debug mode isn't turned off in multiplayer, the code's lowest speed is 0.25× where spec §4 says 0.5×, and each attacker's own bonuses in an assault aren't built.
-- **Tests:** a 2-hour session, a 30-minute battle with 2,000 units per side, the 10,000-person city at 1x, 300 ms ping, a join over Steam, and a full session between a Mac and another PC over Steam.
+- **Tests:** a 2-hour session, a 30-minute battle with 2,000 units per side, the 10,000-person city at 1x, a real 300 ms ping (emulated conditions passed), and a full session between a Mac and another PC over Steam. A join over Steam passed on 2026-11-22.
 
 **Out of scope for v1:** anti-cheat, a world that runs without players, AI running a disconnected player's city, support for other mods (allowed when every player has them, but untested), later game versions, GOG and itch.io (spec §2).
 
@@ -107,10 +107,11 @@ No game files or game source are ever committed. The game jar is a compile-only 
 
 ## Documentation
 
-- **What the mod must do:** [docs/spec.md](docs/spec.md), with its acceptance criteria (§15) and milestones (§17).
+- **What the mod must do:** [docs/spec.md](docs/spec.md), with its acceptance criteria (§15).
+- **Where it stands, what's next, and the milestones:** [docs/plan/HANDOFF.md](docs/plan/HANDOFF.md).
 - **How it is built:** [docs/architecture.md](docs/architecture.md), and the decisions in [docs/decisions/](docs/decisions/); for example why the engine is a separate project ([ADR 0004](docs/decisions/0004-engine-split.md)) and how battles, city viewing and assaults run in lockstep ([ADR 0003](docs/decisions/0003-battle-lockstep.md), [ADR 0006](docs/decisions/0006-lockstep-city-viewing-and-assaults.md)).
 - **Changes to the game's screens:** [docs/hooks.md](docs/hooks.md).
-- **Plans per feature:** [docs/plan/](docs/plan/).
+- **Finished plans, spikes and test runs** (history, not kept up to date): [docs/archive/](docs/archive/).
 - **The coding rules, also for AI agents:** [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md).
 
 ## Credits and permission

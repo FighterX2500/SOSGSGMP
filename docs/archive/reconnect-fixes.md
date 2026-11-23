@@ -70,7 +70,7 @@ No unit test: the window lives in `menu/`, which needs the running game (AGENTS.
 4. a joining PC presses Leave (no window);
 5. Return to the last save (its own window, once).
 
-## Fix C: one line of `docs/plan/reconnect.md`
+## Fix C: one line of `docs/archive/reconnect.md`
 
 "Crash or quit" says a crash closes the socket cleanly. Spec section 11 says a crashed game usually breaks its connection and shows as lost. Bring the plan's bullet in line with the spec: either can happen, and the host chooses in both.
 

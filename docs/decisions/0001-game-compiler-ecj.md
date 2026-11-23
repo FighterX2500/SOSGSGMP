@@ -4,7 +4,7 @@ Status: Accepted (owner, 2026-10-30), built: SOSDET's build compiles its patches
 
 ## Context
 
-Hooks (AGENTS.md "Hooks into Game Code") change the game's own source, so we must recompile game classes. The rebuild check ([report](../plan/spikes/rebuild-check.md)) showed:
+Hooks (AGENTS.md "Hooks into Game Code") change the game's own source, so we must recompile game classes. The rebuild check ([report](../archive/spikes/rebuild-check.md)) showed:
 
 - The shipped `SongsOfSyx.jar` (V71, 0.71.44) was compiled with ECJ: `snake2d` and `integrations` at Java 8, the rest at Java 16, with unused locals kept.
 - ECJ 3.40.0 with `-preserveAllLocals` rebuilds the shipped classes exactly: 9,345 of 9,371 are byte-identical, and the other 26 differ only in the order of compiler-generated bridge methods.
@@ -42,4 +42,4 @@ The engine's build (SOSDET) found where the last 26 classes come from.
 - **Consequences change:**
   - the rebuild check demands byte identity for every class, with no list of allowed differences;
   - ECJ runs inside the build's JDK through its `BatchCompiler` API rather than a `JavaExec` task per unit (`--release` needs the JDK's `ct.sym`).
-- **Where this lives now:** the engine's build applies all of this ([SOSDET ADR 0001](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine/blob/main/docs/decisions/0001-build-and-packaging.md)). It also records how patched classes reach players: inside a mod's script jar, which the launcher puts ahead of `SongsOfSyx.jar` ([SOS-25](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine/blob/main/docs/plan/spikes/distribution.md)).
+- **Where this lives now:** the engine's build applies all of this ([SOSDET ADR 0001](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine/blob/main/docs/decisions/0001-build-and-packaging.md)). It also records how patched classes reach players: inside a mod's script jar, which the launcher puts ahead of `SongsOfSyx.jar` ([SOS-25](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine/blob/main/docs/archive/spikes/distribution.md)).
