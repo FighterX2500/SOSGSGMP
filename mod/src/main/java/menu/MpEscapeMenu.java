@@ -19,7 +19,7 @@ import view.main.VIEW;
 import view.menu.IMenu;
 
 /**
- * SOSGSGMP: the escape menu's column in a multiplayer game (spec §11 Saving, SOS-79; docs/plan/escape-save.md):
+ * SOSGSGMP: the escape menu's column in a multiplayer game (spec §11 Saving, SOS-79; docs/archive/escape-save.md):
  * Resume, Save Campaign, Options, Keys, Quit to menu and Exit, in vanilla's fonts, buttons and frame. Vanilla's
  * Quick-save, Save and Load can't be resumed in multiplayer, so they're gone. Hook M6 adds
  * {@code IMenu.multiplayer(Actions)}, which builds the column here from the menu's own strings and actions; the session

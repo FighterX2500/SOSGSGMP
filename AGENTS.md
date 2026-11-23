@@ -73,7 +73,7 @@ Code called every tick/frame or per entity (`update(double ds)`, per-humanoid, p
 Outside hot paths, readability wins; don't micro-optimize setup or UI-action code.
 
 ### State and Lifecycle
-*   No mutable `static` state. A game session (new game / load save) can start several times in the same JVM; static fields leak state between sessions. Per-session state belongs to the script instance and is created in `createInstance()`.
+*   No mutable `static` state. A game session (new game / load save) can start several times in the same JVM; static fields leak state between sessions. Per-session state belongs to the script instance and is created in `createInstance()`. Approved exceptions: `MpViews.current` and the Steam lease in `SteamworksPort` ([ADR 0012](docs/decisions/0012-steam-once-per-process.md)); `docs/architecture.md` "Static state" says why. Any other needs the owner's approval.
 *   Constants may be `static final` only if truly immutable.
 *   All game state is touched from the game thread only. Do not start threads or executors without explicit approval.
 *   Approved exception: networking may use its own I/O thread (Steam callbacks, socket reads). That thread only decodes incoming messages and puts them on a thread-safe queue. The game thread drains the queue at a tick boundary and makes every state change itself.
@@ -95,7 +95,7 @@ A hook only calls into the mod (for example `isLocalPlayer(f)` asking the multip
 
 ### Determinism
 Code that runs in lockstep lives in the deterministic engine, [SOSDET](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine), and follows its determinism rules ([ADR 0004](docs/decisions/0004-engine-split.md)). In v1 that is field battles (ADR 0003), siege assaults and viewed cities (ADR 0006). The mod never simulates battle state itself: it carries orders, the host's AI log, state hashes and resync saves, and talks to the engine only through its API.
-*   Any mod code or hook that runs inside the battle step or feeds the state hash (for example B3 and B6 in the hook map) follows SOSDET's determinism rules. It never feeds a per-PC value, such as which faction is the local player, into the step.
+*   Any mod code or hook that runs inside the battle step or feeds the state hash (for example B3 and B6 in the hook map, `docs/archive/hook-surface.md`) follows SOSDET's determinism rules. It never feeds a per-PC value, such as which faction is the local player, into the step.
 *   Orders, AI log entries and resync saves are applied at the step the host confirmed, never on arrival.
 
 ### Persistence (Save/Load)
@@ -103,7 +103,7 @@ Code that runs in lockstep lives in the deterministic engine, [SOSDET](https://g
 *   Persisted format changes require a format version number written first, and `load` must handle every previous version still in circulation.
 *   Every change to persisted state needs a round-trip test: save → load → assert equal state. Also consider loading a save created before the mod (or this feature) was installed.
 *   Never persist object references, indices, or IDs whose meaning can change between sessions or game versions without a stable lookup key.
-*   These rules also apply to multiplayer data: the campaign save (world save plus every player's city save) and network messages. Every network message type carries a protocol version. Never use Java built-in serialization (`ObjectOutputStream`) for saves or network data.
+*   These rules also apply to multiplayer data: the campaign save (world save plus every player's city save) and network messages. Every network message type carries a protocol version. Never use Java built-in serialization (`ObjectOutputStream`) for saves or network data. Approved exception (owner, 2026-11-19): `MpDealMessage`, a message in vanilla's message folder, which the game itself saves with Java serialization; it keeps only plain values and reads the live deal by its id, and a missing or changed class only drops the message.
 *   Every message that changes shared state carries the world tick it applies at.
 *   Anything that moves goods, soldiers or money between a city and the world carries a transaction ID and is applied exactly once; test that a repeated message changes nothing.
 

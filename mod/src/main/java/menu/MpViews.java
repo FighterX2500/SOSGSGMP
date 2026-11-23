@@ -18,7 +18,7 @@ import view.main.VIEW;
 import view.subview.GameWindow;
 
 /**
- * SOSGSGMP: city viewing in the running game (spec §10, SOS-82; docs/plan/city-viewing.md §1 to §4). Once per frame
+ * SOSGSGMP: city viewing in the running game (spec §10, SOS-82; docs/archive/city-viewing.md §1 to §4). Once per frame
  * from {@link MpPlay}, between steps: the host checks each ask against the engine, begins the views their owners allow
  * and ends those their viewers close; the owner's player answers asks in a popup, and its PC sends its city and view
  * hashes; the viewer's PC loads the city, feeds the hashes and asks the host to end the view at a limit or a lost step.
@@ -26,8 +26,9 @@ import view.subview.GameWindow;
  * playtest log.
  *
  * <p>The faction window's View city button ({@link MpPlayerWindow}) is built from a game hook that has no reach to the
- * session, so it finds this through {@link #current()}: the one mutable static of the mod, set when the session's game
- * starts and cleared when it ends, so it never outlives the session.
+ * session, so it finds this through {@link #current()}: one of the mod's two approved mutable statics
+ * (docs/architecture.md, "Static state"), set when the session's game starts and cleared when it ends, so it never
+ * outlives the session.
  */
 final class MpViews {
 

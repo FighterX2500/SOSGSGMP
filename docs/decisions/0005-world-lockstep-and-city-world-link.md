@@ -5,7 +5,7 @@ Status: Accepted (owner decision, 2026-10-23); city viewing amended by [ADR 0006
 ## Context
 
 - **What the docs say now.** `docs/architecture.md` has the host simulate the world map while clients mirror it, and each city run only on its owner's PC. The spec asks for zero latency inside your own city (§1, §13), a speed capped by the slowest PC (§4), and world desyncs detected within 2 s and recovered within 10 s (§13).
-- **The owner's decision on 2026-10-23** (SOSDET [plan 0002](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine/blob/main/docs/plan/0002-city-and-world-lockstep.md)): the world map runs in lockstep on every PC, with the host's save for recovery. The engine has done this since SOS-35.
+- **The owner's decision on 2026-10-23** (SOSDET [plan 0002](https://github.com/FighterX2500/Songs-of-Syx-Deterministic-Engine/blob/main/docs/archive/0002-city-and-world-lockstep.md)): the world map runs in lockstep on every PC, with the host's save for recovery. The engine has done this since SOS-35.
 - **What V0.1 does.** SOSDET V0.1 is co-op. Every PC runs the same city and the same world, all in lockstep, and every player action is a command applied 30 steps later. That proves the world is deterministic. It is not the multiplayer game: there each player has their own city, and no other PC runs it.
 - **The world reads the player's city directly.** It does so about 100 times, through a few chokepoints:
   - `Player.updateSpecial`;
@@ -71,7 +71,7 @@ Status: Accepted (owner decision, 2026-10-23); city viewing amended by [ADR 0006
   - nothing in the world part reads a live city;
   - city draws never reach the world stream;
   - the transaction IDs are the only state shared between the two parts.
-- **Work** is SOSDET's stage E card (SOS-38). Its scan is SOSDET `docs/plan/notes/city-world-link-scan.md`. SOS-38 builds the whole link, invasions of a player's own capitol and scripted events included (owner, 2026-10-23). The mod's work follows:
+- **Work** is SOSDET's stage E card (SOS-38). Its scan is SOSDET `docs/archive/notes/city-world-link-scan.md`. SOS-38 builds the whole link, invasions of a player's own capitol and scripted events included (owner, 2026-10-23). The mod's work follows:
   - carrying reports over Steam;
   - mapping each player to their human faction (the factions themselves are engine work, [SOS-46](https://fighterx2500.atlassian.net/browse/SOS-46));
   - city viewing, which stays a snapshot (spec §10) and is not part of this ADR.

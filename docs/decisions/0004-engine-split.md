@@ -4,7 +4,7 @@ Status: Accepted (owner decision, 2026-10-22) for "Decision"; the items under "P
 
 ## Context
 
-Lockstep battles ([ADR 0003](0003-battle-lockstep.md)) need the game's simulation to be bit-identical on every PC. Spikes SOS-11 and SOS-23 ([report](../plan/spikes/determinism.md), [report](../plan/spikes/city-determinism.md)) got there with 14 determinism patches to our rebuild of the game (plus 2 that only serve the test rig: timing and autoload), a test rig and a set of rules. That work has different needs from the multiplayer mod:
+Lockstep battles ([ADR 0003](0003-battle-lockstep.md)) need the game's simulation to be bit-identical on every PC. Spikes SOS-11 and SOS-23 ([report](../archive/spikes/determinism.md), [report](../archive/spikes/city-determinism.md)) got there with 14 determinism patches to our rebuild of the game (plus 2 that only serve the test rig: timing and autoload), a test rig and a set of rules. That work has different needs from the multiplayer mod:
 
 - It is proven by replaying saves and logs in several game copies, with no network. The mod is proven with players, the network and the world map.
 - It changes when the game build changes or a new desync cause turns up. The mod changes when features change.
@@ -16,7 +16,7 @@ The owner decided to split it off and build it before the multiplayer work conti
 
 - **Two repositories.** The deterministic engine is its own project in its own private repository, [FighterX2500/SOSDET](https://github.com/FighterX2500/SOSDET). The multiplayer mod stays in this repository and uses the engine only through its API.
 - **The engine owns:**
-  - its changes to the game's own code: hook points B7–B11 and B15 in [hook-surface.md](../plan/hook-surface.md), and the city-side fixes from SOS-23 (random tile tables, ice setting, serial killer camera, loads and graphics-thread jobs in the simulation);
+  - its changes to the game's own code: hook points B7–B11 and B15 in [hook-surface.md](../archive/hook-surface.md), and the city-side fixes from SOS-23 (random tile tables, ice setting, serial killer camera, loads and graphics-thread jobs in the simulation);
   - the engine code those hooks call, and the API points B12–B14 (deploy as step 0, the state hash, loading a battle save): the fixed step, the two random streams, the battle jobs inside the step, the AI general on the host and its log, the state hash and desync report, save and load at a step;
   - its build (game source patched and compiled with ECJ, as proposed in [ADR 0001](0001-game-compiler-ecj.md)), its tests and its scenario suite;
   - the determinism rules (moved from `.claude/rules/determinism.md` to SOSDET) and its own requirements file.

@@ -124,7 +124,7 @@ After all three items are on the batch branch. In-game runs take turns with any 
 
 1. Item 1: a two-game run on this PC over direct IP: the joiner leaves in play, the host continues without them, the same game starts again and asks to join, the host accepts, it settles, every game restarts, and both play on with equal hashes.
 2. Item 2: the screenshots above.
-3. Item 3: the engine's rig runs FS1 to FS3 (`docs/plan/0021-freeze-at-start.md` in SOSDET), then a resume in the game with a missing player frozen, who comes back.
+3. Item 3: the engine's rig runs FS1 to FS3 (`docs/archive/0021-freeze-at-start.md` in SOSDET), then a resume in the game with a missing player frozen, who comes back.
 
 No other in-game runs.
 
@@ -147,7 +147,7 @@ Everything above is built, reviewed and committed locally, and the test cycle ra
   - Item 2: e923e09 (buttons centred), a9480cb (no text cut; the adapter `sosgsgmp/game/PromptBox`).
   - Item 3, mod: 59a63c8 (protocol 32, campaign record format 5, spec 0.71).
   - Test tooling: d12cf49, cd3548f, ad8a563.
-- **Engine:** `C:\ClaudeFolder\SOSDET-wt\b12`, branch `batch-12-1116`, on top of `origin/main` 9be9c8e: ed88858 (freeze at the start, `SOSDET_FROZEN` format 2, plan `docs/plan/0021-freeze-at-start.md`), 14d57d5 (rig `--freeze-at-start`). Unit tests: 379, 0 failures. Its jar is built; the mod builds against it.
+- **Engine:** `C:\ClaudeFolder\SOSDET-wt\b12`, branch `batch-12-1116`, on top of `origin/main` 9be9c8e: ed88858 (freeze at the start, `SOSDET_FROZEN` format 2, plan `docs/archive/0021-freeze-at-start.md`), 14d57d5 (rig `--freeze-at-start`). Unit tests: 379, 0 failures. Its jar is built; the mod builds against it.
 - `C:\ClaudeFolder\SOS-wt\b12-gui` (branch `batch-12-gui`) holds item 2's commits before they were picked onto the batch branch. Everything in it is on the batch branch; it can go.
 
 ### The test cycle, run on 2026-11-17
@@ -164,7 +164,7 @@ Results:
 
 The commands (FS2 and FS3 need `--save` as well):
 
-1. **Engine rig**, from `C:\ClaudeFolder\SOSDET-wt\b12` after `gradlew.bat assemble`. The copy steps between the runs are in SOSDET's `docs/plan/0021-freeze-at-start.md` and `rig/README.md`.
+1. **Engine rig**, from `C:\ClaudeFolder\SOSDET-wt\b12` after `gradlew.bat assemble`. The copy steps between the runs are in SOSDET's `docs/archive/0021-freeze-at-start.md` and `rig/README.md`.
    - FS1, the campaign save: `python rig\rig.py city --tag FS1 --copies 3 --humans 3 --speeds 5,7,8 --save Mogus-72-19f86f1e048-47002c-0-121c.save --world-resync 2400 --resync-savegame --steps 3000`
    - FS2, the resume with slot 2 frozen at the start: `python rig\rig.py city --tag FS2 --copies 2 --humans 3 --speeds 5,7 --save Mogus-72-19f86f1e048-47002c-0-121c.save --humans-saves fs1-carved-1.save,fs1-carved-2.save --freeze-at-start 2 --world-resync 2400 --resync-savegame --steps 3600`
    - FS3, the rejoin and thaw: `python rig\rig.py city --tag FS3 --copies 3 --humans 3 --speeds 5,7,8 --save Mogus-72-19f86f1e048-47002c-0-121c.save --humans-saves fs2-carved-1.save,fs2-carved-2.save,fs1-carved-3.save --rejoin "<FS2's rejoin-world.save>|<FS2's rejoin.state>|2" --steps 3000`

@@ -4,7 +4,7 @@ Throwaway planning script (CLAUDE.md). Reads the codegraph index of the game sou
 (read-only) and the source files, and writes a CSV of every call site with its
 classification. Rerun after rebuilding the index:
 
-    python classify_player_refs.py > ../../docs/plan/single-player-callsites.csv
+    python classify_player_refs.py > ../../docs/archive/single-player-callsites.csv
     python classify_player_refs.py --with-code > <scratch>/callsites-with-code.csv   (local only)
 
 Method:

@@ -88,7 +88,7 @@ Status: Accepted (owner, 2026-11-18) · Batch 13, item 10c (SOS-233); item 10b (
 
 ## The owner's second version (2026-11-19, batch 13)
 
-After playing the first version (save 94), the owner changed answers 1 and 9 and added the rest. The plan is [batch-13/10.md](../plan/batch-13/10.md), "10b second version".
+After playing the first version (save 94), the owner changed answers 1 and 9 and added the rest. The plan is [batch-13/10.md](../archive/batch-13/10.md), "10b second version".
 
 1. **Seen in the city:** a stationed army's soldiers stand in the host's city for as long as it is stationed, not only in a fight; the army stays a world army beside the capital too. The engine's world part sends the army's divisions as it is stationed and every 120 game seconds after (the refresh), and the city brings its stationed divisions in line: men, equipment and training as the world army has them, so the army's own supplies keep them up. The city's dead come off the world army in its next report. The soldiers leave when the stationing ends.
 2. **Command:** their player commands them while viewing the city, asked as any view. The host commands them only while their player gives command (Give command / Take command back in the Armies tab; engine command 7983, a flag in the stationing's record). No demuster.
@@ -101,7 +101,7 @@ Rejected: picking the soldiers in the world part from the city's last report (th
 
 ## The owner's third version (2026-11-19 evening, batch 13): the camp
 
-After the second save 94 session the owner added the camp. The plan is [batch-13.md](../plan/batch-13.md) section 8, approved with its hooks and the four proposed answers.
+After the second save 94 session the owner added the camp. The plan is [batch-13.md](../archive/batch-13.md) section 8, approved with its hooks and the four proposed answers.
 
 1. **In the city or in the camp:** the station book (world, saved, hashed; version 4) keeps, per stationed army, the keys of its divisions in the host's city. A key is the world division's type and index (`ADDiv.index`), never its place in the army, which a recall shifts; the city's registry keys its divisions the same way (version 2). At the stationing every division is in the city; one that joins later starts in the camp. Books before version 4 load with every division in the city.
 2. **Arrival:** soldiers come in at the city's reachable entry point nearest the army on the world map (`EntryPoints.reachable(wx, wy)`); reinforcements too. The throne for a city with none.

@@ -14,7 +14,7 @@ import sosgsgmp.net.Message;
 import sosgsgmp.net.Protocol;
 
 /**
- * City viewing's requests and transfers on one PC (spec §10, SOS-82; docs/plan/city-viewing.md §1, §2). Plain Java,
+ * City viewing's requests and transfers on one PC (spec §10, SOS-82; docs/archive/city-viewing.md §1, §2). Plain Java,
  * one per PC once it plays; the game side asks the engine and shows the windows.
  *
  * <p>The viewer's PC asks; the host checks the ask against the engine and passes it to the owner's PC, whose player

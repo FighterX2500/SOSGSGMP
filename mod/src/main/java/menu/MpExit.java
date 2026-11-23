@@ -16,7 +16,7 @@ import util.gui.misc.GButt;
 import view.main.VIEW;
 
 /**
- * SOSGSGMP: the escape menu's Save Campaign, Quit to menu and Exit (spec §11 Saving, SOS-79; docs/plan/escape-save.md),
+ * SOSGSGMP: the escape menu's Save Campaign, Quit to menu and Exit (spec §11 Saving, SOS-79; docs/archive/escape-save.md),
  * and every save that ends the session: a player's quit and a desync's Save and exit (SOS-68). A quit saves the
  * campaign on every PC first: the host orders the save, and a joining PC asks the host for it. While no save can start
  * (a battle), the player can leave without one instead. Once the save is done, the session ends on every PC; the player

@@ -30,7 +30,7 @@ import view.world.generator.MpSpotPlacer;
 import world.WORLD;
 
 /**
- * SOSGSGMP hot-join (SOS-190, docs/plan/hot-join-restart.md): a PC that joins a running game picks its race, faction
+ * SOSGSGMP hot-join (SOS-190, docs/archive/hot-join-restart.md): a PC that joins a running game picks its race, faction
  * and the spot of its city-state on the host's snapshot, loaded outside any engine session and paused, while everyone
  * else plays on. It picks through the setup's own screens ({@link MpJoinScreens}, SOS-198): race, Customize Faction,
  * then the location. The host checks the spot on the live world; once it takes it, the founding save is made and every

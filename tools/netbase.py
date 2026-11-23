@@ -92,7 +92,7 @@ def case_summary(case):
 
 
 def summary():
-    """A markdown table of every case run so far, for docs/plan/network-baseline.md."""
+    """A markdown table of every case run so far, for docs/archive/network-baseline.md."""
     print("| Case | Result | Desync | Dropped | Holds over 1 s (H / J / L: count, longest; outside loading windows) | H's agreed speed |")
     print("|---|---|---|---|---|---|")
     for label, name, _ in CASES:

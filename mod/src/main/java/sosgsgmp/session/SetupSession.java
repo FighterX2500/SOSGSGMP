@@ -297,7 +297,7 @@ public interface SetupSession {
      */
     String takeNote();
 
-    // ------------------------------------------------------------------ hot-join (SOS-190, docs/plan/hot-join-restart.md)
+    // ------------------------------------------------------------------ hot-join (SOS-190, docs/archive/hot-join-restart.md)
 
     /** Host: the name of the PC that asks to join the running game, waiting for the host's answer; else null. */
     default String joinAsk() {
