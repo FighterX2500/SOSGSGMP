@@ -225,3 +225,35 @@ compares item by item (`<part> <index> <hash>`). Protocol 34: the hash record's 
   `sosgsgmp\recorder` folder, which turns it off with a line); a forced desync, if twopc has one, with the report
   naming the world part and an incident copy on both PCs (the joiner's at the host); a second lobby in the same game
   run reopens the recorder (the mapping of the first lives on).
+
+## State on 2026-11-25: the test cycle
+
+Reviewed by the lead; review fixes `bf2edf0` (the engine's rings read a few times a second, not every frame: reading
+allocates; the recorder turns off on an `InternalError` from its mapped file, such as a full disk), `9591fef` (the
+stream sends the message types' names first) and the commit after it (stances and news are `= `). `gradlew.bat build`
+against the engine worktree: 376 unit tests, 0 failures; `tools\test_logdiff.py` 5 of 5.
+
+- **twopc T1** (`--here --mods-from <engine worktree> --window 1280x768 --speed 5 --steps 9000 --save 3000 --corrupt
+  6000 --on-desync resync`): `RESULT: PASS: 5 common hash steps, 0 differ`; the desync at 6030 held both PCs at 6072
+  and the resync cleared it; the campaign saved on both.
+  - The log opens at Host with the system line and the lobby's lines; the status line has the heap and the draws
+    (foreign 0).
+  - `logdiff.py` (and `--all`): 218 comparable lines on each PC, all the same: 20 `= army: create`, 197
+    `~ world: news`, 1 `~ world: stance`. News and stances are `= ` from now on. Not seen in the run, still `~ `:
+    region, capital, faction born and gone, battle, siege, succession, scripted events.
+  - The desync reports at 6030: 1286 item lines both have, the only 8 that differ are the running world parts from
+    "events per human" on, where the test broke the world.
+  - Incident copies on both PCs; the joiner's at the host with its log, its save and `recorder.stream` (1.2 MB). The
+    stream's last entry is 6 ms before the joiner's own last (it left); one gap, at its start (58 lobby entries before
+    the reports begin); none while playing.
+- **twopc T2** (the same, `--steps 6000`, no save or desync): PASS; the stream starts with the message types' names.
+  **T3** (the same again): PASS, but the recorder was on (twopc makes the data folders again), so it is a second
+  sample, not the "off" run: step time mean 1.03 against 1.14 ms, p99 6.0 against 8.1 ms between two runs alike.
+  Two twopc runs can't show a 1% cost.
+- **The recorder's cost, measured directly** (the game's JRE, the real mapped file, `RecBench` in the scratchpad): a
+  plain entry 30 ns, a text entry 120 to 230 ns. The host wrote 25,838 entries in 146.7 s (about 176 a second, 2 PCs
+  at speed 5): about 10 µs a second, 0.012% of the step work at that speed (80 steps a second of about 1 ms). Under
+  1% by two orders of magnitude.
+- **Not seen:** a second lobby in the same game run (the recorder file reopened while the first mapping lives); the
+  `~ ` kinds above; a real crash (the stream ends with the joiner's last frame; a crash inside a step leaves its last
+  entries in the joiner's own file); real Steam; the laptop as a second PC.

@@ -90,8 +90,9 @@ final class MpLog {
 	private final WorldWatch world;
 	private final WorldWatch.Out worldLines = new WorldWatch.Out() {
 		@Override
-		public void same(long step, int day, String text) {
-			line(step >= 0 ? SameLine.atStep(SameLine.CANDIDATE, step, "world: " + text) : SameLine.onDay(SameLine.CANDIDATE, day, "world: " + text));
+		public void same(long step, int day, boolean confirmed, String text) {
+			char mark = confirmed ? SameLine.CONFIRMED : SameLine.CANDIDATE;
+			line(step >= 0 ? SameLine.atStep(mark, step, "world: " + text) : SameLine.onDay(mark, day, "world: " + text));
 		}
 
 		@Override

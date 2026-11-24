@@ -45,8 +45,11 @@ public final class WorldWatch {
 
     /** A line for the log: its step (or -1), the game day (or -1) and its text. */
     public interface Out {
-        /** Meant to be the same on every PC: at {@code step}, or on {@code day} when the step is unknown (-1). */
-        void same(long step, int day, String text);
+        /**
+         * Meant to be the same on every PC: at {@code step}, or on {@code day} when the step is unknown (-1);
+         * {@code confirmed} when a twopc run showed this kind the same on both PCs (batch-15.md: stances and news).
+         */
+        void same(long step, int day, boolean confirmed, String text);
 
         /** This PC's own. */
         void local(String text);
@@ -157,7 +160,7 @@ public final class WorldWatch {
     /** Every frame, between steps: what the listeners heard since, as lines. */
     public void drain(Out out) {
         while (queue.take())
-            out.same(queue.step(), -1, text());
+            out.same(queue.step(), -1, queue.kind() == STANCE, text());
         if (queue.lost() != lostSaid) {
             out.local("world events: " + (queue.lost() - lostSaid) + " lost, the queue was full");
             lostSaid = queue.lost();
@@ -204,7 +207,7 @@ public final class WorldWatch {
         int first = news.firstNew(w, w.all().size(), w.all()::get);
         for (int i = first; i < w.all().size(); i++) {
             LogEntry e = w.all().get(i);
-            out.same(-1, e.daySinceStart(), "news: " + e.message);
+            out.same(-1, e.daySinceStart(), true, "news: " + e.message);
         }
         Object handler = GAME.EVENT();
         Event now = GAME.EVENT().current();
@@ -214,9 +217,9 @@ public final class WorldWatch {
         } else if (now != event) {
             int today = TIME.days().bitsSinceStart();
             if (event != null)
-                out.same(-1, today, "scripted event ends: " + event.key);
+                out.same(-1, today, false, "scripted event ends: " + event.key);
             if (now != null)
-                out.same(-1, today, "scripted event starts: " + now.key);
+                out.same(-1, today, false, "scripted event starts: " + now.key);
             event = now;
         }
         newMessages(out);
