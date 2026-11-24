@@ -150,11 +150,13 @@ and army decisions in the text log are the rare kinds only.
 - **Network messages** are recorded by `RecordingNode`, which the lobbies put round their node (outside the test
   conditions' node) and the setup inherits: as the game thread sends and polls them; nodes stamp no arrival time.
   A message's type is its place among `Message`'s permitted types, named by the types entry.
-- **The file** is `sosgsgmpecorder\<host|join>-<player>.rec`, opened with the playtest log at Host or Join. It is
+- **The file** is `sosgsgmp
+ecorder\<host|join>-<player>.rec`, opened with the playtest log at Host or Join. It is
   not truncated when it is opened again: Windows refuses that while an earlier session's mapping lives (Java unmaps
   only through the garbage collector), so a new session rewrites the header with nothing written.
 - **Incidents:** a desync this PC's engine finds, a frame or a hold over 5 s, or an exception at `MpLog.error`'s
-  boundaries; copied to `sosgsgmpecorder\<log name>-<step>-<why>.rec`, at most 5 a session; the log names the copy,
+  boundaries; copied to `sosgsgmp
+ecorder\<log name>-<step>-<why>.rec`, at most 5 a session; the log names the copy,
   and a joining PC's reports send it.
 - **The stream** (`RecorderStream`): whole records, a text kind's record followed by its text. The outbox sends the
   stream's piece and then, in the same frame, a log's or a file's (`MpReports` asks twice); the stream gives one piece
@@ -170,6 +172,17 @@ and army decisions in the text log are the rare kinds only.
 See SOSDET `docs/plan/0022-logging.md`: E1 the applied ring, E2 the NPC army decisions ring, E3 the world parts in
 the hash record, E4 item hashes in the desync report. The mod reads E1 and E2 each frame between steps, writes the
 recorder and the text lines; `tools/logdiff.py` also compares two PCs' desync reports item by item.
+
+**As built (mod side, 2026-11-24):** `menu.MpEngineRings` reads both rings every frame from the engine session's
+start (seq 0), so every PC writes every line, and again from 0 when the engine's counts fall (a new engine session).
+Every entry goes into the recorder at its own step (`Recorder.recordAt`): a command (kind 5: peer the PC, size the
+division, A the ring's seq, B the command id with bit 16 set when skipped), an AI entry (kind 6, B the AI kind), an
+army decision (kind 7: peer the faction, size the order's kind, A the tile x and y in its top 32 bits over the army's
+slot, B the target). Text lines, `= `: `= <step> command: <name> (<id>), PC <n>[, division <d>]` for ids 7000 to
+8199, without `skipped` (not the same on every PC: SOSDET's `Applied` says which), and `= <step> army: create|besiege|
+disband, army <slot> of <faction> (<i>), tile x,y[, target <t>]`. A ring overwritten before the log read it says so
+in a line. The desync report's world parts and items come in the engine's own report text, which `logdiff.py`
+compares item by item (`<part> <index> <hash>`). Protocol 34: the hash record's bytes changed (format 9).
 
 ## Spec and docs
 
@@ -197,4 +210,18 @@ recorder and the text lines; `tools/logdiff.py` also compares two PCs' desync re
 ## State on 2026-11-24
 
 - Cards SOS-246 to SOS-250 created and In Progress. Worktrees made from main (SOSGSGMP `1b9ec0f`, SOSDET `bad818f`).
-- Nothing built yet.
+- SOSDET's half (E1 to E4) built and committed in its worktree (`7cade05`, `1e0b70b`).
+- The mod's half built, one commit per card: SOS-246 (log basics), SOS-247 (world and city lines, `logdiff.py`),
+  SOS-248 (the recorder, the stream, incidents, `recorder.py`, spec 0.74), then the engine's rings (SOS-249, SOS-250:
+  protocol 34). `gradlew.bat build` passes against the engine worktree's jar; 375 unit tests, and 5 for `logdiff.py`
+  (`python tools\test_logdiff.py`). Nothing run in the game yet.
+- **The twopc run must check** (one run, `--here`, sos-test-run): `logdiff.py` on both logs says the `= ` lines are the
+  same, and with `--all` which `~ ` kinds are (each that is becomes `= `; the suspects are under SOS-247's notes); the
+  log opens at Host and Join with the system line and the lobby's lines; the status line's heap and draws; both
+  recorder files read back with `recorder.py`, with net-in and net-out entries, commands, AI entries and army
+  decisions; the host's reports folder holds the joining PC's `recorder.stream` within a second of its entries
+  (`recorder.py` on it), and no other stream than its own kinds; the step time's mean and p99 at speed 5 with and
+  without the recorder (under 1% apart; turning it off needs a build without `Recorder.open`, or a read-only
+  `sosgsgmp\recorder` folder, which turns it off with a line); a forced desync, if twopc has one, with the report
+  naming the world part and an incident copy on both PCs (the joiner's at the host); a second lobby in the same game
+  run reopens the recorder (the mapping of the first lives on).

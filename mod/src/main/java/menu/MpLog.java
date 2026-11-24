@@ -99,6 +99,8 @@ final class MpLog {
 			line(text);
 		}
 	};
+	/** The engine's applied entries and army decisions (SOS-249). */
+	private final MpEngineRings rings;
 	/** The engine's draws outside the simulation at the last look: a draw there may be a desync's start (SOS-247). */
 	private long foreignDraws;
 
@@ -132,6 +134,7 @@ final class MpLog {
 		this.world = new WorldWatch(step);
 		if (recorder != null)
 			recorder.stepFrom(step);
+		this.rings = new MpEngineRings(engine, recorder);
 	}
 
 	/**
@@ -314,6 +317,7 @@ final class MpLog {
 		speed();
 		world.install();
 		world.drain(worldLines);
+		rings.look(this);
 		freezes();
 		battle();
 		assault();

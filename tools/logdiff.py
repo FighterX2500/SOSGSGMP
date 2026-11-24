@@ -7,7 +7,8 @@
 A line every PC writes alike starts, after its time stamp, with a mark, a key and its text:
 "21:04:05.678 = 123450 world: ...". The key is a step, or "d812" for a game day (what the log finds by polling).
 Lines are grouped by key; at each key both logs must hold the same lines (in any order: two lines at one step may be
-written in either order). Only the keys both logs cover are compared: a PC that ran longer differs in nothing for it.
+written in either order). Only the keys both logs cover are compared, from the later first key to the earlier last
+one: a PC that started its log later or ran longer differs in nothing for that.
 The first key that differs is printed with the lines around it in both files.
 
 The desync reports ("this PC's engine found a desync at step N:" and the lines indented under it) are compared item
@@ -54,8 +55,10 @@ def first_difference(a, b):
         ka, kb = a[kind], b[kind]
         if not ka or not kb:
             continue
-        last = min(max(ka), max(kb))
+        first, last = max(min(ka), min(kb)), min(max(ka), max(kb))
         for key in sorted(set(ka) | set(kb)):
+            if key < first:
+                continue
             if key > last:
                 break
             ta = sorted(t for t, _ in ka.get(key, []))

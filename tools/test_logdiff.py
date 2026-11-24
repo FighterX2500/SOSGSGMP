@@ -54,6 +54,11 @@ class LogdiffTest(unittest.TestCase):
         self.assertEqual(0, status, out)
         self.assertIn("are the same (6 in A, 5 in B", out)  # step 690 is past the joining PC's log
 
+    def test_a_log_that_starts_later_differs_in_nothing_before_its_start(self):
+        late = "".join(l + "\n" for l in JOIN.splitlines() if " 600 " not in l and " d12 " not in l)
+        status, out = self.run_on(HOST.replace("9f00", "9e00"), late, "--all")
+        self.assertEqual(0, status, out)
+
     def test_the_first_differing_step_with_its_lines(self):
         status, out = self.run_on(HOST, JOIN.replace("army stop", "army halt"))
         self.assertEqual(1, status)

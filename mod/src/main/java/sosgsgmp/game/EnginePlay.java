@@ -690,6 +690,28 @@ public final class EnginePlay implements EnginePort {
         return Engine.behindHost();
     }
 
+    /** The AI log entries applied or skipped after {@code afterSeq}, into {@code out}; how many were lost (SOS-249). */
+    public long applied(long afterSeq, java.util.List<sosdet.Applied> out) {
+        return Engine.applied(afterSeq, out);
+    }
+
+    public long lastApplied() {
+        return Engine.lastApplied();
+    }
+
+    public String commandName(int id) {
+        return Engine.commandName(id);
+    }
+
+    /** The world armies' orders and creations after {@code afterSeq}, into {@code out}; how many were lost (SOS-249). */
+    public long armyOrders(long afterSeq, java.util.List<sosdet.ArmyOrder> out) {
+        return Engine.armyOrders(afterSeq, out);
+    }
+
+    public long lastArmyOrder() {
+        return Engine.lastArmyOrder();
+    }
+
     /** What may hold the next step now, for the playtest log's line about a long hold (SOS-247). */
     public String holdWhy() {
         return Engine.holdWhy();

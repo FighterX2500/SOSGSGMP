@@ -144,10 +144,15 @@ public final class Recorder implements AutoCloseable {
 
     /** An entry at the step now. */
     public void record(int kind, int peer, int size, long a, int b) {
+        recordAt(step.getAsLong(), kind, peer, size, a, b);
+    }
+
+    /** An entry at {@code step}: what the engine's rings say happened at a step already past (SOS-249). */
+    public void recordAt(long step, int kind, int peer, int size, long a, int b) {
         if (failure != null || closed)
             return;
         try {
-            put(kind, peer, size, a, b);
+            put(step, kind, peer, size, a, b);
         } catch (RuntimeException e) {
             // the recorder's boundary: it stops for the session, and the playtest log says so once
             failure = e;
@@ -161,17 +166,17 @@ public final class Recorder implements AutoCloseable {
         try {
             long at = payloadWritten;
             int n = utf8(text);
-            put(kind, peer, n, at, 0);
+            put(step.getAsLong(), kind, peer, n, at, 0);
         } catch (RuntimeException e) {
             // the recorder's boundary: it stops for the session, and the playtest log says so once
             failure = e;
         }
     }
 
-    private void put(int kind, int peer, int size, long a, int b) {
+    private void put(long step, int kind, int peer, int size, long a, int b) {
         int at = HEADER + (int) (written % ENTRIES) * ENTRY;
         map.putLong(at + E_TIME, nanos.getAsLong() - startNanos);
-        map.putInt(at + E_STEP, (int) step.getAsLong());
+        map.putInt(at + E_STEP, (int) step);
         map.putShort(at + E_KIND, (short) kind);
         map.putShort(at + E_PEER, (short) peer);
         map.putInt(at + E_SIZE, size);

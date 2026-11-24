@@ -105,6 +105,18 @@ class RecorderTest {
     }
 
     @Test
+    void anEngineRingsEntryKeepsItsOwnStep() throws IOException {
+        Recorder r = open("rings.rec");
+        r.stepFrom(() -> 900);
+        r.recordAt(870, Recorder.COMMAND, 1, 3, 55, 7012 | 1 << 16);
+        r.close();
+        RecorderReader.Entry e = new RecorderReader(r.file()).entries.get(0);
+        assertEquals(870, e.step());
+        assertEquals(7012, e.b() & 0xFFFF);
+        assertEquals(1, e.b() >> 16);
+    }
+
+    @Test
     void aClosedRecorderRecordsNothing() throws IOException {
         Recorder r = open("closed.rec");
         r.close();
