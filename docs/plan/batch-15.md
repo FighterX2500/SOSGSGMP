@@ -313,3 +313,16 @@ The owner's manual test over real Steam on this PC: Spacewar (App ID 480), the j
   8. A sent `hs_err` file is known by its name and its time (a later process can have the same pid). Lines that
      `sent.txt` holds from before name only the file, so last week's `hs_err` files may go to the host once more.
   383 unit tests pass.
+
+## State on 2026-11-25: the final check
+
+On the final builds of both branches (SOSDET `747e221` with the review fixes, the mod `627b254`): `gradlew.bat test
+build` 383 unit tests, 0 failures; SOSDET `test assemble` 471, 0 failures; `tools\test_logdiff.py` OK. SOSDET's rigs
+B15S2 and B15R3 again: see SOSDET's plan 0022.
+- **twopc T4** (T1's command): `RESULT: PASS: 5 common hash steps, 0 differ`; the desync at 6030 held both PCs at
+  6072 and the resync cleared it; the campaign saved on both.
+- `logdiff.py`: 184 comparable lines on each PC, all the same; the desync reports at 6030: 179 items both have, the 8
+  that differ are the running parts from "events per human" on.
+- One incident copy per PC (`...-6031-desync.rec`), the joiner's at the host with its log, its save and
+  `recorder.stream` (20,313 records, the message types' names first, one gap at its start for the lobby's 59
+  entries, its last entry at step 8995 as the joiner left).
