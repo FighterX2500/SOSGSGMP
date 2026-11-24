@@ -233,6 +233,7 @@ final class MpHotJoin {
 			throw new IllegalStateException("SOSGSGMP: this PC has no copy of the founding save " + number);
 		SetupSession next = restarted;
 		restarted = null;
+		log.restarting();
 		game.endSession();
 		CORE.setCurrentState(new MpWorldLoad(next, record));
 	}
@@ -242,6 +243,7 @@ final class MpHotJoin {
 		ended = true;
 		phase = Phase.IDLE;
 		GAME.SPEED.speedSet(0);
+		log.restarting();
 		game.endSession();
 		CORE.setCurrentState(new MpWorldLoad(next, record));
 	}

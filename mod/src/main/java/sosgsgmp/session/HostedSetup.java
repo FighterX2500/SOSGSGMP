@@ -11,6 +11,7 @@ import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
+import sosgsgmp.log.PlayLog;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.net.ConditionedNode;
 import sosgsgmp.net.Message;
@@ -59,6 +60,8 @@ public final class HostedSetup implements SetupSession {
     private byte[] save;
     private final Cursors cursors = new Cursors();
     private final Notes notes = new Notes();
+    /** The playtest log, carried from the lobby to a restart's session (SOS-246); null when none was kept. */
+    private PlayLog log;
     /** Players whose PC left the running game, and the hold for them (spec §11 Disconnects, SOS-65). */
     private final Departures departures = new Departures();
     /** Each player's key, by player id: who they are in the campaign (SOS-64). */
@@ -966,6 +969,7 @@ public final class HostedSetup implements SetupSession {
         // a restart has nobody missing: nothing is frozen or removed at its start
         HostedSetup h = new HostedSetup(node, joined2, players2, keys2, world, factionWorld, s, chat, builds, joined2.keySet(), false);
         h.restartInfo = r;
+        h.log = log; // the same file goes on (SOS-246)
         h.newcomerPeer = candidate.peer;
         return h;
     }
@@ -1434,5 +1438,15 @@ public final class HostedSetup implements SetupSession {
     @Override
     public String takeNote() {
         return notes.take();
+    }
+
+    @Override
+    public PlayLog log() {
+        return log;
+    }
+
+    @Override
+    public void keepLog(PlayLog log) {
+        this.log = log;
     }
 }

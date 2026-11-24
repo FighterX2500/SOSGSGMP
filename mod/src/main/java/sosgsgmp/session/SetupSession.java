@@ -7,6 +7,7 @@ import sosgsgmp.campaign.Campaign;
 import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
+import sosgsgmp.log.PlayLog;
 import sosgsgmp.net.ConditionedNode;
 import sosgsgmp.net.Message;
 import sosgsgmp.setup.FactionPick;
@@ -296,6 +297,15 @@ public interface SetupSession {
      * dropped, oldest first and each once; null when there is none (SOS-63).
      */
     String takeNote();
+
+    /**
+     * The session's playtest log, opened at Host or Join (SOS-246) and kept from the lobby on, a restart's session too;
+     * null when none was kept. The session only carries it: the menu's classes write and close it.
+     */
+    PlayLog log();
+
+    /** Keeps {@code log} as this session's playtest log (the lobby's hand-over, SOS-246). */
+    void keepLog(PlayLog log);
 
     // ------------------------------------------------------------------ hot-join (SOS-190, docs/archive/hot-join-restart.md)
 

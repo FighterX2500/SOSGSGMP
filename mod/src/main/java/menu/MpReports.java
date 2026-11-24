@@ -14,13 +14,14 @@ import sosgsgmp.campaign.DataLayout;
 import sosgsgmp.game.DataFolders;
 import sosgsgmp.lobby.LobbyPrefs;
 import sosgsgmp.net.Message;
+import sosgsgmp.report.HsErr;
 import sosgsgmp.report.ReportOutbox;
 import sosgsgmp.session.SetupSession;
 
 /**
  * SOSGSGMP: reports (SOS-133). A joining PC sends the host, in the background, its playtest log and Steam log as they
- * grow, the game's crash files of the last week it hasn't sent before, and each campaign save with its record. The
- * host keeps them in {@code %APPDATA%/songsofsyx/sosgsgmp/reports} (SOS-155). {@code reports=false} in a PC's lobby settings
+ * grow, the game's crash files and the JVM's {@code hs_err} files (SOS-246) of the last week it hasn't sent before, and
+ * each campaign save with its record. The host keeps them in {@code %APPDATA%/songsofsyx/sosgsgmp/reports} (SOS-155). {@code reports=false} in a PC's lobby settings
  * stops its sending.
  */
 final class MpReports {
@@ -84,8 +85,39 @@ final class MpReports {
 		} catch (IOException e) {
 			// no crash files folder: nothing to send from it
 		}
+		crashes += hsErrs(reports, sent, now);
 		setup.chat().notice("Your game sends its logs and saves to the host, for bug reports.");
 		log.line("reports: this PC's logs, " + crashes + " crash files and its saves go to the host");
+	}
+
+	/**
+	 * The JVM's fatal error files of the last week not sent before (SOS-246), without their environment. The JVM writes
+	 * one in its working folder, the game's folder as the launcher starts the game on Windows, Linux and macOS alike (no
+	 * {@code -XX:ErrorFile} in its arguments), or in the temp folder when it can't write there.
+	 */
+	private int hsErrs(Path reports, Set<String> sent, long now) {
+		int n = 0;
+		for (String dir : new String[] { System.getProperty("user.dir"), System.getProperty("java.io.tmpdir") }) {
+			if (dir == null)
+				continue;
+			try (DirectoryStream<Path> files = Files.newDirectoryStream(Path.of(dir), HsErr.GLOB)) {
+				for (Path f : files) {
+					String name = f.getFileName().toString();
+					if (sent.contains(name) || now - Files.getLastModifiedTime(f).toMillis() >= CRASH_AGE_MS)
+						continue;
+					try {
+						outbox.add(name, HsErr.redact(Files.readAllBytes(f)), () -> markSent(reports, name));
+						sent.add(name); // the temp folder may be the working folder
+						n++;
+					} catch (IOException | IllegalArgumentException e) {
+						log.line("reports: " + name + " not sent: " + e.getMessage());
+					}
+				}
+			} catch (IOException e) {
+				// a folder that can't be listed: nothing to send from it
+			}
+		}
+		return n;
 	}
 
 	/** A joining PC saved the campaign: the save and its record go to the host after what waits. */

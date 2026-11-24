@@ -20,6 +20,7 @@ import sosdet.OwnBattle;
 import sosdet.Stats;
 import sosgsgmp.game.DataFolders;
 import sosgsgmp.game.EnginePlay;
+import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.GameFiles;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.log.PlayLog;
@@ -86,21 +87,44 @@ final class MpLog {
 		this.transfers = new MpTransferLog(setup);
 	}
 
-	/** A new log for this PC's session, with the session's facts first. */
+	/**
+	 * The game's log for this PC's session, with the session's facts first: in the file the lobby opened (SOS-246), or
+	 * a new one, with the system line, when the session carries none.
+	 */
 	static MpLog open(SetupSession setup, EnginePlay engine) {
-		Path dir = DataFolders.layout().logs();
-		String name = (setup.isHost() ? "host-" : "join-") + localName(setup);
-		MpLog l = new MpLog(PlayLog.open(dir, name, Clock.systemDefaultZone()), setup, engine);
-		if (l.log.failure() == null)
+		PlayLog file = setup.log();
+		boolean fresh = file == null;
+		if (fresh) {
+			file = PlayLog.open(DataFolders.layout().logs(), (setup.isHost() ? "host-" : "join-") + localName(setup), Clock.systemDefaultZone());
+			setup.keepLog(file);
+		}
+		MpLog l = new MpLog(file, setup, engine);
+		if (fresh && l.log.failure() == null)
 			LOG.ln("SOSGSGMP: playtest log " + l.log.file());
 		l.reportFailure();
+		if (fresh)
+			l.line(system(setup.builds()));
 		l.line("SOSGSGMP session, " + (setup.isHost() ? "host" : "joining PC") + ", player " + localName(setup) + " (id "
 				+ setup.localPlayerId() + ")\nnetwork: " + setup.network() + "\nmod " + jar(MpLog.class) + ", engine "
-				+ jar(OwnBattle.class) + ", protocol " + Protocol.VERSION + "\ngame " + VERSION.VERSION_STRING + ", Java "
-				+ System.getProperty("java.version") + ", " + System.getProperty("os.name") + ", memory "
-				+ Runtime.getRuntime().maxMemory() / (1 << 20) + " MB");
+				+ jar(OwnBattle.class) + ", protocol " + Protocol.VERSION);
 		l.files(setup.builds().files());
 		return l;
+	}
+
+	private static final long MB = 1 << 20;
+
+	/**
+	 * The system line (SOS-246): the OS, Java, the heap's limit, the CPU's cores, the game's build and the mods enabled,
+	 * in load order. Nothing that names the player or the PC.
+	 */
+	static String system(Builds builds) {
+		List<String> mods = new ArrayList<>();
+		for (GameFiles.Mod m : builds.files().mods())
+			mods.add(m.name() + " " + m.version());
+		return "system: " + System.getProperty("os.name") + " " + System.getProperty("os.version") + " (" + System.getProperty("os.arch")
+				+ "), Java " + System.getProperty("java.version") + " (" + System.getProperty("java.vendor") + "), heap max "
+				+ Runtime.getRuntime().maxMemory() / MB + " MB, " + Runtime.getRuntime().availableProcessors() + " cores, game "
+				+ VERSION.VERSION_STRING + ", mods: " + (mods.isEmpty() ? "none" : String.join(", ", mods));
 	}
 
 	/** The game files every PC shares (SOS-159): their code, the mods in load order, and the unsupported ones. */
@@ -353,6 +377,7 @@ final class MpLog {
 		long now = System.nanoTime();
 		double seconds = (now - statusNanos) / 1e9;
 		Stats s = engine.stats();
+		Runtime rt = Runtime.getRuntime();
 		StringBuilder peers = new StringBuilder();
 		for (LobbyPlayer p : setup.players()) {
 			int pc = setup.factions().slotOf(p.id());
@@ -365,12 +390,14 @@ final class MpLog {
 		line(String.format(Locale.ROOT,
 				"step %d hash %s | speed agreed %.2f, game %.2f, paused %b | %.1f fps, step ms mean %.2f p99 %.2f max %.1f,"
 						+ " over 100 ms %d, capacity %d steps/s | peers at %s | held %.1f s, longest %.2f s | hashes compared %d, missed %d | orders %d,"
-						+ " commands %d, txns %d, reports %d, AI %d | treasury %d | network out %.1f KB/s (%d KB, raw %d KB), in %.1f KB/s (%d KB, raw %d KB)",
+						+ " commands %d, txns %d, reports %d, AI %d | treasury %d | network out %.1f KB/s (%d KB, raw %d KB), in %.1f KB/s (%d KB, raw %d KB)"
+						+ " | heap used %d MB, committed %d MB, max %d MB",
 				at, hash(at), s.agreedSpeed, GAME.SPEED.speed(), GAME.SPEED.isPaused(), (frames - statusFrames) / seconds,
 				s.meanMs, s.p99Ms, s.maxMs, s.stepsOver100Ms, engine.capacity(), peers, engine.heldSeconds(), engine.longestHoldSeconds(),
 				s.hashesCompared, s.hashesMissed, s.ordersApplied, s.commandsApplied, s.txnsApplied, s.reportsReceived,
 				s.aiApplied, (long) FACTIONS.player().credits().credits(), (n.wireOut() - statusWireOut) / 1024.0 / seconds,
-				n.wireOut() >> 10, n.rawOut() >> 10, (n.wireIn() - statusWireIn) / 1024.0 / seconds, n.wireIn() >> 10, n.rawIn() >> 10));
+				n.wireOut() >> 10, n.rawOut() >> 10, (n.wireIn() - statusWireIn) / 1024.0 / seconds, n.wireIn() >> 10, n.rawIn() >> 10,
+				(rt.totalMemory() - rt.freeMemory()) / MB, rt.totalMemory() / MB, rt.maxMemory() / MB));
 		if (setup.testNetwork() != null) // test runs only (SOS-175)
 			line("test network: " + setup.testNetwork().conditions().describe() + " | " + setup.testNetwork().stats());
 		statusWireOut = n.wireOut();
@@ -391,6 +418,15 @@ final class MpLog {
 	/** The log's file, for the host's reports (SOS-133). */
 	Path file() {
 		return log.file();
+	}
+
+	/**
+	 * A hot-join's restart (SOS-190) ends this session: this log stops, and the restart's session, which carries the
+	 * same file (SOS-246), goes on writing in it.
+	 */
+	void restarting() {
+		line("the log goes on with the restart's session");
+		ended = true;
 	}
 
 	/** The session's end on this PC: nothing more to log. */

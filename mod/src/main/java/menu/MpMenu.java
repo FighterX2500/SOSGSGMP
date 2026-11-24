@@ -185,7 +185,7 @@ final class MpMenu {
 
 	/** Opens the lobby screen; {@code steam} is the host's Steam lobby (for invites), or null. */
 	void openLobby(LobbySession session, SteamNode steam) {
-		lobby.open(session, steam);
+		lobby.open(session, steam, MpLobbyLog.open(session, prefs.name, builds));
 		menu.switchScreen(lobby);
 	}
 

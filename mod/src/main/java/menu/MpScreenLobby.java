@@ -41,6 +41,8 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 
 	private final MpMenu mp;
 	private LobbySession session;
+	/** The playtest log while the lobby is open (SOS-246); the setup carries its file on from the start. */
+	private MpLobbyLog log;
 	/** The host's Steam lobby, for invites; null over direct IP and on joining PCs. */
 	private SteamNode steam;
 	private String shownSteamFailure;
@@ -211,8 +213,9 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 		};
 	}
 
-	void open(LobbySession s, SteamNode steamLobby) {
+	void open(LobbySession s, SteamNode steamLobby, MpLobbyLog lobbyLog) {
 		session = s;
+		log = lobbyLog;
 		steam = steamLobby;
 		shownSteamFailure = null;
 		setup = null;
@@ -296,6 +299,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 			updateSetup();
 		} else if (session != null) {
 			session.update();
+			log.frame();
 			findResumed();
 			refresh();
 			steamFailure();
@@ -407,6 +411,7 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 	}
 
 	private void leaveMenu(snake2d.CORE_STATE.Constructor next) {
+		log = null; // the setup carries the file on
 		askingLeave = false;
 		startAsk = null;
 		session = null;
@@ -487,10 +492,14 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 	}
 
 	private void leave() {
-		if (setup != null)
+		if (setup != null) {
 			setup.leave();
-		else if (session != null)
+			MpLobbyLog.left(setup, "Leave in the lobby screen" + (setup.closedReason() == null ? "" : ": " + setup.closedReason()));
+		} else if (session != null) {
 			session.leave();
+			log.close(resumeProblem != null ? resumeProblem : "Leave: " + session.closedReason());
+		}
+		log = null;
 		setup = null;
 		session = null;
 		steam = null;

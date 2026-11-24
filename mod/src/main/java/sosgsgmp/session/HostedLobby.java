@@ -10,6 +10,7 @@ import sosgsgmp.lobby.Lobby;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
+import sosgsgmp.log.PlayLog;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.net.ConditionedNode;
 import sosgsgmp.net.Message;
@@ -29,8 +30,11 @@ public final class HostedLobby implements LobbySession {
     private boolean handedOver;
     private String closedReason;
     private final Chat chat = new Chat();
+    private final Notes notes = new Notes();
     private final Builds builds;
     private int changes;
+    /** The playtest log the setup carries on (SOS-246); null when none was kept. */
+    private PlayLog log;
 
     /**
      * Opens a lobby listening on {@code port} (0: any free port); throws if the port can't be used. {@code hostKey}: this
@@ -93,12 +97,15 @@ public final class HostedLobby implements LobbySession {
                 Refusal refusal = builds.mismatch(h.builds());
                 if (refusal == Refusal.WRONG_FILES) {
                     // what differs, named for the joining player (SOS-159)
-                    refuse(peer, new Message.Refused(refusal, builds.files().differences(h.builds().files())));
+                    Message.Refused refused = new Message.Refused(refusal, builds.files().differences(h.builds().files()));
+                    notes.add(h.name() + " (peer " + peer + ") refused: " + refused.text());
+                    refuse(peer, refused);
                     return;
                 }
                 if (refusal == null)
                     refusal = lobby.refusal(h.playerKey());
                 if (refusal != null) {
+                    notes.add(h.name() + " (peer " + peer + ") refused: " + refusal);
                     refuse(peer, refusal);
                     return;
                 }
@@ -112,13 +119,17 @@ public final class HostedLobby implements LobbySession {
                 chat.heard(id, lobby.players(), c.text());
                 relay(new Message.Chat(id, Chat.clean(c.text())));
             }
-            case Message.Unsupported u -> refuse(peer, Refusal.WRONG_VERSION);
+            case Message.Unsupported u -> {
+                notes.add("peer " + peer + " runs protocol " + u.version() + ": refused (" + Refusal.WRONG_VERSION + ")");
+                refuse(peer, Refusal.WRONG_VERSION);
+            }
             case Message.Leave l when isJoined -> {
                 node.disconnect(peer);
                 removeJoined(peer);
             }
             default -> {
                 // Anything else from a joining PC breaks the protocol: drop it.
+                notes.add("peer " + peer + " sent " + m.getClass().getSimpleName() + ", which doesn't belong in the lobby: dropped");
                 node.disconnect(peer);
                 removeJoined(peer);
             }
@@ -207,8 +218,25 @@ public final class HostedLobby implements LobbySession {
         if (state != LobbyState.STARTED || handedOver)
             throw new IllegalStateException("SOSGSGMP: only a started lobby hands over, once (state " + state + ", handed over " + handedOver + ")");
         handedOver = true;
-        return new HostedSetup(node, joined, lobby.players(), lobby.keys(), world, factions, lobby.settings(), chat, builds,
-                lobby.freezesMissing());
+        HostedSetup s = new HostedSetup(node, joined, lobby.players(), lobby.keys(), world, factions, lobby.settings(), chat,
+                builds, lobby.freezesMissing());
+        s.keepLog(log);
+        return s;
+    }
+
+    @Override
+    public void keepLog(PlayLog log) {
+        this.log = log;
+    }
+
+    @Override
+    public String network() {
+        return node.describe();
+    }
+
+    @Override
+    public String takeNote() {
+        return notes.take();
     }
 
     @Override

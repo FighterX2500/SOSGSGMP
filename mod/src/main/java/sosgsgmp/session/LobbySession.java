@@ -5,6 +5,7 @@ import java.util.List;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
+import sosgsgmp.log.PlayLog;
 import sosgsgmp.setup.FactionWorld;
 import sosgsgmp.setup.MapWorld;
 
@@ -74,4 +75,21 @@ public interface LobbySession {
 
     /** Why the session closed, for the lobby screen; null while it isn't closed. */
     String closedReason();
+
+    /**
+     * Something worth a line in the playtest log that the players and the state don't show, such as a PC refused,
+     * oldest first and each once; null when there is none (SOS-246).
+     */
+    default String takeNote() {
+        return null;
+    }
+
+    /**
+     * Hands {@link #handOver} this playtest log for the setup to carry into the game (SOS-246). Call before the
+     * hand-over; the lobby only carries it.
+     */
+    void keepLog(PlayLog log);
+
+    /** What carries the lobby's connections, for the playtest log. */
+    String network();
 }

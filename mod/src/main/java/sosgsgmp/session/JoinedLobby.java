@@ -7,6 +7,7 @@ import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
+import sosgsgmp.log.PlayLog;
 import sosgsgmp.net.ConditionedNode;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.Node;
@@ -35,6 +36,8 @@ public final class JoinedLobby implements LobbySession {
     private String closedReason;
     private final Chat chat = new Chat();
     private int changes;
+    /** The playtest log the setup carries on (SOS-246); null when none was kept. */
+    private PlayLog log;
 
     /** Starts connecting to {@code host}:{@code port}; the outcome arrives through {@link #update()}. */
     public JoinedLobby(String host, int port, String name, long playerKey, Builds builds) throws IOException {
@@ -173,8 +176,20 @@ public final class JoinedLobby implements LobbySession {
         if (state != LobbyState.STARTED || handedOver)
             throw new IllegalStateException("SOSGSGMP: only a started lobby hands over, once (state " + state + ", handed over " + handedOver + ")");
         handedOver = true;
-        return new JoinedSetup(node, localId, players, world, factions, settings.resume(), settings.fullTransferLog(),
+        JoinedSetup s = new JoinedSetup(node, localId, players, world, factions, settings.resume(), settings.fullTransferLog(),
                 settings.livingWorld(), chat, builds, running, freezeMissing);
+        s.keepLog(log);
+        return s;
+    }
+
+    @Override
+    public void keepLog(PlayLog log) {
+        this.log = log;
+    }
+
+    @Override
+    public String network() {
+        return node.describe();
     }
 
     @Override

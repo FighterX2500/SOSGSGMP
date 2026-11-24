@@ -44,18 +44,34 @@ public final class ReportOutbox {
      */
     public void add(Path file, Runnable done) {
         String name = file.getFileName().toString();
-        for (Whole w : files)
-            if (w.name.equals(name))
-                return;
+        if (queued(name))
+            return;
         byte[] bytes;
         try {
             bytes = Files.readAllBytes(file);
         } catch (IOException e) {
             throw new UncheckedIOException("SOSGSGMP: can't read " + file + " for the host's reports", e);
         }
+        add(name, bytes, done);
+    }
+
+    /**
+     * A whole file's {@code bytes} as {@code name}, read and changed by the caller (an {@code hs_err} file without its
+     * environment, SOS-246), sent as {@link #add(Path, Runnable)} sends a file.
+     */
+    public void add(String name, byte[] bytes, Runnable done) {
+        if (queued(name))
+            return;
         if (bytes.length > Message.Report.MAX_TOTAL)
-            throw new IllegalArgumentException("SOSGSGMP: " + file + " of " + bytes.length + " bytes is too large for a report");
-        files.add(new Whole(name, bytes, done));
+            throw new IllegalArgumentException("SOSGSGMP: " + name + " of " + bytes.length + " bytes is too large for a report");
+        files.add(new Whole(name, bytes.clone(), done));
+    }
+
+    private boolean queued(String name) {
+        for (Whole w : files)
+            if (w.name.equals(name))
+                return true;
+        return false;
     }
 
     /** The next piece to send, or null while the budget or nothing waits. Call every frame with the time. */
