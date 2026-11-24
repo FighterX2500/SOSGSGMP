@@ -11,9 +11,9 @@ import sosgsgmp.log.Recorder;
 import sosgsgmp.log.SameLine;
 
 /**
- * SOSGSGMP: the engine's applied ring and army decisions ring (SOSDET 0022, E1 and E2; SOS-249), read each frame
- * between steps. Every entry goes into the recorder at its own step; the rare kinds are lines of the playtest log every
- * PC writes alike: a world, military or diplomacy command (ids {@value #WORLD_COMMANDS} to {@value #LAST_WORLD_COMMAND})
+ * SOSGSGMP: the engine's applied ring and army decisions ring (SOSDET 0022, E1 and E2; SOS-249), read between steps a
+ * few times a second (reading allocates; the rings hold seconds). Every entry goes into the recorder at its own step;
+ * the rare kinds are lines of the playtest log every PC writes alike: a world, military or diplomacy command (ids {@value #WORLD_COMMANDS} to {@value #LAST_WORLD_COMMAND})
  * and an army's creation, siege or disband. A command's line leaves out whether it was skipped: that is not the same
  * on every PC (a city's commands, a stationed player's orders, SOS-234); the recorder keeps it.
  */
@@ -34,7 +34,7 @@ final class MpEngineRings {
 		this.recorder = recorder;
 	}
 
-	/** Every frame, between steps, once the engine runs. */
+	/** A few times a second, between steps, once the engine runs. */
 	void look(MpLog out) {
 		if (engine.lastApplied() < appliedSeq || engine.lastArmyOrder() < orderSeq) {
 			appliedSeq = 0; // an engine session begun again: its rings count from the start

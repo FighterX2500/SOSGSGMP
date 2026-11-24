@@ -74,7 +74,7 @@ public final class Recorder implements AutoCloseable {
     private final LongSupplier nanos;
     private LongSupplier step = () -> -1;
     private long written, payloadWritten;
-    private Exception failure;
+    private Throwable failure;
     private boolean closed;
 
     private Recorder(Path file, MappedByteBuffer map, LongSupplier nanos) {
@@ -133,7 +133,7 @@ public final class Recorder implements AutoCloseable {
     }
 
     /** Why the recorder stopped, or null while it records. */
-    public Exception failure() {
+    public Throwable failure() {
         return failure;
     }
 
@@ -153,7 +153,7 @@ public final class Recorder implements AutoCloseable {
             return;
         try {
             put(step, kind, peer, size, a, b);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | InternalError e) { // InternalError: a fault in the mapped file, such as a full disk
             // the recorder's boundary: it stops for the session, and the playtest log says so once
             failure = e;
         }
@@ -167,7 +167,7 @@ public final class Recorder implements AutoCloseable {
             long at = payloadWritten;
             int n = utf8(text);
             put(step.getAsLong(), kind, peer, n, at, 0);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | InternalError e) { // InternalError: a fault in the mapped file, such as a full disk
             // the recorder's boundary: it stops for the session, and the playtest log says so once
             failure = e;
         }

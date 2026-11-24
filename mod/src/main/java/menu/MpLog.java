@@ -317,12 +317,12 @@ final class MpLog {
 		speed();
 		world.install();
 		world.drain(worldLines);
-		rings.look(this);
 		freezes();
 		battle();
 		assault();
 		desync(desync);
 		if (frames % DIPLOMACY_FRAMES == 1) {
+			rings.look(this); // reading allocates: a few times a second, which the rings hold seconds of
 			diplomacy.look(this);
 			transfers.look(this);
 			speedNotice();
