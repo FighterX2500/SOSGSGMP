@@ -74,6 +74,29 @@ humans the world part runs each human's half with that human as `FACTIONS.player
 player is. SOSDET calls `DipActivityListener`s itself (`GameTxns`, `HeldTxn` finds one by class through the private
 `all` list): check that one more listener changes nothing there.
 
+**As built (SOS-247, 2026-11-24):**
+- **Two marks.** `= ` is for kinds a twopc run showed equal; a kind meant to be equal but not confirmed yet is written
+  with `~ ` instead of as a plain line, so the same twopc run can check it: `logdiff.py --all` compares the `~ `
+  lines too. Once a run shows a kind equal, its mark becomes `= ` in the code (`MpLog.worldLines`, by kind).
+- **Day keys.** The world's news and the scripted events are found by polling, after the step they happened at, so
+  their key is the game day (`~ d812 world: news: ...`), which every PC shares; the listeners' lines carry the step.
+- **Kinds still to confirm in twopc** (all `~ ` now): `world: stance`, `world: region`, `world: capital`,
+  `world: faction born`, `world: faction gone`, `world: battle`, `world: siege`, `world: succession` (the
+  listeners); `world: news` and `world: scripted event starts/ends` (day keys). Suspects: `faction born` and
+  `faction gone` also come from SOSDET's `GameHumans.put` and `activateNpc` outside the step (setup, hot-join,
+  the host's living world); scripted events may be this city's own.
+- **The listeners** are made by `sosgsgmp.game.WorldWatch` when the playtest log first sees the loaded world, and
+  again whenever `WORLD.LOG()` is another object (a load made the game again: `GameDisposable` cleared the lists). The
+  events of the steps between a load and the next frame are not heard.
+- **SOSDET's listeners:** `HeldTxn.invasionListener` picks the `Invador` listener by its enclosing class, and
+  `GameTxns` (`WAR_ENDED`) calls the one it holds; `GameBreaks` and `GameHumans` only add or call listeners. A
+  listener of the mod's in the lists changes none of them.
+- **A city report mismatch** was logged already (`MpMismatch`: "the session ends: ..."), so it has no new line.
+- **This PC's lines:** `hold over a second at step N: <holdWhy>; behind the host N steps, step past the peers N`
+  once per hold, while it holds; `foreign draws: N more, N in all, at step N`; `message: <title>`;
+  `city day N: deaths and leavers: ...; arrivals: ...; Riots 1, Accidents 2` (only what isn't 0); the status line's
+  `draws simulation N, foreign N`; `world events: N lost, the queue was full` (4,096 records between two frames).
+
 **Volume:** world and city lines are a few per game day; the local player's messages, some a minute. The commands
 and army decisions in the text log are the rare kinds only.
 

@@ -20,10 +20,12 @@ import sosdet.OwnBattle;
 import sosdet.Stats;
 import sosgsgmp.game.DataFolders;
 import sosgsgmp.game.EnginePlay;
+import sosgsgmp.game.WorldWatch;
 import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.GameFiles;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.log.PlayLog;
+import sosgsgmp.log.SameLine;
 import sosgsgmp.net.Protocol;
 import sosgsgmp.session.Chat;
 import sosgsgmp.session.EngineLink;
@@ -78,6 +80,23 @@ final class MpLog {
 	/** The step last seen to move, and since when: a step that stands still while the game runs is a hold. */
 	private long heldStep = -1;
 	private long heldSinceNanos;
+	/** The hold at {@link #heldStep} has its line already (SOS-247). */
+	private boolean holdSaid;
+	/** The world's events, news and this city's day (SOS-247). */
+	private final WorldWatch world;
+	private final WorldWatch.Out worldLines = new WorldWatch.Out() {
+		@Override
+		public void same(long step, int day, String text) {
+			line(step >= 0 ? SameLine.atStep(SameLine.CANDIDATE, step, "world: " + text) : SameLine.onDay(SameLine.CANDIDATE, day, "world: " + text));
+		}
+
+		@Override
+		public void local(String text) {
+			line(text);
+		}
+	};
+	/** The engine's draws outside the simulation at the last look: a draw there may be a desync's start (SOS-247). */
+	private long foreignDraws;
 
 	private MpLog(PlayLog log, SetupSession setup, EnginePlay engine) {
 		this.log = log;
@@ -85,6 +104,7 @@ final class MpLog {
 		this.engine = engine;
 		this.diplomacy = new MpDiplomacyLog(setup);
 		this.transfers = new MpTransferLog(setup);
+		this.world = new WorldWatch(() -> engine.active() ? engine.step() : -1);
 	}
 
 	/**
@@ -220,6 +240,8 @@ final class MpLog {
 			statusFrames = frames;
 			line("Go: the game runs from step " + engine.step() + String.format(Locale.ROOT, ", game speed %.2f", GAME.SPEED.speed()));
 		}
+		world.install();
+		world.drain(worldLines);
 		freezes();
 		battle();
 		assault();
@@ -228,6 +250,9 @@ final class MpLog {
 			diplomacy.look(this);
 			transfers.look(this);
 			speedNotice();
+			world.poll(worldLines);
+			world.cityDay(worldLines);
+			foreignDraws();
 		}
 		long at = engine.step() / EVERY * EVERY;
 		if (at > statusAt) {
@@ -262,12 +287,27 @@ final class MpLog {
 		lastFrameNanos = now;
 		long step = engine.step();
 		boolean paused = GAME.SPEED.speed() == 0 || setup.pauses().pausedBy() != Pauses.NOBODY;
-		if (step == heldStep && !paused)
+		if (step == heldStep && !paused) {
+			if (!holdSaid && heldStep >= 0 && now - heldSinceNanos > FREEZE_NANOS) {
+				holdSaid = true; // what holds it, while it holds
+				line(String.format(Locale.ROOT, "hold over a second at step %d: %s; behind the host %d steps, step past the peers %d", heldStep,
+						engine.holdWhy(), engine.behindHost(), engine.stepPastPeers()));
+			}
 			return;
+		}
+		holdSaid = false;
 		if (!paused && heldStep >= 0 && now - heldSinceNanos > FREEZE_NANOS)
 			line(String.format(Locale.ROOT, "freeze: held %.1f s at step %d%s", (now - heldSinceNanos) / 1e9, heldStep, during()));
 		heldStep = step;
 		heldSinceNanos = now;
+	}
+
+	/** A draw outside the simulation, which every PC doesn't make alike, gets a line of its own (SOS-247). */
+	private void foreignDraws() {
+		long n = engine.stats().foreignDraws;
+		if (n > foreignDraws)
+			line("foreign draws: " + (n - foreignDraws) + " more, " + n + " in all, at step " + engine.step());
+		foreignDraws = n;
 	}
 
 	private String during() {
@@ -391,13 +431,13 @@ final class MpLog {
 				"step %d hash %s | speed agreed %.2f, game %.2f, paused %b | %.1f fps, step ms mean %.2f p99 %.2f max %.1f,"
 						+ " over 100 ms %d, capacity %d steps/s | peers at %s | held %.1f s, longest %.2f s | hashes compared %d, missed %d | orders %d,"
 						+ " commands %d, txns %d, reports %d, AI %d | treasury %d | network out %.1f KB/s (%d KB, raw %d KB), in %.1f KB/s (%d KB, raw %d KB)"
-						+ " | heap used %d MB, committed %d MB, max %d MB",
+						+ " | heap used %d MB, committed %d MB, max %d MB | draws simulation %d, foreign %d",
 				at, hash(at), s.agreedSpeed, GAME.SPEED.speed(), GAME.SPEED.isPaused(), (frames - statusFrames) / seconds,
 				s.meanMs, s.p99Ms, s.maxMs, s.stepsOver100Ms, engine.capacity(), peers, engine.heldSeconds(), engine.longestHoldSeconds(),
 				s.hashesCompared, s.hashesMissed, s.ordersApplied, s.commandsApplied, s.txnsApplied, s.reportsReceived,
 				s.aiApplied, (long) FACTIONS.player().credits().credits(), (n.wireOut() - statusWireOut) / 1024.0 / seconds,
 				n.wireOut() >> 10, n.rawOut() >> 10, (n.wireIn() - statusWireIn) / 1024.0 / seconds, n.wireIn() >> 10, n.rawIn() >> 10,
-				(rt.totalMemory() - rt.freeMemory()) / MB, rt.totalMemory() / MB, rt.maxMemory() / MB));
+				(rt.totalMemory() - rt.freeMemory()) / MB, rt.totalMemory() / MB, rt.maxMemory() / MB, s.simulationDraws, s.foreignDraws));
 		if (setup.testNetwork() != null) // test runs only (SOS-175)
 			line("test network: " + setup.testNetwork().conditions().describe() + " | " + setup.testNetwork().stats());
 		statusWireOut = n.wireOut();

@@ -690,6 +690,11 @@ public final class EnginePlay implements EnginePort {
         return Engine.behindHost();
     }
 
+    /** What may hold the next step now, for the playtest log's line about a long hold (SOS-247). */
+    public String holdWhy() {
+        return Engine.holdWhy();
+    }
+
     /** The first step whose hashes differed between two PCs, or -1 while they all match. */
     public long desyncStep() {
         Desync d = Engine.desync();
