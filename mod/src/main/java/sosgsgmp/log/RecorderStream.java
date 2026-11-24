@@ -24,6 +24,8 @@ public final class RecorderStream {
     private long next;
     /** Bytes streamed so far: the next piece's offset. */
     private long sent;
+    /** The message-types entry the stream holds, of all the recorder wrote; -1 before it. */
+    private long typesSent = -1;
 
     public RecorderStream(Recorder recorder) {
         this.recorder = recorder;
@@ -49,6 +51,14 @@ public final class RecorderStream {
         long now = recorder.now();
         if (next < written - Recorder.ENTRIES || time(next) < now - BEHIND_NANOS)
             gap(out, written, now);
+        long types = recorder.types();
+        if (types >= 0 && types < next && types != typesSent && types >= written - Recorder.ENTRIES) {
+            // the message types' names were written before where the stream starts (a lobby, a gap): they go first
+            recorder.entry(types, entry, 0);
+            if (!append(out, max))
+                return piece(out);
+            typesSent = types;
+        }
         while (next < written) {
             recorder.entry(next, entry, 0);
             int kind = Bytes.getShort(entry, Recorder.E_KIND);
@@ -56,17 +66,31 @@ public final class RecorderStream {
                 next++;
                 continue;
             }
-            int size = Recorder.text(kind) ? Bytes.getInt(entry, Recorder.E_SIZE) : 0;
-            if (size > 0 && !recorder.payload(Bytes.getLong(entry, Recorder.E_A), size, text, 0)) {
-                size = 0; // the ring dropped its text
-                Bytes.putInt(entry, Recorder.E_SIZE, 0);
-            }
-            if (out.size() + Recorder.ENTRY + size > max)
+            if (!append(out, max))
                 break;
-            out.write(entry, 0, Recorder.ENTRY);
-            out.write(text, 0, size);
+            if (kind == Recorder.TYPES)
+                typesSent = next;
             next++;
         }
+        return piece(out);
+    }
+
+    /** The entry in {@link #entry}, with its text if it has one, into {@code out}; false when it doesn't fit. */
+    private boolean append(ByteArrayOutputStream out, int max) {
+        int kind = Bytes.getShort(entry, Recorder.E_KIND);
+        int size = Recorder.text(kind) ? Bytes.getInt(entry, Recorder.E_SIZE) : 0;
+        if (size > 0 && !recorder.payload(Bytes.getLong(entry, Recorder.E_A), size, text, 0)) {
+            size = 0; // the ring dropped its text
+            Bytes.putInt(entry, Recorder.E_SIZE, 0);
+        }
+        if (out.size() + Recorder.ENTRY + size > max)
+            return false;
+        out.write(entry, 0, Recorder.ENTRY);
+        out.write(text, 0, size);
+        return true;
+    }
+
+    private byte[] piece(ByteArrayOutputStream out) {
         if (out.size() == 0)
             return null;
         byte[] piece = out.toByteArray();

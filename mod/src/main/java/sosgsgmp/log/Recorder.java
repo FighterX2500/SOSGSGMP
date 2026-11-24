@@ -74,6 +74,8 @@ public final class Recorder implements AutoCloseable {
     private final LongSupplier nanos;
     private LongSupplier step = () -> -1;
     private long written, payloadWritten;
+    /** The last {@link #TYPES} entry written, of all entries; -1 before it. */
+    private long types = -1;
     private Throwable failure;
     private boolean closed;
 
@@ -142,6 +144,11 @@ public final class Recorder implements AutoCloseable {
         return written;
     }
 
+    /** The last message-types entry ({@link #TYPES}) written, of all entries, or -1: the stream sends it first. */
+    public long types() {
+        return types;
+    }
+
     /** An entry at the step now. */
     public void record(int kind, int peer, int size, long a, int b) {
         recordAt(step.getAsLong(), kind, peer, size, a, b);
@@ -167,6 +174,8 @@ public final class Recorder implements AutoCloseable {
             long at = payloadWritten;
             int n = utf8(text);
             put(step.getAsLong(), kind, peer, n, at, 0);
+            if (kind == TYPES)
+                types = written - 1;
         } catch (RuntimeException | InternalError e) { // InternalError: a fault in the mapped file, such as a full disk
             // the recorder's boundary: it stops for the session, and the playtest log says so once
             failure = e;

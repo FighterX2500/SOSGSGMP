@@ -90,6 +90,21 @@ class RecorderStreamTest {
     }
 
     @Test
+    void theMessageTypesGoFirstWhenTheStreamStartsPastThem() throws IOException {
+        Recorder r = recorder();
+        r.text(Recorder.TYPES, -1, "message types: 0=Hello");
+        RecorderStream s = new RecorderStream(r);
+        for (int i = 0; i < 10; i++) {
+            r.record(Recorder.FRAME, -1, 0, i, 0);
+            clock += 500_000_000L; // half a second each: the stream jumps past the types
+        }
+        List<String> got = records(s.next(4096));
+        assertEquals(List.of(Recorder.GAP + ":9", Recorder.TYPES + ":0 message types: 0=Hello", Recorder.FRAME + ":8",
+                Recorder.FRAME + ":9"), got);
+        assertNull(s.next(4096)); // once
+    }
+
+    @Test
     void entriesTheRingDroppedAreAGap() throws IOException {
         Recorder r = recorder();
         RecorderStream s = new RecorderStream(r);
