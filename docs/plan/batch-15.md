@@ -257,3 +257,34 @@ against the engine worktree: 376 unit tests, 0 failures; `tools\test_logdiff.py`
 - **Not seen:** a second lobby in the same game run (the recorder file reopened while the first mapping lives); the
   `~ ` kinds above; a real crash (the stream ends with the joiner's last frame; a crash inside a step leaves its last
   entries in the joiner's own file); real Steam; the laptop as a second PC.
+
+## State on 2026-11-25: the Steam test
+
+The owner's manual test over real Steam on this PC: Spacewar (App ID 480), the joining game in the Sandboxie box
+`Steam2` under the spare account, both games from the batch's worktrees (`manual.py start --worktrees ... --steam-app
+480 --sandbox Steam2`), a live log at `events` depth.
+
+- Lobby through Steam, a new game, play to step 13,463, an alliance proposed and accepted, a deal proposed, a pause;
+  the joiner's Quit to menu ended the session for everyone with the campaign saved on both (world hash
+  `52cb635badbc438b` on both). Both PCs' hashes the same at every status line.
+- The log opens at Host and at Join (the system line, `lobby: hosting|joining ... network: Steam P2P`, the recorder,
+  the players); a lobby left without a game closes its file (twice, on game 2); the second of those opened the same
+  recorder file again in the same game run, which worked.
+- `logdiff.py --all`: 16 lines each, the same: 13 `= army: create` (the NPCs' first armies, one every 540 steps), the
+  commands by name (`humanDealPropose`, `humanDealAnswer`), `= world: stance: ... neutral to allied`.
+- The joiner's `recorder.stream` on the host (2.2 MB) starts with the message types' names and ends 0.3 s before the
+  joiner's own file (the session's close); one gap, at its start (344 lobby entries); none while playing.
+- No new Steam dump during the session. At game 1's exit Steam wrote `assert_java.exe_20261125003541_1.dmp` ("Trying
+  to close low level socket support, but we still have sockets open!"), the non-fatal kind seen at session ends since
+  2026-11-15; not this batch's.
+- Fixed after it: the lobby's first line said `hosting lobby 0` and `joined lobby 0` (Steam names the lobby a moment
+  later): the network now says `creating a lobby` or `joining a lobby` until then (a test in `SteamNodeTest`); the hold
+  line said its step twice.
+- Explained: the three holds over a second at steps 4139 to 4289 were the world waiting for the joining PC (its game
+  at 84 fps, 209 steps a second for a moment, `world may run false`); `battle hold true go -1` in the reason is the
+  mode the mod turns on in every session (every PC holds before a battle's Engage, SOS-70), with no battle due.
+- Not this batch's: the joiner's "save 1 done on every PC: the session closed before the host confirmed every player's
+  save" although the host had confirmed both: the host closes the session right after its "done", and over Steam the
+  close can come first (`MpSaves.frame`, SOS-68/79). Both saves were written and alike. A follow-up card for the
+  owner.
+- 377 unit tests pass.

@@ -382,7 +382,7 @@ final class MpLog {
 				holdSaid = true; // what holds it, while it holds
 				if (recorder != null)
 					recorder.record(Recorder.HOLD_START, -1, 0, heldStep, 0);
-				line(String.format(Locale.ROOT, "hold over a second at step %d: %s; behind the host %d steps, step past the peers %d", heldStep,
+				line(String.format(Locale.ROOT, "hold over a second at %s; behind the host %d steps, step past the peers %d", // the reason starts with its step
 						engine.holdWhy(), engine.behindHost(), engine.stepPastPeers()));
 			}
 			return;

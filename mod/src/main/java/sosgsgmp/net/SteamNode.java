@@ -211,6 +211,8 @@ public final class SteamNode implements Node {
 
     @Override
     public String describe() {
+        if (lobby == 0) // Steam names the lobby a moment later: the session's header, at the world's load, has it
+            return "Steam P2P, " + (hosting ? "creating a lobby" : "joining a lobby");
         return "Steam P2P, " + (hosting ? "hosting" : "joined") + " lobby " + lobby;
     }
 

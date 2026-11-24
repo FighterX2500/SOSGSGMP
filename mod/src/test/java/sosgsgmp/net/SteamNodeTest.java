@@ -42,6 +42,15 @@ class SteamNodeTest {
     }
 
     @Test
+    void theNetworkNamesTheLobbyOnlyOnceSteamHasNamedIt() throws InterruptedException {
+        steam.silentJoins();
+        SteamNode j = join(2, 1000);
+        assertEquals("Steam P2P, joining a lobby", j.describe()); // the lobby log's first line: Steam hasn't answered yet
+        SteamNode h = host();
+        assertEquals("Steam P2P, hosting lobby " + h.lobby(), h.describe());
+    }
+
+    @Test
     void aJoinSteamNeverAnswersEndsWithAReason() throws InterruptedException {
         steam.silentJoins();
         SteamNode j = SteamNode.join(() -> steam.port(2), 1000, 50);
