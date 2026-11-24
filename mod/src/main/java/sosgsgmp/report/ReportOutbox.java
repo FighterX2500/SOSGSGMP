@@ -10,13 +10,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import sosgsgmp.log.RecorderStream;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.Protocol;
 
 /**
  * A joining PC's files on their way to the host's reports (SOS-133), a piece at a time within a budget of bytes per
  * second, so the game's own traffic always comes first. A followed log is sent from its start and then as it grows; a
- * whole file (a save, a crash file) is read once when it is added. Plain Java; game thread only.
+ * whole file (a save, a crash file) is read once when it is added. The recorder's stream (SOS-248), when there is one,
+ * goes first, every frame, within a budget of its own. Plain Java; game thread only.
  */
 public final class ReportOutbox {
 
@@ -25,6 +27,13 @@ public final class ReportOutbox {
     /** A followed log's size is looked at this often, in nanoseconds: its new lines reach the host within it. */
     static final long LOOK_NANOS = 5_000_000_000L;
     private static final int PIECE = Protocol.MAX_STREAM_PIECE;
+    /** The recorder stream's bytes per second at most (SOS-248), on top of the files'. */
+    public static final int STREAM_BYTES_PER_SECOND = 16 * 1024;
+    private static final int STREAM_PIECE = 16 * 1024;
+    private RecorderStream stream;
+    private double streamBudget;
+    /** The time of the last stream piece: one a frame at most, so its own entry about the piece sent waits a frame. */
+    private long streamNanos = Long.MIN_VALUE;
 
     private final List<Followed> logs = new ArrayList<>();
     private final List<Whole> files = new ArrayList<>();
@@ -74,11 +83,31 @@ public final class ReportOutbox {
         return false;
     }
 
-    /** The next piece to send, or null while the budget or nothing waits. Call every frame with the time. */
+    /** The recorder's stream, sent ahead of the logs and files as it grows (SOS-248). */
+    public void stream(RecorderStream s) {
+        stream = s;
+    }
+
+    /**
+     * The next piece to send, or null while the budget or nothing waits. Call every frame with the time, a second time
+     * in the frame for a log's or a file's piece after the stream's.
+     */
     public Message.Report next(long nanos) {
-        if (timed)
+        if (timed) {
             budget = Math.min(PIECE, budget + (nanos - lastNanos) * 1e-9 * BYTES_PER_SECOND);
+            streamBudget = Math.min(STREAM_PIECE, streamBudget + (nanos - lastNanos) * 1e-9 * STREAM_BYTES_PER_SECOND);
+        }
         lastNanos = nanos;
+        if (stream != null && nanos != streamNanos && stream.waiting()) {
+            timed = true;
+            streamNanos = nanos;
+            long at = stream.sent();
+            byte[] piece = stream.next((int) streamBudget);
+            if (piece != null) {
+                streamBudget -= piece.length;
+                return new Message.Report(RecorderStream.NAME, -1, at, piece);
+            }
+        }
         if (logs.isEmpty() && files.isEmpty())
             return null; // every frame: nothing made when nothing waits
         if (!timed || nanos - lookedNanos >= LOOK_NANOS) {

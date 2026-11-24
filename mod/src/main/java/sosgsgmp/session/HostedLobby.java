@@ -10,11 +10,12 @@ import sosgsgmp.lobby.Lobby;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
-import sosgsgmp.log.PlayLog;
+import sosgsgmp.log.SessionLog;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.net.ConditionedNode;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.Node;
+import sosgsgmp.net.RecordingNode;
 import sosgsgmp.net.TcpNode;
 import sosgsgmp.setup.FactionWorld;
 import sosgsgmp.setup.MapWorld;
@@ -24,6 +25,8 @@ public final class HostedLobby implements LobbySession {
 
     private final Lobby lobby;
     private final Node node;
+    /** The node, as the recorder sees it (SOS-248). */
+    private final RecordingNode recording;
     /** Connected peers that have joined, to their player ids. Peers still waiting to say hello aren't here. */
     private final Map<Integer, Integer> joined = new HashMap<>();
     private LobbyState state = LobbyState.OPEN;
@@ -34,7 +37,7 @@ public final class HostedLobby implements LobbySession {
     private final Builds builds;
     private int changes;
     /** The playtest log the setup carries on (SOS-246); null when none was kept. */
-    private PlayLog log;
+    private SessionLog log;
 
     /**
      * Opens a lobby listening on {@code port} (0: any free port); throws if the port can't be used. {@code hostKey}: this
@@ -48,12 +51,13 @@ public final class HostedLobby implements LobbySession {
     public HostedLobby(LobbySettings settings, String hostName, long hostKey, Builds builds, Node node) {
         this.lobby = new Lobby(settings, hostName, hostKey);
         this.builds = builds;
-        this.node = ConditionedNode.wrapIfAsked(node); // test runs only (SOS-175)
+        this.recording = new RecordingNode(ConditionedNode.wrapIfAsked(node)); // conditions: test runs only (SOS-175)
+        this.node = recording;
     }
 
     /** The port players join on over direct IP; -1 over Steam. */
     public int port() {
-        return ConditionedNode.unwrap(node) instanceof TcpNode t ? t.port() : -1;
+        return ConditionedNode.unwrap(RecordingNode.under(node)) instanceof TcpNode t ? t.port() : -1;
     }
 
     @Override
@@ -225,8 +229,9 @@ public final class HostedLobby implements LobbySession {
     }
 
     @Override
-    public void keepLog(PlayLog log) {
+    public void keepLog(SessionLog log) {
         this.log = log;
+        recording.recordTo(log == null ? null : log.recorder());
     }
 
     @Override

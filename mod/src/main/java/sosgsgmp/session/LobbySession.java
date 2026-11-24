@@ -5,7 +5,7 @@ import java.util.List;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
-import sosgsgmp.log.PlayLog;
+import sosgsgmp.log.SessionLog;
 import sosgsgmp.setup.FactionWorld;
 import sosgsgmp.setup.MapWorld;
 
@@ -85,10 +85,10 @@ public interface LobbySession {
     }
 
     /**
-     * Hands {@link #handOver} this playtest log for the setup to carry into the game (SOS-246). Call before the
-     * hand-over; the lobby only carries it.
+     * Hands {@link #handOver} this playtest log and recorder for the setup to carry into the game (SOS-246), and records
+     * the lobby's network traffic from now on (SOS-248). Call before the hand-over; the lobby only carries it.
      */
-    void keepLog(PlayLog log);
+    void keepLog(SessionLog log);
 
     /** What carries the lobby's connections, for the playtest log. */
     String network();

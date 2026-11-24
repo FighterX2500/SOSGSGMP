@@ -123,6 +123,47 @@ and army decisions in the text log are the rare kinds only.
 - **Reading:** `tools/recorder.py <file> [--from STEP] [--to STEP] [--kind K]` prints it in order. It reads format 1
   and says what it can't read.
 - **Cost:** the step time's mean and p99 with and without the recorder, at speed 5 in a twopc run: under 1% apart.
+- **Owner, 2026-11-24 (added):** incident copies go to the host with the reports, queued like crash files. A joining
+  PC also streams its recorder to the host as it writes it: only the kinds that are this PC's alone (network in and
+  out, holds, frames, speed and pause as this PC saw them, its own lines, loading windows, session events); what every
+  PC records alike (commands and AI entries, army decisions, transfers, the `= ` and `~ ` lines, hashes) the host
+  records itself. The stream is a growing report named `recorder.stream` (total -1, offset = bytes streamed so far): no
+  new message type, no protocol bump. It goes every frame, first in the outbox's order (stream, logs, saves), within a
+  share of its own of 16 KB/s. More than 2 s behind, it jumps to the newest entries with a gap record. The host keeps
+  it as a ring of 16 MB per joining PC per campaign folder, outside the logs' cap; `recorder.py` reads it. `reports=false`
+  stops it too. Spec §11 Reports says so (spec 0.74).
+
+**As built (SOS-248, 2026-11-24):**
+- **Layout, format 1** (big-endian): a 256-byte header (magic `SOSGSREC`, version 1, header size, session start in
+  epoch ms, role byte 0 host / 1 joining, entry count 65,536, entry size 32, payload size 2 MiB, entries written and
+  payload bytes written as running counts, the player's name as a length and UTF-8), then the entries, then the
+  payload ring. An entry: time (long, ns since the session's start), step (**int**, -1 for none), kind (short), peer or
+  human (short), size (int), A (long), B (int): the plan's fields with the step as an int, so the entry stays 32 bytes
+  (an int holds 400 days of steps at 60 a second). The entries-written count moves after the entry is written.
+- **Kinds:** 1 net-in, 2 net-out (A the message type, size its stream or report payload, peer), 3 net-connect,
+  4 net-disconnect, 5 command and 6 AI entry (SOSDET 0022 E1, SOS-249), 7 army decision (E2), 8 transfer (reserved),
+  9 hashes (A compared, B missed, as they move), 10 desync (A its step), 11 hold-start and 12 hold-end (A the step,
+  B the ms), 13 speed (A speed x100, B paused), 14 frame (a frame of 50 ms or more, A its ms), 15 line-same and
+  16 line-local (every playtest log line, text), 17 loading (A the key, B opened), 18 session (text: Go, restart,
+  end), 19 types (text: the message types' numbers and names, at the start), 20 gap (the stream's only: A entries
+  skipped). A text over 2 KB is cut at a whole character.
+- **Network messages** are recorded by `RecordingNode`, which the lobbies put round their node (outside the test
+  conditions' node) and the setup inherits: as the game thread sends and polls them; nodes stamp no arrival time.
+  A message's type is its place among `Message`'s permitted types, named by the types entry.
+- **The file** is `sosgsgmpecorder\<host|join>-<player>.rec`, opened with the playtest log at Host or Join. It is
+  not truncated when it is opened again: Windows refuses that while an earlier session's mapping lives (Java unmaps
+  only through the garbage collector), so a new session rewrites the header with nothing written.
+- **Incidents:** a desync this PC's engine finds, a frame or a hold over 5 s, or an exception at `MpLog.error`'s
+  boundaries; copied to `sosgsgmpecorder\<log name>-<step>-<why>.rec`, at most 5 a session; the log names the copy,
+  and a joining PC's reports send it.
+- **The stream** (`RecorderStream`): whole records, a text kind's record followed by its text. The outbox sends the
+  stream's piece and then, in the same frame, a log's or a file's (`MpReports` asks twice); the stream gives one piece
+  a frame at most, so the network entry of the piece just sent waits for the next frame. Sending allocates a piece
+  and a message each frame something waits; nothing is made while nothing waits. The host's ring is two files of at
+  most 8 MB, `recorder.stream` and `recorder.stream.1` (the older half), each starting with `SOSGSTRM` and format 1.
+  The host expects each session's stream from offset 0 and appends it to what the folder holds.
+- **Not recorded yet:** transfers (kind 8 reserved: `MpTransferLog` writes them as lines, which the recorder keeps),
+  city reports applied (only counted in the status line).
 
 ### 4. Engine rings and world parts (SOS-249, SOS-250, SOSDET 0022)
 

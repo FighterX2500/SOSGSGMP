@@ -13,6 +13,7 @@ import java.util.Set;
 import sosgsgmp.campaign.DataLayout;
 import sosgsgmp.game.DataFolders;
 import sosgsgmp.lobby.LobbyPrefs;
+import sosgsgmp.log.RecorderStream;
 import sosgsgmp.net.Message;
 import sosgsgmp.report.HsErr;
 import sosgsgmp.report.ReportOutbox;
@@ -49,9 +50,17 @@ final class MpReports {
 			start();
 		if (outbox == null)
 			return;
-		Message.Report piece = outbox.next(System.nanoTime());
-		if (piece != null)
+		Path incident;
+		while ((incident = log.takeIncident()) != null) // a copy of the recorder, after a desync, a freeze or an error (SOS-248)
+			add(incident, () -> {
+			});
+		long now = System.nanoTime();
+		for (int i = 0; i < 2; i++) { // the recorder stream's piece, then a log's or a file's (SOS-248)
+			Message.Report piece = outbox.next(now);
+			if (piece == null)
+				break;
 			setup.report(piece);
+		}
 	}
 
 	private void start() {
@@ -67,6 +76,8 @@ final class MpReports {
 			return;
 		}
 		outbox = new ReportOutbox();
+		if (log.recorder() != null) // this PC's own entries, as they come (SOS-248)
+			outbox.stream(new RecorderStream(log.recorder()));
 		outbox.follow(log.file());
 		if (setup.network().startsWith("Steam")) {
 			Path steam = newest(layout.logs(), "*-steam.log");
@@ -87,7 +98,8 @@ final class MpReports {
 		}
 		crashes += hsErrs(reports, sent, now);
 		setup.chat().notice("Your game sends its logs and saves to the host, for bug reports.");
-		log.line("reports: this PC's logs, " + crashes + " crash files and its saves go to the host");
+		log.line("reports: this PC's logs, " + crashes + " crash files and its saves go to the host"
+				+ (log.recorder() != null ? ", and its recorder's own entries as they come" : ""));
 	}
 
 	/**

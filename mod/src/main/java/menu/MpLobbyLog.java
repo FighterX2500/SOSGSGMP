@@ -1,5 +1,6 @@
 package menu;
 
+import java.io.IOException;
 import java.time.Clock;
 
 import snake2d.LOG;
@@ -8,6 +9,8 @@ import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbyState;
 import sosgsgmp.log.PlayLog;
+import sosgsgmp.log.Recorder;
+import sosgsgmp.log.SessionLog;
 import sosgsgmp.session.LobbySession;
 import sosgsgmp.session.SetupSession;
 
@@ -21,26 +24,41 @@ final class MpLobbyLog {
 
 	private final LobbySession session;
 	private final PlayLog log;
+	private final SessionLog both;
 	private int changes = -1;
 	private LobbyState state;
 	private String players = "";
 
-	private MpLobbyLog(LobbySession session, PlayLog log) {
+	private MpLobbyLog(LobbySession session, SessionLog both) {
 		this.session = session;
-		this.log = log;
+		this.both = both;
+		this.log = both.text();
 	}
 
-	/** A new file for the lobby {@code session} this PC's player {@code name} opens, with the system line first. */
+	/**
+	 * A new file for the lobby {@code session} this PC's player {@code name} opens, with the system line first, and the
+	 * recorder (SOS-248), which records the lobby's network from now on.
+	 */
 	static MpLobbyLog open(LobbySession session, String name, Builds builds) {
-		PlayLog log = PlayLog.open(DataFolders.layout().logs(), (session.isHost() ? "host-" : "join-") + name, Clock.systemDefaultZone());
+		String role = session.isHost() ? "host-" : "join-";
+		PlayLog log = PlayLog.open(DataFolders.layout().logs(), role + name, Clock.systemDefaultZone());
 		if (log.failure() == null)
 			LOG.ln("SOSGSGMP: playtest log " + log.file());
 		else
 			LOG.err("SOSGSGMP: the playtest log " + log.file() + " can't be written: " + log.failure());
 		log.line(MpLog.system(builds));
 		log.line("lobby: " + (session.isHost() ? "hosting" : "joining") + " as " + name + ", network: " + session.network());
-		session.keepLog(log);
-		return new MpLobbyLog(session, log);
+		Recorder recorder = null;
+		try {
+			recorder = Recorder.open(DataFolders.layout().recorder().resolve(role + PlayLog.fileName(name) + ".rec"), session.isHost(), name,
+					System.currentTimeMillis());
+			log.line("recorder: " + recorder.file());
+		} catch (IOException e) {
+			log.line("recorder: off, its file can't be made: " + e);
+		}
+		SessionLog both = new SessionLog(log, recorder);
+		session.keepLog(both);
+		return new MpLobbyLog(session, both);
 	}
 
 	/** Every frame the lobby screen updates the session: its notes, and its state and players when they changed. */
@@ -69,7 +87,7 @@ final class MpLobbyLog {
 	void close(String why) {
 		frame();
 		log.line("lobby left without a game: " + why);
-		log.close();
+		both.close();
 	}
 
 	/**
@@ -77,13 +95,13 @@ final class MpLobbyLog {
 	 * {@code why}, and the file closes. In the game, {@link MpLog} owns the file instead.
 	 */
 	static void left(SetupSession setup, String why) {
-		PlayLog log = setup.log();
-		if (log == null || setup.playing())
+		SessionLog both = setup.log();
+		if (both == null || setup.playing())
 			return;
 		String note;
 		while ((note = setup.takeNote()) != null)
-			log.line("network: " + note);
-		log.line("setup left without a game: " + why);
-		log.close();
+			both.text().line("network: " + note);
+		both.text().line("setup left without a game: " + why);
+		both.close();
 	}
 }

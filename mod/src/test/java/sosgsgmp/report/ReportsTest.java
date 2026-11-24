@@ -11,11 +11,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.Arrays;
 import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import sosgsgmp.log.Recorder;
+import sosgsgmp.log.RecorderStream;
 import sosgsgmp.net.Message;
 
 /** A joining PC's outbox into the host's store, as the network would carry it (SOS-133). */
@@ -98,5 +101,59 @@ class ReportsTest {
         }
         assertNotNull(capLine);
         assertEquals(1, capLines);
+    }
+
+    @Test
+    void theRecorderStreamGoesFirstEveryFrameWithinItsOwnBudget() throws IOException {
+        // not in a JUnit temp folder: Windows can't delete a file while it is mapped
+        Recorder rec = Recorder.open(Path.of("build", "tmp", "recorder-tests", "join-Dee.rec"), false, "Dee", 0);
+        byte[] save = new byte[100 * 1024];
+        Path saveFile = Files.write(joiner.resolve("a.save"), save);
+        ReportOutbox out = new ReportOutbox();
+        ReportStore store = new ReportStore(host, "Dee");
+        out.stream(new RecorderStream(rec));
+        out.add(saveFile, () -> {
+        });
+        rec.record(Recorder.NET_IN, 0, 10, 3, 0);
+        rec.record(Recorder.COMMAND, 0, 0, 7000, 0); // the host records it itself
+        long t = 0;
+        Message.Report first = null;
+        for (; first == null; t += SECOND / 60)
+            first = out.next(t);
+        assertEquals(RecorderStream.NAME, first.name(), "the stream comes before the save");
+        assertEquals(Recorder.ENTRY, first.length());
+        store.accept(first);
+        for (int i = 0; i < 600; i++) { // ten seconds of frames, an entry each
+            rec.record(Recorder.FRAME, -1, 0, i, 0);
+            t += SECOND / 60;
+            for (int k = 0; k < 2; k++) { // as MpReports sends: the stream's piece, then a file's
+                Message.Report r = out.next(t);
+                if (r != null)
+                    store.accept(r);
+            }
+        }
+        byte[] kept = Files.readAllBytes(host.resolve(RecorderStream.NAME));
+        assertArrayEquals(ReportStore.STREAM_MAGIC, Arrays.copyOf(kept, ReportStore.STREAM_MAGIC.length));
+        assertEquals(ReportStore.STREAM_MAGIC.length + 601 * Recorder.ENTRY, kept.length, "every frame's entry is at the host");
+        assertArrayEquals(save, Files.readAllBytes(host.resolve("a.save")), "the save came too, behind the stream");
+        rec.close();
+    }
+
+    @Test
+    void theHostKeepsTheStreamAsARingOfTwoFilesOutsideTheCaps() throws IOException {
+        ReportStore store = new ReportStore(host, "Eve");
+        byte[] piece = new byte[48 * 1024];
+        long offset = 0;
+        while (offset < 3 * ReportStore.STREAM_FILE) {
+            assertNull(store.accept(new Message.Report(RecorderStream.NAME, -1, offset, piece)));
+            offset += piece.length;
+        }
+        assertNull(store.accept(new Message.Report(RecorderStream.NAME, -1, 0, piece)), "a repeat changes nothing");
+        long now = Files.size(host.resolve(RecorderStream.NAME));
+        long before = Files.size(host.resolve(RecorderStream.NAME + ".1"));
+        assertTrue(now <= ReportStore.STREAM_FILE && before <= ReportStore.STREAM_FILE, now + " and " + before);
+        assertTrue(now + before > ReportStore.STREAM_FILE, "the older half is kept");
+        assertEquals(0, (now - ReportStore.STREAM_MAGIC.length) % piece.length, "whole pieces after the magic");
+        assertNull(store.accept(new Message.Report("a.log", -1, 0, piece)), "the stream didn't count against the logs' cap");
     }
 }

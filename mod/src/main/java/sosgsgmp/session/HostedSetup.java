@@ -11,12 +11,13 @@ import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
-import sosgsgmp.log.PlayLog;
+import sosgsgmp.log.SessionLog;
 import sosgsgmp.lobby.Refusal;
 import sosgsgmp.net.ConditionedNode;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.Pieces;
 import sosgsgmp.net.Node;
+import sosgsgmp.net.RecordingNode;
 import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep;
 import sosgsgmp.setup.FactionWorld;
@@ -61,7 +62,7 @@ public final class HostedSetup implements SetupSession {
     private final Cursors cursors = new Cursors();
     private final Notes notes = new Notes();
     /** The playtest log, carried from the lobby to a restart's session (SOS-246); null when none was kept. */
-    private PlayLog log;
+    private SessionLog log;
     /** Players whose PC left the running game, and the hold for them (spec §11 Disconnects, SOS-65). */
     private final Departures departures = new Departures();
     /** Each player's key, by player id: who they are in the campaign (SOS-64). */
@@ -1027,7 +1028,7 @@ public final class HostedSetup implements SetupSession {
 
     @Override
     public ConditionedNode testNetwork() {
-        return node instanceof ConditionedNode c ? c : null;
+        return RecordingNode.under(node) instanceof ConditionedNode c ? c : null;
     }
 
     @Override
@@ -1441,12 +1442,12 @@ public final class HostedSetup implements SetupSession {
     }
 
     @Override
-    public PlayLog log() {
+    public SessionLog log() {
         return log;
     }
 
     @Override
-    public void keepLog(PlayLog log) {
+    public void keepLog(SessionLog log) {
         this.log = log;
     }
 }

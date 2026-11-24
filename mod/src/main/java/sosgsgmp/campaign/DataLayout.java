@@ -73,6 +73,11 @@ public final class DataLayout {
         return home.resolve("autopilot");
     }
 
+    /** The recorder's files (SOS-248): this PC's current one per role and player, and the incidents' copies. */
+    public Path recorder() {
+        return home.resolve("recorder");
+    }
+
     public Path engine() {
         return home.resolve("engine");
     }
