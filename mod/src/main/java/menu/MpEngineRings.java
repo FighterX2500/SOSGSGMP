@@ -34,12 +34,19 @@ final class MpEngineRings {
 		this.recorder = recorder;
 	}
 
+	/**
+	 * A new engine session (a hot-join's restart): its rings count from the start again. An engine session begins only
+	 * in {@link MpWorldLoad}, which makes a new log and these with it; this is for a session that ends under this one.
+	 */
+	void restart() {
+		appliedSeq = 0;
+		orderSeq = 0;
+	}
+
 	/** A few times a second, between steps, once the engine runs. */
 	void look(MpLog out) {
-		if (engine.lastApplied() < appliedSeq || engine.lastArmyOrder() < orderSeq) {
-			appliedSeq = 0; // an engine session begun again: its rings count from the start
-			orderSeq = 0;
-		}
+		if (engine.lastApplied() < appliedSeq || engine.lastArmyOrder() < orderSeq)
+			restart(); // an engine session begun again that no restart announced, seen before its rings passed ours
 		if (engine.lastApplied() != appliedSeq)
 			applied(out);
 		if (engine.lastArmyOrder() != orderSeq)

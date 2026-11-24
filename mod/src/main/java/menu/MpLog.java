@@ -112,6 +112,8 @@ final class MpLog {
 	private boolean recorderFailureReported;
 	/** Incident copies of the recorder made this session (at most {@link #MAX_INCIDENTS}), and those the reports take. */
 	private int incidents;
+	/** The last incident copied, by its reason and step: one long freeze is a frame and a hold, one copy. */
+	private String lastIncident;
 	private final ArrayDeque<Path> incidentCopies = new ArrayDeque<>();
 	private static final int MAX_INCIDENTS = 5;
 	/** A freeze this long gets an incident copy of the recorder. */
@@ -232,9 +234,12 @@ final class MpLog {
 	private void incident(String why) {
 		if (recorder == null || recorder.failure() != null || recorder.closed() || incidents >= MAX_INCIDENTS)
 			return;
+		String incident = (engine.active() ? engine.step() : -1) + "-" + why;
+		if (incident.equals(lastIncident))
+			return; // the same incident, seen again: its copy is made
+		lastIncident = incident;
 		incidents++;
-		String name = log.file().getFileName().toString().replaceFirst("[.]log$", "") + "-" + (engine.active() ? engine.step() : -1) + "-"
-				+ why + ".rec";
+		String name = log.file().getFileName().toString().replaceFirst("[.]log$", "") + "-" + incident + ".rec";
 		Path to = DataFolders.layout().recorder().resolve(name);
 		try {
 			recorder.copy(to);
@@ -586,6 +591,7 @@ final class MpLog {
 	 */
 	void restarting() {
 		line("the log goes on with the restart's session");
+		rings.restart();
 		if (recorder != null)
 			recorder.text(Recorder.SESSION, -1, "restart");
 		ended = true;

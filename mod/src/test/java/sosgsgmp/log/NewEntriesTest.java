@@ -52,6 +52,20 @@ class NewEntriesTest {
     }
 
     @Test
+    void anEntryRemovedFromTheMiddleLeavesTheRestSeen() {
+        Entry a = new Entry("a"), b = new Entry("b"), c = new Entry("c");
+        List<Entry> l = new ArrayList<>(List.of(a, b, c));
+        look(l);
+        l.remove(c); // "Delete all read messages": the last one seen goes, and one in the middle
+        l.remove(b);
+        l.add(new Entry("d"));
+        assertEquals(1, look(l)); // only "d" is new
+        l.remove(0);
+        assertEquals(1, look(l)); // "d" is seen; nothing is new
+        assertEquals(List.of("d"), List.of(l.get(0).text));
+    }
+
+    @Test
     void anEmptyListThatGrows() {
         List<Entry> l = new ArrayList<>();
         assertEquals(0, look(l));

@@ -103,9 +103,11 @@ final class MpReports {
 	}
 
 	/**
-	 * The JVM's fatal error files of the last week not sent before (SOS-246), without their environment. The JVM writes
-	 * one in its working folder, the game's folder as the launcher starts the game on Windows, Linux and macOS alike (no
-	 * {@code -XX:ErrorFile} in its arguments), or in the temp folder when it can't write there.
+	 * The JVM's fatal error files of the last week not sent before (SOS-246), this game's only, without their
+	 * environment, user name and home folder. The JVM writes one in its working folder, the game's folder as the launcher
+	 * starts the game on Windows, Linux and macOS alike (no {@code -XX:ErrorFile} in its arguments), or in the temp
+	 * folder, which every JVM on the PC shares, when it can't write there. A file is known as sent by its name and time:
+	 * a later process may have the same pid.
 	 */
 	private int hsErrs(Path reports, Set<String> sent, long now) {
 		int n = 0;
@@ -115,11 +117,17 @@ final class MpReports {
 			try (DirectoryStream<Path> files = Files.newDirectoryStream(Path.of(dir), HsErr.GLOB)) {
 				for (Path f : files) {
 					String name = f.getFileName().toString();
-					if (sent.contains(name) || now - Files.getLastModifiedTime(f).toMillis() >= CRASH_AGE_MS)
+					long time = Files.getLastModifiedTime(f).toMillis();
+					String key = name + " " + time;
+					if (sent.contains(key) || now - time >= CRASH_AGE_MS)
 						continue;
 					try {
-						outbox.add(name, HsErr.redact(Files.readAllBytes(f)), () -> markSent(reports, name));
-						sent.add(name); // the temp folder may be the working folder
+						byte[] bytes = Files.readAllBytes(f);
+						sent.add(key); // the temp folder may be the working folder
+						if (!HsErr.isGame(bytes))
+							continue; // another program's JVM: not this game's, nor anything to send
+						outbox.add(name, HsErr.redact(bytes, System.getProperty("user.name"), System.getProperty("user.home")),
+								() -> markSent(reports, key));
 						n++;
 					} catch (IOException | IllegalArgumentException e) {
 						log.line("reports: " + name + " not sent: " + e.getMessage());

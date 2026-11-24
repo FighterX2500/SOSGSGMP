@@ -163,4 +163,19 @@ class ReportsTest {
         assertEquals(0, (now - ReportStore.STREAM_MAGIC.length) % piece.length, "whole pieces after the magic");
         assertNull(store.accept(new Message.Report("a.log", -1, 0, piece)), "the stream didn't count against the logs' cap");
     }
+
+    @Test
+    void aNewSessionsStreamStartsItsOwnFile() throws IOException {
+        byte[] first = { 1, 2, 3 }, second = { 7, 8 };
+        new ReportStore(host, "Fay").accept(new Message.Report(RecorderStream.NAME, -1, 0, first));
+        // a resume or a hot-join's restart: a new store for the same folder, its joining PC's stream from offset 0 again
+        new ReportStore(host, "Fay").accept(new Message.Report(RecorderStream.NAME, -1, 0, second));
+        byte[] now = Files.readAllBytes(host.resolve(RecorderStream.NAME));
+        byte[] before = Files.readAllBytes(host.resolve(RecorderStream.NAME + ".1"));
+        int m = ReportStore.STREAM_MAGIC.length;
+        assertArrayEquals(ReportStore.STREAM_MAGIC, Arrays.copyOf(now, m));
+        assertArrayEquals(second, Arrays.copyOfRange(now, m, now.length));
+        assertArrayEquals(ReportStore.STREAM_MAGIC, Arrays.copyOf(before, m));
+        assertArrayEquals(first, Arrays.copyOfRange(before, m, before.length));
+    }
 }

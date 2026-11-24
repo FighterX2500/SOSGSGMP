@@ -8,6 +8,7 @@ import sosgsgmp.game.DataFolders;
 import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbyState;
+import sosgsgmp.log.IncidentCopies;
 import sosgsgmp.log.PlayLog;
 import sosgsgmp.log.Recorder;
 import sosgsgmp.log.SessionLog;
@@ -48,6 +49,13 @@ final class MpLobbyLog {
 			LOG.err("SOSGSGMP: the playtest log " + log.file() + " can't be written: " + log.failure());
 		log.line(MpLog.system(builds));
 		log.line("lobby: " + (session.isHost() ? "hosting" : "joining") + " as " + name + ", network: " + session.network());
+		try {
+			int gone = IncidentCopies.prune(DataFolders.layout().recorder(), IncidentCopies.KEEP);
+			if (gone > 0)
+				log.line("recorder: " + gone + " older incident copies deleted, the newest " + IncidentCopies.KEEP + " kept");
+		} catch (IOException e) {
+			log.line("recorder: the older incident copies can't be deleted: " + e);
+		}
 		Recorder recorder = null;
 		try {
 			recorder = Recorder.open(DataFolders.layout().recorder().resolve(role + PlayLog.fileName(name) + ".rec"), session.isHost(), name,

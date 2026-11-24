@@ -18,7 +18,8 @@ import sosgsgmp.net.Message;
  * already here is never sent twice. Per session, at most {@link #MAX_LOGS} of logs and {@link #MAX_FILES} of whole
  * files. A joining PC's recorder stream ({@value RecorderStream#NAME}, SOS-248) is kept apart, outside the caps, as a
  * ring of two files of at most {@link #STREAM_FILE} bytes each: the stream itself, and {@code recorder.stream.1}, the
- * part before it. Each starts with {@link #STREAM_MAGIC}, then whole records. Plain Java; game thread only.
+ * part before it. Each starts with {@link #STREAM_MAGIC}, then whole records. A store's first piece (a new session's:
+ * a resume or a hot-join's restart, in the same campaign folder) starts a new file, the old one becoming the older half. Plain Java; game thread only.
  */
 public final class ReportStore {
 
@@ -34,6 +35,8 @@ public final class ReportStore {
     /** The joining PC's stream offset this store expects next: this session's stream starts at 0. */
     private long streamNext;
     private boolean streamFailed;
+    /** Whether this store has written its session's stream yet: a new session starts its own file. */
+    private boolean streamStarted;
     private final String who;
     private long logs;
     private long files;
@@ -103,7 +106,9 @@ public final class ReportStore {
         try {
             Files.createDirectories(dir);
             long have = Files.isRegularFile(file) ? Files.size(file) : 0;
-            if (have > 0 && have + r.length() > STREAM_FILE) {
+            boolean newSession = !streamStarted; // a resume's or a restart's store: the last session's stream is the older half
+            streamStarted = true;
+            if (have > 0 && (newSession || have + r.length() > STREAM_FILE)) {
                 Files.move(file, dir.resolve(RecorderStream.NAME + ".1"), StandardCopyOption.REPLACE_EXISTING);
                 have = 0;
             }

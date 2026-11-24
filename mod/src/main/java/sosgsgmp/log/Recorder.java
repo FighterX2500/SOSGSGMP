@@ -76,6 +76,12 @@ public final class Recorder implements AutoCloseable {
     private long written, payloadWritten;
     /** The last {@link #TYPES} entry written, of all entries; -1 before it. */
     private long types = -1;
+    /**
+     * The latest message types' text and where its payload starts: written again when the rings would drop it (more
+     * than half a ring behind), so an incident's copy and the host's stream always hold the names.
+     */
+    private CharSequence typesText;
+    private long typesPayload;
     private Throwable failure;
     private boolean closed;
 
@@ -160,6 +166,7 @@ public final class Recorder implements AutoCloseable {
             return;
         try {
             put(step, kind, peer, size, a, b);
+            retype();
         } catch (RuntimeException | InternalError e) { // InternalError: a fault in the mapped file, such as a full disk
             // the recorder's boundary: it stops for the session, and the playtest log says so once
             failure = e;
@@ -174,12 +181,23 @@ public final class Recorder implements AutoCloseable {
             long at = payloadWritten;
             int n = utf8(text);
             put(step.getAsLong(), kind, peer, n, at, 0);
-            if (kind == TYPES)
+            if (kind == TYPES) {
                 types = written - 1;
+                typesText = text;
+                typesPayload = at;
+            } else {
+                retype();
+            }
         } catch (RuntimeException | InternalError e) { // InternalError: a fault in the mapped file, such as a full disk
             // the recorder's boundary: it stops for the session, and the playtest log says so once
             failure = e;
         }
+    }
+
+    /** The message types' entry again, once it is more than half a ring behind; no allocation: the text is kept. */
+    private void retype() {
+        if (typesText != null && (written - types > ENTRIES / 2 || payloadWritten - typesPayload > PAYLOAD / 2))
+            text(TYPES, -1, typesText);
     }
 
     private void put(long step, int kind, int peer, int size, long a, int b) {

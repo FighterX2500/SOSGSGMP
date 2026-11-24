@@ -105,6 +105,23 @@ class RecorderTest {
     }
 
     @Test
+    void theMessageTypesAreWrittenAgainBeforeTheRingsDropThem() throws IOException {
+        Recorder r = open("types.rec");
+        r.text(Recorder.TYPES, -1, "message types: 0=Hello 1=Welcome");
+        for (int i = 0; i < 3 * Recorder.ENTRIES; i++)
+            r.record(Recorder.FRAME, -1, 0, i, 0);
+        String big = "y".repeat(Recorder.MAX_TEXT);
+        for (int i = 0; i < Recorder.PAYLOAD / Recorder.MAX_TEXT * 2; i++)
+            r.text(Recorder.LINE_LOCAL, -1, big); // texts only: the payload ring wraps sooner than the entries
+        long typesAt = r.types();
+        r.close();
+        RecorderReader in = new RecorderReader(r.file());
+        RecorderReader.Entry last = in.entries.stream().filter(e -> e.kind() == Recorder.TYPES).reduce((x, y) -> y).orElseThrow();
+        assertEquals("message types: 0=Hello 1=Welcome", last.text(), "the ring holds the names, their text not overwritten");
+        assertTrue(in.written - typesAt <= Recorder.ENTRIES / 2 + 1);
+    }
+
+    @Test
     void anEngineRingsEntryKeepsItsOwnStep() throws IOException {
         Recorder r = open("rings.rec");
         r.stepFrom(() -> 900);

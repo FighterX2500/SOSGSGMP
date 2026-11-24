@@ -293,3 +293,23 @@ The owner's manual test over real Steam on this PC: Spacewar (App ID 480), the j
   every frame for every joining PC; the joining PC made a piece every frame); a folder the `hs_err` search can't list
   is a log line, not an empty `catch`. 377 unit tests pass. Not rerun in a game: a test covers the pacing, and the
   host still holds a joining PC's last second.
+- Code review fixes (2026-11-25), one commit, no game run:
+  1. `hs_err`: only this game's files go (a `java_command:` or `Command Line:` line naming `init.MainProcess` or
+     `SongsOfSyx`): the temp folder holds every JVM's on the PC. Besides the environment section, the user name (as a
+     whole word, any case) and the home folder (either slash) are replaced by `<user>` and `<home>` everywhere.
+  2. One long freeze (a long frame, then the hold it made) makes one incident copy: a second incident with the same
+     reason at the same step is skipped.
+  3. The recorder writes the message types' names again when their entry falls more than half a ring behind (entries
+     or payload bytes), from the text it keeps: incident copies and the host's stream always hold them.
+  4. New messages and news are found by every entry of the last look kept by identity with its text, so "Delete all
+     read messages" (an entry gone from the middle, the last one seen too) logs nothing again.
+  5. The host's first stream piece of a session (a resume, a hot-join's restart: same campaign folder) moves the old
+     `recorder.stream` to `recorder.stream.1` and starts a new file with the magic.
+  6. `MpEngineRings.restart()` sets both rings' counts back to 0 at `MpLog.restarting()`; the fall-back for a count
+     that went down stays. An engine session begins only in `MpWorldLoad`, which makes a new log, so no other place.
+     No unit test: the class reads the game's faction names and the engine through `EnginePlay`.
+  7. Opening the recorder deletes all but the newest 20 incident copies (names starting with the log's date), never
+     the current `<host|join>-<player>.rec` files.
+  8. A sent `hs_err` file is known by its name and its time (a later process can have the same pid). Lines that
+     `sent.txt` holds from before name only the file, so last week's `hs_err` files may go to the host once more.
+  383 unit tests pass.
