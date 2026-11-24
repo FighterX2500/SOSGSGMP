@@ -128,7 +128,7 @@ and army decisions in the text log are the rare kinds only.
   out, holds, frames, speed and pause as this PC saw them, its own lines, loading windows, session events); what every
   PC records alike (commands and AI entries, army decisions, transfers, the `= ` and `~ ` lines, hashes) the host
   records itself. The stream is a growing report named `recorder.stream` (total -1, offset = bytes streamed so far): no
-  new message type, no protocol bump. It goes every frame, first in the outbox's order (stream, logs, saves), within a
+  new message type, no protocol bump. It goes every quarter second (every frame until the review of 2026-11-25), first in the outbox's order (stream, logs, saves), within a
   share of its own of 16 KB/s. More than 2 s behind, it jumps to the newest entries with a gap record. The host keeps
   it as a ring of 16 MB per joining PC per campaign folder, outside the logs' cap; `recorder.py` reads it. `reports=false`
   stops it too. Spec §11 Reports says so (spec 0.74).
@@ -160,8 +160,9 @@ ecorder\<log name>-<step>-<why>.rec`, at most 5 a session; the log names the cop
   and a joining PC's reports send it.
 - **The stream** (`RecorderStream`): whole records, a text kind's record followed by its text. The outbox sends the
   stream's piece and then, in the same frame, a log's or a file's (`MpReports` asks twice); the stream gives one piece
-  a frame at most, so the network entry of the piece just sent waits for the next frame. Sending allocates a piece
-  and a message each frame something waits; nothing is made while nothing waits. The host's ring is two files of at
+  a quarter second at most (`ReportOutbox.STREAM_INTERVAL_NANOS`; every frame until the review of 2026-11-25), since
+  the host writes each piece to its file. Sending allocates a piece and a message then; nothing is made while nothing
+  waits. The host's ring is two files of at
   most 8 MB, `recorder.stream` and `recorder.stream.1` (the older half), each starting with `SOSGSTRM` and format 1.
   The host expects each session's stream from offset 0 and appends it to what the folder holds.
 - **Not recorded yet:** transfers (kind 8 reserved: `MpTransferLog` writes them as lines, which the recorder keeps),
@@ -173,7 +174,7 @@ See SOSDET `docs/plan/0022-logging.md`: E1 the applied ring, E2 the NPC army dec
 the hash record, E4 item hashes in the desync report. The mod reads E1 and E2 each frame between steps, writes the
 recorder and the text lines; `tools/logdiff.py` also compares two PCs' desync reports item by item.
 
-**As built (mod side, 2026-11-24):** `menu.MpEngineRings` reads both rings every frame from the engine session's
+**As built (mod side, 2026-11-24):** `menu.MpEngineRings` reads both rings a few times a second (every frame until the review of 2026-11-25) from the engine session's
 start (seq 0), so every PC writes every line, and again from 0 when the engine's counts fall (a new engine session).
 Every entry goes into the recorder at its own step (`Recorder.recordAt`): a command (kind 5: peer the PC, size the
 division, A the ring's seq, B the command id with bit 16 set when skipped), an AI entry (kind 6, B the AI kind), an
@@ -288,3 +289,7 @@ The owner's manual test over real Steam on this PC: Spacewar (App ID 480), the j
   close can come first (`MpSaves.frame`, SOS-68/79). Both saves were written and alike. A follow-up card for the
   owner.
 - 377 unit tests pass.
+- Review before the PRs (2026-11-25): the stream goes every quarter second, not every frame (the host wrote a file
+  every frame for every joining PC; the joining PC made a piece every frame); a folder the `hs_err` search can't list
+  is a log line, not an empty `catch`. 377 unit tests pass. Not rerun in a game: a test covers the pacing, and the
+  host still holds a joining PC's last second.

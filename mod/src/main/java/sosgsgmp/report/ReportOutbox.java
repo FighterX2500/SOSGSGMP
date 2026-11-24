@@ -18,7 +18,7 @@ import sosgsgmp.net.Protocol;
  * A joining PC's files on their way to the host's reports (SOS-133), a piece at a time within a budget of bytes per
  * second, so the game's own traffic always comes first. A followed log is sent from its start and then as it grows; a
  * whole file (a save, a crash file) is read once when it is added. The recorder's stream (SOS-248), when there is one,
- * goes first, every frame, within a budget of its own. Plain Java; game thread only.
+ * goes first, every quarter second, within a budget of its own. Plain Java; game thread only.
  */
 public final class ReportOutbox {
 
@@ -32,7 +32,12 @@ public final class ReportOutbox {
     private static final int STREAM_PIECE = 16 * 1024;
     private RecorderStream stream;
     private double streamBudget;
-    /** The time of the last stream piece: one a frame at most, so its own entry about the piece sent waits a frame. */
+    /**
+     * A stream piece goes every quarter second at most: the host writes each to its file, which it must not do every
+     * frame for every joining PC; a quarter second is well inside the last second the host is to hold.
+     */
+    public static final long STREAM_INTERVAL_NANOS = 250_000_000L;
+    /** The time of the last stream piece, or none yet. */
     private long streamNanos = Long.MIN_VALUE;
 
     private final List<Followed> logs = new ArrayList<>();
@@ -98,7 +103,7 @@ public final class ReportOutbox {
             streamBudget = Math.min(STREAM_PIECE, streamBudget + (nanos - lastNanos) * 1e-9 * STREAM_BYTES_PER_SECOND);
         }
         lastNanos = nanos;
-        if (stream != null && nanos != streamNanos && stream.waiting()) {
+        if (stream != null && (streamNanos == Long.MIN_VALUE || nanos - streamNanos >= STREAM_INTERVAL_NANOS) && stream.waiting()) {
             timed = true;
             streamNanos = nanos;
             long at = stream.sent();

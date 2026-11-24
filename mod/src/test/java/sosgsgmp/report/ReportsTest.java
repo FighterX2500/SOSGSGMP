@@ -123,15 +123,22 @@ class ReportsTest {
         assertEquals(RecorderStream.NAME, first.name(), "the stream comes before the save");
         assertEquals(Recorder.ENTRY, first.length());
         store.accept(first);
+        int streamPieces = 0;
         for (int i = 0; i < 600; i++) { // ten seconds of frames, an entry each
             rec.record(Recorder.FRAME, -1, 0, i, 0);
             t += SECOND / 60;
             for (int k = 0; k < 2; k++) { // as MpReports sends: the stream's piece, then a file's
                 Message.Report r = out.next(t);
-                if (r != null)
+                if (r != null) {
+                    if (r.name().equals(RecorderStream.NAME))
+                        streamPieces++;
                     store.accept(r);
+                }
             }
         }
+        t += ReportOutbox.STREAM_INTERVAL_NANOS; // the last quarter second's entries go in the next piece
+        store.accept(out.next(t));
+        assertTrue(streamPieces <= 41, streamPieces + " stream pieces in ten seconds: a quarter second apart at most");
         byte[] kept = Files.readAllBytes(host.resolve(RecorderStream.NAME));
         assertArrayEquals(ReportStore.STREAM_MAGIC, Arrays.copyOf(kept, ReportStore.STREAM_MAGIC.length));
         assertEquals(ReportStore.STREAM_MAGIC.length + 601 * Recorder.ENTRY, kept.length, "every frame's entry is at the host");

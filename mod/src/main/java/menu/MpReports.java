@@ -126,7 +126,7 @@ final class MpReports {
 					}
 				}
 			} catch (IOException e) {
-				// a folder that can't be listed: nothing to send from it
+				log.line("reports: no hs_err files looked for in " + dir + ": " + e); // a folder that can't be listed
 			}
 		}
 		return n;
