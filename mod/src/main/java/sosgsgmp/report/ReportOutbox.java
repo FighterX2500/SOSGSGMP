@@ -10,13 +10,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import sosgsgmp.log.RecorderStream;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.Protocol;
 
 /**
  * A joining PC's files on their way to the host's reports (SOS-133), a piece at a time within a budget of bytes per
  * second, so the game's own traffic always comes first. A followed log is sent from its start and then as it grows; a
- * whole file (a save, a crash file) is read once when it is added. Plain Java; game thread only.
+ * whole file (a save, a crash file) is read once when it is added. The recorder's stream (SOS-248), when there is one,
+ * goes first, every quarter second, within a budget of its own. Plain Java; game thread only.
  */
 public final class ReportOutbox {
 
@@ -25,6 +27,18 @@ public final class ReportOutbox {
     /** A followed log's size is looked at this often, in nanoseconds: its new lines reach the host within it. */
     static final long LOOK_NANOS = 5_000_000_000L;
     private static final int PIECE = Protocol.MAX_STREAM_PIECE;
+    /** The recorder stream's bytes per second at most (SOS-248), on top of the files'. */
+    public static final int STREAM_BYTES_PER_SECOND = 16 * 1024;
+    private static final int STREAM_PIECE = 16 * 1024;
+    private RecorderStream stream;
+    private double streamBudget;
+    /**
+     * A stream piece goes every quarter second at most: the host writes each to its file, which it must not do every
+     * frame for every joining PC; a quarter second is well inside the last second the host is to hold.
+     */
+    public static final long STREAM_INTERVAL_NANOS = 250_000_000L;
+    /** The time of the last stream piece, or none yet. */
+    private long streamNanos = Long.MIN_VALUE;
 
     private final List<Followed> logs = new ArrayList<>();
     private final List<Whole> files = new ArrayList<>();
@@ -44,25 +58,61 @@ public final class ReportOutbox {
      */
     public void add(Path file, Runnable done) {
         String name = file.getFileName().toString();
-        for (Whole w : files)
-            if (w.name.equals(name))
-                return;
+        if (queued(name))
+            return;
         byte[] bytes;
         try {
             bytes = Files.readAllBytes(file);
         } catch (IOException e) {
             throw new UncheckedIOException("SOSGSGMP: can't read " + file + " for the host's reports", e);
         }
-        if (bytes.length > Message.Report.MAX_TOTAL)
-            throw new IllegalArgumentException("SOSGSGMP: " + file + " of " + bytes.length + " bytes is too large for a report");
-        files.add(new Whole(name, bytes, done));
+        add(name, bytes, done);
     }
 
-    /** The next piece to send, or null while the budget or nothing waits. Call every frame with the time. */
+    /**
+     * A whole file's {@code bytes} as {@code name}, read and changed by the caller (an {@code hs_err} file without its
+     * environment, SOS-246), sent as {@link #add(Path, Runnable)} sends a file.
+     */
+    public void add(String name, byte[] bytes, Runnable done) {
+        if (queued(name))
+            return;
+        if (bytes.length > Message.Report.MAX_TOTAL)
+            throw new IllegalArgumentException("SOSGSGMP: " + name + " of " + bytes.length + " bytes is too large for a report");
+        files.add(new Whole(name, bytes.clone(), done));
+    }
+
+    private boolean queued(String name) {
+        for (Whole w : files)
+            if (w.name.equals(name))
+                return true;
+        return false;
+    }
+
+    /** The recorder's stream, sent ahead of the logs and files as it grows (SOS-248). */
+    public void stream(RecorderStream s) {
+        stream = s;
+    }
+
+    /**
+     * The next piece to send, or null while the budget or nothing waits. Call every frame with the time, a second time
+     * in the frame for a log's or a file's piece after the stream's.
+     */
     public Message.Report next(long nanos) {
-        if (timed)
+        if (timed) {
             budget = Math.min(PIECE, budget + (nanos - lastNanos) * 1e-9 * BYTES_PER_SECOND);
+            streamBudget = Math.min(STREAM_PIECE, streamBudget + (nanos - lastNanos) * 1e-9 * STREAM_BYTES_PER_SECOND);
+        }
         lastNanos = nanos;
+        if (stream != null && (streamNanos == Long.MIN_VALUE || nanos - streamNanos >= STREAM_INTERVAL_NANOS) && stream.waiting()) {
+            timed = true;
+            streamNanos = nanos;
+            long at = stream.sent();
+            byte[] piece = stream.next((int) streamBudget);
+            if (piece != null) {
+                streamBudget -= piece.length;
+                return new Message.Report(RecorderStream.NAME, -1, at, piece);
+            }
+        }
         if (logs.isEmpty() && files.isEmpty())
             return null; // every frame: nothing made when nothing waits
         if (!timed || nanos - lookedNanos >= LOOK_NANOS) {

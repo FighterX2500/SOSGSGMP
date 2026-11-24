@@ -7,9 +7,11 @@ import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.lobby.LobbyState;
+import sosgsgmp.log.SessionLog;
 import sosgsgmp.net.ConditionedNode;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.Node;
+import sosgsgmp.net.RecordingNode;
 import sosgsgmp.net.TcpNode;
 import sosgsgmp.setup.FactionWorld;
 import sosgsgmp.setup.MapWorld;
@@ -18,6 +20,8 @@ import sosgsgmp.setup.MapWorld;
 public final class JoinedLobby implements LobbySession {
 
     private final Node node;
+    /** The node, as the recorder sees it (SOS-248). */
+    private final RecordingNode recording;
     private final String name;
     private final long playerKey;
     private final Builds builds;
@@ -35,6 +39,8 @@ public final class JoinedLobby implements LobbySession {
     private String closedReason;
     private final Chat chat = new Chat();
     private int changes;
+    /** The playtest log the setup carries on (SOS-246); null when none was kept. */
+    private SessionLog log;
 
     /** Starts connecting to {@code host}:{@code port}; the outcome arrives through {@link #update()}. */
     public JoinedLobby(String host, int port, String name, long playerKey, Builds builds) throws IOException {
@@ -46,7 +52,8 @@ public final class JoinedLobby implements LobbySession {
         this.name = name;
         this.playerKey = playerKey;
         this.builds = builds;
-        this.node = ConditionedNode.wrapIfAsked(node); // test runs only (SOS-175)
+        this.recording = new RecordingNode(ConditionedNode.wrapIfAsked(node)); // conditions: test runs only (SOS-175)
+        this.node = recording;
     }
 
     /** Stops at Start: what follows is the setup's, read by the session this one hands over to. */
@@ -173,8 +180,21 @@ public final class JoinedLobby implements LobbySession {
         if (state != LobbyState.STARTED || handedOver)
             throw new IllegalStateException("SOSGSGMP: only a started lobby hands over, once (state " + state + ", handed over " + handedOver + ")");
         handedOver = true;
-        return new JoinedSetup(node, localId, players, world, factions, settings.resume(), settings.fullTransferLog(),
+        JoinedSetup s = new JoinedSetup(node, localId, players, world, factions, settings.resume(), settings.fullTransferLog(),
                 settings.livingWorld(), chat, builds, running, freezeMissing);
+        s.keepLog(log);
+        return s;
+    }
+
+    @Override
+    public void keepLog(SessionLog log) {
+        this.log = log;
+        recording.recordTo(log == null ? null : log.recorder());
+    }
+
+    @Override
+    public String network() {
+        return node.describe();
     }
 
     @Override

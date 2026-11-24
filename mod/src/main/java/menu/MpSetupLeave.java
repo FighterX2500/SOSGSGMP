@@ -25,12 +25,14 @@ public final class MpSetupLeave {
 			@Override
 			protected void clickA() {
 				if (setup.closed()) {
+					MpLobbyLog.left(setup, "Leave after the session closed: " + setup.closedReason());
 					toMainMenu(leaving);
 					return;
 				}
 				VIEW.inters().yesNo.activate(setup.isHost() ? "Leave and end the setup for every player?"
 						: "Leave the setup? The others go on without you.", () -> {
 							setup.leave();
+							MpLobbyLog.left(setup, "Leave");
 							toMainMenu(leaving);
 						}, ACTION.NOP, true);
 			}

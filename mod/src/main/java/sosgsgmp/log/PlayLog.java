@@ -49,7 +49,7 @@ public final class PlayLog implements AutoCloseable {
     }
 
     /** {@code name} as a file name part: letters, digits, '-' and '_' only, at most 32 characters. */
-    static String fileName(String name) {
+    public static String fileName(String name) {
         String s = name.replaceAll("[^A-Za-z0-9_-]", "_");
         return s.length() > MAX_NAME ? s.substring(0, MAX_NAME) : s;
     }

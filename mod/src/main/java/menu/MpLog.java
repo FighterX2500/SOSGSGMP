@@ -6,9 +6,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Clock;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.LongSupplier;
 
 import game.GAME;
 import game.VERSION;
@@ -20,9 +22,14 @@ import sosdet.OwnBattle;
 import sosdet.Stats;
 import sosgsgmp.game.DataFolders;
 import sosgsgmp.game.EnginePlay;
+import sosgsgmp.game.WorldWatch;
+import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.GameFiles;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.log.PlayLog;
+import sosgsgmp.log.Recorder;
+import sosgsgmp.log.SessionLog;
+import sosgsgmp.log.SameLine;
 import sosgsgmp.net.Protocol;
 import sosgsgmp.session.Chat;
 import sosgsgmp.session.EngineLink;
@@ -77,30 +84,101 @@ final class MpLog {
 	/** The step last seen to move, and since when: a step that stands still while the game runs is a hold. */
 	private long heldStep = -1;
 	private long heldSinceNanos;
+	/** The hold at {@link #heldStep} has its line already (SOS-247). */
+	private boolean holdSaid;
+	/** The world's events, news and this city's day (SOS-247). */
+	private final WorldWatch world;
+	private final WorldWatch.Out worldLines = new WorldWatch.Out() {
+		@Override
+		public void same(long step, int day, boolean confirmed, String text) {
+			char mark = confirmed ? SameLine.CONFIRMED : SameLine.CANDIDATE;
+			line(step >= 0 ? SameLine.atStep(mark, step, "world: " + text) : SameLine.onDay(mark, day, "world: " + text));
+		}
 
-	private MpLog(PlayLog log, SetupSession setup, EnginePlay engine) {
-		this.log = log;
+		@Override
+		public void local(String text) {
+			line(text);
+		}
+	};
+	/** The engine's applied entries and army decisions (SOS-249). */
+	private final MpEngineRings rings;
+	/** The engine's draws outside the simulation at the last look: a draw there may be a desync's start (SOS-247). */
+	private long foreignDraws;
+
+	/** The session's files: the playtest log and the recorder (SOS-248). */
+	private final SessionLog both;
+	/** The recorder, or null when its file couldn't be made. */
+	private final Recorder recorder;
+	private boolean recorderFailureReported;
+	/** Incident copies of the recorder made this session (at most {@link #MAX_INCIDENTS}), and those the reports take. */
+	private int incidents;
+	/** The last incident copied, by its reason and step: one long freeze is a frame and a hold, one copy. */
+	private String lastIncident;
+	private final ArrayDeque<Path> incidentCopies = new ArrayDeque<>();
+	private static final int MAX_INCIDENTS = 5;
+	/** A freeze this long gets an incident copy of the recorder. */
+	private static final long INCIDENT_FREEZE_NANOS = 5_000_000_000L;
+	/** A frame this long gets an entry in the recorder. */
+	private static final long SLOW_FRAME_NANOS = 50_000_000L;
+	/** The speed and pause last recorded. */
+	private float recordedSpeed = -1;
+	private boolean recordedPause;
+	private long recordedCompared = -1, recordedMissed = -1;
+
+	private MpLog(SessionLog both, SetupSession setup, EnginePlay engine) {
+		this.both = both;
+		this.log = both.text();
+		this.recorder = both.recorder();
 		this.setup = setup;
 		this.engine = engine;
 		this.diplomacy = new MpDiplomacyLog(setup);
 		this.transfers = new MpTransferLog(setup);
+		LongSupplier step = () -> engine.active() ? engine.step() : -1; // inside the step too: no allocation
+		this.world = new WorldWatch(step);
+		if (recorder != null)
+			recorder.stepFrom(step);
+		this.rings = new MpEngineRings(engine, recorder);
 	}
 
-	/** A new log for this PC's session, with the session's facts first. */
+	/**
+	 * The game's log for this PC's session, with the session's facts first: in the file the lobby opened (SOS-246), or
+	 * a new one, with the system line, when the session carries none.
+	 */
 	static MpLog open(SetupSession setup, EnginePlay engine) {
-		Path dir = DataFolders.layout().logs();
-		String name = (setup.isHost() ? "host-" : "join-") + localName(setup);
-		MpLog l = new MpLog(PlayLog.open(dir, name, Clock.systemDefaultZone()), setup, engine);
-		if (l.log.failure() == null)
+		SessionLog file = setup.log();
+		boolean fresh = file == null;
+		if (fresh) {
+			file = new SessionLog(PlayLog.open(DataFolders.layout().logs(), (setup.isHost() ? "host-" : "join-") + localName(setup),
+					Clock.systemDefaultZone()), null);
+			setup.keepLog(file);
+		}
+		MpLog l = new MpLog(file, setup, engine);
+		if (fresh && l.log.failure() == null)
 			LOG.ln("SOSGSGMP: playtest log " + l.log.file());
 		l.reportFailure();
+		if (fresh)
+			l.line(system(setup.builds()));
 		l.line("SOSGSGMP session, " + (setup.isHost() ? "host" : "joining PC") + ", player " + localName(setup) + " (id "
 				+ setup.localPlayerId() + ")\nnetwork: " + setup.network() + "\nmod " + jar(MpLog.class) + ", engine "
-				+ jar(OwnBattle.class) + ", protocol " + Protocol.VERSION + "\ngame " + VERSION.VERSION_STRING + ", Java "
-				+ System.getProperty("java.version") + ", " + System.getProperty("os.name") + ", memory "
-				+ Runtime.getRuntime().maxMemory() / (1 << 20) + " MB");
+				+ jar(OwnBattle.class) + ", protocol " + Protocol.VERSION);
 		l.files(setup.builds().files());
 		return l;
+	}
+
+	private static final long MB = 1 << 20;
+
+	/**
+	 * The system line (SOS-246): the OS, Java, the heap's limit, the CPU's cores, the game's build and the mods enabled,
+	 * in load order. Nothing that names the player or the PC.
+	 */
+	static String system(Builds builds) {
+		List<String> mods = new ArrayList<>();
+		for (GameFiles.Mod m : builds.files().mods())
+			mods.add(m.name() + " " + m.version());
+		return "system: " + System.getProperty("os.name") + " " + System.getProperty("os.version") + " (" + System.getProperty("os.arch")
+				+ "), Java " + System.getProperty("java.version") + " (" + System.getProperty("java.vendor") + "), heap max "
+				+ Runtime.getRuntime().maxMemory() / MB + " MB, " + Runtime.getRuntime().availableProcessors() + " cores, game "
+				+ VERSION.VERSION_STRING + ", mods: " + (mods.isEmpty() ? "none" : String.join(", ", mods));
 	}
 
 	/** The game files every PC shares (SOS-159): their code, the mods in load order, and the unsupported ones. */
@@ -134,19 +212,63 @@ final class MpLog {
 
 	void line(String text) {
 		log.line(text);
+		if (recorder != null)
+			recorder.text(text.startsWith("= ") || text.startsWith("~ ") ? Recorder.LINE_SAME : Recorder.LINE_LOCAL, -1, text);
 		reportFailure();
 	}
 
 	/** An exception at a boundary: logged with its stack, for the caller to rethrow. */
 	void error(String context, Throwable t) {
 		log.error(context, t);
+		if (recorder != null)
+			recorder.text(Recorder.LINE_LOCAL, -1, "ERROR " + context + ": " + t);
 		reportFailure();
+		incident("error");
+	}
+
+	/**
+	 * A desync, a long freeze or an error (SOS-248): the recorder as it is now is copied beside it, named after this
+	 * log, the step and {@code why}, at most {@link #MAX_INCIDENTS} a session; the log names the copy, and a joining PC's
+	 * reports send it to the host.
+	 */
+	private void incident(String why) {
+		if (recorder == null || recorder.failure() != null || recorder.closed() || incidents >= MAX_INCIDENTS)
+			return;
+		String incident = (engine.active() ? engine.step() : -1) + "-" + why;
+		if (incident.equals(lastIncident))
+			return; // the same incident, seen again: its copy is made
+		lastIncident = incident;
+		incidents++;
+		String name = log.file().getFileName().toString().replaceFirst("[.]log$", "") + "-" + incident + ".rec";
+		Path to = DataFolders.layout().recorder().resolve(name);
+		try {
+			recorder.copy(to);
+			incidentCopies.add(to);
+			line("recorder: incident copy " + to);
+		} catch (IOException | RuntimeException e) {
+			// a copy that can't be made: the log says why, and the game goes on
+			line("recorder: no incident copy for " + why + ": " + e);
+		}
+	}
+
+	/** The session's recorder, or null (SOS-248). */
+	Recorder recorder() {
+		return recorder;
+	}
+
+	/** The next incident copy for the host's reports, or null. */
+	Path takeIncident() {
+		return incidentCopies.poll();
 	}
 
 	private void reportFailure() {
 		if (log.failure() != null && !failureReported) {
 			failureReported = true;
 			LOG.err("SOSGSGMP: the playtest log " + log.file() + " stopped: " + log.failure());
+		}
+		if (recorder != null && recorder.failure() != null && !recorderFailureReported) {
+			recorderFailureReported = true;
+			line("recorder: stopped for this session: " + recorder.failure());
 		}
 	}
 
@@ -195,15 +317,26 @@ final class MpLog {
 			statusNanos = System.nanoTime(); // the first status's fps counts from Go, not from the load
 			statusFrames = frames;
 			line("Go: the game runs from step " + engine.step() + String.format(Locale.ROOT, ", game speed %.2f", GAME.SPEED.speed()));
+			if (recorder != null)
+				recorder.text(Recorder.SESSION, -1, "Go");
 		}
+		speed();
+		world.install();
+		world.drain(worldLines);
 		freezes();
 		battle();
 		assault();
 		desync(desync);
 		if (frames % DIPLOMACY_FRAMES == 1) {
+			rings.look(this); // reading allocates: a few times a second, which the rings hold seconds of
 			diplomacy.look(this);
 			transfers.look(this);
 			speedNotice();
+			world.poll(worldLines);
+			world.cityDay(worldLines);
+			Stats s = engine.stats();
+			foreignDraws(s);
+			hashes(s);
 		}
 		long at = engine.step() / EVERY * EVERY;
 		if (at > statusAt) {
@@ -218,12 +351,18 @@ final class MpLog {
 	 */
 	private void loading() {
 		Loading.Window w;
-		while ((w = setup.loading().takeOpened()) != null)
+		while ((w = setup.loading().takeOpened()) != null) {
+			if (recorder != null)
+				recorder.record(Recorder.LOADING, -1, 0, w.key(), 1);
 			line("loading opened: " + w.kind() + " " + w.key() + (setup.playing() ? " at step " + engine.step() : "") + ": " + w.text());
+		}
 		Loading.Closed c;
-		while ((c = setup.loading().takeClosed()) != null)
+		while ((c = setup.loading().takeClosed()) != null) {
+			if (recorder != null)
+				recorder.record(Recorder.LOADING, -1, 0, c.key(), 0);
 			line(String.format(Locale.ROOT, "loading closed %s: %s %d, open %.1f s, this PC's longest frame meanwhile %d ms", c.how(),
 					c.kind(), c.key(), c.openMs() / 1000.0, c.longestFrameMs()));
+		}
 	}
 
 	/**
@@ -232,18 +371,65 @@ final class MpLog {
 	 */
 	private void freezes() {
 		long now = System.nanoTime();
-		if (lastFrameNanos != 0 && now - lastFrameNanos > FREEZE_NANOS)
+		if (lastFrameNanos != 0 && now - lastFrameNanos >= SLOW_FRAME_NANOS && recorder != null)
+			recorder.record(Recorder.FRAME, -1, 0, (now - lastFrameNanos) / 1_000_000, 0);
+		if (lastFrameNanos != 0 && now - lastFrameNanos > FREEZE_NANOS) {
 			line(String.format(Locale.ROOT, "freeze: a frame of %d ms at step %d%s", (now - lastFrameNanos) / 1_000_000, engine.step(),
 					during()));
+			if (now - lastFrameNanos > INCIDENT_FREEZE_NANOS)
+				incident("freeze");
+		}
 		lastFrameNanos = now;
 		long step = engine.step();
 		boolean paused = GAME.SPEED.speed() == 0 || setup.pauses().pausedBy() != Pauses.NOBODY;
-		if (step == heldStep && !paused)
+		if (step == heldStep && !paused) {
+			if (!holdSaid && heldStep >= 0 && now - heldSinceNanos > FREEZE_NANOS) {
+				holdSaid = true; // what holds it, while it holds
+				if (recorder != null)
+					recorder.record(Recorder.HOLD_START, -1, 0, heldStep, 0);
+				line(String.format(Locale.ROOT, "hold over a second at %s; behind the host %d steps, step past the peers %d", // the reason starts with its step
+						engine.holdWhy(), engine.behindHost(), engine.stepPastPeers()));
+			}
 			return;
-		if (!paused && heldStep >= 0 && now - heldSinceNanos > FREEZE_NANOS)
+		}
+		holdSaid = false;
+		if (!paused && heldStep >= 0 && now - heldSinceNanos > FREEZE_NANOS) {
+			if (recorder != null)
+				recorder.record(Recorder.HOLD_END, -1, 0, heldStep, (int) ((now - heldSinceNanos) / 1_000_000));
 			line(String.format(Locale.ROOT, "freeze: held %.1f s at step %d%s", (now - heldSinceNanos) / 1e9, heldStep, during()));
+			if (now - heldSinceNanos > INCIDENT_FREEZE_NANOS)
+				incident("freeze");
+		}
 		heldStep = step;
 		heldSinceNanos = now;
+	}
+
+	/** A draw outside the simulation, which every PC doesn't make alike, gets a line of its own (SOS-247). */
+	private void foreignDraws(Stats s) {
+		long n = s.foreignDraws;
+		if (n > foreignDraws)
+			line("foreign draws: " + (n - foreignDraws) + " more, " + n + " in all, at step " + engine.step());
+		foreignDraws = n;
+	}
+
+	/** The hashes compared and missed, into the recorder as they move (SOS-248). */
+	private void hashes(Stats s) {
+		if (recorder == null || s.hashesCompared == recordedCompared && s.hashesMissed == recordedMissed)
+			return;
+		recordedCompared = s.hashesCompared;
+		recordedMissed = s.hashesMissed;
+		recorder.record(Recorder.HASHES, -1, 0, s.hashesCompared, (int) s.hashesMissed);
+	}
+
+	/** The game's speed and pause as this PC has them, into the recorder as they change (SOS-248). */
+	private void speed() {
+		float speed = (float) GAME.SPEED.speed();
+		boolean paused = GAME.SPEED.isPaused();
+		if (recorder == null || speed == recordedSpeed && paused == recordedPause)
+			return;
+		recordedSpeed = speed;
+		recordedPause = paused;
+		recorder.record(Recorder.SPEED, -1, 0, Math.round(speed * 100), paused ? 1 : 0);
 	}
 
 	private String during() {
@@ -338,6 +524,9 @@ final class MpLog {
 		long d = engine.desyncStep();
 		if (d >= 0 && d != desyncStep) {
 			String report = engine.desyncReport();
+			if (recorder != null)
+				recorder.record(Recorder.DESYNC, -1, 0, d, 0);
+			incident("desync");
 			line("this PC's engine found a desync at step " + d + (report == null ? "" : ":\n" + report));
 		}
 		desyncStep = d;
@@ -353,6 +542,7 @@ final class MpLog {
 		long now = System.nanoTime();
 		double seconds = (now - statusNanos) / 1e9;
 		Stats s = engine.stats();
+		Runtime rt = Runtime.getRuntime();
 		StringBuilder peers = new StringBuilder();
 		for (LobbyPlayer p : setup.players()) {
 			int pc = setup.factions().slotOf(p.id());
@@ -365,12 +555,14 @@ final class MpLog {
 		line(String.format(Locale.ROOT,
 				"step %d hash %s | speed agreed %.2f, game %.2f, paused %b | %.1f fps, step ms mean %.2f p99 %.2f max %.1f,"
 						+ " over 100 ms %d, capacity %d steps/s | peers at %s | held %.1f s, longest %.2f s | hashes compared %d, missed %d | orders %d,"
-						+ " commands %d, txns %d, reports %d, AI %d | treasury %d | network out %.1f KB/s (%d KB, raw %d KB), in %.1f KB/s (%d KB, raw %d KB)",
+						+ " commands %d, txns %d, reports %d, AI %d | treasury %d | network out %.1f KB/s (%d KB, raw %d KB), in %.1f KB/s (%d KB, raw %d KB)"
+						+ " | heap used %d MB, committed %d MB, max %d MB | draws simulation %d, foreign %d",
 				at, hash(at), s.agreedSpeed, GAME.SPEED.speed(), GAME.SPEED.isPaused(), (frames - statusFrames) / seconds,
 				s.meanMs, s.p99Ms, s.maxMs, s.stepsOver100Ms, engine.capacity(), peers, engine.heldSeconds(), engine.longestHoldSeconds(),
 				s.hashesCompared, s.hashesMissed, s.ordersApplied, s.commandsApplied, s.txnsApplied, s.reportsReceived,
 				s.aiApplied, (long) FACTIONS.player().credits().credits(), (n.wireOut() - statusWireOut) / 1024.0 / seconds,
-				n.wireOut() >> 10, n.rawOut() >> 10, (n.wireIn() - statusWireIn) / 1024.0 / seconds, n.wireIn() >> 10, n.rawIn() >> 10));
+				n.wireOut() >> 10, n.rawOut() >> 10, (n.wireIn() - statusWireIn) / 1024.0 / seconds, n.wireIn() >> 10, n.rawIn() >> 10,
+				(rt.totalMemory() - rt.freeMemory()) / MB, rt.totalMemory() / MB, rt.maxMemory() / MB, s.simulationDraws, s.foreignDraws));
 		if (setup.testNetwork() != null) // test runs only (SOS-175)
 			line("test network: " + setup.testNetwork().conditions().describe() + " | " + setup.testNetwork().stats());
 		statusWireOut = n.wireOut();
@@ -393,9 +585,23 @@ final class MpLog {
 		return log.file();
 	}
 
+	/**
+	 * A hot-join's restart (SOS-190) ends this session: this log stops, and the restart's session, which carries the
+	 * same file (SOS-246), goes on writing in it.
+	 */
+	void restarting() {
+		line("the log goes on with the restart's session");
+		rings.restart();
+		if (recorder != null)
+			recorder.text(Recorder.SESSION, -1, "restart");
+		ended = true;
+	}
+
 	/** The session's end on this PC: nothing more to log. */
 	private void end() {
 		ended = true;
-		log.close();
+		if (recorder != null)
+			recorder.text(Recorder.SESSION, -1, "end");
+		both.close();
 	}
 }

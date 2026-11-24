@@ -8,10 +8,12 @@ import sosgsgmp.campaign.SaveOrder;
 import sosgsgmp.lobby.Builds;
 import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
+import sosgsgmp.log.SessionLog;
 import sosgsgmp.net.ConditionedNode;
 import sosgsgmp.net.Message;
 import sosgsgmp.net.Pieces;
 import sosgsgmp.net.Node;
+import sosgsgmp.net.RecordingNode;
 import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep;
 import sosgsgmp.setup.FactionWorld;
@@ -58,6 +60,8 @@ public final class JoinedSetup implements SetupSession {
     private final Departures departures = new Departures();
     /** For the playtest log: players lost and heard again (SOS-177). */
     private final Notes notes = new Notes();
+    /** The playtest log, carried from the lobby to a restart's session (SOS-246); null when none was kept. */
+    private SessionLog log;
     /** The engine's streams once this PC plays; null before. */
     private EngineLink link;
     /** City viewing's requests once this PC plays; null before (SOS-82). */
@@ -448,7 +452,7 @@ public final class JoinedSetup implements SetupSession {
 
     @Override
     public ConditionedNode testNetwork() {
-        return node instanceof ConditionedNode c ? c : null;
+        return RecordingNode.under(node) instanceof ConditionedNode c ? c : null;
     }
 
     @Override
@@ -595,6 +599,7 @@ public final class JoinedSetup implements SetupSession {
         JoinedSetup next = new JoinedSetup(node, localPlayerId(), players, world, factionWorld,
                 new LobbySettings.Resume(r.campaign(), r.number()), fullTransferLog, false, chat, builds, false, false);
         next.restartInfo = r;
+        next.log = log; // the same file goes on (SOS-246)
         if (r.rejoins() && rejoinFiles == null) {
             close("The host brought a frozen player back without its world.");
             return;
@@ -775,5 +780,15 @@ public final class JoinedSetup implements SetupSession {
     @Override
     public String takeNote() {
         return notes.take();
+    }
+
+    @Override
+    public SessionLog log() {
+        return log;
+    }
+
+    @Override
+    public void keepLog(SessionLog log) {
+        this.log = log;
     }
 }

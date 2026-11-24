@@ -13,14 +13,16 @@ import java.util.Set;
 import sosgsgmp.campaign.DataLayout;
 import sosgsgmp.game.DataFolders;
 import sosgsgmp.lobby.LobbyPrefs;
+import sosgsgmp.log.RecorderStream;
 import sosgsgmp.net.Message;
+import sosgsgmp.report.HsErr;
 import sosgsgmp.report.ReportOutbox;
 import sosgsgmp.session.SetupSession;
 
 /**
  * SOSGSGMP: reports (SOS-133). A joining PC sends the host, in the background, its playtest log and Steam log as they
- * grow, the game's crash files of the last week it hasn't sent before, and each campaign save with its record. The
- * host keeps them in {@code %APPDATA%/songsofsyx/sosgsgmp/reports} (SOS-155). {@code reports=false} in a PC's lobby settings
+ * grow, the game's crash files and the JVM's {@code hs_err} files (SOS-246) of the last week it hasn't sent before, and
+ * each campaign save with its record. The host keeps them in {@code %APPDATA%/songsofsyx/sosgsgmp/reports} (SOS-155). {@code reports=false} in a PC's lobby settings
  * stops its sending.
  */
 final class MpReports {
@@ -48,9 +50,17 @@ final class MpReports {
 			start();
 		if (outbox == null)
 			return;
-		Message.Report piece = outbox.next(System.nanoTime());
-		if (piece != null)
+		Path incident;
+		while ((incident = log.takeIncident()) != null) // a copy of the recorder, after a desync, a freeze or an error (SOS-248)
+			add(incident, () -> {
+			});
+		long now = System.nanoTime();
+		for (int i = 0; i < 2; i++) { // the recorder stream's piece, then a log's or a file's (SOS-248)
+			Message.Report piece = outbox.next(now);
+			if (piece == null)
+				break;
 			setup.report(piece);
+		}
 	}
 
 	private void start() {
@@ -66,6 +76,8 @@ final class MpReports {
 			return;
 		}
 		outbox = new ReportOutbox();
+		if (log.recorder() != null) // this PC's own entries, as they come (SOS-248)
+			outbox.stream(new RecorderStream(log.recorder()));
 		outbox.follow(log.file());
 		if (setup.network().startsWith("Steam")) {
 			Path steam = newest(layout.logs(), "*-steam.log");
@@ -84,8 +96,48 @@ final class MpReports {
 		} catch (IOException e) {
 			// no crash files folder: nothing to send from it
 		}
+		crashes += hsErrs(reports, sent, now);
 		setup.chat().notice("Your game sends its logs and saves to the host, for bug reports.");
-		log.line("reports: this PC's logs, " + crashes + " crash files and its saves go to the host");
+		log.line("reports: this PC's logs, " + crashes + " crash files and its saves go to the host"
+				+ (log.recorder() != null ? ", and its recorder's own entries as they come" : ""));
+	}
+
+	/**
+	 * The JVM's fatal error files of the last week not sent before (SOS-246), this game's only, without their
+	 * environment, user name and home folder. The JVM writes one in its working folder, the game's folder as the launcher
+	 * starts the game on Windows, Linux and macOS alike (no {@code -XX:ErrorFile} in its arguments), or in the temp
+	 * folder, which every JVM on the PC shares, when it can't write there. A file is known as sent by its name and time:
+	 * a later process may have the same pid.
+	 */
+	private int hsErrs(Path reports, Set<String> sent, long now) {
+		int n = 0;
+		for (String dir : new String[] { System.getProperty("user.dir"), System.getProperty("java.io.tmpdir") }) {
+			if (dir == null)
+				continue;
+			try (DirectoryStream<Path> files = Files.newDirectoryStream(Path.of(dir), HsErr.GLOB)) {
+				for (Path f : files) {
+					String name = f.getFileName().toString();
+					long time = Files.getLastModifiedTime(f).toMillis();
+					String key = name + " " + time;
+					if (sent.contains(key) || now - time >= CRASH_AGE_MS)
+						continue;
+					try {
+						byte[] bytes = Files.readAllBytes(f);
+						sent.add(key); // the temp folder may be the working folder
+						if (!HsErr.isGame(bytes))
+							continue; // another program's JVM: not this game's, nor anything to send
+						outbox.add(name, HsErr.redact(bytes, System.getProperty("user.name"), System.getProperty("user.home")),
+								() -> markSent(reports, key));
+						n++;
+					} catch (IOException | IllegalArgumentException e) {
+						log.line("reports: " + name + " not sent: " + e.getMessage());
+					}
+				}
+			} catch (IOException e) {
+				log.line("reports: no hs_err files looked for in " + dir + ": " + e); // a folder that can't be listed
+			}
+		}
+		return n;
 	}
 
 	/** A joining PC saved the campaign: the save and its record go to the host after what waits. */
