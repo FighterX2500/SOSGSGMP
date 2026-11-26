@@ -31,8 +31,6 @@ public final class JoinedSetup implements SetupSession {
 
     private final Node node;
     private final MapWorld world;
-    /** The host's lobby switch for the playtest log (SOS-81). */
-    private final boolean fullTransferLog;
     private final FactionWorld factionWorld;
     private final MapStep step;
     private final Pieces.Receiver terrain = new Pieces.Receiver();
@@ -96,8 +94,8 @@ public final class JoinedSetup implements SetupSession {
      * not null) starts at the world-loaded step: the host's slot map follows, and every PC loads its own save (SOS-64).
      */
     JoinedSetup(Node node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld,
-            LobbySettings.Resume resume, boolean fullTransferLog, boolean livingWorld, Chat chat, Builds builds) {
-        this(node, localId, players, world, factionWorld, resume, fullTransferLog, livingWorld, chat, builds, false, false);
+            LobbySettings.Resume resume, boolean livingWorld, Chat chat, Builds builds) {
+        this(node, localId, players, world, factionWorld, resume, livingWorld, chat, builds, false, false);
     }
 
     /**
@@ -105,7 +103,7 @@ public final class JoinedSetup implements SetupSession {
      * {@code freezeMissing}: the host's Start froze a resume's missing players instead of removing them.
      */
     JoinedSetup(Node node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld,
-            LobbySettings.Resume resume, boolean fullTransferLog, boolean livingWorld, Chat chat, Builds builds,
+            LobbySettings.Resume resume, boolean livingWorld, Chat chat, Builds builds,
             boolean candidate, boolean freezeMissing) {
         if (freezeMissing && resume == null)
             throw new IllegalArgumentException("SOSGSGMP: missing players frozen at the start of a game that resumes nothing");
@@ -115,7 +113,6 @@ public final class JoinedSetup implements SetupSession {
         this.livingWorld = livingWorld;
         this.chat = chat;
         this.builds = builds;
-        this.fullTransferLog = fullTransferLog;
         this.world = world;
         this.factionWorld = factionWorld;
         this.players = List.copyOf(players);
@@ -550,11 +547,6 @@ public final class JoinedSetup implements SetupSession {
     }
 
     @Override
-    public boolean fullTransferLog() {
-        return fullTransferLog;
-    }
-
-    @Override
     public void pick(FactionPick pick) {
         if (candidate && factions == null) { // hot-join: the pick goes to the host, which checks it on the live world
             node.send(Node.HOST, new Message.JoinPick(pick));
@@ -597,7 +589,7 @@ public final class JoinedSetup implements SetupSession {
     private void restart(Message.Restart r) {
         // a restart has nobody missing: nothing is frozen or removed at its start
         JoinedSetup next = new JoinedSetup(node, localPlayerId(), players, world, factionWorld,
-                new LobbySettings.Resume(r.campaign(), r.number()), fullTransferLog, false, chat, builds, false, false);
+                new LobbySettings.Resume(r.campaign(), r.number()), false, chat, builds, false, false);
         next.restartInfo = r;
         next.log = log; // the same file goes on (SOS-246)
         if (r.rejoins() && rejoinFiles == null) {

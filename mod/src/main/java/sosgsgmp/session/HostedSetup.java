@@ -35,8 +35,6 @@ public final class HostedSetup implements SetupSession {
     private final FactionWorld factionWorld;
     /** The lobby's difficulty, set on the world the host builds. */
     private final String difficulty;
-    /** The lobby's switch for the playtest log (SOS-81). */
-    private final boolean fullTransferLog;
     /** The lobby's world: a living world, where every player settles on the built world (SOS-187, SOS-214). */
     private final boolean livingWorld;
     /** A living world built to settle on, until this PC takes it to load; null otherwise. */
@@ -179,7 +177,6 @@ public final class HostedSetup implements SetupSession {
         this.world = world;
         this.factionWorld = factionWorld;
         this.difficulty = settings.difficulty();
-        this.fullTransferLog = settings.fullTransferLog();
         this.livingWorld = settings.livingWorld();
         this.joined = new HashMap<>(joined);
         this.players = new ArrayList<>(players);
@@ -819,8 +816,7 @@ public final class HostedSetup implements SetupSession {
         // a player coming back keeps the campaign's name, whatever their game calls them now (SOS-196 G2)
         candidate = new Candidate(peer, nextPlayerId(), known == null ? h.name() : known.name(), h.playerKey(),
                 known == null ? -1 : known.slot());
-        node.send(peer, new Message.Welcome(candidate.id, new LobbySettings(difficulty, LobbySettings.MAX_PLAYERS)
-                .withFullTransferLog(fullTransferLog)));
+        node.send(peer, new Message.Welcome(candidate.id, new LobbySettings(difficulty, LobbySettings.MAX_PLAYERS)));
         node.send(peer, new Message.Running(known != null));
         notes.add(h.name() + (known == null ? " asks to join the running game" : " asks to come back from a freeze, slot " + known.slot()));
     }
@@ -966,7 +962,7 @@ public final class HostedSetup implements SetupSession {
             node.send(peer, roster);
         notes.add(note);
         replaced = true; // not left: the connection stays with the new setup, and this one sends nothing more
-        LobbySettings s = LobbySettings.resuming(new LobbySettings.Resume(r.campaign(), r.number())).withFullTransferLog(fullTransferLog);
+        LobbySettings s = LobbySettings.resuming(new LobbySettings.Resume(r.campaign(), r.number()));
         // a restart has nobody missing: nothing is frozen or removed at its start
         HostedSetup h = new HostedSetup(node, joined2, players2, keys2, world, factionWorld, s, chat, builds, joined2.keySet(), false);
         h.restartInfo = r;
@@ -1270,11 +1266,6 @@ public final class HostedSetup implements SetupSession {
     @Override
     public FactionStep factions() {
         return factions;
-    }
-
-    @Override
-    public boolean fullTransferLog() {
-        return fullTransferLog;
     }
 
     @Override

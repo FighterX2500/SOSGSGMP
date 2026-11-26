@@ -60,7 +60,7 @@ You need Songs of Syx V71, **build 71.44**, through Steam on Windows, Linux (the
 4. The main menu now has a Multiplayer button.
 
 - **Over Steam:** the players are Steam friends. The host chooses Multiplayer, Create Lobby, then "create Steam lobby"; the others choose "join through Steam", or accept the host's Steam invite anywhere in the main menu.
-- **By IP:** the host's TCP port 47510 must be reachable (a forwarded port, or a VPN such as Radmin VPN). The host chooses "create (IP)"; the others choose "join by IP" with the host's address.
+- **By IP:** the host's TCP port 47510 must be reachable (a forwarded port, or a virtual LAN such as Radmin VPN, Tailscale or ZeroTier, with the host's address on it). The host chooses "create (Direct IP)"; the others choose "join by IP" with the host's address.
 
 **On macOS**, Steam connects a Mac only through Valve's relays, never directly. On Apple Silicon the game runs under Rosetta, where Steam's direct connections crash it. Expect a little more delay than between two Windows PCs. A full session between a Mac and another PC over Steam is still to be tested.
 

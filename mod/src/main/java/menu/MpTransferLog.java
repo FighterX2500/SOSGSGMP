@@ -16,8 +16,7 @@ import sosgsgmp.session.SetupSession;
 /**
  * SOSGSGMP: the playtest log's goods and money lines (SOS-81). It runs between steps, a few times a second from
  * {@link MpLog}, and only reads the engine's record of transfers. Every PC records every player's transfers alike, so
- * the logs match line for line. With the lobby's full transfer log on, it writes every transfer, NPC trade included;
- * off, only those between players: deals, sales between players, the tariff cut and tribute.
+ * the logs match line for line. It writes every transfer, NPC trade included.
  */
 final class MpTransferLog {
 
@@ -35,7 +34,7 @@ final class MpTransferLog {
 	void look(MpLog out) {
 		if (lastSeq < 0) { // the record holds what came before this log; it starts from here
 			lastSeq = PlayerDeals.lastTransfer();
-			out.line("transfers logged: " + (setup.fullTransferLog() ? "every transfer" : "between players only"));
+			out.line("transfers logged: every transfer");
 			return;
 		}
 		read.clear();
@@ -44,25 +43,7 @@ final class MpTransferLog {
 		if (lost > 0)
 			out.line("transfers: " + lost + " not logged, the record wrapped");
 		for (TransferLog.Transfer t : read)
-			if (setup.fullTransferLog() || betweenPlayers(t))
-				out.line(line(t));
-	}
-
-	private boolean betweenPlayers(TransferLog.Transfer t) {
-		switch (t.kind()) {
-		case BOUGHT:
-		case SOLD:
-			return player(t.other()) || t.reason() == TRADE_TYPE.diplomacy.index;
-		case DELIVERED:
-			return t.reason() == TRADE_TYPE.diplomacy.index;
-		case MONEY: // a plain trade credit is the tariff cut; market sales come as money for goods
-			return t.reason() == CTYPE.DIPLOMACY.ordinal() || t.reason() == CTYPE.TRIBUTE.ordinal()
-					|| t.reason() == CTYPE.TRADE.ordinal();
-		case MONEY_FOR_GOODS:
-			return t.reason() == CTYPE.DIPLOMACY.ordinal();
-		default:
-			throw new IllegalStateException("SOSGSGMP: unknown transfer kind " + t.kind());
-		}
+			out.line(line(t));
 	}
 
 	private String line(TransferLog.Transfer t) {
@@ -102,12 +83,6 @@ final class MpTransferLog {
 		return String.valueOf(credits ? CTYPES[t.reason()].name : TRADE_TYPE.all.get(t.reason()).name);
 	}
 
-	private boolean player(int slot) {
-		for (LobbyPlayer p : setup.players())
-			if (setup.factions().slotOf(p.id()) == slot)
-				return true;
-		return false;
-	}
 
 	private String name(int slot) {
 		if (slot < 0)

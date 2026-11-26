@@ -276,8 +276,6 @@ def main():
                     help="with --deal: from this step the joiner cancels every treaty with the host at once (SOS-76)")
     ap.add_argument("--war", type=int, default=-1,
                     help="the joiner's step to declare war on the host (SOS-74); the Diplomacy tab doesn't offer it yet")
-    ap.add_argument("--transfer-log", choices=["full", "players"], default="full",
-                    help="the host's lobby switch for the playtest log: every transfer, or only those between players (SOS-81)")
     ap.add_argument("--tariff", type=int, default=-1,
                     help="the joiner's step to set a 50%% tariff on the host (SOS-77); needs --deal first")
     ap.add_argument("--quit", type=int, default=-1,
@@ -454,9 +452,9 @@ def main():
     # Steam finds the App ID here when the game isn't started by Steam
     host_env = dict(os.environ, APPDATA=str(local.parent), SteamAppId=STEAM_APP_ID, SOSGSGMP_STEAM_NET=STEAM_NET[0],
                     SOSGSGMP_NETEM=NETEM["host"],
-                    SOSGSGMP_AUTOPILOT="role=host,name=Host,players=%d,seed=%d,speed=%g,ondesync=%s,save=%d,resume=%s,ongone=%s,startafter=%d,fulllog=%d,%s"
+                    SOSGSGMP_AUTOPILOT="role=host,name=Host,players=%d,seed=%d,speed=%g,ondesync=%s,save=%d,resume=%s,ongone=%s,startafter=%d,%s"
                     % (players, args.seed, args.speed, args.on_desync, args.save, "oldest" if args.copies else 1 if args.resume or seeds else 0, args.on_gone, args.start_after,
-                       1 if args.transfer_log == "full" else 0, common + host_capital + host_view
+                       common + host_capital + host_view
                        + (",onmissing=freeze" if args.on_missing == "freeze" else "")))
     java = GAME / "jre" / "bin" / "java.exe"
     host = subprocess.Popen([str(java), "-cp", str(GAME / "SongsOfSyx.jar"), "init.Main"], cwd=str(GAME), env=host_env,

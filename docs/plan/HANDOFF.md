@@ -15,7 +15,7 @@ Updated 2026-11-23: main at SOSGSGMP #127 and SOSDET #104 (both merged 2026-11-2
 - **Engine:** `C:\ClaudeFolder\SOSDET`, GitHub `FighterX2500/Songs-of-Syx-Deterministic-Engine` (public).
 - **The game:** `C:\ClaudeFolder\Songs of Syx`, V71 build 71.44.
 
-**Versions:** network protocol 34 (`Protocol.VERSION`), campaign record format 5 (`CampaignRecord.FORMAT`). The mod has 383 `@Test` methods (unit and loopback tests).
+**Versions:** network protocol 35 (`Protocol.VERSION`), campaign record format 5 (`CampaignRecord.FORMAT`). The mod has 382 `@Test` methods (unit and loopback tests).
 
 **What works:** every v1 feature in spec §2, played over Steam and direct IP with up to 3 players. The README's "What it does" lists them; section 8 below says when each came in and what each still lacks.
 

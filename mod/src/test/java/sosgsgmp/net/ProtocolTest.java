@@ -33,7 +33,6 @@ class ProtocolTest {
         List<Message> all = List.of(
             new Message.Hello("Ann", -42L, new Builds("0.71.44", 1, 2, new GameFiles(3, List.of()))),
             new Message.Welcome(3, new LobbySettings("hard", 16)),
-            new Message.Welcome(4, new LobbySettings("hard", 16).withFullTransferLog(false)),
             new Message.Welcome(5, new LobbySettings("hard", 16).withLivingWorld(true)),
             new Message.Roster(List.of(new LobbyPlayer(0, "Ann", true), new LobbyPlayer(5, "Bøb", false))),
             new Message.Refused(Refusal.FULL),

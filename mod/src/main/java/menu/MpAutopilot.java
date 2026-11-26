@@ -79,7 +79,7 @@ import world.WORLD;
  * answers it), {@code freeze} (join: at this step choose the escape
  * menu's Leave and freeze, confirmed: SOS-194), {@code startafter} (host: keep the lobby open this many seconds first),
  * {@code deal} (join: at this step propose trade, up to 100 denari and 5 of a good it has to the host, who accepts every
- * proposal: SOS-72), {@code fulllog} (host, {@code 0}: the lobby's transfer log lists only transfers between players: SOS-81),
+ * proposal: SOS-72),
  * {@code living} (host, {@code 1}: the lobby's world is a living world, every joiner settling on the host's map: SOS-187),
  * {@code dealcancel} (join: from this step, cancel every treaty with the host at once, once there is one: SOS-76),
  * {@code war} (join: at this step declare war on the host, at once: SOS-74; the Diplomacy tab doesn't offer it yet),
@@ -121,8 +121,6 @@ public final class MpAutopilot {
 	private final boolean manualDeals;
 	/** Join: the step to declare war on the host at (SOS-74); -1 for never. */
 	private final long war;
-	/** Host: the lobby's switch for the playtest log (SOS-81). */
-	private final boolean fullLog;
 	/** Host: the lobby's world is a living world (SOS-187). */
 	private final boolean living;
 	/** Join: the step to set a 50% tariff on what the host sells this player at (SOS-77); -1 for none. */
@@ -263,7 +261,6 @@ public final class MpAutopilot {
 		dealCancel = Long.parseLong(m.getOrDefault("dealcancel", "-1"));
 		manualDeals = m.containsKey("manualdeals");
 		war = Long.parseLong(m.getOrDefault("war", "-1"));
-		fullLog = !"0".equals(m.getOrDefault("fulllog", "1"));
 		living = "1".equals(m.getOrDefault("living", "0"));
 		tariff = Long.parseLong(m.getOrDefault("tariff", "-1"));
 		quit = Long.parseLong(m.getOrDefault("quit", "-1"));
@@ -527,7 +524,7 @@ public final class MpAutopilot {
 		if (!resume)
 			// as Create Lobby: the remembered mode, or the game's first when none is (a fresh profile)
 			return new LobbySettings(difficulty.isEmpty() ? mp.modes.keys[mp.modes.index(mp.prefs.difficulty)] : difficulty,
-					Math.max(players, 2)).withFullTransferLog(fullLog).withLivingWorld(living);
+					Math.max(players, 2)).withLivingWorld(living);
 		List<CampaignRecord> all = MpSaves.store().all();
 		if (all.isEmpty())
 			throw new IllegalStateException("SOSGSGMP: " + VARIABLE + " resume=1, but this data folder has no campaign save");

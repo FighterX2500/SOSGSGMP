@@ -8,13 +8,11 @@ import sosgsgmp.campaign.Campaign;
  * @param difficulty key of a vanilla difficulty mode (a file in the game's player/mode folder)
  * @param maxPlayers player limit, 2 to 16 (spec §3)
  * @param resume the campaign save the lobby resumes (spec §11, SOS-64), or null for a new game
- * @param fullTransferLog every PC's playtest log lists every goods and money transfer, NPC trade included; off, only
- *        those between players (SOS-81)
  * @param livingWorld the world is built around the host alone, and every other player settles a city-state carved
  *        into it on the real political map (spec §5 World, SOS-187); off, the classic setup. A resume plays its saved
  *        world, so it is off there
  */
-public record LobbySettings(String difficulty, int maxPlayers, Resume resume, boolean fullTransferLog, boolean livingWorld) {
+public record LobbySettings(String difficulty, int maxPlayers, Resume resume, boolean livingWorld) {
 
     /** A campaign save to resume: only its players can join, and every PC loads its own save of that number. */
     public record Resume(Campaign campaign, int number) {
@@ -44,23 +42,18 @@ public record LobbySettings(String difficulty, int maxPlayers, Resume resume, bo
             throw new IllegalArgumentException("SOSGSGMP: a resume builds no world, living or classic");
     }
 
-    /** A new game's lobby, with the full transfer log on. */
+    /** A new game's lobby. */
     public LobbySettings(String difficulty, int maxPlayers) {
-        this(difficulty, maxPlayers, null, true, false);
+        this(difficulty, maxPlayers, null, false);
     }
 
-    /** The lobby resuming {@code resume}: the campaign's difficulty and players, with the full transfer log on. */
+    /** The lobby resuming {@code resume}: the campaign's difficulty and players. */
     public static LobbySettings resuming(Resume resume) {
-        return new LobbySettings(resume.campaign().difficulty(), resume.campaign().players().size(), resume, true, false);
-    }
-
-    /** These settings with the full transfer log on or off. */
-    public LobbySettings withFullTransferLog(boolean on) {
-        return new LobbySettings(difficulty, maxPlayers, resume, on, livingWorld);
+        return new LobbySettings(resume.campaign().difficulty(), resume.campaign().players().size(), resume, false);
     }
 
     /** These settings with the living world on or off (SOS-187). */
     public LobbySettings withLivingWorld(boolean on) {
-        return new LobbySettings(difficulty, maxPlayers, resume, fullTransferLog, on);
+        return new LobbySettings(difficulty, maxPlayers, resume, on);
     }
 }
