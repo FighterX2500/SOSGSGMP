@@ -1,6 +1,7 @@
 package view.world.generator;
 
 import snake2d.util.gui.GuiSection;
+import sosgsgmp.setup.TitlesMode;
 import util.gui.misc.GButt;
 
 /**
@@ -21,4 +22,10 @@ interface MpFactionScreens {
 
 	/** Customize Faction's Next, to the location screen; null when Ready is on Customize (a living world's joiners). */
 	GButt.ButtPanel afterCustomize();
+
+	/**
+	 * The lobby's titles setting when this PC's player picks titles (spec §5 Titles): the titles screen comes after the
+	 * race; null when they pick none.
+	 */
+	TitlesMode titles();
 }

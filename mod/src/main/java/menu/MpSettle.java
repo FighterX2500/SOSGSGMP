@@ -20,6 +20,7 @@ import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.session.SetupSession;
 import sosgsgmp.setup.FactionPick;
+import sosgsgmp.setup.TitlesMode;
 import sosgsgmp.setup.FactionStep;
 import util.colors.GCOLOR;
 import util.gui.misc.GButt;
@@ -27,6 +28,7 @@ import util.gui.misc.GHeader;
 import util.gui.misc.GText;
 import view.main.VIEW;
 import view.world.generator.MpJoinScreens;
+import view.world.generator.MpSpotMarks;
 import view.world.generator.MpSpotPlacer;
 import world.WORLD;
 import world.map.regions.Region;
@@ -43,10 +45,13 @@ public final class MpSettle implements CORE_STATE.Constructor {
 
 	private final SetupSession setup;
 	private final byte[] save;
+	/** The map step's rebuild, where a passed vote for a new world goes (spec §5). */
+	private final CORE_STATE.Constructor rebuild;
 
-	public MpSettle(SetupSession setup, byte[] save) {
+	public MpSettle(SetupSession setup, byte[] save, CORE_STATE.Constructor rebuild) {
 		this.setup = setup;
 		this.save = save.clone();
+		this.rebuild = rebuild;
 	}
 
 	@Override
@@ -66,7 +71,11 @@ public final class MpSettle implements CORE_STATE.Constructor {
 		Region standIn = FACTIONS.getByIndex(0).capitolRegion();
 		int cx = standIn == null ? WORLD.TWIDTH() / 2 : standIn.cx();
 		int cy = standIn == null ? WORLD.THEIGHT() / 2 : standIn.cy();
-		Settle settle = new Settle(setup);
+		FactionPick own = setup.factions().ownPick();
+		if (own == null)
+			throw new IllegalStateException("SOSGSGMP: settling with no picks of this PC's");
+		game.wear(own); // race, faction and banner can change until Ready, as before the world was built
+		Settle settle = new Settle(setup, rebuild);
 		MpJoinScreens.settle(settle, cx, cy);
 		// every frame, as the factions step: vanilla's "click to continue" after the load hides the screen's own render
 		GAME.addAfterUpdate(settle::pump);
@@ -78,6 +87,7 @@ public final class MpSettle implements CORE_STATE.Constructor {
 	private static final class Settle implements MpJoinScreens.Pick {
 
 		private static final int WIDTH = 420;
+		/** The status box's least height, in lines; it grows to the host's longest text, so the buttons under it fit. */
 		private static final int STATUS_LINES = 9;
 		private static final CharSequence TITLE = "Place your city-state";
 		private static final String PLACE = "Click where your city-state goes: 6 tiles or more from every town and every"
@@ -92,6 +102,10 @@ public final class MpSettle implements CORE_STATE.Constructor {
 		private final GText status = new GText(UI.FONT().M, 512);
 		private int shownChanges = -1;
 		private boolean leaving;
+		/** Race, faction name and banner as this PC's player has them: sent when they change (owner, 2026-11-26). */
+		private final WorldSetupAdapter game = new WorldSetupAdapter();
+		private static final double PICK_CHECK_SECONDS = 0.5;
+		private long lastPickCheck;
 		/** This PC's spot as last placed, or NONE. */
 		private int ownX = FactionPick.NONE;
 		private int ownY = FactionPick.NONE;
@@ -100,6 +114,7 @@ public final class MpSettle implements CORE_STATE.Constructor {
 		private final int[] otherY = new int[LobbySettings.MAX_PLAYERS];
 		private final GText[] otherNames = new GText[LobbySettings.MAX_PLAYERS];
 		private int others;
+		private final MpSpotMarks marks = new MpSpotMarks();
 		/** This PC's race, as its picks hold it: the hover rates the climate for it. */
 		private Race race = FACTIONS.player().race();
 		private final MpAutopilot autopilot = MpAutopilot.fromEnv();
@@ -108,10 +123,17 @@ public final class MpSettle implements CORE_STATE.Constructor {
 		private final MpCursors cursors;
 		private final Placer placer = new Placer();
 
-		Settle(SetupSession setup) {
+		/** The host's vote for a new world, and every PC's answer (spec §5). */
+		private final MpWorldVote worldVote;
+		private final CORE_STATE.Constructor rebuild;
+
+		Settle(SetupSession setup, CORE_STATE.Constructor rebuild) {
 			this.setup = setup;
+			this.rebuild = rebuild;
+			this.worldVote = new MpWorldVote(setup);
 			this.loading = new MpLoading(setup);
 			this.cursors = new MpCursors(setup);
+			marks.own(FACTIONS.player().name, FACTIONS.player().banner()); // this PC's player wears its picks
 			for (int i = 0; i < rows.length; i++) {
 				rows[i] = new GText(UI.FONT().M, 128).setMaxWidth(WIDTH);
 				rows[i].setMultipleLines(true);
@@ -134,7 +156,7 @@ public final class MpSettle implements CORE_STATE.Constructor {
 					}
 				}
 			});
-			s.addDown(12, new RENDEROBJ.RenderImp(WIDTH, UI.FONT().M.height() * STATUS_LINES) {
+			s.addDown(12, new RENDEROBJ.RenderImp(WIDTH, statusHeight()) {
 				@Override
 				public void render(SPRITE_RENDERER r, float ds) {
 					COLOR.WHITE100.bind();
@@ -145,19 +167,27 @@ public final class MpSettle implements CORE_STATE.Constructor {
 			return s;
 		}
 
+		/** The longest status, the host's, measured as the box wraps it, and one line more for a refusal's reason. */
+		private static int statusHeight() {
+			int longest = UI.FONT().M.getHeight(PLACE + STAND_IN, WIDTH) + UI.FONT().M.height();
+			return Math.max(UI.FONT().M.height() * STATUS_LINES, longest);
+		}
+
 		@Override
 		public GButt.ButtPanel ready() {
 			GButt.ButtPanel b = new GButt.ButtPanel("ready") {
 				@Override
 				protected void clickA() {
-					if (!setup.closed() && setup.factions().canReady())
-						setup.ready(!setup.factions().ready());
+					FactionStep f = setup.factions();
+					if (!setup.closed() && f != null && f.canReady())
+						setup.ready(!f.ready());
 				}
 
 				@Override
 				protected void renAction() {
-					activeSet(!setup.closed() && setup.factions().canReady());
-					selectedSet(!setup.closed() && setup.factions().ready());
+					FactionStep f = setup.factions();
+					activeSet(!setup.closed() && f != null && f.canReady());
+					selectedSet(!setup.closed() && f != null && f.ready());
 				}
 			};
 			b.hoverInfoSet("While you are ready your spot can't change. The host starts the game once every player is ready.");
@@ -171,13 +201,15 @@ public final class MpSettle implements CORE_STATE.Constructor {
 			GButt.ButtPanel b = new GButt.ButtPanel("initialize world") {
 				@Override
 				protected void clickA() {
-					if (!setup.closed() && setup.factions().canInitialize())
+					FactionStep f = setup.factions();
+					if (!setup.closed() && f != null && f.canInitialize())
 						setup.initialize();
 				}
 
 				@Override
 				protected void renAction() {
-					activeSet(!setup.closed() && setup.factions().canInitialize());
+					FactionStep f = setup.factions();
+					activeSet(!setup.closed() && f != null && f.canInitialize());
 				}
 			};
 			b.hoverInfoSet("Carves every player's city-state into this world and starts every player's game.");
@@ -199,10 +231,26 @@ public final class MpSettle implements CORE_STATE.Constructor {
 			return cursors;
 		}
 
-		/** Ready, or the world being built: the spot can't change. */
+		@Override
+		public MpSpotMarks marks() {
+			return marks;
+		}
+
+		@Override
+		public TitlesMode titles() {
+			return setup.titlesToPick();
+		}
+
+		@Override
+		public GButt.ButtPanel regenerate() {
+			return setup.isHost() ? worldVote.button() : null;
+		}
+
+		/** Ready, or the world being built, or gone after a vote for a new world: the spot can't change. */
 		@Override
 		public boolean locked() {
-			return setup.closed() || setup.factions().initialized() || setup.factions().ready();
+			FactionStep f = setup.factions();
+			return setup.closed() || f == null || f.initialized() || f.ready();
 		}
 
 		private void placeAt(int x, int y) {
@@ -214,6 +262,21 @@ public final class MpSettle implements CORE_STATE.Constructor {
 			ownX = x;
 			ownY = y;
 			setup.pick(mine.at(x, y));
+		}
+
+		/** Sends this PC's picks when its player's race, names or banner differ from the last sent, twice a second. */
+		private void syncPick() {
+			long now = System.nanoTime();
+			if (now - lastPickCheck < (long) (PICK_CHECK_SECONDS * 1e9) || locked())
+				return;
+			lastPickCheck = now;
+			FactionPick mine = setup.factions().ownPick();
+			FactionPick worn = game.pick(FactionPick.NONE, FactionPick.NONE);
+			if (mine == null || worn == null)
+				return;
+			FactionPick next = worn.at(mine.x(), mine.y());
+			if (!next.equals(mine))
+				setup.pick(next);
 		}
 
 		/** The screen's render pumps nothing: {@link #pump} runs after every update, under any load screen too. */
@@ -228,6 +291,14 @@ public final class MpSettle implements CORE_STATE.Constructor {
 			if (!GAME.SPEED.isPaused())
 				GAME.SPEED.speedSet(0); // a map to pick on: nothing in it runs
 			setup.update();
+			worldVote.frame(); // first: its result, and on the host the vote's end, may take the factions step away
+			if (setup.factions() == null) { // a vote for a new world passed: the map step, once the host's build is here
+				if (!setup.closed() && setup.step().pendingBuild() > 0) {
+					leaving = true;
+					CORE.setCurrentState(rebuild);
+				}
+				return;
+			}
 			loading.frame();
 			byte[] world = setup.takeWorld();
 			if (world != null) {
@@ -235,6 +306,7 @@ public final class MpSettle implements CORE_STATE.Constructor {
 				CORE.setCurrentState(new MpWorldLoad(setup, world));
 				return;
 			}
+			syncPick();
 			if (setup.changes() != shownChanges)
 				refresh();
 			if (autopilot == null)
@@ -255,6 +327,7 @@ public final class MpSettle implements CORE_STATE.Constructor {
 			List<LobbyPlayer> players = setup.players();
 			shownRows = Math.min(players.size(), rows.length);
 			others = 0;
+			marks.clear();
 			for (int i = 0; i < shownRows; i++) {
 				LobbyPlayer p = players.get(i);
 				GText row = rows[i].clear();
@@ -283,6 +356,7 @@ public final class MpSettle implements CORE_STATE.Constructor {
 						otherY[others] = fp.y();
 						otherNames[others].clear().add(fp.name());
 						others++;
+						marks.add(fp);
 					}
 				} else if (pick.refused() != null) {
 					row.add(", spot refused: ").add(pick.refused());

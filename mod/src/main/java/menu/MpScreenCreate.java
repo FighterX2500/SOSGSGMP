@@ -3,19 +3,24 @@ package menu;
 import java.io.IOException;
 
 import game.faction.player.PTitles.IconMaker;
+import init.constant.C;
 import init.sprite.UI.UI;
 import menu.GUI.COLORS;
+import snake2d.CORE;
 import snake2d.SPRITE_RENDERER;
 import snake2d.util.color.COLOR;
+import snake2d.util.datatypes.COORDINATE;
 import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
+import snake2d.util.sprite.text.Font;
 import sosgsgmp.lobby.Lobby;
 import sosgsgmp.lobby.LobbyPrefs;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.game.SteamworksPort;
 import sosgsgmp.net.SteamNode;
 import sosgsgmp.session.HostedLobby;
+import sosgsgmp.setup.TitlesMode;
 import util.data.INT.IntImp;
 import util.gui.misc.GText;
 import view.menu.MenuScreen;
@@ -28,11 +33,19 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 	private final MpInput port;
 	private final IntImp players = new IntImp(LobbySettings.MIN_PLAYERS, LobbySettings.MAX_PLAYERS);
 	private int mode;
-	/** The playtest log lists every transfer, or only those between players (SOS-81). */
-	private boolean fullTransferLog = true;
-	/** The world: classic, or the players settle in a living world (SOS-187). */
+	/** The world: vanilla, or the players settle in a living world (SOS-187). */
 	private boolean livingWorld;
+	/** Which titles the factions hold (spec §5 Titles). */
+	private TitlesMode titles = TitlesMode.NONE;
 	private final GText error = new GText(UI.FONT().M, 160);
+	/**
+	 * The tooltip of what the mouse is over, set while hovering, or null. The main menu draws no hover boxes, so this
+	 * screen draws its own, as vanilla's random game screen writes its modes' descriptions itself.
+	 */
+	private CharSequence tipTitle;
+	private CharSequence tipText;
+	private static final int TIP_WIDTH = 420;
+	private static final int TIP_PAD = 8;
 
 	MpScreenCreate(MpMenu mp) {
 		this.mp = mp;
@@ -42,7 +55,7 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 				mp.menu.switchScreen(mp.main);
 			}
 		};
-		screen.addButt(new MenuScreen.ScreenButton("create (IP)") {
+		screen.addButt(new MenuScreen.ScreenButton("create (Direct IP)") {
 			@Override
 			protected void clickA() {
 				create(false);
@@ -79,15 +92,15 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 			}
 		});
 
-		GuiSection log = new GuiSection();
-		log.add(logButton("every transfer", true));
-		log.addRightC(16, logButton("between players", false));
-		form.addDown(16, MpMenu.row("transfer log", log));
-
 		GuiSection world = new GuiSection();
-		world.add(worldButton("classic", false));
-		world.addRightC(16, worldButton("living world", true));
+		world.add(worldButton("Vanilla", false));
+		world.addRightC(24, worldButton("Living world", true));
 		form.addDown(16, MpMenu.row("world", world));
+
+		GuiSection titleRow = new GuiSection();
+		for (TitlesMode m : TitlesMode.values())
+			titleRow.addRightC(m.ordinal() == 0 ? 0 : 24, titlesButton(m));
+		form.addDown(8, MpMenu.row("titles", titleRow));
 
 		error.color(COLORS.error);
 		form.addDown(24, new RENDEROBJ.RenderImp(600, UI.FONT().M.height() * 2) {
@@ -105,12 +118,13 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 	private GuiSection playersField() {
 		GuiSection field = new GuiSection();
 		field.add(stepButton("<<", -1));
-		GText value = new GText(UI.FONT().H2, 4);
-		field.addRightC(8, new RENDEROBJ.RenderImp(40, UI.FONT().H2.height()) {
+		GText value = new GText(UI.FONT().M, 4);
+		field.addRightC(8, new RENDEROBJ.RenderImp(48, UI.FONT().H1.height()) {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				value.clear().add(players.get());
-				value.renderCY(r, body.cX() - value.width() / 2, body.cY());
+				value.adjustWidth();
+				value.renderC(r, body.cX(), body.cY());
 			}
 		});
 		field.addRightC(8, stepButton(">>", 1));
@@ -131,27 +145,15 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 		};
 	}
 
-	/** One choice of the playtest log's switch: every transfer, NPC trade included, or only those between players. */
-	private CLICKABLE logButton(CharSequence label, boolean full) {
-		return new GUI.Button(GUI.getBigTexts(label)) {
-			@Override
-			protected void clickA() {
-				fullTransferLog = full;
-			}
-
-			@Override
-			protected void renAction() {
-				selectedSet(fullTransferLog == full);
-			}
-		};
-	}
-
 	/**
-	 * One choice of the world (spec §5 World, SOS-187): classic, built around every player's pick; or a living world,
+	 * One choice of the world (spec §5 World, SOS-187): vanilla, built around every player's pick; or a living world,
 	 * built around the host, where every other player settles a city-state carved into the real political map.
 	 */
 	private CLICKABLE worldButton(CharSequence label, boolean living) {
-		GUI.Button b = new GUI.Button(GUI.getBigTexts(label)) {
+		CharSequence tip = living ? "The world is built around the host. Every other player then picks a spot on the real map, "
+				+ "with its kingdoms, borders and roads, and their city-state is carved there."
+				: "The world is built as in vanilla, around every player's capital, picked on the bare terrain.";
+		return new GUI.Button(UI.FONT().H2.getText(label)) {
 			@Override
 			protected void clickA() {
 				livingWorld = living;
@@ -161,11 +163,38 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 			protected void renAction() {
 				selectedSet(livingWorld == living);
 			}
+
+			@Override
+			public boolean hover(COORDINATE mCoo) {
+				if (!super.hover(mCoo))
+					return false;
+				tip(label, tip);
+				return true;
+			}
 		};
-		b.hoverInfoSet(living ? "The world is built around the host. Every other player then picks a spot on the real map, "
-				+ "with its kingdoms, borders and roads, and their city-state is carved there."
-				: "The world is built around every player's capital, picked on the bare terrain.");
-		return b;
+	}
+
+	/** One choice of the titles (spec §5 Titles): none, the host's for everyone, or each player's own. */
+	private CLICKABLE titlesButton(TitlesMode m) {
+		return new GUI.Button(UI.FONT().H2.getText(m.label)) {
+			@Override
+			protected void clickA() {
+				titles = m;
+			}
+
+			@Override
+			protected void renAction() {
+				selectedSet(titles == m);
+			}
+
+			@Override
+			public boolean hover(COORDINATE mCoo) {
+				if (!super.hover(mCoo))
+					return false;
+				tip(m.label, m.desc);
+				return true;
+			}
+		};
 	}
 
 	private CLICKABLE modeButton(int i) {
@@ -193,7 +222,54 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 			protected void renAction() {
 				selectedSet(mode == i);
 			}
+
+			@Override
+			public boolean hover(COORDINATE mCoo) {
+				if (!super.hover(mCoo))
+					return false;
+				tip(mp.modes.names[i], mp.modes.descs[i]);
+				return true;
+			}
 		};
+	}
+
+	private void tip(CharSequence title, CharSequence text) {
+		tipTitle = title;
+		tipText = text;
+	}
+
+	@Override
+	public boolean hover(COORDINATE mCoo) {
+		tip(null, null); // what is hovered sets it again
+		return super.hover(mCoo);
+	}
+
+	@Override
+	public void render(SPRITE_RENDERER r, float ds) {
+		super.render(r, ds);
+		if (tipText != null)
+			renderTip(r);
+	}
+
+	/** The tooltip box beside the mouse, kept on the screen. */
+	private void renderTip(SPRITE_RENDERER r) {
+		Font head = UI.FONT().H2;
+		Font text = UI.FONT().M;
+		int w = Math.max(head.width(tipTitle), text.getDim(tipText, TIP_WIDTH).x());
+		int h = head.height() + 4 + text.getHeight(tipText, TIP_WIDTH);
+		COORDINATE m = CORE.getInput().getMouse().getCoo();
+		int x = m.x() + 24;
+		int y = m.y() + 24;
+		if (x + w + TIP_PAD > C.DIM().x2())
+			x = m.x() - 24 - w;
+		if (y + h + TIP_PAD > C.DIM().y2())
+			y = m.y() - 24 - h;
+		COLOR.BLACK.render(r, x - TIP_PAD, x + w + TIP_PAD, y - TIP_PAD, y + h + TIP_PAD);
+		GUI.labelColor.renderFrame(r, x - TIP_PAD, x + w + TIP_PAD, y - TIP_PAD, y + h + TIP_PAD, 0, 2);
+		GUI.labelColor.bind();
+		head.render(r, tipTitle, x, y);
+		COLOR.unbind();
+		text.render(r, tipText, x, y + head.height() + 4, TIP_WIDTH, 1.0);
 	}
 
 	/** Opens the lobby over direct IP on the port, or as a Steam lobby for friends (the port isn't used). */
@@ -210,8 +286,7 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 		mp.prefs.maxPlayers = players.get();
 		mp.prefs.difficulty = mp.modes.keys[mode];
 		mp.savePrefs();
-		LobbySettings settings = new LobbySettings(mp.modes.keys[mode], players.get()).withFullTransferLog(fullTransferLog)
-				.withLivingWorld(livingWorld);
+		LobbySettings settings = new LobbySettings(mp.modes.keys[mode], players.get()).withLivingWorld(livingWorld).withTitles(titles);
 		if (steam) {
 			mp.invites.stop(); // Steam runs once in the process (SOS-103)
 			SteamNode node = SteamNode.host(SteamworksPort::lease, LobbySettings.MAX_PLAYERS); // room for a player joining later (SOS-190); the lobby refuses past its limit

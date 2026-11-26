@@ -15,7 +15,7 @@ Updated 2026-11-23: main at SOSGSGMP #127 and SOSDET #104 (both merged 2026-11-2
 - **Engine:** `C:\ClaudeFolder\SOSDET`, GitHub `FighterX2500/Songs-of-Syx-Deterministic-Engine` (public).
 - **The game:** `C:\ClaudeFolder\Songs of Syx`, V71 build 71.44.
 
-**Versions:** network protocol 34 (`Protocol.VERSION`), campaign record format 5 (`CampaignRecord.FORMAT`). The mod has 383 `@Test` methods (unit and loopback tests).
+**Versions:** network protocol 37 (`Protocol.VERSION`), campaign record format 6 (`CampaignRecord.FORMAT`). The mod has 393 `@Test` methods (unit and loopback tests).
 
 **What works:** every v1 feature in spec §2, played over Steam and direct IP with up to 3 players. The README's "What it does" lists them; section 8 below says when each came in and what each still lacks.
 
@@ -24,6 +24,7 @@ Updated 2026-11-23: main at SOSGSGMP #127 and SOSDET #104 (both merged 2026-11-2
 - **Batch 13** (SOSGSGMP #125, #126, SOSDET #103): the 2026-11-17 playtest's list (SOS-222 to SOS-236): allies in an invasion's Attack, allied armies stationed at a capital and its camp ([ADR 0011](../decisions/0011-allied-army-stationed-at-a-capital.md)), a battle restart by vote, deals as vanilla's message, gear after a battle, the Goods tab's prices, the resume list, the autosave while paused, cursors and long names. Protocol 33.
 - **Batch 14** (SOSGSGMP #127, SOSDET #104): the Steam pass of 2026-11-22 (SOS-237 to SOS-243): Steam starts once per game process ([ADR 0012](../decisions/0012-steam-once-per-process.md)), so End for everyone no longer crashes the host; invites and Join Game work on every multiplayer screen; Steam tests run on one PC under App ID 480 with a second account in Sandboxie; the host's log names refused joins; a frozen city doesn't trade (spec 0.72); Remove them at a resume's start with armies; a leaving PC closes its TCP sockets cleanly. Hot-join through Steam passed end to end in that session.
 - **Batch 15** (SOS-246 to SOS-250, [plan](batch-15.md)): logging for precise bug reports, without any upload: the log opens at the lobby; lines every PC writes alike (`=`/`~`) and `tools\logdiff.py`; the recorder, a crash-proof ring of everything this PC saw, streamed to the host as it is written, with incident copies at a desync, a long freeze or an error (spec 0.74); the engine's applied-command and army-decision rings and the world hash split into 14 parts, so a desync report names the part (SOSDET 0022). Protocol 34.
+- **Setup refining** ([plan](setup-refining.md)): the lobby GUI (players count, tooltips, Vanilla world, Direct IP); every player's spot drawn with border, banner and name; region lines while placing; picks changeable after Build World; the host's vote for a new world; titles: No titles, Host-Titles or Unique, each as strong as its picker's profile (spec 0.76). Protocol 37, campaign record 6.
 
 **Open PRs (2026-11-23):** only this docs compression.
 

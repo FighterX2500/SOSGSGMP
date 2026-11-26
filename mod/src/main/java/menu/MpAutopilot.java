@@ -46,6 +46,7 @@ import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStep;
+import sosgsgmp.setup.TitlesMode;
 import sosdet.Assault;
 import sosdet.DesyncHold;
 import sosdet.Stats;
@@ -79,8 +80,10 @@ import world.WORLD;
  * answers it), {@code freeze} (join: at this step choose the escape
  * menu's Leave and freeze, confirmed: SOS-194), {@code startafter} (host: keep the lobby open this many seconds first),
  * {@code deal} (join: at this step propose trade, up to 100 denari and 5 of a good it has to the host, who accepts every
- * proposal: SOS-72), {@code fulllog} (host, {@code 0}: the lobby's transfer log lists only transfers between players: SOS-81),
+ * proposal: SOS-72),
  * {@code living} (host, {@code 1}: the lobby's world is a living world, every joiner settling on the host's map: SOS-187),
+ * {@code titles} (host: {@code NONE}, {@code HOST} or {@code UNIQUE}, the lobby's titles setting, spec §5 Titles; a
+ * player who picks titles picks the first 5 its profile unlocked, and every PC reports each human's titles at the load),
  * {@code dealcancel} (join: from this step, cancel every treaty with the host at once, once there is one: SOS-76),
  * {@code war} (join: at this step declare war on the host, at once: SOS-74; the Diplomacy tab doesn't offer it yet),
  * {@code capital} ({@code X:Y}: place this PC's capital at that world tile instead of searching for one, or search when
@@ -121,10 +124,10 @@ public final class MpAutopilot {
 	private final boolean manualDeals;
 	/** Join: the step to declare war on the host at (SOS-74); -1 for never. */
 	private final long war;
-	/** Host: the lobby's switch for the playtest log (SOS-81). */
-	private final boolean fullLog;
 	/** Host: the lobby's world is a living world (SOS-187). */
 	private final boolean living;
+	/** Host: the lobby's titles setting (spec §5 Titles). */
+	private final TitlesMode titles;
 	/** Join: the step to set a 50% tariff on what the host sells this player at (SOS-77); -1 for none. */
 	private final long tariff;
 	/** The step this PC's player quits at, through the escape menu's Exit (SOS-79); -1 for never. */
@@ -263,8 +266,10 @@ public final class MpAutopilot {
 		dealCancel = Long.parseLong(m.getOrDefault("dealcancel", "-1"));
 		manualDeals = m.containsKey("manualdeals");
 		war = Long.parseLong(m.getOrDefault("war", "-1"));
-		fullLog = !"0".equals(m.getOrDefault("fulllog", "1"));
 		living = "1".equals(m.getOrDefault("living", "0"));
+		titles = TitlesMode.byName(m.getOrDefault("titles", "NONE"));
+		if (titles == null)
+			throw new IllegalArgumentException("SOSGSGMP: " + VARIABLE + " titles=" + m.get("titles") + "; NONE, HOST or UNIQUE");
 		tariff = Long.parseLong(m.getOrDefault("tariff", "-1"));
 		quit = Long.parseLong(m.getOrDefault("quit", "-1"));
 		freeze = Long.parseLong(m.getOrDefault("freeze", "-1"));
@@ -527,7 +532,7 @@ public final class MpAutopilot {
 		if (!resume)
 			// as Create Lobby: the remembered mode, or the game's first when none is (a fresh profile)
 			return new LobbySettings(difficulty.isEmpty() ? mp.modes.keys[mp.modes.index(mp.prefs.difficulty)] : difficulty,
-					Math.max(players, 2)).withFullTransferLog(fullLog).withLivingWorld(living);
+					Math.max(players, 2)).withLivingWorld(living).withTitles(titles);
 		List<CampaignRecord> all = MpSaves.store().all();
 		if (all.isEmpty())
 			throw new IllegalStateException("SOSGSGMP: " + VARIABLE + " resume=1, but this data folder has no campaign save");
@@ -692,6 +697,8 @@ public final class MpAutopilot {
 			toLocation.run(); // the preview's shots show the location screen, where Ready is
 		if (FACTIONS.player().name.toString().isBlank())
 			FACTIONS.player().name.clear().add(name);
+		if (setup.titlesToPick() != null && first("titles"))
+			pickTitles();
 		if (!hasLocation && capitalX >= 0 && !capitalRefused && due()) { // due() starts its wait: one branch calls it
 			String why = setup.locationProblem(capitalX, capitalY);
 			if (why == null) {
@@ -1126,10 +1133,37 @@ public final class MpAutopilot {
 		event("corrupt", "\"step\":" + step);
 	}
 
-	/** The load is done: this PC's world hash, and the view it shows. */
+	/** The load is done: this PC's world hash, the view it shows, and every human's titles (spec §5 Titles). */
 	public void loaded(long worldHash) {
 		event("loaded", "\"hash\":\"" + Long.toHexString(worldHash) + "\",\"view\":\"" + VIEW.current().getClass().getSimpleName()
-				+ "\",\"pop\":" + POP.tot());
+				+ "\",\"pop\":" + POP.tot() + ",\"titles\":\"" + heldTitles() + "\"");
+	}
+
+	/** This PC's player holds the first titles its profile unlocked, up to 5 (spec §5 Titles). */
+	private void pickTitles() {
+		StringBuilder b = new StringBuilder();
+		for (game.faction.player.PTitles.PTitle t : FACTIONS.player().titles.all())
+			if (t.unlocked() && FACTIONS.player().titles.selected() < TitlesMode.MAX_TITLES) {
+				t.select(true);
+				b.append(b.length() == 0 ? "" : " ").append(t.index());
+			}
+		event("titlespicked", "\"titles\":\"" + b + "\"");
+	}
+
+	/** Each human's titles in this world, as "slot:title/races ..." per human, ";" between humans. */
+	private static String heldTitles() {
+		StringBuilder b = new StringBuilder();
+		sosgsgmp.game.WorldSetupAdapter adapter = new sosgsgmp.game.WorldSetupAdapter();
+		for (int s = 0; s < FACTIONS.MAX(); s++) {
+			if (!(FACTIONS.getByIndex(s) instanceof game.faction.player.Player))
+				continue;
+			int[] held = adapter.heldTitles(s);
+			int[] races = adapter.heldTitleRaces(s);
+			b.append(b.length() == 0 ? "" : ";").append(s).append(':');
+			for (int i = 0; i < held.length; i++)
+				b.append(i == 0 ? "" : " ").append(held[i]).append('/').append(races[i]);
+		}
+		return b.toString();
 	}
 
 	/** SOS-75: this PC's own city's active entry points; none means it has no roads. */

@@ -1,6 +1,8 @@
 package view.world.generator;
 
 import game.faction.FACTIONS;
+import game.faction.player.PTitles;
+import game.faction.player.PTitles.PTitle;
 import init.race.RACES;
 import init.race.Race;
 import init.sprite.UI.UI;
@@ -10,11 +12,17 @@ import snake2d.util.gui.GUI_BOX;
 import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
+import snake2d.util.sets.ArrayList;
+import sosgsgmp.setup.TitlesMode;
 import util.data.GETTER;
+import util.gui.misc.GBox;
 import util.gui.misc.GButt;
 import util.gui.misc.GStat;
 import util.gui.misc.GText;
+import util.gui.table.GScrollRows;
 import util.gui.table.GTextScroller;
+import util.info.GFORMAT;
+import util.text.Dic;
 import view.ui.profile.UIProfile;
 
 /**
@@ -26,6 +34,7 @@ final class MpFactionStage {
 
 	private static final CharSequence RACE_TITLE = "Select species";
 	private static final CharSequence CUSTOMIZE_TITLE = "Customize Faction";
+	private static final CharSequence HOST_TITLES = "Every player's faction holds the titles you pick, as strong as your profile makes them.";
 
 	private MpFactionStage() {
 	}
@@ -73,6 +82,43 @@ final class MpFactionStage {
 		show(f, s, RACE_TITLE, null, new GButt.ButtPanel("next") {
 			@Override
 			protected void clickA() {
+				if (f.titles() != null)
+					titles(f);
+				else
+					customize(f);
+			}
+		});
+	}
+
+	/**
+	 * The titles screen (spec §5 Titles), after the race when this player picks titles: vanilla's title buttons, up to 5
+	 * of this PC's profile's unlocked titles. In Host-Titles mode the host's are every player's.
+	 */
+	static void titles(MpFactionScreens f) {
+		GuiSection s = new GuiSection();
+		PTitles titles = FACTIONS.player().titles;
+		s.addRelBody(4, DIR.S, new GText(UI.FONT().M, StagePickTitles.¤¤spent));
+		if (f.titles() == TitlesMode.HOST)
+			s.addRelBody(4, DIR.S, new GText(UI.FONT().M, HOST_TITLES).setMaxWidth(600));
+		s.addRelBody(8, DIR.S, new GStat(UI.FONT().M) {
+			@Override
+			public void update(GText text) {
+				GFORMAT.iofkInv(text, titles.selected(), TitlesMode.MAX_TITLES);
+			}
+		}.r(DIR.N));
+		ArrayList<RENDEROBJ> rows = new ArrayList<>(titles.all().size());
+		for (PTitle t : titles.all())
+			rows.add(new TitleButton(t));
+		s.addRelBody(8, DIR.S, new GScrollRows(rows, rows.get(0).body().height() * 6).view());
+		GButt.ButtPanel back = new GButt.ButtPanel("back") {
+			@Override
+			protected void clickA() {
+				race(f);
+			}
+		};
+		show(f, s, StagePickTitles.¤¤title, back, new GButt.ButtPanel("next") {
+			@Override
+			protected void clickA() {
 				customize(f);
 			}
 		});
@@ -88,7 +134,10 @@ final class MpFactionStage {
 		GButt.ButtPanel back = new GButt.ButtPanel("back") {
 			@Override
 			protected void clickA() {
-				race(f);
+				if (f.titles() != null)
+					titles(f);
+				else
+					race(f);
 			}
 		};
 		show(f, s, CUSTOMIZE_TITLE, back, f.afterCustomize());
@@ -101,6 +150,74 @@ final class MpFactionStage {
 		all.addRelBody(32, DIR.E, f.side(back, next));
 		all.pad(8, 8);
 		f.showCentred(all, title);
+	}
+
+	/** One title, as vanilla's title screen shows it: greyed while locked, selected while held; at most 5 held. */
+	private static final class TitleButton extends GButt.ButtPanel {
+
+		private final PTitle title;
+
+		TitleButton(PTitle title) {
+			super(title.name);
+			icon(title.icon.scaled(2));
+			body.setDim(600, title.icon.height() * 2 + 8);
+			this.title = title;
+		}
+
+		@Override
+		protected void renAction() {
+			activeSet(title.unlocked());
+			selectedSet(title.selected());
+		}
+
+		@Override
+		public void hoverInfoGet(GUI_BOX text) {
+			GBox b = (GBox) text;
+			if (!title.unlocked()) {
+				b.error(Dic.¤¤Unavailable);
+				return;
+			}
+			b.title(title.name);
+			b.text(title.desc);
+			b.sep();
+			b.textLL(PTitles.¤¤racesUnlocked);
+			b.NL();
+			for (Race r : RACES.playable())
+				if (title.race(r))
+					b.add(r.appearance().iconBig);
+			b.NL();
+			GText t = b.text();
+			t.add(PTitles.¤¤racesUnlockedD);
+			t.insert(0, 50.0 / RACES.playable().size(), 1);
+			b.text(t);
+			b.NL(4);
+			b.textLL(PTitles.¤¤currentBoost);
+			b.NL();
+			title.boosters.hover(text, title.boosterValue(), null, -1);
+			b.NL();
+		}
+
+		@Override
+		protected void render(SPRITE_RENDERER r, float ds, boolean isActive, boolean isSelected, boolean isHovered) {
+			super.render(r, ds, isActive, isSelected, isHovered);
+			if (!title.unlocked())
+				return;
+			int x1 = body.x1() + 120;
+			int y1 = body.y2() - 25;
+			for (Race ra : RACES.playable())
+				if (title.race(ra)) {
+					ra.appearance().icon.render(r, x1, y1);
+					x1 += 26;
+				}
+		}
+
+		@Override
+		protected void clickA() {
+			if (title.selected())
+				title.select(false);
+			else if (title.unlocked() && FACTIONS.player().titles.selected() < TitlesMode.MAX_TITLES)
+				title.select(true);
+		}
 	}
 
 	private static CLICKABLE raceButton(Race r) {

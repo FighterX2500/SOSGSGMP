@@ -21,6 +21,7 @@ import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStatus;
 import sosgsgmp.setup.MapStep;
 import sosgsgmp.setup.MapWorld;
+import sosgsgmp.setup.TitlesMode;
 
 /**
  * The setup on another PC, joined: this PC follows the host's builds and generations in the order they arrive, and
@@ -31,8 +32,6 @@ public final class JoinedSetup implements SetupSession {
 
     private final Node node;
     private final MapWorld world;
-    /** The host's lobby switch for the playtest log (SOS-81). */
-    private final boolean fullTransferLog;
     private final FactionWorld factionWorld;
     private final MapStep step;
     private final Pieces.Receiver terrain = new Pieces.Receiver();
@@ -44,7 +43,11 @@ public final class JoinedSetup implements SetupSession {
     private byte[] save;
     /** The lobby's world: a living world, where this PC's player settles on the host's built world (SOS-187). */
     private final boolean livingWorld;
-    private final Pieces.Receiver settleParts = new Pieces.Receiver();
+    /** The lobby's titles setting, a resume's its campaign's (spec §5 Titles). */
+    private final TitlesMode titles;
+    private Pieces.Receiver settleParts = new Pieces.Receiver();
+    /** This PC's picks when a vote for a new world passed, without a location; null before. */
+    private FactionPick keptPick;
     /** A rejoin (SOS-195): the host's rejoin files' pieces, then the files, for the setup its restart makes. */
     private final Pieces.Receiver rejoinParts = new Pieces.Receiver();
     private byte[] rejoinFiles;
@@ -96,8 +99,8 @@ public final class JoinedSetup implements SetupSession {
      * not null) starts at the world-loaded step: the host's slot map follows, and every PC loads its own save (SOS-64).
      */
     JoinedSetup(Node node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld,
-            LobbySettings.Resume resume, boolean fullTransferLog, boolean livingWorld, Chat chat, Builds builds) {
-        this(node, localId, players, world, factionWorld, resume, fullTransferLog, livingWorld, chat, builds, false, false);
+            LobbySettings.Resume resume, boolean livingWorld, Chat chat, Builds builds) {
+        this(node, localId, players, world, factionWorld, resume, livingWorld, TitlesMode.NONE, chat, builds, false, false);
     }
 
     /**
@@ -105,7 +108,7 @@ public final class JoinedSetup implements SetupSession {
      * {@code freezeMissing}: the host's Start froze a resume's missing players instead of removing them.
      */
     JoinedSetup(Node node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld,
-            LobbySettings.Resume resume, boolean fullTransferLog, boolean livingWorld, Chat chat, Builds builds,
+            LobbySettings.Resume resume, boolean livingWorld, TitlesMode titles, Chat chat, Builds builds,
             boolean candidate, boolean freezeMissing) {
         if (freezeMissing && resume == null)
             throw new IllegalArgumentException("SOSGSGMP: missing players frozen at the start of a game that resumes nothing");
@@ -113,9 +116,9 @@ public final class JoinedSetup implements SetupSession {
         this.freezeMissing = freezeMissing;
         this.node = node;
         this.livingWorld = livingWorld;
+        this.titles = resume != null ? resume.campaign().titles() : titles;
         this.chat = chat;
         this.builds = builds;
-        this.fullTransferLog = fullTransferLog;
         this.world = world;
         this.factionWorld = factionWorld;
         this.players = List.copyOf(players);
@@ -215,6 +218,30 @@ public final class JoinedSetup implements SetupSession {
     public void answerRestart(int vote, boolean yes) {
         if (!closed)
             node.send(Node.HOST, new Message.RestartAnswer(vote, yes));
+    }
+
+    /**
+     * A vote for a new world passed (spec §5): back to the map step, as the host goes; the host's next build follows.
+     * This PC's picks are kept without a location.
+     */
+    private void newWorld() {
+        if (factions != null && factions.ownPick() != null)
+            keptPick = factions.ownPick().at(FactionPick.NONE, FactionPick.NONE);
+        factions = null;
+        settleWorld = null;
+        settleParts = new Pieces.Receiver();
+        step.reopen();
+        changes++;
+    }
+
+    @Override
+    public FactionPick keptPick() {
+        return keptPick;
+    }
+
+    @Override
+    public TitlesMode titles() {
+        return titles;
     }
 
     /** Nothing: only the host counts the votes. */
@@ -322,7 +349,11 @@ public final class JoinedSetup implements SetupSession {
                 doneOutcome = d.outcome();
             }
             case Message.Pause p -> pauses.heard(p);
-            case Message.RestartVote v -> restartVotes.heard(v);
+            case Message.RestartVote v -> {
+                restartVotes.heard(v);
+                if (v.state() == Message.RestartVote.PASSED && v.battle() == Message.RestartCall.NEW_WORLD)
+                    newWorld();
+            }
             case Message.Chat c -> chat.heard(c.playerId(), players, c.text());
             case Message.Cursor c -> {
                 if (c.playerId() != localPlayerId())
@@ -550,11 +581,6 @@ public final class JoinedSetup implements SetupSession {
     }
 
     @Override
-    public boolean fullTransferLog() {
-        return fullTransferLog;
-    }
-
-    @Override
     public void pick(FactionPick pick) {
         if (candidate && factions == null) { // hot-join: the pick goes to the host, which checks it on the live world
             node.send(Node.HOST, new Message.JoinPick(pick));
@@ -597,7 +623,7 @@ public final class JoinedSetup implements SetupSession {
     private void restart(Message.Restart r) {
         // a restart has nobody missing: nothing is frozen or removed at its start
         JoinedSetup next = new JoinedSetup(node, localPlayerId(), players, world, factionWorld,
-                new LobbySettings.Resume(r.campaign(), r.number()), fullTransferLog, false, chat, builds, false, false);
+                new LobbySettings.Resume(r.campaign(), r.number()), false, r.campaign().titles(), chat, builds, false, false);
         next.restartInfo = r;
         next.log = log; // the same file goes on (SOS-246)
         if (r.rejoins() && rejoinFiles == null) {

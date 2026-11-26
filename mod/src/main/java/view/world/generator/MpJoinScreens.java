@@ -11,6 +11,7 @@ import snake2d.util.gui.renderable.RENDEROBJ;
 import snake2d.util.sets.LISTE;
 import sosgsgmp.game.MinimapAdapter;
 import sosgsgmp.session.Cursors;
+import sosgsgmp.setup.TitlesMode;
 import util.gui.misc.GBox;
 import util.gui.misc.GButt;
 import util.gui.panel.GPanel;
@@ -56,15 +57,26 @@ public final class MpJoinScreens implements MpFactionScreens {
 		/** The city-state's placer, the same one on every visit of the location screen. */
 		MpSpotPlacer placer();
 
+		/** Every player's spot on the map. */
+		MpSpotMarks marks();
+
+		/** The host's Regenerate, a vote for a new world (spec §5), built afresh for the location screen; null for none. */
+		default GButt.ButtPanel regenerate() {
+			return null;
+		}
+
 		/** The players' cursors on the map and the minimap, sent and drawn; null for none. */
 		default MpCursors cursors() {
 			return null;
 		}
+
+		/** The titles setting when this PC's player picks titles (spec §5 Titles); null when they pick none. */
+		TitlesMode titles();
 	}
 
 	private final WorldViewGenerator g;
 	private final Pick pick;
-	/** The location screen's Back goes to Customize Faction: none while settling, where the picks were made before. */
+	/** The location screen's Back goes to Customize Faction. */
 	private final boolean back;
 	private final MpSpotNotice notice;
 	private boolean onLocation;
@@ -74,7 +86,6 @@ public final class MpJoinScreens implements MpFactionScreens {
 		this.pick = pick;
 		this.back = back;
 		this.notice = new MpSpotNotice(pick.placer());
-		pick.placer().window(g.window);
 	}
 
 	/**
@@ -87,9 +98,12 @@ public final class MpJoinScreens implements MpFactionScreens {
 		return s;
 	}
 
-	/** A living world's settling: the generator view on the loaded world, centred on {@code cx, cy}, at the location. */
+	/**
+	 * A living world's settling: the generator view on the loaded world, centred on {@code cx, cy}, at the location. Back
+	 * goes to Customize Faction and the race screen, as before the world was built (owner, 2026-11-26).
+	 */
 	public static MpJoinScreens settle(Pick pick, int cx, int cy) {
-		MpJoinScreens s = new MpJoinScreens(view(pick, cx, cy), pick, false);
+		MpJoinScreens s = new MpJoinScreens(view(pick, cx, cy), pick, true);
 		s.location();
 		return s;
 	}
@@ -150,6 +164,10 @@ public final class MpJoinScreens implements MpFactionScreens {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				pick.frame();
+				if (onLocation) {
+					MpRegionLines.render(r, g.window);
+					pick.marks().render(r, g.window, pick.placer().ownX(), pick.placer().ownY());
+				}
 				super.render(r, ds);
 				if (cursors != null) {
 					cursors.send(g.window, onLocation ? Cursors.WORLD : Cursors.OFF);
@@ -159,6 +177,9 @@ public final class MpJoinScreens implements MpFactionScreens {
 			}
 		};
 		s.add(pick.info());
+		GButt.ButtPanel regenerate = onLocation ? pick.regenerate() : null;
+		if (regenerate != null)
+			s.addDown(12, regenerate);
 		GuiSection buttons = new GuiSection();
 		if (back != null)
 			buttons.addRightC(0, back);
@@ -187,6 +208,11 @@ public final class MpJoinScreens implements MpFactionScreens {
 		g.reset();
 		onLocation = false;
 		g.dummy.add(content, title);
+	}
+
+	@Override
+	public TitlesMode titles() {
+		return pick.titles();
 	}
 
 	@Override

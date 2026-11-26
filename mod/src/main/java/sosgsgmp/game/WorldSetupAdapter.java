@@ -9,8 +9,11 @@ import java.util.List;
 
 import game.GAME;
 import game.faction.FACTIONS;
+import game.faction.FBanner;
+import game.faction.player.PTitles;
 import game.faction.player.Player;
 import game.save.SaveFile;
+import init.race.RACES;
 import settlement.main.SETT;
 import settlement.stats.POP;
 import snake2d.LOG;
@@ -19,6 +22,7 @@ import sosdet.HumanStart;
 import sosgsgmp.campaign.Campaign;
 import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionWorld;
+import sosgsgmp.setup.TitlesMode;
 import view.main.VIEW;
 import world.WORLD;
 
@@ -34,15 +38,94 @@ public final class WorldSetupAdapter implements FactionWorld {
     private static final String SAVE_NAME = "world";
 
     /**
-     * This PC's picks as the game holds them: race, faction name, ruler name (SOS-98) and banner, at world tile {@code x, y} (or
-     * {@link FactionPick#NONE} twice). Null while the faction has no name: a pick needs one.
+     * A living world's settling (owner, 2026-11-26): this PC's player takes on this PC's own picks (race, faction name,
+     * ruler name, banner and titles), so the race screen and Customize Faction start from them and {@link #pick} reads
+     * them back. On a joining PC the loaded world's player is the host's stand-in; the host's carved world replaces it.
+     */
+    public void wear(FactionPick pick) {
+        Player p = FACTIONS.player();
+        for (int i = 0; i < RACES.all().size(); i++)
+            if (RACES.all().get(i).key.equals(pick.race()))
+                p.setRace(RACES.all().get(i));
+        p.name.clear().add(pick.name());
+        p.rulerName.clear().add(pick.ruler());
+        Engine.loadBanner(pick.banner(), p.banner());
+        selectTitles(pick.titles());
+    }
+
+    /** A hot-join's pick on the host's snapshot: this PC's player starts with no titles, not the host's (spec §5 Titles). */
+    public void dropTitles() {
+        selectTitles(new int[0]);
+    }
+
+    /** This PC's player holds {@code held} (title indices) and no other title. */
+    private static void selectTitles(int[] held) {
+        PTitles titles = FACTIONS.player().titles;
+        for (int i = 0; i < titles.all().size(); i++) {
+            boolean on = false;
+            for (int t : held)
+                on |= t == i;
+            titles.all().get(i).select(on);
+        }
+    }
+
+    /** A player's banner from their picks, loaded into {@code into} for drawing (the setup's spots). */
+    public void loadBanner(byte[] banner, FBanner into) {
+        Engine.loadBanner(banner, into);
+    }
+
+    /**
+     * This PC's picks as the game holds them: race, faction name, ruler name (SOS-98), banner and titles, at world tile
+     * {@code x, y} (or {@link FactionPick#NONE} twice). Null while the faction has no name: a pick needs one.
      */
     public FactionPick pick(int x, int y) {
         Player p = FACTIONS.player();
         String name = p.name.toString();
         if (name.isBlank())
             return null;
-        return new FactionPick(p.race().key, name, p.rulerName.toString(), Engine.bannerBytes(), x, y);
+        return new FactionPick(p.race().key, name, p.rulerName.toString(), Engine.bannerBytes(), x, y, heldTitles(p.titles),
+                heldTitleRaces(p.titles));
+    }
+
+    /** The titles this PC's player picked, by index, at most vanilla's 5 (spec §5 Titles). */
+    private static int[] heldTitles(PTitles titles) {
+        int n = 0;
+        int[] held = new int[TitlesMode.MAX_TITLES];
+        for (int i = 0; i < titles.all().size() && n < held.length; i++)
+            if (titles.all().get(i).selected())
+                held[n++] = i;
+        return java.util.Arrays.copyOf(held, n);
+    }
+
+    /** For each of {@link #heldTitles}, the races this PC's profile earned it with. */
+    private static int[] heldTitleRaces(PTitles titles) {
+        int[] held = heldTitles(titles);
+        int[] all = Engine.titleRaces();
+        int[] races = new int[held.length];
+        for (int i = 0; i < held.length; i++)
+            races[i] = Math.min(all[held[i]], FactionPick.MAX_TITLE_VALUE);
+        return races;
+    }
+
+    /**
+     * A hot-join newcomer's picks with the titles the campaign's setting gives them (spec §5 Titles): on the host, in
+     * Host-Titles mode, the host's own titles as this world holds them.
+     */
+    public FactionPick newcomerTitles(TitlesMode mode, FactionPick pick) {
+        if (mode != TitlesMode.HOST)
+            return mode.apply(pick, pick);
+        int host = FACTIONS.player().index();
+        return mode.apply(pick, pick.withTitles(heldTitles(host), heldTitleRaces(host)));
+    }
+
+    /** The titles the human in {@code slot} holds in this world, as title indices. */
+    public int[] heldTitles(int slot) {
+        return Engine.heldTitles(slot);
+    }
+
+    /** For each of {@link #heldTitles(int)}, the races it counts in this world. */
+    public int[] heldTitleRaces(int slot) {
+        return Engine.heldTitleRaces(slot);
     }
 
     @Override
@@ -170,8 +253,7 @@ public final class WorldSetupAdapter implements FactionWorld {
      * the log. The game is then saved ({@link #saveTemp}) and loaded again.
      */
     public String addHuman(FactionPick pick, double credits) {
-        return Engine.addHuman(new HumanStart(pick.race(), pick.name(), pick.ruler(), pick.banner(), pick.x(), pick.y()),
-                credits);
+        return Engine.addHuman(start(pick), credits);
     }
 
     /**
@@ -248,11 +330,13 @@ public final class WorldSetupAdapter implements FactionWorld {
 
     private static HumanStart[] starts(List<FactionPick> humans) {
         HumanStart[] starts = new HumanStart[humans.size()];
-        for (int i = 0; i < starts.length; i++) {
-            FactionPick p = humans.get(i);
-            starts[i] = new HumanStart(p.race(), p.name(), p.ruler(), p.banner(), p.x(), p.y());
-        }
+        for (int i = 0; i < starts.length; i++)
+            starts[i] = start(humans.get(i));
         return starts;
+    }
+
+    private static HumanStart start(FactionPick p) {
+        return new HumanStart(p.race(), p.name(), p.ruler(), p.banner(), p.x(), p.y(), p.titles(), p.titleRaces());
     }
 
     /**

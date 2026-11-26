@@ -3,6 +3,7 @@ package sosgsgmp.session;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -191,7 +192,13 @@ class LoopbackSetupTest {
 
     /** As {@link #startSetup()}; {@code living}: the lobby's world is a living world (SOS-187). */
     private void startSetup(boolean living) throws Exception {
-        HostedLobby h = new HostedLobby(new LobbySettings("normal", 4).withLivingWorld(living), "Ann", "Ann".hashCode(), BUILDS, 0);
+        startSetup(living, sosgsgmp.setup.TitlesMode.NONE);
+    }
+
+    /** As {@link #startSetup(boolean)}, with the lobby's titles setting (spec §5 Titles). */
+    private void startSetup(boolean living, sosgsgmp.setup.TitlesMode titles) throws Exception {
+        HostedLobby h = new HostedLobby(new LobbySettings("normal", 4).withLivingWorld(living).withTitles(titles), "Ann",
+                "Ann".hashCode(), BUILDS, 0);
         lobby = h;
         lobbies.add(h);
         JoinedLobby jb = join(h, "Bob");
@@ -283,7 +290,11 @@ class LoopbackSetupTest {
     }
 
     private void confirmMap(boolean living) throws Exception {
-        startSetup(living);
+        confirmMap(living, sosgsgmp.setup.TitlesMode.NONE);
+    }
+
+    private void confirmMap(boolean living, sosgsgmp.setup.TitlesMode titles) throws Exception {
+        startSetup(living, titles);
         build(256);
         host.generate(A);
         until("matching results", host.step()::canConfirm);
@@ -414,6 +425,33 @@ class LoopbackSetupTest {
         host.initialize();
         assertNull(host.takeWorld(), "the build waits until the loading window has shown (SOS-158)");
         return world(host);
+    }
+
+    /**
+     * Spec §5 Titles: every PC knows the setting, only the host picks in Host-Titles mode, and the host's build gives every
+     * human the host's titles as strong; the campaign keeps the setting for hot-joins.
+     */
+    @Test
+    void hostTitlesGoToEveryHumanAtTheBuild() throws Exception {
+        confirmMap(false, sosgsgmp.setup.TitlesMode.HOST);
+        assertEquals(sosgsgmp.setup.TitlesMode.HOST, bob.titles());
+        assertEquals(sosgsgmp.setup.TitlesMode.HOST, host.titlesToPick());
+        assertNull(bob.titlesToPick(), "a joiner picks no titles here");
+        host.pick(pick("Ann", 10, 10).withTitles(new int[] {4, 2}, new int[] {3, 1}));
+        bob.pick(pick("Bob", 20, 10).withTitles(new int[] {9}, new int[] {7})); // not the host's: replaced
+        cid.pick(pick("Cid", 30, 10));
+        until("every location on its PC", () -> bob.factions().canReady() && cid.factions().canReady());
+        host.ready(true);
+        bob.ready(true);
+        cid.ready(true);
+        until("everyone ready on the host", host.factions()::canInitialize);
+        host.initialize();
+        world(host);
+        for (FactionPick p : hostWorld.built.get(0)) {
+            assertArrayEquals(new int[] {4, 2}, p.titles(), p.name());
+            assertArrayEquals(new int[] {3, 1}, p.titleRaces(), p.name());
+        }
+        assertEquals(sosgsgmp.setup.TitlesMode.HOST, host.campaign().titles());
     }
 
     /** Runs the frames until this PC has the whole world to settle on (SOS-187), and takes it. */
@@ -1716,6 +1754,102 @@ class LoopbackSetupTest {
         cid.leave();
         until("the setup closed everywhere", () -> host.closed() && bob.closed());
         assertEquals("Cid left after the world was built; the game can't start without them.", host.closedReason());
+    }
+
+    /** The next vote message {@code s} hears, waiting for it while every PC runs its frame. */
+    private Message.RestartVote nextVote(SetupSession s) throws InterruptedException {
+        Message.RestartVote[] v = new Message.RestartVote[1];
+        until("a vote message", () -> (v[0] = s.restartVotes().take()) != null);
+        return v[0];
+    }
+
+    /**
+     * Spec §5: the host's vote for a new world, passed by a majority, takes every PC back to the map step in the host's
+     * order: no factions step, the map open again, the host's new build on every PC; each PC keeps its picks without a
+     * location. A joining player can't call it.
+     */
+    @Test
+    void aPassedVoteForANewWorldTakesEveryPcBackToTheMapStepWithItsPicks() throws Exception {
+        confirmMap();
+        host.pick(pick("Ann", 10, 10));
+        bob.pick(pick("Bob", 20, 10));
+        until("Bob's pick on his PC", () -> bob.factions().ownPick() != null);
+        int buildBefore = host.step().buildId();
+
+        bob.callRestart(Message.RestartCall.NEW_WORLD);
+        assertEquals(Message.RestartVote.REFUSED, nextVote(bob).state(), "only the host proposes a new world");
+        assertNull(host.restartVotes().open());
+
+        host.callRestart(Message.RestartCall.NEW_WORLD);
+        Message.RestartVote open = nextVote(cid);
+        assertEquals(Message.RestartVote.OPEN, open.state());
+        assertEquals(Message.RestartCall.NEW_WORLD, open.battle());
+        assertEquals(Message.RestartVote.OPEN, nextVote(bob).state());
+        assertEquals(Message.RestartVote.OPEN, nextVote(host).state());
+        bob.answerRestart(open.vote(), true);
+        for (SetupSession s : List.of(host, bob, cid))
+            assertEquals(Message.RestartVote.PASSED, nextVote(s).state());
+
+        until("the map step again everywhere, with the host's new build", () -> host.factions() == null && bob.factions() == null
+                && cid.factions() == null && !bob.step().confirmed() && !cid.step().confirmed()
+                && bob.step().buildId() == host.step().buildId() && cid.step().buildId() == host.step().buildId()
+                && host.step().buildId() > buildBefore && host.step().canGenerate());
+        assertEquals("Ann", host.keptPick().name());
+        assertFalse(host.keptPick().hasLocation());
+        assertEquals("Bob", bob.keptPick().name());
+        assertFalse(bob.keptPick().hasLocation());
+        assertNull(cid.keptPick(), "Cid had picked nothing");
+
+        host.generate(A);
+        until("matching results again", host.step()::canConfirm);
+        host.confirm();
+        until("factions everywhere again", () -> bob.factions() != null && cid.factions() != null);
+    }
+
+    /**
+     * Spec §5: a pick a joining PC sent before it heard the vote for a new world pass reaches the host after the factions
+     * step is gone; the host drops the pick, not the player.
+     */
+    @Test
+    void aPickSentAsTheVoteForANewWorldPassesKeepsThePlayer() throws Exception {
+        confirmMap();
+        host.callRestart(Message.RestartCall.NEW_WORLD);
+        Message.RestartVote open = nextVote(cid);
+        bob.answerRestart(open.vote(), true);
+        long deadline = System.currentTimeMillis() + 5_000;
+        while (host.factions() != null && System.currentTimeMillis() < deadline) { // the host alone: Cid hears nothing yet
+            host.update();
+            Thread.sleep(5);
+        }
+        assertNull(host.factions(), "the vote passed on the host");
+        assertNotNull(cid.factions(), "Cid hasn't heard it");
+        cid.pick(pick("Cid", 30, 10));
+        until("the map step again everywhere", () -> cid.factions() == null && !cid.step().confirmed()
+                && cid.step().buildId() == host.step().buildId());
+        for (int i = 0; i < 40; i++) { // time for Cid's late pick to reach the host
+            for (SetupSession s : setups)
+                s.update();
+            Thread.sleep(5);
+        }
+        assertFalse(cid.closed(), "Cid is still in the setup");
+        assertEquals(3, host.players().size());
+    }
+
+    /** Spec §5: a new world needs more than half; Bob and Cid saying No keep the world and the picks as they are. */
+    @Test
+    void aFailedVoteForANewWorldChangesNothing() throws Exception {
+        confirmMap();
+        host.callRestart(Message.RestartCall.NEW_WORLD);
+        Message.RestartVote open = nextVote(bob);
+        bob.answerRestart(open.vote(), false);
+        cid.answerRestart(open.vote(), false);
+        nextVote(host); // the opening
+        Message.RestartVote result = nextVote(host);
+        assertEquals(Message.RestartVote.FAILED, result.state());
+        assertEquals(1, result.yes());
+        assertTrue(host.step().confirmed());
+        assertTrue(bob.factions() != null && bob.step().confirmed());
+        assertNull(host.keptPick());
     }
 
     @Test

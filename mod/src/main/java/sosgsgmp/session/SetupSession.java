@@ -14,6 +14,7 @@ import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStep;
+import sosgsgmp.setup.TitlesMode;
 
 /**
  * The setup after Start Lobby, as this PC sees it, hosted here ({@link HostedSetup}) or joined ({@link JoinedSetup}).
@@ -62,8 +63,19 @@ public interface SetupSession {
     /** The factions step once the map is confirmed, for reading; null before. It changes only through this session. */
     FactionStep factions();
 
-    /** The lobby's switch: the playtest log lists every transfer, or only those between players (SOS-81). */
-    boolean fullTransferLog();
+    /**
+     * This PC's picks as they were when a vote for a new world passed (spec §5), without a location: race, faction and
+     * banner stay for the new world's factions step. Null when there was no such vote.
+     */
+    FactionPick keptPick();
+
+    /** The lobby's titles setting (spec §5 Titles): who picks titles, and which every faction holds. */
+    TitlesMode titles();
+
+    /** The titles setting when this PC's player picks titles in the setup (spec §5 Titles); null when they pick none. */
+    default TitlesMode titlesToPick() {
+        return titles().picks(isHost()) ? titles() : null;
+    }
 
     /**
      * This PC's latest picks, sent whenever they change: the host records them at once (checking the location as it
@@ -206,7 +218,8 @@ public interface SetupSession {
     /**
      * This PC's player calls a vote to restart {@code battle} (SOSDET's {@code BattleKey} as a long). The host opens it for
      * every player in the session, or refuses it to this player while another vote is open; a battle that can't restart
-     * cancels it at the host's next {@link #checkRestart}.
+     * cancels it at the host's next {@link #checkRestart}. {@code Message.RestartCall.NEW_WORLD}: the host's vote, during
+     * the factions step, for a new world; passed, every PC goes back to the map step and the host builds again.
      */
     void callRestart(long battle);
 

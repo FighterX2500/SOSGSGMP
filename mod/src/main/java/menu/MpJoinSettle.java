@@ -20,12 +20,14 @@ import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.net.Message;
 import sosgsgmp.session.SetupSession;
 import sosgsgmp.setup.FactionPick;
+import sosgsgmp.setup.TitlesMode;
 import util.colors.GCOLOR;
 import util.gui.misc.GButt;
 import util.gui.misc.GHeader;
 import util.gui.misc.GText;
 import view.world.generator.MpJoinScreens;
 import view.main.VIEW;
+import view.world.generator.MpSpotMarks;
 import view.world.generator.MpSpotPlacer;
 import world.WORLD;
 
@@ -68,6 +70,7 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 			FactionProfileFlusher.load(p);
 		else
 			p.name.clear();
+		game.dropTitles();
 		LOG.ln("SOSGSGMP: the host's snapshot to join on loaded in " + (System.nanoTime() - t) / 1_000_000 + " ms");
 		MpJoinScreens screens = MpJoinScreens.open(join, hostX, hostY);
 		if (join.autopilot != null) // the autopilot goes to the location screen as a newcomer would, after the game's update
@@ -83,7 +86,9 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 	private static final class Join implements MpJoinScreens.Pick {
 
 		private static final int WIDTH = 420;
+		/** The status box's least height, in lines; it grows to the longest text, so the buttons under it fit. */
 		private static final int STATUS_LINES = 6;
+		private static final String NO_NAME = "Your faction needs a name: Customize Faction. ";
 		private static final CharSequence TITLE = "Place your city-state";
 		private static final String PLACE = "Pick your race and customize your faction, then pick where your city-state goes:"
 				+ " 6 tiles or more from every town and every player's capital. Ready sends it to the host. Everyone plays on"
@@ -114,6 +119,7 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 		private final GText[] capNames = new GText[FACTIONS.MAX()];
 		private final GText[] rows = new GText[FACTIONS.MAX()];
 		private int caps;
+		private final MpSpotMarks marks = new MpSpotMarks();
 		private int shownStatus = -1;
 
 		Join(SetupSession setup, WorldSetupAdapter game, int hostX, int hostY) {
@@ -131,10 +137,19 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 					rows[caps].add(h.name).add(i == FACTIONS.player().index() ? " (host)" : "").add(": ").add(h.race().info.name)
 							.add(", at ").add(capX[caps]).add(',').add(capY[caps]);
 					rows[caps].color(GCOLOR.T().NORMAL);
+					marks.add(capX[caps], capY[caps], h.name, h.banner());
 					caps++;
 				}
 			}
+			// this PC's player, as Customize Faction changes it
+			marks.own(FACTIONS.player().name, FACTIONS.player().banner());
 			ownRow.setMaxWidth(WIDTH);
+		}
+
+		/** The longest status, a joiner with no faction name yet, measured as the box wraps it, and one line more. */
+		private static int statusHeight() {
+			int longest = UI.FONT().M.getHeight(NO_NAME + PLACE, WIDTH) + UI.FONT().M.height();
+			return Math.max(UI.FONT().M.height() * STATUS_LINES, longest);
 		}
 
 		@Override
@@ -152,7 +167,7 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 					ownRow.render(r, body.x1(), y);
 				}
 			});
-			s.addDown(12, new RENDEROBJ.RenderImp(WIDTH, UI.FONT().M.height() * STATUS_LINES) {
+			s.addDown(12, new RENDEROBJ.RenderImp(WIDTH, statusHeight()) {
 				@Override
 				public void render(SPRITE_RENDERER r, float ds) {
 					if (shownStatus != statusKey())
@@ -206,6 +221,16 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 		}
 
 		@Override
+		public MpSpotMarks marks() {
+			return marks;
+		}
+
+		@Override
+		public TitlesMode titles() {
+			return setup.titlesToPick();
+		}
+
+		@Override
 		public boolean locked() {
 			return sent || taken || restarted != null || setup.closed();
 		}
@@ -254,7 +279,7 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 			else if (!answer.isEmpty())
 				status.add("The host can't use that spot: ").add(answer).add(" Pick another one.");
 			else if (!named())
-				status.add("Your faction needs a name: Customize Faction. ").add(PLACE);
+				status.add(NO_NAME).add(PLACE);
 			else if (ownX != FactionPick.NONE)
 				status.add("Press Ready to send your spot to the host, or click another one.");
 			else

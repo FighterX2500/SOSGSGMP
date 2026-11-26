@@ -189,6 +189,17 @@ public final class MapStep {
         confirmedHash = own.hash;
     }
 
+    /**
+     * Every PC, when a vote for a new world passed (spec §5): the confirm is undone, so the host's next build and
+     * generation reach every PC again. The current build stays until the host's next one.
+     */
+    public void reopen() {
+        if (!confirmed)
+            throw new IllegalStateException("SOSGSGMP: no confirmed map to reopen");
+        confirmed = false;
+        confirmedHash = 0;
+    }
+
     // ------------------------------------------------------------ joining PC
 
     /** Joining PC: the host's build. False, changing nothing, when stale, repeated or after the confirm. */

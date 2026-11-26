@@ -2,21 +2,14 @@ package view.world.generator;
 
 import game.faction.FACTIONS;
 import game.faction.Faction;
-import init.constant.C;
 import init.race.Race;
-import init.sprite.UI.UI;
-import snake2d.SPRITE_RENDERER;
-import snake2d.util.color.COLOR;
 import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.sets.LIST;
-import snake2d.util.sprite.text.Font;
 import snake2d.util.sprite.text.Str;
 import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.setup.FactionPick;
-import util.colors.GCOLOR;
 import util.gui.misc.GBox;
 import util.gui.misc.GText;
-import view.subview.GameWindow;
 import view.tool.PlacableFixedImp;
 import view.world.generator.tools.UIWorldToolCapitolPlaceInfo;
 import world.WORLD;
@@ -27,14 +20,12 @@ import world.map.regions.centre.WCentre;
  * SOSGSGMP: the city-state placer on a built world (a living world's settling, SOS-187; hot-join, SOS-190): a 3x3 square
  * whose centre is the spot, checked by the caller's rule. Its hover is vanilla's Place Capital window (climate, resources,
  * moisture, fresh water, forest, open land) under the land's region and holder and the regions the city-state gets a
- * road link to (SOS-213). Once per frame it draws every other player's spot, named, and this PC's own, each as one
- * square as thick as the placer's edges (SOS-212). It feeds {@link MpSpotNotice}.
+ * road link to (SOS-213). The players' spots are {@link MpSpotMarks}', drawn from the side panel. It feeds
+ * {@link MpSpotNotice}.
  */
 public abstract class MpSpotPlacer extends PlacableFixedImp implements MpSpotNotice.Spots {
 
 	private static final int HALF = WCentre.TILE_DIM / 2;
-	/** The placer's edges are two of the game's sprite pixels thick (SOS-212). */
-	private static final int EDGE = 2 * C.SCALE;
 	/** The holders a border line names before "and n more". */
 	private static final int NAMED = 3;
 
@@ -54,17 +45,10 @@ public abstract class MpSpotPlacer extends PlacableFixedImp implements MpSpotNot
 	private int linksX = -1;
 	private int linksY = -1;
 	private int[] links = new int[0];
-	/** The view's window, for the zoom the names are drawn at; null before the screen shows. */
-	private GameWindow window;
 
 	protected MpSpotPlacer(CharSequence title, boolean standIn) {
 		super(title, 1, 1);
 		this.standIn = standIn;
-	}
-
-	/** The screen's window: names over the squares keep their size at any zoom. */
-	void window(GameWindow window) {
-		this.window = window;
 	}
 
 	/** Why the spot can't change now, or null. */
@@ -161,54 +145,6 @@ public abstract class MpSpotPlacer extends PlacableFixedImp implements MpSpotNot
 			b.NL();
 		}
 		b.sep();
-	}
-
-	/**
-	 * Vanilla's placeholder, and once per frame (at its first tile) every other player's spot and this PC's: {@code x, y}
-	 * is tile {@code tx, ty} on screen, so any tile is at the same offset in tiles (PlacableFixedTool.render).
-	 */
-	@Override
-	public void renderPlaceHolder(SPRITE_RENDERER r, int mask, int x, int y, int tx, int ty, int rx, int ry, boolean isPlacable, boolean areaIsPlacable) {
-		super.renderPlaceHolder(r, mask, x, y, tx, ty, rx, ry, isPlacable, areaIsPlacable);
-		if (rx != 0 || ry != 0)
-			return;
-		for (int i = 0; i < others(); i++) {
-			int sx = square(x, tx, otherX(i));
-			int sy = square(y, ty, otherY(i));
-			frame(r, GCOLOR.MAP().BAD, sx, sy);
-			name(r, otherName(i), sx, sy);
-		}
-		if (ownX() != FactionPick.NONE)
-			frame(r, GCOLOR.MAP().OK, square(x, tx, ownX()), square(y, ty, ownY()));
-	}
-
-	/**
-	 * A player's name over their square, at the screen size of the game's own labels whatever the zoom: the placeholder
-	 * draws in the world's pixels, which the zoom shrinks.
-	 */
-	private void name(SPRITE_RENDERER r, CharSequence name, int x1, int y1) {
-		int scale = window == null ? 1 : 1 << window.zoomout();
-		Font font = UI.FONT().S;
-		int y = y1 - font.height() * scale - EDGE;
-		COLOR.BLACK.bind();
-		font.render(r, name, x1 + scale, y + scale, scale);
-		COLOR.WHITE100.bind();
-		font.render(r, name, x1, y, scale);
-		COLOR.unbind();
-	}
-
-	private static int square(int at, int t, int c) {
-		return at + (c - HALF - t) * C.TILE_SIZE;
-	}
-
-	/** One square, as thick as the placer's edges, not its nine cells (SOS-212): the land under the spot shows. */
-	private static void frame(SPRITE_RENDERER r, COLOR color, int x1, int y1) {
-		int size = WCentre.TILE_DIM * C.TILE_SIZE;
-		color.render(r, x1, x1 + size, y1, y1 + EDGE);
-		color.render(r, x1, x1 + size, y1 + size - EDGE, y1 + size);
-		color.render(r, x1, x1 + EDGE, y1, y1 + size);
-		color.render(r, x1 + size - EDGE, x1 + size, y1, y1 + size);
-		COLOR.unbind();
 	}
 
 	// ------------------------------------------------------------ the notice (MpSpotNotice.Spots)

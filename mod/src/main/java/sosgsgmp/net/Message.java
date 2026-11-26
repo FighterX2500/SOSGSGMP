@@ -498,9 +498,13 @@ public sealed interface Message {
     /**
      * A battle's restart by vote (spec §8, SOS-231), a player's PC to the host: its player calls a vote to restart
      * {@code battle}, the battle it sees (SOSDET's {@code BattleKey} as a long). The host opens it for every player, or
-     * refuses it to the caller while another vote is open or the battle can't restart.
+     * refuses it to the caller while another vote is open or the battle can't restart. {@link #NEW_WORLD} in place of a
+     * battle: the host's vote, during the setup, to go back to the map step for a new world (spec §5).
      */
-    record RestartCall(long battle) implements Message {}
+    record RestartCall(long battle) implements Message {
+        /** The vote's subject is a new world, not a battle: no battle has this key. */
+        public static final long NEW_WORLD = Long.MIN_VALUE;
+    }
 
     /**
      * Host to every PC, the caller too (spec §8, SOS-231): vote {@code vote}, called by player {@code callerId} to restart

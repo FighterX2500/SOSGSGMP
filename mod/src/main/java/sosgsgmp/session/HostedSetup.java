@@ -25,6 +25,7 @@ import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStatus;
 import sosgsgmp.setup.MapStep;
 import sosgsgmp.setup.MapWorld;
+import sosgsgmp.setup.TitlesMode;
 import sosgsgmp.report.ReportStore;
 
 /** The setup hosted on this PC: the host decides the builds and generations and collects every PC's result. */
@@ -35,10 +36,10 @@ public final class HostedSetup implements SetupSession {
     private final FactionWorld factionWorld;
     /** The lobby's difficulty, set on the world the host builds. */
     private final String difficulty;
-    /** The lobby's switch for the playtest log (SOS-81). */
-    private final boolean fullTransferLog;
     /** The lobby's world: a living world, where every player settles on the built world (SOS-187, SOS-214). */
     private final boolean livingWorld;
+    /** The lobby's titles setting, a resume's its campaign's (spec §5 Titles). */
+    private final TitlesMode titles;
     /** A living world built to settle on, until this PC takes it to load; null otherwise. */
     private byte[] settleWorld;
     /** Connected peers in the setup, to their player ids. */
@@ -51,6 +52,8 @@ public final class HostedSetup implements SetupSession {
     private MapOptions choices;
     /** A Generate at a new size: its options, generated once this PC's game is rebuilt at that size; else null. */
     private MapOptions waiting;
+    /** This PC's picks when a vote for a new world passed, without a location; null before. */
+    private FactionPick keptPick;
     /** The factions step from the confirm on; null before. */
     private FactionStep factions;
     /** The picks as last sent to the joining PCs. */
@@ -179,8 +182,8 @@ public final class HostedSetup implements SetupSession {
         this.world = world;
         this.factionWorld = factionWorld;
         this.difficulty = settings.difficulty();
-        this.fullTransferLog = settings.fullTransferLog();
         this.livingWorld = settings.livingWorld();
+        this.titles = settings.titles();
         this.joined = new HashMap<>(joined);
         this.players = new ArrayList<>(players);
         this.keys = new HashMap<>(keys);
@@ -325,7 +328,9 @@ public final class HostedSetup implements SetupSession {
     }
 
     private void restartCall(int caller, long battle) {
-        Message.RestartVote v = restartVotes.call(caller, battle, playerIds(), nowMs());
+        String refusal = battle == Message.RestartCall.NEW_WORLD ? newWorldRefusal(caller) : null;
+        Message.RestartVote v = refusal != null ? new Message.RestartVote(0, caller, battle, Message.RestartVote.REFUSED, 0, 0, refusal)
+                : restartVotes.call(caller, battle, playerIds(), nowMs());
         if (v.state() == Message.RestartVote.REFUSED)
             tellPlayer(caller, v);
         else
@@ -340,14 +345,65 @@ public final class HostedSetup implements SetupSession {
     private void restartAnswer(int id, int vote, boolean yes) {
         Message.RestartVote v = restartVotes.answer(id, vote, yes, playerIds(), nowMs());
         if (v != null)
-            announce(v);
+            closed(v);
     }
 
     @Override
     public void checkRestart(String refusal) {
         Message.RestartVote v = refusal != null ? restartVotes.cancel(refusal) : restartVotes.check(playerIds(), nowMs());
         if (v != null)
-            announce(v);
+            closed(v);
+    }
+
+    /** A vote's result for every PC; a new world's that passed sends every PC back to the map step. */
+    private void closed(Message.RestartVote v) {
+        announce(v);
+        if (v.state() == Message.RestartVote.PASSED && v.battle() == Message.RestartCall.NEW_WORLD)
+            newWorld();
+    }
+
+    /** Why the setup can't go back to the map step for a new world now; null when it can (spec §5). */
+    private String newWorldRefusal(int caller) {
+        if (caller != localPlayerId())
+            return "Only the host proposes a new world.";
+        if (factions == null || !step.confirmed())
+            return "The map isn't confirmed yet: generate again instead.";
+        if (factions.initialized() || deferred != null || settleWorld != null)
+            return "The world is being initialized.";
+        return null;
+    }
+
+    /**
+     * Host, a vote for a new world passed: every PC heard it in this order and goes back to the map step the same way;
+     * this PC's picks are kept without a location, and the host builds again at the same size.
+     */
+    private void newWorld() {
+        if (factions != null && factions.ownPick() != null)
+            keptPick = factions.ownPick().at(FactionPick.NONE, FactionPick.NONE);
+        factions = null;
+        settleWorld = null;
+        sentPicks = List.of(); // the new factions step starts with nobody ready, and no notice says so
+        sentProgress = List.of();
+        step.reopen();
+        build(step.size());
+        changed();
+    }
+
+    /** A new world's open vote ends when the host goes on without it (Initialize World, Build World). */
+    private void callOffNewWorld() {
+        RestartTally open = restartVotes.open();
+        if (open != null && open.battle() == Message.RestartCall.NEW_WORLD)
+            announce(restartVotes.cancel("The host went on with this world."));
+    }
+
+    @Override
+    public FactionPick keptPick() {
+        return keptPick;
+    }
+
+    @Override
+    public TitlesMode titles() {
+        return titles;
     }
 
     /** A vote's opening or result: every PC hears it, this one too, in the host's order. */
@@ -403,6 +459,9 @@ public final class HostedSetup implements SetupSession {
                 if (factions.onPick(id, p.pick()))
                     picksChanged();
             }
+            // sent before that PC heard a vote for a new world pass: the old world's, dropped (spec §5)
+            case Message.Pick p when id != null -> {}
+            case Message.Ready r when id != null -> {}
             case Message.Loaded l when id != null && factions != null -> {
                 if (factions.onLoaded(id, l.transfer(), l.hash()))
                     progressChanged();
@@ -432,8 +491,10 @@ public final class HostedSetup implements SetupSession {
                         node.send(p.getKey(), relayed);
             }
             case Message.Pause p when id != null -> heard(new Message.Pause(id, p.paused()));
-            case Message.RestartCall c when id != null && link != null -> restartCall(id, c.battle());
-            case Message.RestartAnswer a when id != null && link != null -> restartAnswer(id, a.vote(), a.yes());
+            // a battle's vote once the game runs; a new world's during the setup (spec §5)
+            case Message.RestartCall c when id != null && (link != null || c.battle() == Message.RestartCall.NEW_WORLD) ->
+                restartCall(id, c.battle());
+            case Message.RestartAnswer a when id != null -> restartAnswer(id, a.vote(), a.yes());
             case Message.Chat c when id != null -> {
                 chat.heard(id, players, c.text());
                 relay(new Message.Chat(id, Chat.clean(c.text())));
@@ -820,7 +881,7 @@ public final class HostedSetup implements SetupSession {
         candidate = new Candidate(peer, nextPlayerId(), known == null ? h.name() : known.name(), h.playerKey(),
                 known == null ? -1 : known.slot());
         node.send(peer, new Message.Welcome(candidate.id, new LobbySettings(difficulty, LobbySettings.MAX_PLAYERS)
-                .withFullTransferLog(fullTransferLog)));
+                .withTitles(titles))); // a newcomer picks titles as the campaign's setting says (spec §5 Titles)
         node.send(peer, new Message.Running(known != null));
         notes.add(h.name() + (known == null ? " asks to join the running game" : " asks to come back from a freeze, slot " + known.slot()));
     }
@@ -966,7 +1027,7 @@ public final class HostedSetup implements SetupSession {
             node.send(peer, roster);
         notes.add(note);
         replaced = true; // not left: the connection stays with the new setup, and this one sends nothing more
-        LobbySettings s = LobbySettings.resuming(new LobbySettings.Resume(r.campaign(), r.number())).withFullTransferLog(fullTransferLog);
+        LobbySettings s = LobbySettings.resuming(new LobbySettings.Resume(r.campaign(), r.number()));
         // a restart has nobody missing: nothing is frozen or removed at its start
         HostedSetup h = new HostedSetup(node, joined2, players2, keys2, world, factionWorld, s, chat, builds, joined2.keySet(), false);
         h.restartInfo = r;
@@ -1273,11 +1334,6 @@ public final class HostedSetup implements SetupSession {
     }
 
     @Override
-    public boolean fullTransferLog() {
-        return fullTransferLog;
-    }
-
-    @Override
     public void pick(FactionPick pick) {
         if (factions == null)
             throw new IllegalStateException("SOSGSGMP: picks before the map is confirmed");
@@ -1312,6 +1368,7 @@ public final class HostedSetup implements SetupSession {
             throw new IllegalStateException("SOSGSGMP: the world can't be initialized now");
         if (deferred != null)
             return;
+        callOffNewWorld();
         int key = ++loadingKey;
         if (factions.canBuildForSettling()) {
             announceLoading(Loading.Kind.WORLD_INITIALIZATION, key,
@@ -1334,7 +1391,7 @@ public final class HostedSetup implements SetupSession {
             return;
         }
         List<FactionPick> humans = factions.humans();
-        byte[] built = factionWorld.buildForSettling(humans.get(0), humans.size());
+        byte[] built = factionWorld.buildForSettling(titles.apply(humans.get(0), humans.get(0)), humans.size());
         factions.beginSettling();
         List<byte[]> pieces = Pieces.split(built);
         for (int i = 0; i < pieces.size(); i++)
@@ -1356,13 +1413,14 @@ public final class HostedSetup implements SetupSession {
             announceLoading(Loading.Kind.WORLD_INITIALIZATION, key, "", false);
             return;
         }
-        byte[] built = factions.living() ? factionWorld.settle(factions.humans(), difficulty)
-                : factionWorld.buildWorld(factions.humans(), difficulty);
+        List<FactionPick> humans = titles.apply(factions.humans()); // who holds which titles (spec §5 Titles)
+        byte[] built = factions.living() ? factionWorld.settle(humans, difficulty) : factionWorld.buildWorld(humans, difficulty);
         int transfer = factions.initialize();
         List<Campaign.Player> inCampaign = new ArrayList<>();
         for (LobbyPlayer p : players)
             inCampaign.add(new Campaign.Player(keys.get(p.id()), p.name(), factions.slotOf(p.id())));
-        campaign = new Campaign(Campaign.idOf(built), Campaign.nameFor(players.get(0).name()), choices.seed(), difficulty, inCampaign);
+        campaign = new Campaign(Campaign.idOf(built), Campaign.nameFor(players.get(0).name()), choices.seed(), difficulty, inCampaign,
+                titles);
         sendAll(new Message.SlotMap(transfer, factions.slotMap()));
         List<byte[]> pieces = Pieces.split(built);
         for (int i = 0; i < pieces.size(); i++)

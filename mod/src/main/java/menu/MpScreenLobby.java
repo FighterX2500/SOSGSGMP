@@ -24,6 +24,7 @@ import sosgsgmp.net.Message;
 import sosgsgmp.net.SteamNode;
 import sosgsgmp.session.LobbySession;
 import sosgsgmp.session.SetupSession;
+import sosgsgmp.setup.TitlesMode;
 import util.colors.GCOLOR;
 import util.gui.misc.GText;
 import view.menu.MenuScreen;
@@ -447,10 +448,10 @@ final class MpScreenLobby extends GUI.Shadower implements SC {
 			settings.add(mp.modes.name(ls.difficulty())).add(",  ").add(shownPlayers).add(" / ").add(ls.maxPlayers()).add(" players");
 		if (ls != null && ls.resume() != null)
 			settings.add(",  ").add(ls.resume().campaign().name()).add(", save ").add(ls.resume().number());
-		if (ls != null)
-			settings.add(ls.fullTransferLog() ? ",  every transfer logged" : ",  transfers between players logged");
 		if (ls != null && ls.livingWorld())
 			settings.add(",  living world");
+		if (ls != null && ls.titles() != TitlesMode.NONE)
+			settings.add(",  titles: ").add(ls.titles().label);
 		settings.color(COLORS.label);
 		settings.adjustWidth(); // wraps at the block's width: a living world's line is longer than the block (SOS-187)
 

@@ -228,15 +228,20 @@ final class MpMenu {
 
 		final String[] keys;
 		final CharSequence[] names;
+		/** Each mode's description, as the random game screen shows it on hover. */
+		final CharSequence[] descs;
 		final SPRITE[] icons;
 
 		private Modes(Menu menu) {
 			ResFolder path = PATHS.PLAYER().folder("mode");
 			keys = path.init.getFiles();
 			names = new CharSequence[keys.length];
+			descs = new CharSequence[keys.length];
 			icons = new SPRITE[keys.length];
 			for (int i = 0; i < keys.length; i++) {
-				names[i] = new INFO(new Json(path.text.gets(keys[i]))).name;
+				INFO info = new INFO(new Json(path.text.gets(keys[i])));
+				names[i] = info.name;
+				descs[i] = info.desc;
 				icons[i] = menu.res.s().modeIcons[new Json(path.init.gets(keys[i])).i("ICON_I")];
 			}
 		}
