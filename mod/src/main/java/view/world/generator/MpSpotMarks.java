@@ -17,8 +17,8 @@ import world.map.regions.centre.WCentre;
 
 /**
  * SOSGSGMP: every player's spot on the setup's map (owner, 2026-11-26): a border six screen pixels wide in the banner's
- * foreground colour, the banner inside it, and the faction's name over it in the small font at three times its size,
- * whatever the zoom. One drawing for the classic setup's Place Capital, a living world's settling and hot-join. It is
+ * foreground colour, edged in black on both sides, the banner inside it, and the faction's name over it in the small font
+ * at twice its size, whatever the zoom. One drawing for the classic setup's Place Capital, a living world's settling and hot-join. It is
  * drawn from the side panel's render, once per frame, so it stays while the mouse is over the panel or the minimap:
  * the placer's own placeholder is drawn only while the map is hovered (vanilla's ToolManager).
  */
@@ -26,7 +26,9 @@ public final class MpSpotMarks {
 
 	private static final int HALF = WCentre.TILE_DIM / 2;
 	private static final int BORDER = 6;
-	private static final int NAME_SCALE = 3;
+	private static final int NAME_SCALE = 2;
+	/** The black edge on each side of the border, so it reads as one bold line on any terrain (owner, 2026-11-26). */
+	private static final int EDGE = 2;
 	private static final int SHADOW = 2;
 	private static final int GAP = 4;
 
@@ -116,16 +118,22 @@ public final class MpSpotMarks {
 	}
 
 	private static void border(SPRITE_RENDERER r, COLOR color, int x1, int y1, int size) {
-		color.render(r, x1, x1 + size, y1, y1 + BORDER);
-		color.render(r, x1, x1 + size, y1 + size - BORDER, y1 + size);
-		color.render(r, x1, x1 + BORDER, y1, y1 + size);
-		color.render(r, x1 + size - BORDER, x1 + size, y1, y1 + size);
+		frame(r, COLOR.BLACK, x1 - EDGE, y1 - EDGE, size + 2 * EDGE, BORDER + 2 * EDGE);
+		frame(r, color, x1, y1, size, BORDER);
 		COLOR.unbind();
+	}
+
+	/** A square frame {@code width} pixels thick, {@code size} pixels across from {@code x1, y1}. */
+	private static void frame(SPRITE_RENDERER r, COLOR color, int x1, int y1, int size, int width) {
+		color.render(r, x1, x1 + size, y1, y1 + width);
+		color.render(r, x1, x1 + size, y1 + size - width, y1 + size);
+		color.render(r, x1, x1 + width, y1, y1 + size);
+		color.render(r, x1 + size - width, x1 + size, y1, y1 + size);
 	}
 
 	/** The largest of the banner's sprites that fits inside the border; none when the zoom makes the square too small. */
 	private static void banner(SPRITE_RENDERER r, FBanner b, int x1, int y1, int size) {
-		int inner = size - 2 * BORDER;
+		int inner = size - 2 * (BORDER + EDGE);
 		SPRITE s = b.HUGE.width() <= inner ? b.HUGE : b.BIG.width() <= inner ? b.BIG : b.MEDIUM.width() <= inner ? b.MEDIUM : null;
 		if (s == null)
 			return;
@@ -138,7 +146,7 @@ public final class MpSpotMarks {
 	private static void name(SPRITE_RENDERER r, CharSequence name, int x1, int y1, int size) {
 		Font font = UI.FONT().S;
 		int x = x1 + (size - font.width(name, 0, name.length(), NAME_SCALE)) / 2;
-		int y = y1 - font.height(NAME_SCALE) - GAP;
+		int y = y1 - EDGE - font.height(NAME_SCALE) - GAP;
 		COLOR.BLACK.bind();
 		font.render(r, name, x + SHADOW, y + SHADOW, NAME_SCALE);
 		COLOR.WHITE100.bind();
