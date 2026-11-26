@@ -103,6 +103,7 @@ A and B are small (mod only). C and D are medium. E is the largest and the only 
 - twopc titles-U1 (`--here --mods-from ../SOSDET --steps 6000 --titles UNIQUE --window 1280x768`), 2026-11-26: PASS, 10 hash steps, 0 differ; both PCs listed the same titles and strengths for each human.
 - The owner's manual test, three games on this PC, 2026-11-26 and 2026-11-27: the lobby GUI, spots, the title menu after its fix, the marks after theirs; the owner: "it's all fine".
 - After the review's fixes: SOSDET `test assemble` 478 tests, 0 failures; mod `test build` 393 tests, 0 failures.
+- twopc titles-U2 after the review's fixes (title table now in the hash), same options, 2026-11-27: PASS, 10 common hash steps, 0 differ; both PCs `0:0/2;1:0/2`.
 
 **The review (2026-11-27), fixed:**
 - A passed vote for a new world takes the factions step away while Place Capital and Place your city-state still draw (a joiner until the host's build arrives): their lock checks and buttons read it. They now treat a missing step as locked, the side panel draws nothing until the map step, and the vote's result is taken before the check, so the "passed" line shows and an open question closes.
