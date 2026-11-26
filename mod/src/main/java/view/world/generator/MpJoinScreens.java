@@ -56,6 +56,9 @@ public final class MpJoinScreens implements MpFactionScreens {
 		/** The city-state's placer, the same one on every visit of the location screen. */
 		MpSpotPlacer placer();
 
+		/** Every player's spot on the map. */
+		MpSpotMarks marks();
+
 		/** The players' cursors on the map and the minimap, sent and drawn; null for none. */
 		default MpCursors cursors() {
 			return null;
@@ -64,7 +67,7 @@ public final class MpJoinScreens implements MpFactionScreens {
 
 	private final WorldViewGenerator g;
 	private final Pick pick;
-	/** The location screen's Back goes to Customize Faction: none while settling, where the picks were made before. */
+	/** The location screen's Back goes to Customize Faction. */
 	private final boolean back;
 	private final MpSpotNotice notice;
 	private boolean onLocation;
@@ -74,7 +77,6 @@ public final class MpJoinScreens implements MpFactionScreens {
 		this.pick = pick;
 		this.back = back;
 		this.notice = new MpSpotNotice(pick.placer());
-		pick.placer().window(g.window);
 	}
 
 	/**
@@ -87,9 +89,12 @@ public final class MpJoinScreens implements MpFactionScreens {
 		return s;
 	}
 
-	/** A living world's settling: the generator view on the loaded world, centred on {@code cx, cy}, at the location. */
+	/**
+	 * A living world's settling: the generator view on the loaded world, centred on {@code cx, cy}, at the location. Back
+	 * goes to Customize Faction and the race screen, as before the world was built (owner, 2026-11-26).
+	 */
 	public static MpJoinScreens settle(Pick pick, int cx, int cy) {
-		MpJoinScreens s = new MpJoinScreens(view(pick, cx, cy), pick, false);
+		MpJoinScreens s = new MpJoinScreens(view(pick, cx, cy), pick, true);
 		s.location();
 		return s;
 	}
@@ -150,6 +155,10 @@ public final class MpJoinScreens implements MpFactionScreens {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				pick.frame();
+				if (onLocation) {
+					MpRegionLines.render(r, g.window);
+					pick.marks().render(r, g.window, pick.placer().ownX(), pick.placer().ownY());
+				}
 				super.render(r, ds);
 				if (cursors != null) {
 					cursors.send(g.window, onLocation ? Cursors.WORLD : Cursors.OFF);

@@ -3,6 +3,7 @@ package view.world.generator;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 
+import game.faction.FACTIONS;
 import init.constant.C;
 import init.race.RACES;
 import init.race.Race;
@@ -84,6 +85,8 @@ final class MpFactions implements MpFactionScreens {
 	final int[] otherY = new int[LobbySettings.MAX_PLAYERS];
 	final GText[] otherNames = new GText[LobbySettings.MAX_PLAYERS];
 	int others;
+	/** Every player's capital on the map (owner, 2026-11-26). */
+	private final MpSpotMarks marks = new MpSpotMarks();
 
 	private MpFactions(WorldViewGenerator g, SetupSession setup) {
 		this.g = g;
@@ -137,6 +140,8 @@ final class MpFactions implements MpFactionScreens {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				pump(ds);
+				if (onLocation && !leaving)
+					marks.render(r, g.window, ownX, ownY);
 				super.render(r, ds);
 				if (onLocation && !leaving)
 					cursors.render(r, g.window, sosgsgmp.session.Cursors.WORLD);
@@ -370,6 +375,8 @@ final class MpFactions implements MpFactionScreens {
 		List<LobbyPlayer> players = setup.players();
 		shownRows = Math.min(players.size(), rows.length);
 		others = 0;
+		marks.clear();
+		marks.own(FACTIONS.player().name, FACTIONS.player().banner());
 		for (int i = 0; i < shownRows; i++) {
 			LobbyPlayer p = players.get(i);
 			GText row = rows[i].clear();
@@ -396,6 +403,7 @@ final class MpFactions implements MpFactionScreens {
 					otherY[others] = fp.y();
 					otherNames[others].clear().add(fp.name());
 					others++;
+					marks.add(fp);
 				}
 			} else if (pick.refused() != null) {
 				row.add(", location refused");

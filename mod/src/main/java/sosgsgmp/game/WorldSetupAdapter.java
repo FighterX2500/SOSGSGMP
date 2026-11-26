@@ -9,8 +9,10 @@ import java.util.List;
 
 import game.GAME;
 import game.faction.FACTIONS;
+import game.faction.FBanner;
 import game.faction.player.Player;
 import game.save.SaveFile;
+import init.race.RACES;
 import settlement.main.SETT;
 import settlement.stats.POP;
 import snake2d.LOG;
@@ -37,6 +39,26 @@ public final class WorldSetupAdapter implements FactionWorld {
      * This PC's picks as the game holds them: race, faction name, ruler name (SOS-98) and banner, at world tile {@code x, y} (or
      * {@link FactionPick#NONE} twice). Null while the faction has no name: a pick needs one.
      */
+    /**
+     * A living world's settling (owner, 2026-11-26): this PC's player takes on this PC's own picks (race, faction name,
+     * ruler name and banner), so the race screen and Customize Faction start from them and {@link #pick} reads them back.
+     * On a joining PC the loaded world's player is the host's stand-in; the host's carved world replaces it.
+     */
+    public void wear(FactionPick pick) {
+        Player p = FACTIONS.player();
+        for (int i = 0; i < RACES.all().size(); i++)
+            if (RACES.all().get(i).key.equals(pick.race()))
+                p.setRace(RACES.all().get(i));
+        p.name.clear().add(pick.name());
+        p.rulerName.clear().add(pick.ruler());
+        Engine.loadBanner(pick.banner(), p.banner());
+    }
+
+    /** A player's banner from their picks, loaded into {@code into} for drawing (the setup's spots). */
+    public void loadBanner(byte[] banner, FBanner into) {
+        Engine.loadBanner(banner, into);
+    }
+
     public FactionPick pick(int x, int y) {
         Player p = FACTIONS.player();
         String name = p.name.toString();

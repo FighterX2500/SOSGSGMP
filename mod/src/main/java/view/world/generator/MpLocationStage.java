@@ -1,16 +1,11 @@
 package view.world.generator;
 
 import game.faction.FACTIONS;
-import init.constant.C;
-import snake2d.SPRITE_RENDERER;
-import snake2d.util.color.COLOR;
 import snake2d.util.gui.GuiSection;
 import snake2d.util.gui.clickable.CLICKABLE;
 import snake2d.util.gui.renderable.RENDEROBJ;
 import snake2d.util.sets.LIST;
 import snake2d.util.sets.LISTE;
-import sosgsgmp.setup.FactionPick;
-import util.colors.GCOLOR;
 import util.gui.misc.GBox;
 import util.gui.misc.GButt;
 import util.gui.misc.GText;
@@ -24,7 +19,7 @@ import world.map.regions.centre.WCentre;
  * SOSGSGMP: the factions step's location screen (setup-factions-step.md §2): vanilla's capital placer on the world map,
  * as StageCapitol makes it, but placing only sends this PC's pick; the world is built later, once, by the host. A spot
  * the engine's rule refuses (the terrain, or 6 tiles from another player's location as this PC knows them) can't be
- * placed, and the tooltip says why. The other players' capitals are drawn while the placer is on the map.
+ * placed, and the tooltip says why. The players' capitals are {@link MpSpotMarks}', drawn from the side panel.
  */
 final class MpLocationStage {
 
@@ -191,34 +186,5 @@ final class MpLocationStage {
 			info.placeInfo(b, x1, y1, FACTIONS.player().race());
 		}
 
-		/**
-		 * Vanilla's placeholder, and once per frame (at its first tile) every placed capital: {@code x, y} is tile
-		 * {@code tx, ty} on screen, so any tile is at the same offset in tiles (PlacableFixedTool.render).
-		 */
-		@Override
-		public void renderPlaceHolder(SPRITE_RENDERER r, int mask, int x, int y, int tx, int ty, int rx, int ry, boolean isPlacable, boolean areaIsPlacable) {
-			super.renderPlaceHolder(r, mask, x, y, tx, ty, rx, ry, isPlacable, areaIsPlacable);
-			if (rx != 0 || ry != 0)
-				return;
-			for (int i = 0; i < f.others; i++) {
-				int sx = square(x, tx, f.otherX[i]);
-				int sy = square(y, ty, f.otherY[i]);
-				mark(r, GCOLOR.MAP().BAD, sx, sy);
-				f.otherNames[i].render(r, sx, sy - f.otherNames[i].height());
-			}
-			if (f.ownX() != FactionPick.NONE)
-				mark(r, GCOLOR.MAP().OK, square(x, tx, f.ownX()), square(y, ty, f.ownY()));
-		}
-
-		/** The screen position of the capital square around centre {@code c}, from tile {@code t} at {@code at}. */
-		private static int square(int at, int t, int c) {
-			return at + (c - HALF - t) * C.TILE_SIZE;
-		}
-
-		private static void mark(SPRITE_RENDERER r, COLOR color, int x1, int y1) {
-			int size = WCentre.TILE_DIM * C.TILE_SIZE;
-			color.render(r, x1, x1 + size, y1, y1 + size);
-			COLOR.unbind();
-		}
 	}
 }
