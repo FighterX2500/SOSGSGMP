@@ -49,6 +49,8 @@ public final class HostedSetup implements SetupSession {
     private MapOptions choices;
     /** A Generate at a new size: its options, generated once this PC's game is rebuilt at that size; else null. */
     private MapOptions waiting;
+    /** This PC's picks when a vote for a new world passed, without a location; null before. */
+    private FactionPick keptPick;
     /** The factions step from the confirm on; null before. */
     private FactionStep factions;
     /** The picks as last sent to the joining PCs. */
@@ -322,7 +324,9 @@ public final class HostedSetup implements SetupSession {
     }
 
     private void restartCall(int caller, long battle) {
-        Message.RestartVote v = restartVotes.call(caller, battle, playerIds(), nowMs());
+        String refusal = battle == Message.RestartCall.NEW_WORLD ? newWorldRefusal(caller) : null;
+        Message.RestartVote v = refusal != null ? new Message.RestartVote(0, caller, battle, Message.RestartVote.REFUSED, 0, 0, refusal)
+                : restartVotes.call(caller, battle, playerIds(), nowMs());
         if (v.state() == Message.RestartVote.REFUSED)
             tellPlayer(caller, v);
         else
@@ -337,14 +341,58 @@ public final class HostedSetup implements SetupSession {
     private void restartAnswer(int id, int vote, boolean yes) {
         Message.RestartVote v = restartVotes.answer(id, vote, yes, playerIds(), nowMs());
         if (v != null)
-            announce(v);
+            closed(v);
     }
 
     @Override
     public void checkRestart(String refusal) {
         Message.RestartVote v = refusal != null ? restartVotes.cancel(refusal) : restartVotes.check(playerIds(), nowMs());
         if (v != null)
-            announce(v);
+            closed(v);
+    }
+
+    /** A vote's result for every PC; a new world's that passed sends every PC back to the map step. */
+    private void closed(Message.RestartVote v) {
+        announce(v);
+        if (v.state() == Message.RestartVote.PASSED && v.battle() == Message.RestartCall.NEW_WORLD)
+            newWorld();
+    }
+
+    /** Why the setup can't go back to the map step for a new world now; null when it can (spec §5). */
+    private String newWorldRefusal(int caller) {
+        if (caller != localPlayerId())
+            return "Only the host proposes a new world.";
+        if (factions == null || !step.confirmed())
+            return "The map isn't confirmed yet: generate again instead.";
+        if (factions.initialized() || deferred != null || settleWorld != null)
+            return "The world is being initialized.";
+        return null;
+    }
+
+    /**
+     * Host, a vote for a new world passed: every PC heard it in this order and goes back to the map step the same way;
+     * this PC's picks are kept without a location, and the host builds again at the same size.
+     */
+    private void newWorld() {
+        if (factions != null && factions.ownPick() != null)
+            keptPick = factions.ownPick().at(FactionPick.NONE, FactionPick.NONE);
+        factions = null;
+        settleWorld = null;
+        step.reopen();
+        build(step.size());
+        changed();
+    }
+
+    /** A new world's open vote ends when the host goes on without it (Initialize World, Build World). */
+    private void callOffNewWorld() {
+        RestartTally open = restartVotes.open();
+        if (open != null && open.battle() == Message.RestartCall.NEW_WORLD)
+            announce(restartVotes.cancel("The host went on with this world."));
+    }
+
+    @Override
+    public FactionPick keptPick() {
+        return keptPick;
     }
 
     /** A vote's opening or result: every PC hears it, this one too, in the host's order. */
@@ -429,8 +477,10 @@ public final class HostedSetup implements SetupSession {
                         node.send(p.getKey(), relayed);
             }
             case Message.Pause p when id != null -> heard(new Message.Pause(id, p.paused()));
-            case Message.RestartCall c when id != null && link != null -> restartCall(id, c.battle());
-            case Message.RestartAnswer a when id != null && link != null -> restartAnswer(id, a.vote(), a.yes());
+            // a battle's vote once the game runs; a new world's during the setup (spec §5)
+            case Message.RestartCall c when id != null && (link != null || c.battle() == Message.RestartCall.NEW_WORLD) ->
+                restartCall(id, c.battle());
+            case Message.RestartAnswer a when id != null -> restartAnswer(id, a.vote(), a.yes());
             case Message.Chat c when id != null -> {
                 chat.heard(id, players, c.text());
                 relay(new Message.Chat(id, Chat.clean(c.text())));
@@ -1303,6 +1353,7 @@ public final class HostedSetup implements SetupSession {
             throw new IllegalStateException("SOSGSGMP: the world can't be initialized now");
         if (deferred != null)
             return;
+        callOffNewWorld();
         int key = ++loadingKey;
         if (factions.canBuildForSettling()) {
             announceLoading(Loading.Kind.WORLD_INITIALIZATION, key,

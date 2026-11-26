@@ -13,7 +13,9 @@ import menu.MpCursors;
 import menu.MpSetupLeave;
 import menu.MpSettle;
 import menu.MpWorldLoad;
+import menu.MpWorldVote;
 import snake2d.CORE;
+import snake2d.CORE_STATE;
 import snake2d.SPRITE_RENDERER;
 import snake2d.util.color.COLOR;
 import snake2d.util.color.OPACITY;
@@ -87,10 +89,16 @@ final class MpFactions implements MpFactionScreens {
 	int others;
 	/** Every player's capital on the map (owner, 2026-11-26). */
 	private final MpSpotMarks marks = new MpSpotMarks();
+	/** The host's vote for a new world, and every PC's answer (spec §5). */
+	private final MpWorldVote worldVote;
+	/** The map step's rebuild, where a passed vote for a new world goes. */
+	private final CORE_STATE.Constructor rebuild;
 
-	private MpFactions(WorldViewGenerator g, SetupSession setup) {
+	private MpFactions(WorldViewGenerator g, SetupSession setup, CORE_STATE.Constructor rebuild) {
 		this.g = g;
 		this.setup = setup;
+		this.rebuild = rebuild;
+		this.worldVote = new MpWorldVote(setup);
 		this.cursors = new MpCursors(setup);
 		MpMinimapCursors.show(cursors, new MinimapAdapter().setupMap(g.minimap), () -> onLocation && !leaving);
 		for (int i = 0; i < rows.length; i++) {
@@ -100,11 +108,16 @@ final class MpFactions implements MpFactionScreens {
 		}
 	}
 
-	/** From the map step's Next, once the map is confirmed: the race screen first, as vanilla. */
-	static MpFactions open(WorldViewGenerator g, SetupSession setup) {
+	/**
+	 * From the map step's Next, once the map is confirmed: the race screen first, as vanilla. After a vote for a new world
+	 * this PC's player takes on the picks it kept.
+	 */
+	static MpFactions open(WorldViewGenerator g, SetupSession setup, CORE_STATE.Constructor rebuild) {
 		if (setup.factions() == null)
 			throw new IllegalStateException("SOSGSGMP: the factions step before the map is confirmed");
-		MpFactions f = new MpFactions(g, setup);
+		if (setup.keptPick() != null)
+			new WorldSetupAdapter().wear(setup.keptPick());
+		MpFactions f = new MpFactions(g, setup, rebuild);
 		f.refresh();
 		f.syncPick();
 		MpFactionStage.race(f);
@@ -171,6 +184,8 @@ final class MpFactions implements MpFactionScreens {
 			buttons.addRightC(0, back);
 		if (next != null)
 			buttons.addRightC(16, next);
+		if (next == null && setup.isHost() && !settlesLater()) // Place Capital: the host's vote for a new world (spec §5)
+			s.addDown(12, locking(wrap(worldVote.button()), this::initialized));
 		GuiSection row = new GuiSection();
 		row.add(locking(buttons, this::locked));
 		if (next == null)
@@ -272,6 +287,12 @@ final class MpFactions implements MpFactionScreens {
 	}
 
 	/** {@code content}, greyed and taking no clicks while {@code lock} says so; for the hot-join's screens too. */
+	private static GuiSection wrap(RENDEROBJ r) {
+		GuiSection s = new GuiSection();
+		s.add(r);
+		return s;
+	}
+
 	static GuiSection locking(GuiSection content, BooleanSupplier lock) {
 		GuiSection s = new GuiSection() {
 			private boolean wasLocked;
@@ -326,6 +347,14 @@ final class MpFactions implements MpFactionScreens {
 		if (leaving)
 			return;
 		setup.update();
+		if (setup.factions() == null) { // a vote for a new world passed: the map step, once the host's build is here
+			if (!setup.closed() && setup.step().pendingBuild() > 0) {
+				leaving = true;
+				CORE.setCurrentState(rebuild);
+			}
+			return;
+		}
+		worldVote.frame();
 		byte[] world = setup.takeWorld();
 		if (world != null) {
 			leaving = true;
@@ -335,7 +364,7 @@ final class MpFactions implements MpFactionScreens {
 		byte[] settle = setup.takeSettleWorld();
 		if (settle != null) { // a living world (SOS-187): every PC loads the host's world and settles on it
 			leaving = true;
-			CORE.setCurrentState(new MpSettle(setup, settle));
+			CORE.setCurrentState(new MpSettle(setup, settle, rebuild));
 			return;
 		}
 		cursors.send(g.window, onLocation ? sosgsgmp.session.Cursors.WORLD : sosgsgmp.session.Cursors.OFF);

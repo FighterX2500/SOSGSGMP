@@ -101,6 +101,8 @@ class ProtocolTest {
             new Message.FreezeAsk(),
             new Message.RestartCall(0),
             new Message.RestartCall(Long.MAX_VALUE),
+            new Message.RestartCall(Message.RestartCall.NEW_WORLD),
+            new Message.RestartVote(2, 0, Message.RestartCall.NEW_WORLD, Message.RestartVote.PASSED, 2, 3, ""),
             new Message.RestartVote(1, 0, 123_456_789L, Message.RestartVote.OPEN, 1, 3, ""),
             new Message.RestartVote(Integer.MAX_VALUE, 7, 0, Message.RestartVote.CANCELLED, 0, 16, "That battle is over."),
             new Message.RestartVote(0, 3, 5, Message.RestartVote.REFUSED, 0, 0, "Another restart vote is open."),

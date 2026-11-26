@@ -1718,6 +1718,73 @@ class LoopbackSetupTest {
         assertEquals("Cid left after the world was built; the game can't start without them.", host.closedReason());
     }
 
+    /** The next vote message {@code s} hears, waiting for it while every PC runs its frame. */
+    private Message.RestartVote nextVote(SetupSession s) throws InterruptedException {
+        Message.RestartVote[] v = new Message.RestartVote[1];
+        until("a vote message", () -> (v[0] = s.restartVotes().take()) != null);
+        return v[0];
+    }
+
+    /**
+     * Spec §5: the host's vote for a new world, passed by a majority, takes every PC back to the map step in the host's
+     * order: no factions step, the map open again, the host's new build on every PC; each PC keeps its picks without a
+     * location. A joining player can't call it.
+     */
+    @Test
+    void aPassedVoteForANewWorldTakesEveryPcBackToTheMapStepWithItsPicks() throws Exception {
+        confirmMap();
+        host.pick(pick("Ann", 10, 10));
+        bob.pick(pick("Bob", 20, 10));
+        until("Bob's pick on his PC", () -> bob.factions().ownPick() != null);
+        int buildBefore = host.step().buildId();
+
+        bob.callRestart(Message.RestartCall.NEW_WORLD);
+        assertEquals(Message.RestartVote.REFUSED, nextVote(bob).state(), "only the host proposes a new world");
+        assertNull(host.restartVotes().open());
+
+        host.callRestart(Message.RestartCall.NEW_WORLD);
+        Message.RestartVote open = nextVote(cid);
+        assertEquals(Message.RestartVote.OPEN, open.state());
+        assertEquals(Message.RestartCall.NEW_WORLD, open.battle());
+        assertEquals(Message.RestartVote.OPEN, nextVote(bob).state());
+        assertEquals(Message.RestartVote.OPEN, nextVote(host).state());
+        bob.answerRestart(open.vote(), true);
+        for (SetupSession s : List.of(host, bob, cid))
+            assertEquals(Message.RestartVote.PASSED, nextVote(s).state());
+
+        until("the map step again everywhere, with the host's new build", () -> host.factions() == null && bob.factions() == null
+                && cid.factions() == null && !bob.step().confirmed() && !cid.step().confirmed()
+                && bob.step().buildId() == host.step().buildId() && cid.step().buildId() == host.step().buildId()
+                && host.step().buildId() > buildBefore && host.step().canGenerate());
+        assertEquals("Ann", host.keptPick().name());
+        assertFalse(host.keptPick().hasLocation());
+        assertEquals("Bob", bob.keptPick().name());
+        assertFalse(bob.keptPick().hasLocation());
+        assertNull(cid.keptPick(), "Cid had picked nothing");
+
+        host.generate(A);
+        until("matching results again", host.step()::canConfirm);
+        host.confirm();
+        until("factions everywhere again", () -> bob.factions() != null && cid.factions() != null);
+    }
+
+    /** Spec §5: a new world needs more than half; Bob and Cid saying No keep the world and the picks as they are. */
+    @Test
+    void aFailedVoteForANewWorldChangesNothing() throws Exception {
+        confirmMap();
+        host.callRestart(Message.RestartCall.NEW_WORLD);
+        Message.RestartVote open = nextVote(bob);
+        bob.answerRestart(open.vote(), false);
+        cid.answerRestart(open.vote(), false);
+        nextVote(host); // the opening
+        Message.RestartVote result = nextVote(host);
+        assertEquals(Message.RestartVote.FAILED, result.state());
+        assertEquals(1, result.yes());
+        assertTrue(host.step().confirmed());
+        assertTrue(bob.factions() != null && bob.step().confirmed());
+        assertNull(host.keptPick());
+    }
+
     @Test
     void picksBeforeTheConfirmAreRefused() throws Exception {
         startSetup();

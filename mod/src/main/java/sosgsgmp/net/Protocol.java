@@ -32,7 +32,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 35;
+    public static final int VERSION = 36;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -939,7 +939,7 @@ public final class Protocol {
     /** A battle's key ({@code BattleKey}), never negative (SOS-231). */
     private static long battle(DataInputStream in) throws IOException {
         long battle = in.readLong();
-        if (battle < 0)
+        if (battle < 0 && battle != Message.RestartCall.NEW_WORLD)
             throw new IOException("SOSGSGMP: a restart vote for battle " + battle);
         return battle;
     }

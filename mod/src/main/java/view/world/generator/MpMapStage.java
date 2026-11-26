@@ -120,7 +120,7 @@ public final class MpMapStage {
 		if (factions != null)
 			factions.afterUpdate(autopilot);
 		else if (autopilot != null)
-			autopilot.map(setup, canGoOn, () -> factions = MpFactions.open(g, setup));
+			autopilot.map(setup, canGoOn, () -> factions = MpFactions.open(g, setup, rebuild));
 	}
 
 	private MpMapStage(WorldViewGenerator g, SetupSession setup, List<String> mapTypes, CORE_STATE.Constructor rebuild) {
@@ -164,7 +164,7 @@ public final class MpMapStage {
 		buttons.add(new GButt.ButtPanel("next") {
 			@Override
 			protected void clickA() {
-				factions = MpFactions.open(g, setup);
+				factions = MpFactions.open(g, setup, rebuild);
 			}
 
 			@Override

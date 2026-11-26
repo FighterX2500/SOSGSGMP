@@ -44,10 +44,13 @@ public final class MpSettle implements CORE_STATE.Constructor {
 
 	private final SetupSession setup;
 	private final byte[] save;
+	/** The map step's rebuild, where a passed vote for a new world goes (spec §5). */
+	private final CORE_STATE.Constructor rebuild;
 
-	public MpSettle(SetupSession setup, byte[] save) {
+	public MpSettle(SetupSession setup, byte[] save, CORE_STATE.Constructor rebuild) {
 		this.setup = setup;
 		this.save = save.clone();
+		this.rebuild = rebuild;
 	}
 
 	@Override
@@ -71,7 +74,7 @@ public final class MpSettle implements CORE_STATE.Constructor {
 		if (own == null)
 			throw new IllegalStateException("SOSGSGMP: settling with no picks of this PC's");
 		game.wear(own); // race, faction and banner can change until Ready, as before the world was built
-		Settle settle = new Settle(setup);
+		Settle settle = new Settle(setup, rebuild);
 		MpJoinScreens.settle(settle, cx, cy);
 		// every frame, as the factions step: vanilla's "click to continue" after the load hides the screen's own render
 		GAME.addAfterUpdate(settle::pump);
@@ -119,8 +122,14 @@ public final class MpSettle implements CORE_STATE.Constructor {
 		private final MpCursors cursors;
 		private final Placer placer = new Placer();
 
-		Settle(SetupSession setup) {
+		/** The host's vote for a new world, and every PC's answer (spec §5). */
+		private final MpWorldVote worldVote;
+		private final CORE_STATE.Constructor rebuild;
+
+		Settle(SetupSession setup, CORE_STATE.Constructor rebuild) {
 			this.setup = setup;
+			this.rebuild = rebuild;
+			this.worldVote = new MpWorldVote(setup);
 			this.loading = new MpLoading(setup);
 			this.cursors = new MpCursors(setup);
 			marks.own(FACTIONS.player().name, FACTIONS.player().banner()); // this PC's player wears its picks
@@ -222,6 +231,11 @@ public final class MpSettle implements CORE_STATE.Constructor {
 			return marks;
 		}
 
+		@Override
+		public GButt.ButtPanel regenerate() {
+			return setup.isHost() ? worldVote.button() : null;
+		}
+
 		/** Ready, or the world being built: the spot can't change. */
 		@Override
 		public boolean locked() {
@@ -266,6 +280,14 @@ public final class MpSettle implements CORE_STATE.Constructor {
 			if (!GAME.SPEED.isPaused())
 				GAME.SPEED.speedSet(0); // a map to pick on: nothing in it runs
 			setup.update();
+			if (setup.factions() == null) { // a vote for a new world passed: the map step, once the host's build is here
+				if (!setup.closed() && setup.step().pendingBuild() > 0) {
+					leaving = true;
+					CORE.setCurrentState(rebuild);
+				}
+				return;
+			}
+			worldVote.frame();
 			loading.frame();
 			byte[] world = setup.takeWorld();
 			if (world != null) {

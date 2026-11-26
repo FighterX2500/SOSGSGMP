@@ -59,6 +59,11 @@ public final class MpJoinScreens implements MpFactionScreens {
 		/** Every player's spot on the map. */
 		MpSpotMarks marks();
 
+		/** The host's Regenerate, a vote for a new world (spec §5), built afresh for the location screen; null for none. */
+		default GButt.ButtPanel regenerate() {
+			return null;
+		}
+
 		/** The players' cursors on the map and the minimap, sent and drawn; null for none. */
 		default MpCursors cursors() {
 			return null;
@@ -168,6 +173,9 @@ public final class MpJoinScreens implements MpFactionScreens {
 			}
 		};
 		s.add(pick.info());
+		GButt.ButtPanel regenerate = onLocation ? pick.regenerate() : null;
+		if (regenerate != null)
+			s.addDown(12, regenerate);
 		GuiSection buttons = new GuiSection();
 		if (back != null)
 			buttons.addRightC(0, back);

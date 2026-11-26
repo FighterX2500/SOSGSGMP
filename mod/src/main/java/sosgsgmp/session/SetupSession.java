@@ -63,6 +63,12 @@ public interface SetupSession {
     FactionStep factions();
 
     /**
+     * This PC's picks as they were when a vote for a new world passed (spec §5), without a location: race, faction and
+     * banner stay for the new world's factions step. Null when there was no such vote.
+     */
+    FactionPick keptPick();
+
+    /**
      * This PC's latest picks, sent whenever they change: the host records them at once (checking the location as it
      * checks everyone's), a joining PC sends them to the host. Only once the map is confirmed.
      */
@@ -203,7 +209,8 @@ public interface SetupSession {
     /**
      * This PC's player calls a vote to restart {@code battle} (SOSDET's {@code BattleKey} as a long). The host opens it for
      * every player in the session, or refuses it to this player while another vote is open; a battle that can't restart
-     * cancels it at the host's next {@link #checkRestart}.
+     * cancels it at the host's next {@link #checkRestart}. {@code Message.RestartCall.NEW_WORLD}: the host's vote, during
+     * the factions step, for a new world; passed, every PC goes back to the map step and the host builds again.
      */
     void callRestart(long battle);
 

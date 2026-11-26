@@ -42,7 +42,9 @@ public final class JoinedSetup implements SetupSession {
     private byte[] save;
     /** The lobby's world: a living world, where this PC's player settles on the host's built world (SOS-187). */
     private final boolean livingWorld;
-    private final Pieces.Receiver settleParts = new Pieces.Receiver();
+    private Pieces.Receiver settleParts = new Pieces.Receiver();
+    /** This PC's picks when a vote for a new world passed, without a location; null before. */
+    private FactionPick keptPick;
     /** A rejoin (SOS-195): the host's rejoin files' pieces, then the files, for the setup its restart makes. */
     private final Pieces.Receiver rejoinParts = new Pieces.Receiver();
     private byte[] rejoinFiles;
@@ -214,6 +216,25 @@ public final class JoinedSetup implements SetupSession {
             node.send(Node.HOST, new Message.RestartAnswer(vote, yes));
     }
 
+    /**
+     * A vote for a new world passed (spec §5): back to the map step, as the host goes; the host's next build follows.
+     * This PC's picks are kept without a location.
+     */
+    private void newWorld() {
+        if (factions != null && factions.ownPick() != null)
+            keptPick = factions.ownPick().at(FactionPick.NONE, FactionPick.NONE);
+        factions = null;
+        settleWorld = null;
+        settleParts = new Pieces.Receiver();
+        step.reopen();
+        changes++;
+    }
+
+    @Override
+    public FactionPick keptPick() {
+        return keptPick;
+    }
+
     /** Nothing: only the host counts the votes. */
     @Override
     public void checkRestart(String refusal) {
@@ -319,7 +340,11 @@ public final class JoinedSetup implements SetupSession {
                 doneOutcome = d.outcome();
             }
             case Message.Pause p -> pauses.heard(p);
-            case Message.RestartVote v -> restartVotes.heard(v);
+            case Message.RestartVote v -> {
+                restartVotes.heard(v);
+                if (v.state() == Message.RestartVote.PASSED && v.battle() == Message.RestartCall.NEW_WORLD)
+                    newWorld();
+            }
             case Message.Chat c -> chat.heard(c.playerId(), players, c.text());
             case Message.Cursor c -> {
                 if (c.playerId() != localPlayerId())

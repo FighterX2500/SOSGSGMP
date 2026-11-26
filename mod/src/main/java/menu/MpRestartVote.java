@@ -79,7 +79,8 @@ final class MpRestartVote {
 				setup.chat().notice(caller + " calls a vote to restart " + what + ".");
 				if (v.callerId() != setup.localPlayerId()) {
 					closeAsk();
-					ask = new MpRestartAsk(this, v.vote(), caller + " calls a vote to restart " + what + ". Restart it?");
+					ask = new MpRestartAsk("Restart the battle?", v.vote(), caller + " calls a vote to restart " + what + ". Restart it?",
+							this::answer);
 					ask.open();
 				}
 			}

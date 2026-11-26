@@ -9,9 +9,9 @@ import sosgsgmp.session.RestartTally;
 import util.gui.misc.GButt;
 
 /**
- * SOSGSGMP: a player called a vote to restart a battle (spec §8, SOS-231): Yes or No. Every player is asked, those
- * outside the battle and spectators too; no answer in 30 seconds counts as No. A window, as the speed and ally prompts
- * are: this player's own game goes on behind it.
+ * SOSGSGMP: a player called a vote (spec §8, SOS-231: a battle's restart; spec §5: the host's new world): Yes or No.
+ * Every player is asked, those outside the battle and spectators too; no answer in 30 seconds counts as No. A window, as
+ * the speed and ally prompts are: this player's own game goes on behind it.
  */
 final class MpRestartAsk extends MpWindow {
 
@@ -21,8 +21,13 @@ final class MpRestartAsk extends MpWindow {
 	private final long until = System.nanoTime() + RestartTally.ANSWER_MS * 1_000_000L;
 	private final Str left = new Str(32);
 
-	MpRestartAsk(MpRestartVote votes, int vote, String question) {
-		super("Restart the battle?");
+	/** What this player's click does: answers vote {@code vote}. */
+	interface Answer {
+		void answer(int vote, boolean yes);
+	}
+
+	MpRestartAsk(String title, int vote, String question, Answer votes) {
+		super(title);
 		String text = question + " " + NOTE;
 		inner.add(new RENDEROBJ.RenderImp(WIDTH, UI.FONT().M.getHeight(text, WIDTH)) {
 			@Override
