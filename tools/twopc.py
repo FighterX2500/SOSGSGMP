@@ -241,6 +241,8 @@ def main():
                          " an outside player's actions go to command.txt beside each PC's autopilot events")
     ap.add_argument("--tag", default="twopc")
     ap.add_argument("--living", action="store_true", help="the host's lobby builds a living world (SOS-187)")
+    ap.add_argument("--titles", choices=["NONE", "HOST", "UNIQUE"], default="NONE",
+                    help="the host's lobby's titles setting (spec 5 Titles); every PC reports each human's titles at the load")
     ap.add_argument("--mods-from", default="", metavar="SOSDET_DIR",
                     help="both mods from their builds: SOSDET_DIR\build\mod\SOSDET and this repository's build\mod\SOSGSGMP"
                          " (gradlew assemble in each), not the installed ones")
@@ -446,6 +448,7 @@ def main():
     join_view = ",view=" + args.view if args.view else ""
     host_capital = ",capital=" + args.host_capital if args.host_capital else ""
     host_capital += ",living=1" if args.living else ""
+    host_capital += ",titles=" + args.titles if args.titles != "NONE" else ""
     host_capital += ",guipreview=%d" % args.gui_preview if args.gui_preview >= 0 else ""
     join_capital = ",capital=" + args.join_capital if args.join_capital else ""
     join_capital += ",guipreview=%d" % args.gui_preview if args.gui_preview >= 0 else ""  # the setup's shots, SOS-120

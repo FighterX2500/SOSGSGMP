@@ -1,6 +1,7 @@
 package sosgsgmp.lobby;
 
 import sosgsgmp.campaign.Campaign;
+import sosgsgmp.setup.TitlesMode;
 
 /**
  * What the host picks when creating a lobby (spec §5, lobby step 2).
@@ -11,8 +12,9 @@ import sosgsgmp.campaign.Campaign;
  * @param livingWorld the world is built around the host alone, and every other player settles a city-state carved
  *        into it on the real political map (spec §5 World, SOS-187); off, the classic setup. A resume plays its saved
  *        world, so it is off there
+ * @param titles which titles the factions hold (spec §5 Titles); a resume's are its campaign's
  */
-public record LobbySettings(String difficulty, int maxPlayers, Resume resume, boolean livingWorld) {
+public record LobbySettings(String difficulty, int maxPlayers, Resume resume, boolean livingWorld, TitlesMode titles) {
 
     /** A campaign save to resume: only its players can join, and every PC loads its own save of that number. */
     public record Resume(Campaign campaign, int number) {
@@ -40,6 +42,13 @@ public record LobbySettings(String difficulty, int maxPlayers, Resume resume, bo
                     + " players in a lobby of " + maxPlayers);
         if (resume != null && livingWorld)
             throw new IllegalArgumentException("SOSGSGMP: a resume builds no world, living or classic");
+        if (titles == null)
+            throw new IllegalArgumentException("SOSGSGMP: lobby without a titles setting");
+    }
+
+    /** Settings with no titles. */
+    public LobbySettings(String difficulty, int maxPlayers, Resume resume, boolean livingWorld) {
+        this(difficulty, maxPlayers, resume, livingWorld, TitlesMode.NONE);
     }
 
     /** A new game's lobby. */
@@ -49,11 +58,17 @@ public record LobbySettings(String difficulty, int maxPlayers, Resume resume, bo
 
     /** The lobby resuming {@code resume}: the campaign's difficulty and players. */
     public static LobbySettings resuming(Resume resume) {
-        return new LobbySettings(resume.campaign().difficulty(), resume.campaign().players().size(), resume, false);
+        return new LobbySettings(resume.campaign().difficulty(), resume.campaign().players().size(), resume, false,
+                resume.campaign().titles());
     }
 
     /** These settings with the living world on or off (SOS-187). */
     public LobbySettings withLivingWorld(boolean on) {
-        return new LobbySettings(difficulty, maxPlayers, resume, on);
+        return new LobbySettings(difficulty, maxPlayers, resume, on, titles);
+    }
+
+    /** These settings with {@code mode}'s titles (spec §5 Titles). */
+    public LobbySettings withTitles(TitlesMode mode) {
+        return new LobbySettings(difficulty, maxPlayers, resume, livingWorld, mode);
     }
 }

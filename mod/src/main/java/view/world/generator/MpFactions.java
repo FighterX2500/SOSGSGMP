@@ -28,6 +28,7 @@ import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.session.SetupSession;
 import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep;
+import sosgsgmp.setup.TitlesMode;
 import util.colors.GCOLOR;
 import util.gui.misc.GButt;
 import util.gui.misc.GHeader;
@@ -272,6 +273,11 @@ final class MpFactions implements MpFactionScreens {
 		g.reset();
 		onLocation = false;
 		g.dummy.add(content, title);
+	}
+
+	@Override
+	public TitlesMode titles() {
+		return setup.titlesToPick();
 	}
 
 	@Override

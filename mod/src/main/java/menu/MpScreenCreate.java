@@ -20,6 +20,7 @@ import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.game.SteamworksPort;
 import sosgsgmp.net.SteamNode;
 import sosgsgmp.session.HostedLobby;
+import sosgsgmp.setup.TitlesMode;
 import util.data.INT.IntImp;
 import util.gui.misc.GText;
 import view.menu.MenuScreen;
@@ -34,6 +35,8 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 	private int mode;
 	/** The world: vanilla, or the players settle in a living world (SOS-187). */
 	private boolean livingWorld;
+	/** Which titles the factions hold (spec §5 Titles). */
+	private TitlesMode titles = TitlesMode.NONE;
 	private final GText error = new GText(UI.FONT().M, 160);
 	/**
 	 * The tooltip of what the mouse is over, set while hovering, or null. The main menu draws no hover boxes, so this
@@ -93,6 +96,11 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 		world.add(worldButton("Vanilla", false));
 		world.addRightC(24, worldButton("Living world", true));
 		form.addDown(16, MpMenu.row("world", world));
+
+		GuiSection titleRow = new GuiSection();
+		for (TitlesMode m : TitlesMode.values())
+			titleRow.addRightC(m.ordinal() == 0 ? 0 : 24, titlesButton(m));
+		form.addDown(8, MpMenu.row("titles", titleRow));
 
 		error.color(COLORS.error);
 		form.addDown(24, new RENDEROBJ.RenderImp(600, UI.FONT().M.height() * 2) {
@@ -161,6 +169,29 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 				if (!super.hover(mCoo))
 					return false;
 				tip(label, tip);
+				return true;
+			}
+		};
+	}
+
+	/** One choice of the titles (spec §5 Titles): none, the host's for everyone, or each player's own. */
+	private CLICKABLE titlesButton(TitlesMode m) {
+		return new GUI.Button(UI.FONT().H2.getText(m.label)) {
+			@Override
+			protected void clickA() {
+				titles = m;
+			}
+
+			@Override
+			protected void renAction() {
+				selectedSet(titles == m);
+			}
+
+			@Override
+			public boolean hover(COORDINATE mCoo) {
+				if (!super.hover(mCoo))
+					return false;
+				tip(m.label, m.desc);
 				return true;
 			}
 		};
@@ -255,7 +286,7 @@ final class MpScreenCreate extends GUI.Shadower implements SC {
 		mp.prefs.maxPlayers = players.get();
 		mp.prefs.difficulty = mp.modes.keys[mode];
 		mp.savePrefs();
-		LobbySettings settings = new LobbySettings(mp.modes.keys[mode], players.get()).withLivingWorld(livingWorld);
+		LobbySettings settings = new LobbySettings(mp.modes.keys[mode], players.get()).withLivingWorld(livingWorld).withTitles(titles);
 		if (steam) {
 			mp.invites.stop(); // Steam runs once in the process (SOS-103)
 			SteamNode node = SteamNode.host(SteamworksPort::lease, LobbySettings.MAX_PLAYERS); // room for a player joining later (SOS-190); the lobby refuses past its limit

@@ -7,11 +7,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import sosgsgmp.setup.TitlesMode;
+
 /**
  * A campaign as every PC in it knows it (spec §11, SOS-64): the host sends it with every save order, and it goes into
- * every PC's records. The id is the first game's start id, so it is the same on every PC from the start.
+ * every PC's records. The id is the first game's start id, so it is the same on every PC from the start. {@code titles}:
+ * the lobby's titles setting (spec §5 Titles), which a hot-join's newcomer follows.
  */
-public record Campaign(long id, String name, int seed, String difficulty, List<Player> players) {
+public record Campaign(long id, String name, int seed, String difficulty, List<Player> players, TitlesMode titles) {
 
     /** Longest campaign name, in characters. */
     public static final int MAX_NAME = 48;
@@ -61,6 +64,8 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
         if (difficulty == null || difficulty.isEmpty())
             throw new IllegalArgumentException("SOSGSGMP: campaign " + name + " has no difficulty");
         players = List.copyOf(players);
+        if (titles == null)
+            throw new IllegalArgumentException("SOSGSGMP: campaign " + name + " without a titles setting");
         if (players.size() < 2)
             throw new IllegalArgumentException("SOSGSGMP: campaign " + name + " with " + players.size() + " players");
         // every human slot is listed once, removed ones too; one key may come back as a new player after removals, so
@@ -73,6 +78,11 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
                     throw new IllegalArgumentException("SOSGSGMP: campaign " + name + " has two players with one key or slot: "
                             + a + ", " + b);
             }
+    }
+
+    /** A campaign with no titles: one from before the setting (spec §5 Titles). */
+    public Campaign(long id, String name, int seed, String difficulty, List<Player> players) {
+        this(id, name, seed, difficulty, players, TitlesMode.NONE);
     }
 
     /**
@@ -104,7 +114,7 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
         List<Player> now = new ArrayList<>(players.size());
         for (Player p : players)
             now.add(p.slot() == slot && p.frozen() ? new Player(p.key(), p.name(), p.slot()) : p);
-        return new Campaign(id, name, seed, difficulty, now);
+        return new Campaign(id, name, seed, difficulty, now, titles);
     }
 
     /** This campaign with the players in {@code slots} frozen (spec §11 Freezing a player, SOS-194). */
@@ -112,7 +122,7 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
         List<Player> now = new ArrayList<>(players.size());
         for (Player p : players)
             now.add(slots.contains(p.slot()) && !p.removed() ? new Player(p.key(), p.name(), p.slot(), false, false, true) : p);
-        return new Campaign(id, name, seed, difficulty, now);
+        return new Campaign(id, name, seed, difficulty, now, titles);
     }
 
     /** This campaign with the players in {@code slots} removed (spec §11 Removing a player); a frozen one too, for good. */
@@ -120,7 +130,7 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
         List<Player> now = new ArrayList<>(players.size());
         for (Player p : players)
             now.add(slots.contains(p.slot()) && !p.removed() ? new Player(p.key(), p.name(), p.slot(), true, false) : p);
-        return new Campaign(id, name, seed, difficulty, now);
+        return new Campaign(id, name, seed, difficulty, now, titles);
     }
 
     /**
@@ -131,7 +141,7 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
     public Campaign adding(long key, String name, int slot) {
         List<Player> now = new ArrayList<>(players);
         now.add(new Player(key, name, slot));
-        return new Campaign(id, this.name, seed, difficulty, now);
+        return new Campaign(id, this.name, seed, difficulty, now, titles);
     }
 
     /** This campaign with the player in {@code slot} eliminated (spec §9): they may come back as a spectator. */
@@ -139,7 +149,7 @@ public record Campaign(long id, String name, int seed, String difficulty, List<P
         List<Player> now = new ArrayList<>(players.size());
         for (Player p : players)
             now.add(p.slot() == slot ? new Player(p.key(), p.name(), p.slot(), true, true) : p);
-        return new Campaign(id, name, seed, difficulty, now);
+        return new Campaign(id, name, seed, difficulty, now, titles);
     }
 
     /** The player in {@code slot}, or null. */

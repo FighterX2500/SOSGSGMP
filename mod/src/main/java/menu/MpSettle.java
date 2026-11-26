@@ -20,6 +20,7 @@ import sosgsgmp.lobby.LobbyPlayer;
 import sosgsgmp.lobby.LobbySettings;
 import sosgsgmp.session.SetupSession;
 import sosgsgmp.setup.FactionPick;
+import sosgsgmp.setup.TitlesMode;
 import sosgsgmp.setup.FactionStep;
 import util.colors.GCOLOR;
 import util.gui.misc.GButt;
@@ -229,6 +230,11 @@ public final class MpSettle implements CORE_STATE.Constructor {
 		@Override
 		public MpSpotMarks marks() {
 			return marks;
+		}
+
+		@Override
+		public TitlesMode titles() {
+			return setup.titlesToPick();
 		}
 
 		@Override

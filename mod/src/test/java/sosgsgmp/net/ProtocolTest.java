@@ -34,6 +34,7 @@ class ProtocolTest {
             new Message.Hello("Ann", -42L, new Builds("0.71.44", 1, 2, new GameFiles(3, List.of()))),
             new Message.Welcome(3, new LobbySettings("hard", 16)),
             new Message.Welcome(5, new LobbySettings("hard", 16).withLivingWorld(true)),
+            new Message.Welcome(6, new LobbySettings("hard", 16).withTitles(sosgsgmp.setup.TitlesMode.HOST)),
             new Message.Roster(List.of(new LobbyPlayer(0, "Ann", true), new LobbyPlayer(5, "Bøb", false))),
             new Message.Refused(Refusal.FULL),
             new Message.Hello("Bob", 7L, new Builds("0.71.44", 1, 2, new GameFiles(-5, List.of(
@@ -61,6 +62,10 @@ class ProtocolTest {
             new Message.Running(false),
             new Message.Running(true),
             new Message.JoinPick(new FactionPick("HUMAN", "Newcomers", "Ruler", new byte[] {1, 2}, 251, 25)),
+            new Message.JoinPick(new FactionPick("HUMAN", "Titled", "Ruler", new byte[] {1}, 251, 25, new int[] {0, 34, 7},
+                    new int[] {1, 0, 12})),
+            new Message.Restart(5, new sosgsgmp.campaign.Campaign(1, "Titled", 2, "normal", CampaignStoreTest.CAMPAIGN_FOR_TESTS.players(),
+                    sosgsgmp.setup.TitlesMode.UNIQUE), 9, new FactionPick("HUMAN", "N", "", new byte[0], 1, 2), 0),
             new Message.JoinPicked(""),
             new Message.JoinPicked("Too close to another player's capital."),
             new Message.Restart(4, CampaignStoreTest.CAMPAIGN_FOR_TESTS, 9, new FactionPick("HUMAN", "Newcomers", "", new byte[0], 251, 25), 2500.5),

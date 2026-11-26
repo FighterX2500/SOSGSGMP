@@ -23,6 +23,7 @@ import sosgsgmp.setup.FactionStep;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStatus;
 import sosgsgmp.setup.MapStep;
+import sosgsgmp.setup.TitlesMode;
 
 /**
  * Byte layout of {@link Message}s. Every message starts with the protocol version (a short) and its type (a byte),
@@ -32,7 +33,7 @@ import sosgsgmp.setup.MapStep;
 public final class Protocol {
 
     /** Raise whenever any message's layout changes. */
-    public static final int VERSION = 36;
+    public static final int VERSION = 37;
 
     /** Largest message accepted, in bytes. */
     public static final int MAX_MESSAGE = 64 * 1024;
@@ -97,6 +98,7 @@ public final class Protocol {
                     out.writeUTF(w.settings().difficulty());
                     out.writeByte(w.settings().maxPlayers());
                     out.writeBoolean(w.settings().livingWorld());
+                    out.writeByte(w.settings().titles().ordinal());
                     LobbySettings.Resume resume = w.settings().resume();
                     out.writeBoolean(resume != null);
                     if (resume != null) {
@@ -596,11 +598,12 @@ public final class Protocol {
         String difficulty = in.readUTF();
         int max = in.readUnsignedByte();
         boolean livingWorld = in.readBoolean();
+        TitlesMode titles = titles(in);
         LobbySettings.Resume resume = null;
         try {
             if (in.readBoolean())
                 resume = new LobbySettings.Resume(campaign(in), in.readInt());
-            return new LobbySettings(difficulty, max, resume, livingWorld);
+            return new LobbySettings(difficulty, max, resume, livingWorld, titles);
         } catch (IllegalArgumentException e) {
             throw new IOException(e.getMessage(), e);
         }
@@ -662,6 +665,7 @@ public final class Protocol {
         out.writeUTF(c.name());
         out.writeInt(c.seed());
         out.writeUTF(c.difficulty());
+        out.writeByte(c.titles().ordinal());
         out.writeByte(c.players().size());
         for (Campaign.Player p : c.players()) {
             out.writeLong(p.key());
@@ -678,6 +682,7 @@ public final class Protocol {
         String name = text(in, Campaign.MAX_NAME, "campaign name");
         int seed = in.readInt();
         String difficulty = in.readUTF();
+        TitlesMode titles = titles(in);
         int n = players(in, "campaign");
         List<Campaign.Player> players = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
@@ -694,7 +699,7 @@ public final class Protocol {
             players.add(new Campaign.Player(key, name2, slot, removed, eliminated, frozen));
         }
         try {
-            return new Campaign(id, name, seed, difficulty, players);
+            return new Campaign(id, name, seed, difficulty, players, titles);
         } catch (IllegalArgumentException e) {
             throw new IOException(e.getMessage(), e);
         }
@@ -842,6 +847,20 @@ public final class Protocol {
         out.write(banner);
         out.writeShort(p.x());
         out.writeShort(p.y());
+        int[] titles = p.titles();
+        int[] races = p.titleRaces();
+        out.writeByte(titles.length); // spec §5 Titles
+        for (int i = 0; i < titles.length; i++) {
+            out.writeByte(titles[i]);
+            out.writeByte(races[i]);
+        }
+    }
+
+    private static TitlesMode titles(DataInputStream in) throws IOException {
+        int t = in.readUnsignedByte();
+        if (t >= TitlesMode.values().length)
+            throw new IOException("SOSGSGMP: titles setting " + t);
+        return TitlesMode.values()[t];
     }
 
     private static FactionPick pick(DataInputStream in) throws IOException {
@@ -857,8 +876,17 @@ public final class Protocol {
         int y = in.readShort();
         if (x >= MapOptions.MAX_SIZE || y >= MapOptions.MAX_SIZE)
             throw new IOException("SOSGSGMP: location " + x + "," + y);
+        int n = in.readUnsignedByte(); // spec §5 Titles
+        if (n > TitlesMode.MAX_TITLES)
+            throw new IOException("SOSGSGMP: " + n + " titles");
+        int[] titles = new int[n];
+        int[] races = new int[n];
+        for (int i = 0; i < n; i++) {
+            titles[i] = in.readUnsignedByte();
+            races[i] = in.readUnsignedByte();
+        }
         try {
-            return new FactionPick(race, name, ruler, banner, x, y);
+            return new FactionPick(race, name, ruler, banner, x, y, titles, races);
         } catch (IllegalArgumentException e) {
             throw new IOException(e.getMessage(), e);
         }

@@ -11,6 +11,7 @@ import snake2d.util.gui.renderable.RENDEROBJ;
 import snake2d.util.sets.LISTE;
 import sosgsgmp.game.MinimapAdapter;
 import sosgsgmp.session.Cursors;
+import sosgsgmp.setup.TitlesMode;
 import util.gui.misc.GBox;
 import util.gui.misc.GButt;
 import util.gui.panel.GPanel;
@@ -68,6 +69,9 @@ public final class MpJoinScreens implements MpFactionScreens {
 		default MpCursors cursors() {
 			return null;
 		}
+
+		/** The titles setting when this PC's player picks titles (spec §5 Titles); null when they pick none. */
+		TitlesMode titles();
 	}
 
 	private final WorldViewGenerator g;
@@ -204,6 +208,11 @@ public final class MpJoinScreens implements MpFactionScreens {
 		g.reset();
 		onLocation = false;
 		g.dummy.add(content, title);
+	}
+
+	@Override
+	public TitlesMode titles() {
+		return pick.titles();
 	}
 
 	@Override

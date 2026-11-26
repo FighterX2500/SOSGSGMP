@@ -202,7 +202,7 @@ final class MpHotJoin {
 		int slot = game.joinSlot();
 		double credits = game.joinCredits();
 		String name = setup.joining();
-		SetupSession next = setup.restart(d.number(), slot, pick, credits, read(d.file()));
+		SetupSession next = setup.restart(d.number(), slot, game.newcomerTitles(setup.titles(), pick), credits, read(d.file()));
 		log.line(String.format(java.util.Locale.ROOT, "hot-join: %s joins in slot %d with %.0f credits; every PC restarts from save %d",
 				name, slot, credits, d.number()));
 		load(next, record);

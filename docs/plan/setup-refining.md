@@ -65,6 +65,12 @@ Status: **proposed (2026-11-26), the owner's three questions answered; waiting f
 - **To check in E:** a run with titles on two PCs not in slot 0, `Stats.reportMisses` staying 0 (the one live fallback, `Hooks.reportBoost`'s miss).
 - **Known gaps, same on every PC:** a siege assault's invaders are NPC-typed, so the attacker's titles don't apply there; other players' titles show empty or stale in their title text on another PC.
 
+## 3b. E as built (2026-11-26)
+
+- **Engine (SOSDET `setup-refining`):** `HumanStart` carries the titles (indices) and each one's race count; whatever builds or adds a human (build, carve, `addHuman`) gives it exactly those (`GameTitles.apply`, through `PTitles.saver`). The race counts are world state, section `SOSDET_TITLES` (`TitleTable`), and patch 98 reads them through `Hooks.titleRaces`: this PC's profile without a session, the holder's count with one, 0 (vanilla's base, as before) for a human with none set. `Engine.titleRaces`, `heldTitles`, `heldTitleRaces`.
+- **Mod:** `TitlesMode` (No titles, Host-Titles, Unique) in `LobbySettings`, the Welcome and the campaign (record format 6, an older record reads No titles); `FactionPick` carries titles and race counts (protocol 37). The host's build applies the mode (`TitlesMode.apply`); a hot-join's newcomer gets it on the host (`WorldSetupAdapter.newcomerTitles`: the host's held titles in Host-Titles). The title screen comes after the race (owner: "after race"), for the host in Host-Titles and everyone in Unique; the other players see none. Titles travel as the game's title indices, as vanilla's save keeps them; the lobby's same-files check makes them mean the same on every PC.
+- **Autopilot:** `titles=NONE|HOST|UNIQUE` on the host (`--titles` in twopc); a picking player takes its first 5 unlocked titles; every PC's `loaded` event lists each human's titles and race counts.
+
 ## 4. Decisions (owner, 2026-11-26)
 
 1. **Regenerate:** back to the map step, a whole new world; races, factions and titles stay.

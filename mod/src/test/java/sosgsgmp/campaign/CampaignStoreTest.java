@@ -54,9 +54,9 @@ public class CampaignStoreTest {
     @Test
     void aFormat5RecordSaysItsSaveCanFreezeAndAFormat4OneSaysNot() {
         CampaignRecord r = new CampaignRecord(CAMPAIGN_FOR_TESTS, 3, CampaignRecord.Kind.SAVE, 5, 1, "a.save", 77, true);
-        assertTrue(r.toText().startsWith("format=5\n"));
+        assertTrue(r.toText().startsWith("format=6\n"));
         assertEquals(r, CampaignRecord.fromText(r.toText()));
-        String v4 = r.toText().replace("format=5", "format=4").replace("lastReports=true\n", "");
+        String v4 = r.toText().replace("format=6", "format=4").replace("lastReports=true\n", "").replace("titles=NONE\n", "");
         CampaignRecord old = CampaignRecord.fromText(v4);
         assertFalse(old.lastReports(), "a format 4 record's save holds no last reports");
         assertEquals(new CampaignRecord(CAMPAIGN_FOR_TESTS, 3, CampaignRecord.Kind.SAVE, 5, 1, "a.save", 77, false), old);
@@ -65,9 +65,23 @@ public class CampaignStoreTest {
     @Test
     void aFormat1RecordLoadsWithNobodyRemoved() {
         CampaignRecord r = record(2, CampaignRecord.Kind.SAVE, 5);
-        String v1 = r.toText().replace("format=5", "format=1").replaceAll("player\\.\\d+\\.(removed|eliminated|frozen)=false\n", "")
+        String v1 = r.toText().replace("format=6", "format=1").replace("titles=NONE\n", "").replaceAll("player\\.\\d+\\.(removed|eliminated|frozen)=false\n", "")
                 .replace("lastReports=false\n", "");
         assertEquals(r, CampaignRecord.fromText(v1));
+    }
+
+    /** Spec §5 Titles: a record keeps the campaign's titles setting; a format 5 one has none, and a bad one is refused. */
+    @Test
+    void theTitlesSettingIsKeptAndAnOlderRecordHasNone() {
+        Campaign c = new Campaign(CAMPAIGN_FOR_TESTS.id(), CAMPAIGN_FOR_TESTS.name(), 777, "normal", CAMPAIGN_FOR_TESTS.players(),
+                sosgsgmp.setup.TitlesMode.UNIQUE);
+        CampaignRecord r = new CampaignRecord(c, 3, CampaignRecord.Kind.SAVE, 5, 1, "a.save", 77, true);
+        assertTrue(r.toText().contains("titles=UNIQUE\n"));
+        assertEquals(r, CampaignRecord.fromText(r.toText()));
+        assertEquals(sosgsgmp.setup.TitlesMode.UNIQUE, c.adding(9, "Cid", 5).titles(), "a hot-join keeps the setting");
+        CampaignRecord v5 = CampaignRecord.fromText(r.toText().replace("format=6", "format=5").replace("titles=UNIQUE\n", ""));
+        assertEquals(sosgsgmp.setup.TitlesMode.NONE, v5.campaign().titles());
+        assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(r.toText().replace("titles=UNIQUE", "titles=ALL")));
     }
 
     /** SOS-194: a frozen player stays listed, no resume waits for them, and the record keeps them; format 3 has none. */
@@ -85,7 +99,7 @@ public class CampaignStoreTest {
         assertTrue(removed.inSlot(1).removed(), "the host can remove a frozen player for good");
         assertFalse(removed.inSlot(1).frozen());
         CampaignRecord old = record(2, CampaignRecord.Kind.SAVE, 5);
-        String v3 = old.toText().replace("format=5", "format=3").replaceAll("player\\.\\d+\\.frozen=false\n", "")
+        String v3 = old.toText().replace("format=6", "format=3").replace("titles=NONE\n", "").replaceAll("player\\.\\d+\\.frozen=false\n", "")
                 .replace("lastReports=false\n", "");
         assertEquals(old, CampaignRecord.fromText(v3), "a format 3 record has nobody frozen");
         assertThrows(IllegalArgumentException.class, () -> new Campaign.Player(1, "Ann", 0, true, false, true),
@@ -137,7 +151,7 @@ public class CampaignStoreTest {
     @Test
     void anUnknownFormatOrABrokenRecordIsRefused() {
         String text = record(1, CampaignRecord.Kind.SAVE, 1).toText();
-        assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("format=5", "format=6")));
+        assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("format=6", "format=7")));
         assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("player.0.removed=false",
                 "player.0.removed=yes")));
         assertThrows(IllegalArgumentException.class, () -> CampaignRecord.fromText(text.replace("\nslot=1\n", "\n")));

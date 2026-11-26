@@ -5,6 +5,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import sosgsgmp.setup.TitlesMode;
+
 /**
  * One campaign save as this PC holds it (SOS-64): the campaign, the save's number and kind (the same on every PC), and
  * this PC's own part: its slot, its vanilla save's file name and its world hash at the save's step. Stored as
@@ -22,9 +24,10 @@ public record CampaignRecord(Campaign campaign, int number, Kind kind, long time
      * Raise whenever the text's keys or their meaning change; {@link #fromText} reads every version still around. 2: each
      * player's {@code removed} (SOS-65); a format 1 record has no removed player. 3: each player's {@code eliminated}
      * (SOS-111); an older record has no eliminated player. 4: each player's {@code frozen} (SOS-194); an older record has
-     * no frozen player. 5: {@code lastReports}; an older record's save holds no last reports.
+     * no frozen player. 5: {@code lastReports}; an older record's save holds no last reports. 6: the campaign's
+     * {@code titles} (spec §5 Titles); an older record's campaign has none.
      */
-    public static final int FORMAT = 5;
+    public static final int FORMAT = 6;
 
     /** Save: the host's button, kept until deleted. Auto: an autosave, rotated. */
     public enum Kind {
@@ -58,6 +61,7 @@ public record CampaignRecord(Campaign campaign, int number, Kind kind, long time
         line(b, "name", campaign.name());
         line(b, "seed", campaign.seed());
         line(b, "difficulty", campaign.difficulty());
+        line(b, "titles", campaign.titles().name());
         line(b, "players", campaign.players().size());
         for (int i = 0; i < campaign.players().size(); i++) {
             Campaign.Player p = campaign.players().get(i);
@@ -105,7 +109,10 @@ public record CampaignRecord(Campaign campaign, int number, Kind kind, long time
             players.add(new Campaign.Player(hex(v, "player." + i + ".key"), text(v, "player." + i + ".name"),
                     integer(v, "player." + i + ".slot"), format >= 2 && bool(v, "player." + i + ".removed"),
                     format >= 3 && bool(v, "player." + i + ".eliminated"), format >= 4 && bool(v, "player." + i + ".frozen")));
-        Campaign c = new Campaign(hex(v, "campaign"), text(v, "name"), integer(v, "seed"), text(v, "difficulty"), players);
+        TitlesMode titles = format >= 6 ? TitlesMode.byName(text(v, "titles")) : TitlesMode.NONE;
+        if (titles == null)
+            throw new IllegalArgumentException("SOSGSGMP: campaign record of titles '" + v.get("titles") + "'");
+        Campaign c = new Campaign(hex(v, "campaign"), text(v, "name"), integer(v, "seed"), text(v, "difficulty"), players, titles);
         Kind kind;
         try {
             kind = Kind.valueOf(text(v, "kind"));

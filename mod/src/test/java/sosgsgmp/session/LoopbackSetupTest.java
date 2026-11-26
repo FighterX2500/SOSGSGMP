@@ -191,7 +191,13 @@ class LoopbackSetupTest {
 
     /** As {@link #startSetup()}; {@code living}: the lobby's world is a living world (SOS-187). */
     private void startSetup(boolean living) throws Exception {
-        HostedLobby h = new HostedLobby(new LobbySettings("normal", 4).withLivingWorld(living), "Ann", "Ann".hashCode(), BUILDS, 0);
+        startSetup(living, sosgsgmp.setup.TitlesMode.NONE);
+    }
+
+    /** As {@link #startSetup(boolean)}, with the lobby's titles setting (spec §5 Titles). */
+    private void startSetup(boolean living, sosgsgmp.setup.TitlesMode titles) throws Exception {
+        HostedLobby h = new HostedLobby(new LobbySettings("normal", 4).withLivingWorld(living).withTitles(titles), "Ann",
+                "Ann".hashCode(), BUILDS, 0);
         lobby = h;
         lobbies.add(h);
         JoinedLobby jb = join(h, "Bob");
@@ -283,7 +289,11 @@ class LoopbackSetupTest {
     }
 
     private void confirmMap(boolean living) throws Exception {
-        startSetup(living);
+        confirmMap(living, sosgsgmp.setup.TitlesMode.NONE);
+    }
+
+    private void confirmMap(boolean living, sosgsgmp.setup.TitlesMode titles) throws Exception {
+        startSetup(living, titles);
         build(256);
         host.generate(A);
         until("matching results", host.step()::canConfirm);
@@ -414,6 +424,33 @@ class LoopbackSetupTest {
         host.initialize();
         assertNull(host.takeWorld(), "the build waits until the loading window has shown (SOS-158)");
         return world(host);
+    }
+
+    /**
+     * Spec §5 Titles: every PC knows the setting, only the host picks in Host-Titles mode, and the host's build gives every
+     * human the host's titles as strong; the campaign keeps the setting for hot-joins.
+     */
+    @Test
+    void hostTitlesGoToEveryHumanAtTheBuild() throws Exception {
+        confirmMap(false, sosgsgmp.setup.TitlesMode.HOST);
+        assertEquals(sosgsgmp.setup.TitlesMode.HOST, bob.titles());
+        assertEquals(sosgsgmp.setup.TitlesMode.HOST, host.titlesToPick());
+        assertNull(bob.titlesToPick(), "a joiner picks no titles here");
+        host.pick(pick("Ann", 10, 10).withTitles(new int[] {4, 2}, new int[] {3, 1}));
+        bob.pick(pick("Bob", 20, 10).withTitles(new int[] {9}, new int[] {7})); // not the host's: replaced
+        cid.pick(pick("Cid", 30, 10));
+        until("every location on its PC", () -> bob.factions().canReady() && cid.factions().canReady());
+        host.ready(true);
+        bob.ready(true);
+        cid.ready(true);
+        until("everyone ready on the host", host.factions()::canInitialize);
+        host.initialize();
+        world(host);
+        for (FactionPick p : hostWorld.built.get(0)) {
+            assertArrayEquals(new int[] {4, 2}, p.titles(), p.name());
+            assertArrayEquals(new int[] {3, 1}, p.titleRaces(), p.name());
+        }
+        assertEquals(sosgsgmp.setup.TitlesMode.HOST, host.campaign().titles());
     }
 
     /** Runs the frames until this PC has the whole world to settle on (SOS-187), and takes it. */

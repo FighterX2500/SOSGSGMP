@@ -20,6 +20,7 @@ import sosgsgmp.game.WorldSetupAdapter;
 import sosgsgmp.net.Message;
 import sosgsgmp.session.SetupSession;
 import sosgsgmp.setup.FactionPick;
+import sosgsgmp.setup.TitlesMode;
 import util.colors.GCOLOR;
 import util.gui.misc.GButt;
 import util.gui.misc.GHeader;
@@ -69,6 +70,7 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 			FactionProfileFlusher.load(p);
 		else
 			p.name.clear();
+		game.dropTitles();
 		LOG.ln("SOSGSGMP: the host's snapshot to join on loaded in " + (System.nanoTime() - t) / 1_000_000 + " ms");
 		MpJoinScreens screens = MpJoinScreens.open(join, hostX, hostY);
 		if (join.autopilot != null) // the autopilot goes to the location screen as a newcomer would, after the game's update
@@ -221,6 +223,11 @@ public final class MpJoinSettle implements CORE_STATE.Constructor {
 		@Override
 		public MpSpotMarks marks() {
 			return marks;
+		}
+
+		@Override
+		public TitlesMode titles() {
+			return setup.titlesToPick();
 		}
 
 		@Override

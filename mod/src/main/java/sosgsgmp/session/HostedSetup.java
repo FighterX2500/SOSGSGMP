@@ -25,6 +25,7 @@ import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStatus;
 import sosgsgmp.setup.MapStep;
 import sosgsgmp.setup.MapWorld;
+import sosgsgmp.setup.TitlesMode;
 import sosgsgmp.report.ReportStore;
 
 /** The setup hosted on this PC: the host decides the builds and generations and collects every PC's result. */
@@ -37,6 +38,8 @@ public final class HostedSetup implements SetupSession {
     private final String difficulty;
     /** The lobby's world: a living world, where every player settles on the built world (SOS-187, SOS-214). */
     private final boolean livingWorld;
+    /** The lobby's titles setting, a resume's its campaign's (spec §5 Titles). */
+    private final TitlesMode titles;
     /** A living world built to settle on, until this PC takes it to load; null otherwise. */
     private byte[] settleWorld;
     /** Connected peers in the setup, to their player ids. */
@@ -180,6 +183,7 @@ public final class HostedSetup implements SetupSession {
         this.factionWorld = factionWorld;
         this.difficulty = settings.difficulty();
         this.livingWorld = settings.livingWorld();
+        this.titles = settings.titles();
         this.joined = new HashMap<>(joined);
         this.players = new ArrayList<>(players);
         this.keys = new HashMap<>(keys);
@@ -393,6 +397,11 @@ public final class HostedSetup implements SetupSession {
     @Override
     public FactionPick keptPick() {
         return keptPick;
+    }
+
+    @Override
+    public TitlesMode titles() {
+        return titles;
     }
 
     /** A vote's opening or result: every PC hears it, this one too, in the host's order. */
@@ -866,7 +875,8 @@ public final class HostedSetup implements SetupSession {
         // a player coming back keeps the campaign's name, whatever their game calls them now (SOS-196 G2)
         candidate = new Candidate(peer, nextPlayerId(), known == null ? h.name() : known.name(), h.playerKey(),
                 known == null ? -1 : known.slot());
-        node.send(peer, new Message.Welcome(candidate.id, new LobbySettings(difficulty, LobbySettings.MAX_PLAYERS)));
+        node.send(peer, new Message.Welcome(candidate.id, new LobbySettings(difficulty, LobbySettings.MAX_PLAYERS)
+                .withTitles(titles))); // a newcomer picks titles as the campaign's setting says (spec §5 Titles)
         node.send(peer, new Message.Running(known != null));
         notes.add(h.name() + (known == null ? " asks to join the running game" : " asks to come back from a freeze, slot " + known.slot()));
     }
@@ -1376,7 +1386,7 @@ public final class HostedSetup implements SetupSession {
             return;
         }
         List<FactionPick> humans = factions.humans();
-        byte[] built = factionWorld.buildForSettling(humans.get(0), humans.size());
+        byte[] built = factionWorld.buildForSettling(titles.apply(humans).get(0), humans.size());
         factions.beginSettling();
         List<byte[]> pieces = Pieces.split(built);
         for (int i = 0; i < pieces.size(); i++)
@@ -1398,13 +1408,14 @@ public final class HostedSetup implements SetupSession {
             announceLoading(Loading.Kind.WORLD_INITIALIZATION, key, "", false);
             return;
         }
-        byte[] built = factions.living() ? factionWorld.settle(factions.humans(), difficulty)
-                : factionWorld.buildWorld(factions.humans(), difficulty);
+        List<FactionPick> humans = titles.apply(factions.humans()); // who holds which titles (spec §5 Titles)
+        byte[] built = factions.living() ? factionWorld.settle(humans, difficulty) : factionWorld.buildWorld(humans, difficulty);
         int transfer = factions.initialize();
         List<Campaign.Player> inCampaign = new ArrayList<>();
         for (LobbyPlayer p : players)
             inCampaign.add(new Campaign.Player(keys.get(p.id()), p.name(), factions.slotOf(p.id())));
-        campaign = new Campaign(Campaign.idOf(built), Campaign.nameFor(players.get(0).name()), choices.seed(), difficulty, inCampaign);
+        campaign = new Campaign(Campaign.idOf(built), Campaign.nameFor(players.get(0).name()), choices.seed(), difficulty, inCampaign,
+                titles);
         sendAll(new Message.SlotMap(transfer, factions.slotMap()));
         List<byte[]> pieces = Pieces.split(built);
         for (int i = 0; i < pieces.size(); i++)

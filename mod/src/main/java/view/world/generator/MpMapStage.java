@@ -95,7 +95,7 @@ public final class MpMapStage {
 			throw new IllegalStateException("SOSGSGMP: the new game shows " + VIEW.current() + ", not the world generator (Songs of Syx V71)");
 		g.reset();
 		new MinimapAdapter().zoomButtonsOnly(g.minimap);
-		// Spec §5: no titles during setup.
+		// Spec §5 Titles: vanilla's titles stage never shows; the factions step has its own (MpFactionStage.titles).
 		g.hasSelectedTitles = true;
 		MpMapStage stage = new MpMapStage(g, setup, mapTypes, rebuild);
 		g.dummy.add(stage.panel, "map");

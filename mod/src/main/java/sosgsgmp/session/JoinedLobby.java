@@ -181,7 +181,7 @@ public final class JoinedLobby implements LobbySession {
             throw new IllegalStateException("SOSGSGMP: only a started lobby hands over, once (state " + state + ", handed over " + handedOver + ")");
         handedOver = true;
         JoinedSetup s = new JoinedSetup(node, localId, players, world, factions, settings.resume(),
-                settings.livingWorld(), chat, builds, running, freezeMissing);
+                settings.livingWorld(), settings.titles(), chat, builds, running, freezeMissing);
         s.keepLog(log);
         return s;
     }

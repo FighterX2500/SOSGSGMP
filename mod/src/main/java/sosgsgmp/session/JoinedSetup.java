@@ -21,6 +21,7 @@ import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStatus;
 import sosgsgmp.setup.MapStep;
 import sosgsgmp.setup.MapWorld;
+import sosgsgmp.setup.TitlesMode;
 
 /**
  * The setup on another PC, joined: this PC follows the host's builds and generations in the order they arrive, and
@@ -42,6 +43,8 @@ public final class JoinedSetup implements SetupSession {
     private byte[] save;
     /** The lobby's world: a living world, where this PC's player settles on the host's built world (SOS-187). */
     private final boolean livingWorld;
+    /** The lobby's titles setting, a resume's its campaign's (spec §5 Titles). */
+    private final TitlesMode titles;
     private Pieces.Receiver settleParts = new Pieces.Receiver();
     /** This PC's picks when a vote for a new world passed, without a location; null before. */
     private FactionPick keptPick;
@@ -97,7 +100,7 @@ public final class JoinedSetup implements SetupSession {
      */
     JoinedSetup(Node node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld,
             LobbySettings.Resume resume, boolean livingWorld, Chat chat, Builds builds) {
-        this(node, localId, players, world, factionWorld, resume, livingWorld, chat, builds, false, false);
+        this(node, localId, players, world, factionWorld, resume, livingWorld, TitlesMode.NONE, chat, builds, false, false);
     }
 
     /**
@@ -105,7 +108,7 @@ public final class JoinedSetup implements SetupSession {
      * {@code freezeMissing}: the host's Start froze a resume's missing players instead of removing them.
      */
     JoinedSetup(Node node, int localId, List<LobbyPlayer> players, MapWorld world, FactionWorld factionWorld,
-            LobbySettings.Resume resume, boolean livingWorld, Chat chat, Builds builds,
+            LobbySettings.Resume resume, boolean livingWorld, TitlesMode titles, Chat chat, Builds builds,
             boolean candidate, boolean freezeMissing) {
         if (freezeMissing && resume == null)
             throw new IllegalArgumentException("SOSGSGMP: missing players frozen at the start of a game that resumes nothing");
@@ -113,6 +116,7 @@ public final class JoinedSetup implements SetupSession {
         this.freezeMissing = freezeMissing;
         this.node = node;
         this.livingWorld = livingWorld;
+        this.titles = resume != null ? resume.campaign().titles() : titles;
         this.chat = chat;
         this.builds = builds;
         this.world = world;
@@ -233,6 +237,11 @@ public final class JoinedSetup implements SetupSession {
     @Override
     public FactionPick keptPick() {
         return keptPick;
+    }
+
+    @Override
+    public TitlesMode titles() {
+        return titles;
     }
 
     /** Nothing: only the host counts the votes. */
@@ -614,7 +623,7 @@ public final class JoinedSetup implements SetupSession {
     private void restart(Message.Restart r) {
         // a restart has nobody missing: nothing is frozen or removed at its start
         JoinedSetup next = new JoinedSetup(node, localPlayerId(), players, world, factionWorld,
-                new LobbySettings.Resume(r.campaign(), r.number()), false, chat, builds, false, false);
+                new LobbySettings.Resume(r.campaign(), r.number()), false, r.campaign().titles(), chat, builds, false, false);
         next.restartInfo = r;
         next.log = log; // the same file goes on (SOS-246)
         if (r.rejoins() && rejoinFiles == null) {

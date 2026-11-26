@@ -14,6 +14,7 @@ import sosgsgmp.setup.FactionPick;
 import sosgsgmp.setup.FactionStep;
 import sosgsgmp.setup.MapOptions;
 import sosgsgmp.setup.MapStep;
+import sosgsgmp.setup.TitlesMode;
 
 /**
  * The setup after Start Lobby, as this PC sees it, hosted here ({@link HostedSetup}) or joined ({@link JoinedSetup}).
@@ -67,6 +68,14 @@ public interface SetupSession {
      * banner stay for the new world's factions step. Null when there was no such vote.
      */
     FactionPick keptPick();
+
+    /** The lobby's titles setting (spec §5 Titles): who picks titles, and which every faction holds. */
+    TitlesMode titles();
+
+    /** The titles setting when this PC's player picks titles in the setup (spec §5 Titles); null when they pick none. */
+    default TitlesMode titlesToPick() {
+        return titles().picks(isHost()) ? titles() : null;
+    }
 
     /**
      * This PC's latest picks, sent whenever they change: the host records them at once (checking the location as it
