@@ -1,6 +1,6 @@
 # Setup refining: titles, borders, regenerate, changing picks
 
-Status: **proposed (2026-11-26), the owner's three questions answered; waiting for approval of the plan and its spec changes.** Asked for by the owner after the lobby GUI review (2026-11-26). It changes spec section 5 (and section 11 for hot-join), so the spec changes in section 7 below need approval with the plan.
+Status: **built and tested (2026-11-27); PRs next.** Approved by the owner on 2026-11-26 with its spec changes ("include lobby gui work in this batch"; titles: "Yes, build titles with engine change"). Asked for by the owner after the lobby GUI review (2026-11-26). It changes spec section 5 (and section 11 for hot-join). State: section 8.
 
 ## 1. What the owner asked for
 
@@ -94,3 +94,28 @@ A and B are small (mod only). C and D are medium. E is the largest and the only 
 - §5 Living world 1 and 3: race, faction and titles can be changed until Ready, after Build World too; Regenerate as above; spots drawn with the border, banner and name.
 - §11 hot-join: titles after the race, by the campaign's mode.
 - §15: acceptance criteria for the vote (tie fails), titles (every PC's hash equal with different titles), spots visible with the mouse over the panel.
+
+## 8. State on 2026-11-27
+
+**Commits.** Mod `lobby-gui-refining`: 7c548fb lobby GUI (players count, tooltips, Vanilla world, Direct IP, no transfer-log switch), 3c904e4 spots, region lines, picks after Build World, 0971a9b the vote for a new world (protocol 36), 447fd59 titles (protocol 37, campaign record 6, spec 0.76), 0b18ac7 smaller spot names and borders edged in black, then the review's fixes. SOSDET `setup-refining`: 1f6889b `Engine.loadBanner`, 422d45c titles (`HumanStart` titles, section `SOSDET_TITLES`, `Hooks.titleRaces` in patch 98), c677d45 the title menu shows this PC's player's titles (patch 96-cmd-names, `view/ui/profile/Titles.java`), then the review's fixes.
+
+**Tests.**
+- twopc titles-U1 (`--here --mods-from ../SOSDET --steps 6000 --titles UNIQUE --window 1280x768`), 2026-11-26: PASS, 10 hash steps, 0 differ; both PCs listed the same titles and strengths for each human.
+- The owner's manual test, three games on this PC, 2026-11-26 and 2026-11-27: the lobby GUI, spots, the title menu after its fix, the marks after theirs; the owner: "it's all fine".
+- After the review's fixes: SOSDET `test assemble` 478 tests, 0 failures; mod `test build` 393 tests, 0 failures.
+
+**The review (2026-11-27), fixed:**
+- A passed vote for a new world takes the factions step away while Place Capital and Place your city-state still draw (a joiner until the host's build arrives): their lock checks and buttons read it. They now treat a missing step as locked, the side panel draws nothing until the map step, and the vote's result is taken before the check, so the "passed" line shows and an open question closes.
+- A joiner's pick or Ready sent just before it heard the vote pass made the host drop that player; the host now drops the message (`aPickSentAsTheVoteForANewWorldPassesKeepsThePlayer`, which failed before the fix).
+- The host's ready notices after a new world compared against the old world's picks.
+- Engine: the title table is in the world hash (part 7; a world with no titles set hashes as before); `GameTitles.apply` writes the table after the selection loads; `Engine.loadBanner` names a null argument.
+- The autopilot reads held titles through `WorldSetupAdapter`.
+
+**The review, kept as they are:**
+- Title indices are not checked against the host's title count: the lobby's same-files check gives every PC the same titles.
+- A title's race count is bounded only by the mod's 255: a real profile's is at most the playable races; a modified client could send more, as it could send any other pick.
+- `GameTitles.apply` sets the selection through vanilla's saver, not `PTitle.select`: `select` clears `FACTIONS.player()`'s boost cache, not the spare Player's. `raceValue` is read by reflection because vanilla's formula uses exactly it.
+- The region lines walk the visible tiles each frame, without allocating, on the setup screens only.
+- `MpSettle.syncPick` and `MpFactions.syncPick` stay two: the settle screen keeps the placed spot from its own picks, the factions step from its placer.
+
+**Open for the owner:** a vote for a new world and hot-join titles were checked by the loopback tests and reasoning, not yet in a played game with several PCs; real Steam was not used.

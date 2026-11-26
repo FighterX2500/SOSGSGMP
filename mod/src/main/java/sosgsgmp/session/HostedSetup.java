@@ -382,6 +382,8 @@ public final class HostedSetup implements SetupSession {
             keptPick = factions.ownPick().at(FactionPick.NONE, FactionPick.NONE);
         factions = null;
         settleWorld = null;
+        sentPicks = List.of(); // the new factions step starts with nobody ready, and no notice says so
+        sentProgress = List.of();
         step.reopen();
         build(step.size());
         changed();
@@ -457,6 +459,9 @@ public final class HostedSetup implements SetupSession {
                 if (factions.onPick(id, p.pick()))
                     picksChanged();
             }
+            // sent before that PC heard a vote for a new world pass: the old world's, dropped (spec §5)
+            case Message.Pick p when id != null -> {}
+            case Message.Ready r when id != null -> {}
             case Message.Loaded l when id != null && factions != null -> {
                 if (factions.onLoaded(id, l.transfer(), l.hash()))
                     progressChanged();
@@ -1386,7 +1391,7 @@ public final class HostedSetup implements SetupSession {
             return;
         }
         List<FactionPick> humans = factions.humans();
-        byte[] built = factionWorld.buildForSettling(titles.apply(humans).get(0), humans.size());
+        byte[] built = factionWorld.buildForSettling(titles.apply(humans.get(0), humans.get(0)), humans.size());
         factions.beginSettling();
         List<byte[]> pieces = Pieces.split(built);
         for (int i = 0; i < pieces.size(); i++)

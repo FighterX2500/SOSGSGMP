@@ -3,6 +3,7 @@ package sosgsgmp.session;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -1803,6 +1804,35 @@ class LoopbackSetupTest {
         until("matching results again", host.step()::canConfirm);
         host.confirm();
         until("factions everywhere again", () -> bob.factions() != null && cid.factions() != null);
+    }
+
+    /**
+     * Spec §5: a pick a joining PC sent before it heard the vote for a new world pass reaches the host after the factions
+     * step is gone; the host drops the pick, not the player.
+     */
+    @Test
+    void aPickSentAsTheVoteForANewWorldPassesKeepsThePlayer() throws Exception {
+        confirmMap();
+        host.callRestart(Message.RestartCall.NEW_WORLD);
+        Message.RestartVote open = nextVote(cid);
+        bob.answerRestart(open.vote(), true);
+        long deadline = System.currentTimeMillis() + 5_000;
+        while (host.factions() != null && System.currentTimeMillis() < deadline) { // the host alone: Cid hears nothing yet
+            host.update();
+            Thread.sleep(5);
+        }
+        assertNull(host.factions(), "the vote passed on the host");
+        assertNotNull(cid.factions(), "Cid hasn't heard it");
+        cid.pick(pick("Cid", 30, 10));
+        until("the map step again everywhere", () -> cid.factions() == null && !cid.step().confirmed()
+                && cid.step().buildId() == host.step().buildId());
+        for (int i = 0; i < 40; i++) { // time for Cid's late pick to reach the host
+            for (SetupSession s : setups)
+                s.update();
+            Thread.sleep(5);
+        }
+        assertFalse(cid.closed(), "Cid is still in the setup");
+        assertEquals(3, host.players().size());
     }
 
     /** Spec §5: a new world needs more than half; Bob and Cid saying No keep the world and the picks as they are. */

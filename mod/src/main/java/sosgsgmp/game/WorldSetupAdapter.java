@@ -115,7 +115,17 @@ public final class WorldSetupAdapter implements FactionWorld {
         if (mode != TitlesMode.HOST)
             return mode.apply(pick, pick);
         int host = FACTIONS.player().index();
-        return mode.apply(pick, pick.withTitles(Engine.heldTitles(host), Engine.heldTitleRaces(host)));
+        return mode.apply(pick, pick.withTitles(heldTitles(host), heldTitleRaces(host)));
+    }
+
+    /** The titles the human in {@code slot} holds in this world, as title indices. */
+    public int[] heldTitles(int slot) {
+        return Engine.heldTitles(slot);
+    }
+
+    /** For each of {@link #heldTitles(int)}, the races it counts in this world. */
+    public int[] heldTitleRaces(int slot) {
+        return Engine.heldTitleRaces(slot);
     }
 
     @Override

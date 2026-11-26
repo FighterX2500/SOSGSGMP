@@ -1153,11 +1153,12 @@ public final class MpAutopilot {
 	/** Each human's titles in this world, as "slot:title/races ..." per human, ";" between humans. */
 	private static String heldTitles() {
 		StringBuilder b = new StringBuilder();
+		sosgsgmp.game.WorldSetupAdapter adapter = new sosgsgmp.game.WorldSetupAdapter();
 		for (int s = 0; s < FACTIONS.MAX(); s++) {
 			if (!(FACTIONS.getByIndex(s) instanceof game.faction.player.Player))
 				continue;
-			int[] held = sosdet.Engine.heldTitles(s);
-			int[] races = sosdet.Engine.heldTitleRaces(s);
+			int[] held = adapter.heldTitles(s);
+			int[] races = adapter.heldTitleRaces(s);
 			b.append(b.length() == 0 ? "" : ";").append(s).append(':');
 			for (int i = 0; i < held.length; i++)
 				b.append(i == 0 ? "" : " ").append(held[i]).append('/').append(races[i]);

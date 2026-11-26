@@ -131,7 +131,7 @@ final class MpFactions implements MpFactionScreens {
 	 */
 	void afterUpdate(MpAutopilot autopilot) {
 		pump(0);
-		if (leaving || autopilot == null)
+		if (leaving || autopilot == null || setup.factions() == null)
 			return;
 		autopilot.factions(setup, ownX != FactionPick.NONE || settlesLater(), (x, y) -> {
 			placeAt(x, y);
@@ -154,6 +154,8 @@ final class MpFactions implements MpFactionScreens {
 			@Override
 			public void render(SPRITE_RENDERER r, float ds) {
 				pump(ds);
+				if (setup.factions() == null)
+					return; // a vote for a new world passed: nothing to show until the map step
 				if (onLocation && !leaving)
 					marks.render(r, g.window, ownX, ownY);
 				super.render(r, ds);
@@ -254,12 +256,14 @@ final class MpFactions implements MpFactionScreens {
 	 * Leave is locked, and Ready and Initialize World until the world is built.
 	 */
 	boolean locked() {
-		return !setup.closed() && (setup.factions().initialized() || setup.factions().ready() || setup.factions().settling());
+		FactionStep f = setup.factions();
+		return !setup.closed() && (f == null || f.initialized() || f.ready() || f.settling());
 	}
 
-	/** The world is built, or being built: nothing can change now. */
+	/** The world is built, or being built, or gone after a vote for a new world: nothing can change now. */
 	boolean initialized() {
-		return !setup.closed() && setup.factions().initialized();
+		FactionStep f = setup.factions();
+		return !setup.closed() && (f == null || f.initialized());
 	}
 
 	/** {@code content}, greyed and taking no clicks while {@link #locked()}. */
@@ -353,6 +357,7 @@ final class MpFactions implements MpFactionScreens {
 		if (leaving)
 			return;
 		setup.update();
+		worldVote.frame(); // first: its result, and on the host the vote's end, may take the factions step away
 		if (setup.factions() == null) { // a vote for a new world passed: the map step, once the host's build is here
 			if (!setup.closed() && setup.step().pendingBuild() > 0) {
 				leaving = true;
@@ -360,7 +365,6 @@ final class MpFactions implements MpFactionScreens {
 			}
 			return;
 		}
-		worldVote.frame();
 		byte[] world = setup.takeWorld();
 		if (world != null) {
 			leaving = true;

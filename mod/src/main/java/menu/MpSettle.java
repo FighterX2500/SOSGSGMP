@@ -178,14 +178,16 @@ public final class MpSettle implements CORE_STATE.Constructor {
 			GButt.ButtPanel b = new GButt.ButtPanel("ready") {
 				@Override
 				protected void clickA() {
-					if (!setup.closed() && setup.factions().canReady())
-						setup.ready(!setup.factions().ready());
+					FactionStep f = setup.factions();
+					if (!setup.closed() && f != null && f.canReady())
+						setup.ready(!f.ready());
 				}
 
 				@Override
 				protected void renAction() {
-					activeSet(!setup.closed() && setup.factions().canReady());
-					selectedSet(!setup.closed() && setup.factions().ready());
+					FactionStep f = setup.factions();
+					activeSet(!setup.closed() && f != null && f.canReady());
+					selectedSet(!setup.closed() && f != null && f.ready());
 				}
 			};
 			b.hoverInfoSet("While you are ready your spot can't change. The host starts the game once every player is ready.");
@@ -199,13 +201,15 @@ public final class MpSettle implements CORE_STATE.Constructor {
 			GButt.ButtPanel b = new GButt.ButtPanel("initialize world") {
 				@Override
 				protected void clickA() {
-					if (!setup.closed() && setup.factions().canInitialize())
+					FactionStep f = setup.factions();
+					if (!setup.closed() && f != null && f.canInitialize())
 						setup.initialize();
 				}
 
 				@Override
 				protected void renAction() {
-					activeSet(!setup.closed() && setup.factions().canInitialize());
+					FactionStep f = setup.factions();
+					activeSet(!setup.closed() && f != null && f.canInitialize());
 				}
 			};
 			b.hoverInfoSet("Carves every player's city-state into this world and starts every player's game.");
@@ -242,10 +246,11 @@ public final class MpSettle implements CORE_STATE.Constructor {
 			return setup.isHost() ? worldVote.button() : null;
 		}
 
-		/** Ready, or the world being built: the spot can't change. */
+		/** Ready, or the world being built, or gone after a vote for a new world: the spot can't change. */
 		@Override
 		public boolean locked() {
-			return setup.closed() || setup.factions().initialized() || setup.factions().ready();
+			FactionStep f = setup.factions();
+			return setup.closed() || f == null || f.initialized() || f.ready();
 		}
 
 		private void placeAt(int x, int y) {
@@ -286,6 +291,7 @@ public final class MpSettle implements CORE_STATE.Constructor {
 			if (!GAME.SPEED.isPaused())
 				GAME.SPEED.speedSet(0); // a map to pick on: nothing in it runs
 			setup.update();
+			worldVote.frame(); // first: its result, and on the host the vote's end, may take the factions step away
 			if (setup.factions() == null) { // a vote for a new world passed: the map step, once the host's build is here
 				if (!setup.closed() && setup.step().pendingBuild() > 0) {
 					leaving = true;
@@ -293,7 +299,6 @@ public final class MpSettle implements CORE_STATE.Constructor {
 				}
 				return;
 			}
-			worldVote.frame();
 			loading.frame();
 			byte[] world = setup.takeWorld();
 			if (world != null) {
